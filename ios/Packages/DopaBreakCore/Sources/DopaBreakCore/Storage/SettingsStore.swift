@@ -18,6 +18,26 @@ public final class SettingsStore: @unchecked Sendable {
         static let weeklyReportNotificationEnabled = "weeklyReportNotificationEnabled"
         static let liveActivityEnabled = "liveActivityEnabled"
         static let lockThemeRawValue = "lockThemeRawValue"
+
+        // firstLaunchDate is intentionally excluded. It is an entitlement/anti-abuse
+        // anchor rather than user-created content and must survive content erasure.
+        static let resettable = [
+            onboardingCompleted,
+            lastAppVersion,
+            pendingInterventionMode,
+            selectedAppBrands,
+            breathDurationSeconds,
+            pendingStartInterventionCatalogID,
+            pendingMidSessionCheckInCatalogID,
+            verifiedAutomationCatalogIDs,
+            wakeTimeMinutes,
+            bedTimeMinutes,
+            morningNotificationEnabled,
+            morningNotificationMinutes,
+            weeklyReportNotificationEnabled,
+            liveActivityEnabled,
+            lockThemeRawValue
+        ]
     }
 
     private let userDefaults: UserDefaults
@@ -150,6 +170,10 @@ public final class SettingsStore: @unchecked Sendable {
             liveActivityStartedAt: nil,
             theme: lockTheme
         )
+    }
+
+    public func resetToDefaults() {
+        Key.resettable.forEach(userDefaults.removeObject(forKey:))
     }
 
     private func setOptional(_ value: Any?, forKey key: String) {

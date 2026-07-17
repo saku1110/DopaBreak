@@ -45,4 +45,8 @@ public struct FunnelEventStore: Sendable {
     public func allEvents() throws -> [FunnelEvent] {
         try snapshotStore.read([FunnelEvent].self, from: .funnelEvents) ?? []
     }
+
+    public func deleteAll() throws {
+        try snapshotStore.write([FunnelEvent](), to: .funnelEvents)
+    }
 }

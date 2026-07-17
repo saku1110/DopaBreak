@@ -1,5 +1,11 @@
 # 設計ドキュメント改訂履歴
 
+## 2026-07-17 — Settingsプライバシー節と全ローカルデータ削除
+
+- **11_ui_copy.md**: `Settings — プライバシー`節を新設し、プライバシーポリシー・利用規約・全データ削除・確認ダイアログ・完了/失敗表示の文言を正本化
+- Settingsへ法務リンクと、確認後に目標・記録・設定を端末内から削除する行を追加。削除前にManagedSettingsのシールドを解除し、StoreKit購入状態は維持
+- 検証: DopaBreakCore 146テスト成功、generic iOS Simulator build成功
+
 ## 2026-07-12 — 最新モックのSwiftUI実装・設計書同期
 
 - 朝焼け海を感情的アンカー（Welcome/Home/Ready/Paywall/通知プレビュー）に限定して導入。介入・設定・入力画面は無写真E1 Dark Monoを維持

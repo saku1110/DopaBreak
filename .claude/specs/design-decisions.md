@@ -210,3 +210,53 @@ Claude Code側で6レンズ監査（ビジュアル/介入UX/オンボ/ペイウ
   - `xcodegen generate`→ simulator向け`xcodebuild` **BUILD SUCCEEDED**。
   - DopaBreakCore **144テスト0失敗**。
   - Codex独立レビュー実施（コンパイルレベルの問題なし・上記P2 2件のみ）。
+
+## 2026-07-17 — Settingsプライバシー節と端末内データ全削除
+
+- 作成・変更:
+  - `ios/DopaBreak/SettingsView.swift`: アカウント/課金の直後に、プライバシーポリシー・利用規約・全データ削除の3行を持つ`プライバシー`節を追加。削除前の確認ダイアログと、成功後2秒間の行内フィードバックを実装。
+  - `ios/DopaBreak/AppURLs.swift` / `ios/DopaBreak/PaywallView.swift`: 法務URLを`AppURLs`へ集約し、SettingsとPaywallで共有。
+  - `ios/DopaBreak/AppContainer.swift`: `deleteAllLocalData()`を追加。ルール削除より先に`ShieldController.clearShield()`を実行し、Coreの一括削除経路を呼ぶ。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/LocalDataResetter.swift`および各Store: 目標・ルール・対象アプリ・試行/振り返り・ファネル・設定と一時スナップショットを空/defaultへ戻す経路を追加。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/LocalDataResetterTests.swift`: 全Store、集計、設定既定値、進行中状態の削除後状態を検証する2テストを追加。
+  - `docs/11_ui_copy.md`: `Settings — プライバシー`節へ全表示文言を登録。
+- 採用した方針:
+  - 既存のE1 Dark Mono、`SmallLabel`＋`CardContainer`＋settings rowの階層を維持し、不可逆操作だけをネイティブの`confirmationDialog`で確認する。
+  - 削除行は既存の`DesignTokens.danger`、完了表示はaccentを使い、別トーストを新設せず操作した行の中で因果関係が分かるフィードバックにする。
+  - 現在の画面はそのまま保ち、目標・統計等を既存の空状態へ更新する。永続設定の`onboardingCompleted`はdefaultへ戻るため次回起動時はオンボーディングになるが、削除直後に強制遷移はしない。
+- 却下した案:
+  - 確認なしの即時削除は取り消せない操作の誤タップ防止がないため不採用。
+  - JSON/SQLiteだけを消してManagedSettingsを残す案は、削除済みルールを参照する孤立シールドを生むため不採用。
+  - StoreKit購入・Entitlementを削除対象へ含める案は、Apple管理の取引履歴であり端末内ユーザーデータではないため不採用。
+- Claude Code側の実装制約:
+  - 一括削除の順序は`clearShield()`をStore削除より先に維持する。Core側ではInterventionEngineをidle化してからルールとログを消す。
+  - `SettingsStore.resetToDefaults()`はDopaBreakが所有するキーだけを個別削除する。UserDefaultsのpersistent domain全体を消さない。
+  - URL正本は`AppURLs`。PaywallまたはSettingsへ法務URL文字列を再度直書きしない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 146テスト成功、失敗0。
+  - `xcodegen generate`後、generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
+
+## 2026-07-17 — 全データ削除の独立レビュー修正
+
+- 作成・変更:
+  - `ios/DopaBreak/AppContainer.swift`: SQLite初期化失敗時の早期returnを廃止し、通知キャンセル後にCoreのbest-effort削除を常に実行。削除直後のrefreshでは通知を再スケジュールしない。
+  - `ios/DopaBreak/LockSurfaceCoordinator.swift`: pending/delivered通知を全件削除する経路と、進行中・待機中の再スケジュールを世代番号で無効化する直列タスク管理を追加。週次通知は実試行が1件以上ある場合だけ作成。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/LocalDataResetter.swift`: `SQLiteLogStore`/`InterventionEngine`をoptional化し、各Storeと各snapshotを独立して削除。SQLiteがnilまたはSQL削除失敗時はDB本体と`-wal`/`-shm`/`-journal`を直接削除。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SQLiteLogStore.swift`: DBファイル名をfallbackと共有する単一定義へ集約。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`: `firstLaunchDate`をreset対象から除外。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/LocalDataResetterTests.swift`: `firstLaunchDate`保持と、SQLite初期化不能時にも他Storeを消去してDB/sidecarを物理削除する回帰テストを追加。
+- 採用した方針:
+  - プライバシー削除はStoreごとのbest-effortとし、1箇所の破損で残りのデータ削除を止めない。SQLiteの正常系は従来どおり行削除、初期化不能/SQL失敗だけファイル削除へfallbackする。
+  - 通知はDopaBreak以外が同じnotification centerへ登録する用途がないため、識別子列挙ではなくpending/deliveredを全件削除する。削除と競合する旧スケジュールも世代番号で無効化する。
+  - `firstLaunchDate`はユーザー作成コンテンツではなくFree枠のanti-abuse基準なので、オンボーディング状態などを初期化しても保持する。
+- 却下した案:
+  - SQLiteがnilなら一括削除全体を失敗させる案は、JSON/UserDefaults側の消去機会まで失うため不採用。
+  - 削除後に既定値の通知設定で通常refreshする案は、ゼロ値週次通知や競合中の古い通知を復活させるため不採用。
+  - `firstLaunchDate`を他設定と一緒に削除する案は、14日間のFree枠を繰り返し再取得できるため不採用。
+- Claude Code側の実装制約:
+  - 削除順は`clearShield()`→`cancelAllNotifications()`→best-effort Store削除→通知なしrefreshを維持する。
+  - SQLiteのファイル名を追加・変更する場合は`SQLiteLogStore.databaseFileNames`を正本とし、sidecar削除対象も維持する。
+  - `SettingsStore.resetToDefaults()`へ`firstLaunchDate`を再追加しない。週次通知の`attempts > 0`ガードを外さない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 147テスト成功、失敗0。
+  - `xcodegen generate`後、generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。

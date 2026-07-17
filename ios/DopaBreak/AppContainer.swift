@@ -62,6 +62,7 @@ final class AppModel {
     private let snapshotStore: JSONSnapshotStore
     private let statsService: StatsService?
     private let lockSurfaceCoordinator: LockSurfaceCoordinator
+    private let containerProvider: any ContainerProviding
     private let now: () -> Date
 
     private(set) var goals: [Goal] = []
@@ -82,6 +83,7 @@ final class AppModel {
     ) {
         let resolvedSettingsStore = settingsStore ?? Self.makeSettingsStore()
         self.settingsStore = resolvedSettingsStore
+        self.containerProvider = containerProvider
         self.now = now
         if resolvedSettingsStore.firstLaunchDate == nil {
             resolvedSettingsStore.firstLaunchDate = now()
@@ -131,12 +133,18 @@ final class AppModel {
         try? funnelEventStore.record(name: name, detail: detail, at: now())
     }
 
-    func refresh(restartLiveActivity: Bool = false) {
+    func refresh(
+        restartLiveActivity: Bool = false,
+        scheduleNotifications: Bool = true
+    ) {
         do {
             try clampSelectedTargetsToEntitlementLimit()
             goals = try goalStore.goals()
             try refreshLogCounts()
-            refreshLockSurfaces(restartLiveActivity: restartLiveActivity)
+            refreshLockSurfaces(
+                restartLiveActivity: restartLiveActivity,
+                scheduleNotifications: scheduleNotifications
+            )
         } catch {
             alertMessage = "データを読み込めませんでした"
         }
@@ -150,7 +158,10 @@ final class AppModel {
         return state
     }
 
-    func refreshLockSurfaces(restartLiveActivity: Bool = false) {
+    func refreshLockSurfaces(
+        restartLiveActivity: Bool = false,
+        scheduleNotifications: Bool = true
+    ) {
         let state = lockSurfaceState
         let goalTitles = goals.map(\.title)
         let displayTitles = goals.map { goal in
@@ -170,18 +181,20 @@ final class AppModel {
         try? snapshotStore.write(snapshot, to: .widgetSnapshot)
         lockSurfaceCoordinator.reloadWidgets()
 
-        let weeklySummary: WeeklySummary?
-        if let statsService {
-            weeklySummary = try? statsService.weeklySummary()
-        } else {
-            weeklySummary = nil
-        }
-        Task {
-            await lockSurfaceCoordinator.rescheduleNotifications(
+        if scheduleNotifications {
+            let weeklySummary: WeeklySummary?
+            if let statsService {
+                weeklySummary = try? statsService.weeklySummary()
+            } else {
+                weeklySummary = nil
+            }
+            lockSurfaceCoordinator.rescheduleNotifications(
                 goals: goals,
                 state: state,
                 weeklySummary: weeklySummary
             )
+        }
+        Task {
             await lockSurfaceCoordinator.refreshLiveActivity(
                 goals: goals,
                 state: state,
@@ -204,6 +217,36 @@ final class AppModel {
     /// v1.1でdeepFocus/nightOnly向けに再配線する。
     func syncShield() {
         // 意図的に no-op。
+    }
+
+    @discardableResult
+    func deleteAllLocalData() -> Bool {
+        // ルールを消す前に必ずManagedSettingsを解除し、削除済み選択を参照する
+        // 孤立シールドが残らないようにする。
+        shield.clearShield()
+        lockSurfaceCoordinator.cancelAllNotifications()
+
+        do {
+            try LocalDataResetter(
+                goalStore: goalStore,
+                ruleStore: ruleStore,
+                targetStore: targetStore,
+                logStore: logStore,
+                funnelEventStore: funnelEventStore,
+                settingsStore: settingsStore,
+                snapshotStore: snapshotStore,
+                interventionEngine: interventionEngine,
+                containerProvider: containerProvider
+            ).deleteAllLocalData()
+            pendingInterventionCatalogID = nil
+            alertMessage = nil
+            refresh(scheduleNotifications: false)
+            return true
+        } catch {
+            refresh(scheduleNotifications: false)
+            alertMessage = "データを削除できませんでした"
+            return false
+        }
     }
 
     @discardableResult

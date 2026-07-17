@@ -149,6 +149,10 @@ public struct RuleStore: Sendable {
         try snapshotStore.write(ordered(rules), to: .rules)
     }
 
+    public func deleteAll() throws {
+        try snapshotStore.write([TargetRule](), to: .rules)
+    }
+
     private func updateRule(id: UUID, mutate: (inout TargetRule) -> Void) throws {
         var rules = try allRules()
         guard let index = rules.firstIndex(where: { $0.id == id }) else {

@@ -10,6 +10,8 @@ final class LockSurfaceCoordinator {
     static let weeklyNotificationIdentifier = "dopabreak.lock.weekly"
 
     private let notificationCenter: UNUserNotificationCenter
+    private var notificationTask: Task<Void, Never>?
+    private var notificationGeneration = 0
     private var liveActivityTask: Task<Void, Never>?
     private var liveActivityGeneration = 0
 
@@ -21,6 +23,43 @@ final class LockSurfaceCoordinator {
         goals: [Goal],
         state: LockSurfaceState,
         weeklySummary: WeeklySummary?
+    ) {
+        let precedingTask = notificationTask
+        notificationGeneration += 1
+        let generation = notificationGeneration
+        let task = Task { @MainActor [weak self] in
+            await precedingTask?.value
+            guard let self else {
+                return
+            }
+            if !Task.isCancelled,
+               self.notificationGeneration == generation {
+                await self.performNotificationReschedule(
+                    goals: goals,
+                    state: state,
+                    weeklySummary: weeklySummary,
+                    generation: generation
+                )
+            }
+            if self.notificationGeneration == generation {
+                self.notificationTask = nil
+            }
+        }
+        notificationTask = task
+    }
+
+    func cancelAllNotifications() {
+        notificationGeneration += 1
+        notificationTask?.cancel()
+        notificationCenter.removeAllPendingNotificationRequests()
+        notificationCenter.removeAllDeliveredNotifications()
+    }
+
+    private func performNotificationReschedule(
+        goals: [Goal],
+        state: LockSurfaceState,
+        weeklySummary: WeeklySummary?,
+        generation: Int
     ) async {
         let identifiers = [
             Self.morningNotificationIdentifier,
@@ -29,6 +68,11 @@ final class LockSurfaceCoordinator {
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
 
         let settings = await notificationCenter.notificationSettings()
+        guard !Task.isCancelled,
+              notificationGeneration == generation else {
+            notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+            return
+        }
         guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else {
             return
         }
@@ -53,9 +97,16 @@ final class LockSurfaceCoordinator {
                     trigger: trigger
                 )
             )
+            guard !Task.isCancelled,
+                  notificationGeneration == generation else {
+                notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+                return
+            }
         }
 
-        if state.weeklyReportEnabled, let weeklySummary {
+        if state.weeklyReportEnabled,
+           let weeklySummary,
+           weeklySummary.attempts > 0 {
             let content = UNMutableNotificationContent()
             content.title = "今週のふりかえり"
             content.body = "開かずに我慢 \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回"
@@ -71,6 +122,9 @@ final class LockSurfaceCoordinator {
                     trigger: trigger
                 )
             )
+            if Task.isCancelled || notificationGeneration != generation {
+                notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+            }
         }
     }
 

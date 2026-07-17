@@ -69,6 +69,23 @@ public struct JSONSnapshotStore: Sendable {
         }
     }
 
+    public func remove(_ file: SnapshotFile) throws {
+        let fileURL = try url(for: file)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return
+        }
+
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            throw CoreError.fileSystem(
+                operation: "remove",
+                path: fileURL.path,
+                message: "\(error)"
+            )
+        }
+    }
+
     private func replaceOrMoveItem(from tempURL: URL, to fileURL: URL) throws {
         if FileManager.default.fileExists(atPath: fileURL.path) {
             _ = try FileManager.default.replaceItemAt(

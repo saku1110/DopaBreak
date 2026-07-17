@@ -2,6 +2,13 @@ import Foundation
 import SQLite3
 
 public final class SQLiteLogStore: @unchecked Sendable {
+    static let attemptDatabaseFileName = "attempt_logs.sqlite"
+    static let reflectionDatabaseFileName = "reflection_logs.sqlite"
+    static let databaseFileNames = [
+        attemptDatabaseFileName,
+        reflectionDatabaseFileName
+    ]
+
     private let attemptDatabase: SQLiteDatabase
     private let reflectionDatabase: SQLiteDatabase
 
@@ -12,11 +19,11 @@ public final class SQLiteLogStore: @unchecked Sendable {
             withIntermediateDirectories: true
         )
         self.attemptDatabase = try SQLiteDatabase(
-            url: containerURL.appendingPathComponent("attempt_logs.sqlite"),
+            url: containerURL.appendingPathComponent(Self.attemptDatabaseFileName),
             schema: .attemptLogs
         )
         self.reflectionDatabase = try SQLiteDatabase(
-            url: containerURL.appendingPathComponent("reflection_logs.sqlite"),
+            url: containerURL.appendingPathComponent(Self.reflectionDatabaseFileName),
             schema: .reflectionLogs
         )
     }

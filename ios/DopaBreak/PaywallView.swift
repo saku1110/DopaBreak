@@ -3,11 +3,6 @@ import Foundation
 import StoreKit
 import SwiftUI
 
-private enum PaywallURLs {
-    static let terms = URL(string: "https://dopabreak.app/terms")!
-    static let privacy = URL(string: "https://dopabreak.app/privacy")!
-}
-
 private enum PaywallPlan: CaseIterable, Identifiable {
     case annual
     case monthly
@@ -188,8 +183,8 @@ struct PaywallView: View {
                 .frame(maxWidth: .infinity)
 
             HStack(spacing: 18) {
-                Link("利用規約", destination: PaywallURLs.terms)
-                Link("プライバシー", destination: PaywallURLs.privacy)
+                Link("利用規約", destination: AppURLs.terms)
+                Link("プライバシー", destination: AppURLs.privacy)
             }
             .font(.system(size: 11, weight: .bold))
             .foregroundStyle(DesignTokens.secondaryText)

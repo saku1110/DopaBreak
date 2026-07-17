@@ -20,6 +20,10 @@ public struct InterventionTargetStore: Sendable {
         try snapshotStore.write(catalogIDs, to: .interventionTargets)
     }
 
+    public func deleteAll() throws {
+        try snapshotStore.write([String](), to: .interventionTargets)
+    }
+
     private func validate(_ catalogIDs: [String]) throws {
         var seen = Set<String>()
         for catalogID in catalogIDs {

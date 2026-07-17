@@ -48,6 +48,10 @@ public struct GoalStore: Sendable {
         try snapshotStore.write(goals, to: .goals)
     }
 
+    public func deleteAll() throws {
+        try snapshotStore.write([Goal](), to: .goals)
+    }
+
     public func moveGoal(from sourceIndex: Int, to destinationIndex: Int) throws {
         var goals = try goals()
         guard goals.indices.contains(sourceIndex) else {

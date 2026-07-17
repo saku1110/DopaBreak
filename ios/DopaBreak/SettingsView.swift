@@ -19,6 +19,8 @@ struct SettingsView: View {
     @State private var isPaywallPresented = false
     @State private var isTargetPickerPresented = false
     @State private var isAutomationGuidePresented = false
+    @State private var isDeleteAllDataConfirmationPresented = false
+    @State private var isDeletionFeedbackVisible = false
     @State private var morningNotificationEnabled = true
     @State private var weeklyReportNotificationEnabled = true
     @State private var liveActivityEnabled = true
@@ -37,6 +39,8 @@ struct SettingsView: View {
                 lockSurfaceSection
 
                 accountSection
+
+                privacySection
 
                 appSection
 
@@ -69,6 +73,18 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $isAutomationGuidePresented) {
             AutomationGuideView(model: model, settingsStore: settingsStore)
+        }
+        .confirmationDialog(
+            "全データを削除しますか",
+            isPresented: $isDeleteAllDataConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button("削除する", role: .destructive) {
+                deleteAllData()
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("目標・記録・設定がすべて削除されます。この操作は取り消せません。")
         }
         .onChange(of: isAuthorizationSheetPresented) { oldValue, newValue in
             guard oldValue, !newValue else {
@@ -429,6 +445,56 @@ struct SettingsView: View {
         }
     }
 
+    private var privacySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(text: "プライバシー")
+
+            CardContainer {
+                VStack(spacing: 0) {
+                    Link(destination: AppURLs.privacy) {
+                        settingsRow(label: "プライバシーポリシー", value: "")
+                    }
+                    .buttonStyle(.plain)
+
+                    divider
+
+                    Link(destination: AppURLs.terms) {
+                        settingsRow(label: "利用規約", value: "")
+                    }
+                    .buttonStyle(.plain)
+
+                    divider
+
+                    Button {
+                        isDeleteAllDataConfirmationPresented = true
+                    } label: {
+                        settingsRow(
+                            label: "全データを削除",
+                            value: isDeletionFeedbackVisible ? "削除しました" : "",
+                            labelColor: DesignTokens.danger,
+                            valueColor: DesignTokens.accent
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func deleteAllData() {
+        guard model.deleteAllLocalData() else {
+            return
+        }
+
+        refreshSettingsState()
+        isDeletionFeedbackVisible = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            isDeletionFeedbackVisible = false
+        }
+    }
+
     @ViewBuilder
     private var screenTimeRow: some View {
         if model.screenTime.isAuthorized {
@@ -500,17 +566,22 @@ struct SettingsView: View {
         return "選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。"
     }
 
-    private func settingsRow(label: String, value: String) -> some View {
+    private func settingsRow(
+        label: String,
+        value: String,
+        labelColor: Color = DesignTokens.primaryText,
+        valueColor: Color = DesignTokens.secondaryText
+    ) -> some View {
         HStack(spacing: 12) {
             Text(label)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(DesignTokens.primaryText)
+                .foregroundStyle(labelColor)
 
             Spacer()
 
             Text(value)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DesignTokens.secondaryText)
+                .foregroundStyle(valueColor)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 14)

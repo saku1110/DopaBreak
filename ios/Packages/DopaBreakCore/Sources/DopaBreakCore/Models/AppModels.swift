@@ -1,10 +1,5 @@
 import Foundation
 
-public enum GoalType: String, Codable, Equatable, Sendable, CaseIterable {
-    case hero
-    case year
-}
-
 public enum GoalCategory: String, Codable, Equatable, Sendable, CaseIterable {
     case study
     case work
@@ -16,7 +11,6 @@ public enum GoalCategory: String, Codable, Equatable, Sendable, CaseIterable {
 
 public struct Goal: Codable, Equatable, Sendable {
     public var id: UUID
-    public var goalType: GoalType
     public var title: String
     public var lockScreenTitle: String?
     public var category: GoalCategory
@@ -26,7 +20,6 @@ public struct Goal: Codable, Equatable, Sendable {
 
     public init(
         id: UUID,
-        goalType: GoalType,
         title: String,
         lockScreenTitle: String?,
         category: GoalCategory,
@@ -35,7 +28,6 @@ public struct Goal: Codable, Equatable, Sendable {
         updatedAt: Date
     ) {
         self.id = id
-        self.goalType = goalType
         self.title = title
         self.lockScreenTitle = lockScreenTitle
         self.category = category

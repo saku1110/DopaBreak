@@ -32,7 +32,6 @@ final class LocalDataResetterTests: XCTestCase {
         let timestamp = Date(timeIntervalSince1970: 1_800_000_000)
         let goal = Goal(
             id: UUID(),
-            goalType: .hero,
             title: "Focus",
             lockScreenTitle: "Focus",
             category: .study,
@@ -165,7 +164,6 @@ final class LocalDataResetterTests: XCTestCase {
         try goalStore.save(
             Goal(
                 id: UUID(),
-                goalType: .hero,
                 title: "Focus",
                 lockScreenTitle: nil,
                 category: .study,

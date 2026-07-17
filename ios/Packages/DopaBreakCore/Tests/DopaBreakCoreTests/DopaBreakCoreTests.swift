@@ -11,7 +11,6 @@ final class DopaBreakCoreTests: XCTestCase {
         try assertJSONRoundTrip(
             Goal(
                 id: uuid(1),
-                goalType: .hero,
                 title: "Write every morning",
                 lockScreenTitle: nil,
                 category: .creative,
@@ -26,7 +25,6 @@ final class DopaBreakCoreTests: XCTestCase {
         try assertJSONRoundTrip(
             Goal(
                 id: uuid(2),
-                goalType: .year,
                 title: "Ship the app",
                 lockScreenTitle: "Build first",
                 category: .work,
@@ -528,7 +526,6 @@ final class DopaBreakCoreTests: XCTestCase {
     private func sampleGoal(id: Int, title: String = "Focus", updatedAt: Date) -> Goal {
         Goal(
             id: uuid(id),
-            goalType: .hero,
             title: title,
             lockScreenTitle: "Focus now",
             category: .study,

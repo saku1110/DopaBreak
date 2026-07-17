@@ -276,7 +276,6 @@ final class AppModel {
         return persistGoal(
             Goal(
                 id: UUID(),
-                goalType: .hero,
                 title: title,
                 lockScreenTitle: normalizedLockTitle(lockScreenTitle),
                 category: category,

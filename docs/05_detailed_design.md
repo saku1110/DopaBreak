@@ -1,6 +1,6 @@
 # 詳細設計
 
-作成日: 2026-06-27 / 改訂: 2026-07-02（Goal 2枠モデル・SelfCheckSnapshot追加・商品ID/Entitlement確定）
+作成日: 2026-06-27 / 改訂: 2026-07-17（Goalを種類なしのフラットリストへ同期）
 
 ## 1. 技術方針
 
@@ -75,12 +75,11 @@ iOS App (SwiftUI)
 
 ## 4. データモデル
 
-### Goal（2026-07-02 改訂: 軽量2枠固定）
+### Goal（2026-07-17 改訂: 種類なしのフラットリスト）
 
 ```text
 Goal
 - id: UUID
-- goalType: GoalType   // hero | year。各1件まで（合計最大2）。タスク/期限/チェックリストは持たない
 - title: String
 - lockScreenTitle: String?
 - category: GoalCategory
@@ -88,6 +87,8 @@ Goal
 - createdAt: Date
 - updatedAt: Date
 ```
+
+目標は種類を持たない軽量なフラットリストとする。Freeは1件、Proは複数件を保存できる。配列の保存順が表示順で、先頭を主目標としてHome・Shield・介入画面などに表示する。追加は末尾、並べ替えは`moveGoal`で行う。`category`は目標エディタの分類に使うため維持する。タスク/期限/チェックリストは持たない。
 
 ### SelfCheckSnapshot（2026-07-02 追加: オンボ損失クイズの回答）
 
@@ -316,12 +317,11 @@ group.com.dopabreak.shared   // 確定（2026-07-02・旧: goalgate→lifefocus�
 
 ### GoalStore
 
-- createGoal
-- updateGoal
-- deleteGoal
-- getHeroGoal / getYearGoal   // goalTypeで取得（2枠固定）
-- updateLockScreenTitle
-- makeWidgetSnapshot
+- goals / allGoals
+- primaryGoal   // 保存順の先頭を取得
+- save
+- delete(id:) / deleteAll
+- moveGoal(from:to:)
 
 ### LockSurfaceStore（旧WidgetStoreを置換・2026-07-02）
 
@@ -369,7 +369,7 @@ group.com.dopabreak.shared   // 確定（2026-07-02・旧: goalgate→lifefocus�
 - purchase
 - restore
 - isPro
-- canAddYearGoal   // Pro判定（目標は最大2枠）
+- canAddGoal(currentCount:)   // Freeは1件、Proは上限なし
 - canAddRule
 
 ## 10. ローカル保存方針
@@ -423,16 +423,14 @@ Entitlement:
 
 ```text
 Free:
-- hero_goal = true              // ヒーロー目標1
-- year_goal_display = false     // 1年目標は保存可・表示ロック（下記参照）
+- goals_limit = 1
 - target_rules_limit = 1
 - target_app_tokens_limit = 1   // FamilyActivitySelection内のapp/categoryトークン合計を保存時に検証。超過分は無効化しPro導線
 - lock_theme = e1_only          // 通知/Live Activityテーマ（2026-07-02: 常設ウィジェット廃止。テーマがロック面の課金価値）
 - stats_days = 1
 
 Pro:
-- hero_goal = true
-- year_goal_display = true      // 1年目標（目標は合計2枠まで。unlimitedにしない）
+- goals_limit = unlimited
 - target_rules_limit = unlimited
 - target_app_tokens_limit = unlimited
 - lock_theme = all_6_themes     // 墨と灯/朝霧/森林/夜更け/K-POP/かわいいピンク
@@ -442,7 +440,7 @@ Pro:
 - strict_mode = true
 ```
 
-**1年目標の扱い（Free）**: オンボO-04で入力した1年目標は**保存する**が、Freeではロック画面/介入への表示をロックし、Goals画面に「Proで表示」バッジ付きで見せる（保有効果→課金動機）。削除はいつでも可能。
+**目標の扱い**: オンボーディングでは最初の1件を作成する。Freeは1件まで、Proは複数件を追加できる。保存順の先頭を主目標として表示し、Goals画面の並べ替えで変更できる。削除はいつでも可能。
 
 **対象アプリの扱い（オンボ）**: O-03では複数選択を許可し、O-08bサマリーにも全選択を表示する。Freeで開始した場合は最初の1個のみルール有効化し、残りは「Proで守る」導線として保持する。
 

@@ -1,5 +1,12 @@
 # 設計ドキュメント改訂履歴
 
+## 2026-07-17 — Goal.goalType廃止とShield主目標同期
+
+- `GoalType` / `Goal.goalType`と種類別GoalStore API、旧2枠順への暗黙並べ替えを削除し、保存配列順を正とするフラット目標モデルへ統一
+- ShieldConfigExtensionもHome等と同じ先頭目標（`primaryGoal()`）を表示するよう修正し、Proの複数目標時に旧`.hero`種別へ依存する不整合を解消
+- Coreテストと`05_detailed_design.md`をFree 1件／Pro複数件、追加・並べ替えで順序管理する現行仕様へ同期
+- 検証: DopaBreakCore 147テスト成功、ShieldConfigExtensionを含むgeneric iOS Simulator buildで`BUILD SUCCEEDED`
+
 ## 2026-07-17 — Settingsプライバシー節と全ローカルデータ削除
 
 - **11_ui_copy.md**: `Settings — プライバシー`節を新設し、プライバシーポリシー・利用規約・全データ削除・確認ダイアログ・完了/失敗表示の文言を正本化

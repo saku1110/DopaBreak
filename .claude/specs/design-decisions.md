@@ -260,3 +260,26 @@ Claude Code側で6レンズ監査（ビジュアル/介入UX/オンボ/ペイウ
 - 検証:
   - `swift test --package-path ios/Packages/DopaBreakCore`: 147テスト成功、失敗0。
   - `xcodegen generate`後、generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
+
+## 2026-07-17 — Goal型の2枠残骸削除とShield選択の統一
+
+- 作成・変更:
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift`: `GoalType` enumと`Goal.goalType`、initializer引数を削除。`GoalCategory`を含む他フィールドは維持。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/GoalStore.swift`: 種類別取得/削除APIと旧2枠順へのmigration並べ替えを削除し、保存配列をそのまま返すよう変更。
+  - `ios/ShieldConfigExtension/ShieldConfigurationExtension.swift`: `.hero`検索を`primaryGoal()`へ置換。
+  - `ios/DopaBreak/AppContainer.swift`: 新規Goal作成から旧`goalType`指定を削除。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/{GoalStoreTests,DopaBreakCoreTests,LocalDataResetterTests}.swift`: 新initializerへ同期し、旧migrationテストを保存順・`primaryGoal()`・`moveGoal`のフラットリスト挙動へ適応。
+  - `docs/05_detailed_design.md` / `docs/CHANGELOG.md`: Free 1件／Pro複数件の現行モデルと実装結果を同期。
+- 採用した方針:
+  - 種類なしのフラットリストを唯一のGoalモデルとし、配列の先頭をHome・Shield・介入面で共通の主目標として扱う。
+  - 順序は追加時の末尾挿入と`moveGoal`だけで管理し、読込時の暗黙並べ替えは行わない。
+- 却下した案:
+  - 旧JSON向けに`GoalType`や種類別APIを互換shimとして残す案は、廃止済み2枠モデルへの依存を再発させるため不採用。JSONDecoderは未知の旧`goalType`キーを無視できるため、モデルへ残す必要はない。
+  - Shieldだけ`.hero`を検索し続ける案は、フラットリストの先頭を使う他画面と不一致になり、Pro複数目標で表示欠落や誤選択を起こすため不採用。
+- Claude Code側の実装制約:
+  - 目標の表示優先度は保存配列順。主目標を変える場合は`moveGoal`で先頭を変更し、種類フィールドや暗黙ソートを再導入しない。
+  - `Goal.category`は現行FR-004の分類フィールドなので削除しない。
+  - `ios/DopaBreak/StoreService.swift`の`.year`はStoreKitのSubscriptionPeriod.Unitであり、本変更の対象外。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 147テスト成功、失敗0。
+  - `xcodegen generate`後、ShieldConfigExtensionを含むgeneric iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。

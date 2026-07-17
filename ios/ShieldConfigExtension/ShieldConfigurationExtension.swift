@@ -23,7 +23,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     private func makeConfiguration() -> ShieldConfiguration {
         do {
             let goalStore = GoalStore(snapshotStore: JSONSnapshotStore())
-            let goal = try goalStore.goal(of: .hero)
+            let goal = try goalStore.primaryGoal()
             let subtitle = goal.map { goal in
                 let lockScreenTitle = goal.lockScreenTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return "戻る先 \(lockScreenTitle.isEmpty ? goal.title : lockScreenTitle)"

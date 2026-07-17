@@ -8,8 +8,8 @@ public struct GoalStore: Sendable {
     }
 
     public func goals() throws -> [Goal] {
-        let goals = try snapshotStore.read([Goal].self, from: .goals) ?? []
-        return orderedForMigration(goals)
+        try migrateLegacyGoalOrderIfNeeded()
+        return try snapshotStore.read([Goal].self, from: .goals) ?? []
     }
 
     public func allGoals() throws -> [Goal] {
@@ -18,10 +18,6 @@ public struct GoalStore: Sendable {
 
     public func primaryGoal() throws -> Goal? {
         try goals().first
-    }
-
-    public func goal(of type: GoalType) throws -> Goal? {
-        try goals().first { $0.goalType == type }
     }
 
     public func save(_ goal: Goal) throws {
@@ -69,15 +65,6 @@ public struct GoalStore: Sendable {
         try snapshotStore.write(goals, to: .goals)
     }
 
-    public func deleteGoal(of type: GoalType) throws {
-        var goals = try goals()
-        guard let index = goals.firstIndex(where: { $0.goalType == type }) else {
-            return
-        }
-        goals.remove(at: index)
-        try snapshotStore.write(goals, to: .goals)
-    }
-
     private func validatedGoal(_ goal: Goal) throws -> Goal {
         let title = goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (1...40).contains(title.count) else {
@@ -106,7 +93,6 @@ public struct GoalStore: Sendable {
     private func replacing(_ existing: Goal, with newGoal: Goal, updatedAt: Date) -> Goal {
         Goal(
             id: existing.id,
-            goalType: newGoal.goalType,
             title: newGoal.title,
             lockScreenTitle: newGoal.lockScreenTitle,
             category: newGoal.category,
@@ -122,18 +108,43 @@ public struct GoalStore: Sendable {
         return inserted
     }
 
-    private func orderedForMigration(_ goals: [Goal]) -> [Goal] {
-        guard goals.count <= GoalType.allCases.count else {
-            return goals
+    private func migrateLegacyGoalOrderIfNeeded() throws {
+        guard let legacyGoals = try? snapshotStore.read([LegacyPersistedGoal].self, from: .goals),
+              legacyGoals.allSatisfy({ $0.goalType == "hero" || $0.goalType == "year" }) else {
+            return
         }
 
-        let goalTypes = goals.map(\.goalType)
-        guard Set(goalTypes).count == goalTypes.count else {
-            return goals
+        let heroIndices = legacyGoals.indices.filter { legacyGoals[$0].goalType == "hero" }
+        guard heroIndices.count == 1, let heroIndex = heroIndices.first, heroIndex != legacyGoals.startIndex else {
+            return
         }
 
-        return GoalType.allCases.compactMap { type in
-            goals.first { $0.goalType == type }
-        }
+        var reorderedGoals = legacyGoals
+        let heroGoal = reorderedGoals.remove(at: heroIndex)
+        reorderedGoals.insert(heroGoal, at: 0)
+        try snapshotStore.write(reorderedGoals.map(\.goal), to: .goals)
+    }
+}
+
+private struct LegacyPersistedGoal: Decodable {
+    let id: UUID
+    let goalType: String
+    let title: String
+    let lockScreenTitle: String?
+    let category: GoalCategory
+    let displayImagePath: String?
+    let createdAt: Date
+    let updatedAt: Date
+
+    var goal: Goal {
+        Goal(
+            id: id,
+            title: title,
+            lockScreenTitle: lockScreenTitle,
+            category: category,
+            displayImagePath: displayImagePath,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
     }
 }

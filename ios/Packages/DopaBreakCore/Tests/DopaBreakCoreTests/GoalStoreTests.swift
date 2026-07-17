@@ -77,18 +77,43 @@ final class GoalStoreTests: XCTestCase {
         XCTAssertEqual(try store.primaryGoal()?.title, "Third")
     }
 
-    func testLegacyHeroYearFileDecodesHeroFirstThenYear() throws {
+    func testStoredArrayOrderIsPreservedWhenLoading() throws {
         let containerURL = try makeTemporaryDirectory()
         let snapshotStore = JSONSnapshotStore(containerProvider: FixedContainer(url: containerURL))
-        let legacyYear = sampleGoal(id: uuid(2), type: .year, title: "Year")
-        let legacyHero = sampleGoal(id: uuid(1), type: .hero, title: "Hero")
-        try snapshotStore.write([legacyYear, legacyHero], to: .goals)
+        let second = sampleGoal(id: uuid(2), title: "Second")
+        let first = sampleGoal(id: uuid(1), title: "First")
+        try snapshotStore.write([second, first], to: .goals)
 
         let store = GoalStore(snapshotStore: snapshotStore)
 
-        XCTAssertEqual(try store.goals().map(\.title), ["Hero", "Year"])
-        XCTAssertEqual(try store.primaryGoal()?.title, "Hero")
-        XCTAssertEqual(try store.goal(of: .year)?.title, "Year")
+        XCTAssertEqual(try store.goals().map(\.title), ["Second", "First"])
+        XCTAssertEqual(try store.primaryGoal()?.title, "Second")
+    }
+
+    func testLegacyYearFirstOrderMigratesAndPersistsHeroFirst() throws {
+        let containerURL = try makeTemporaryDirectory()
+        let snapshotStore = JSONSnapshotStore(containerProvider: FixedContainer(url: containerURL))
+        let year = sampleGoal(id: uuid(2), title: "Year")
+        let hero = sampleGoal(id: uuid(1), title: "Hero")
+        try snapshotStore.write(
+            [
+                LegacyGoalFixture(goal: year, goalType: "year"),
+                LegacyGoalFixture(goal: hero, goalType: "hero")
+            ],
+            to: .goals
+        )
+
+        let store = GoalStore(snapshotStore: snapshotStore)
+
+        XCTAssertEqual(try store.goals().map(\.id), [hero.id, year.id])
+        XCTAssertEqual(try store.primaryGoal()?.id, hero.id)
+
+        let persistedData = try Data(contentsOf: snapshotStore.url(for: .goals))
+        let persistedJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: persistedData) as? [[String: Any]]
+        )
+        XCTAssertEqual(persistedJSON.compactMap { $0["title"] as? String }, ["Hero", "Year"])
+        XCTAssertTrue(persistedJSON.allSatisfy { $0["goalType"] == nil })
     }
 
     func testEmptyTitleFailsValidation() throws {
@@ -136,7 +161,6 @@ final class GoalStoreTests: XCTestCase {
 
     private func sampleGoal(
         id: UUID = UUID(),
-        type: GoalType = .hero,
         title: String = "Focus",
         lockScreenTitle: String? = "Focus",
         category: GoalCategory = .other,
@@ -146,7 +170,6 @@ final class GoalStoreTests: XCTestCase {
     ) -> Goal {
         Goal(
             id: id,
-            goalType: type,
             title: title,
             lockScreenTitle: lockScreenTitle,
             category: category,
@@ -174,5 +197,27 @@ final class GoalStoreTests: XCTestCase {
 
     private func uuid(_ value: Int) -> UUID {
         UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", value))!
+    }
+}
+
+private struct LegacyGoalFixture: Encodable {
+    let id: UUID
+    let goalType: String
+    let title: String
+    let lockScreenTitle: String?
+    let category: GoalCategory
+    let displayImagePath: String?
+    let createdAt: Date
+    let updatedAt: Date
+
+    init(goal: Goal, goalType: String) {
+        self.id = goal.id
+        self.goalType = goalType
+        self.title = goal.title
+        self.lockScreenTitle = goal.lockScreenTitle
+        self.category = goal.category
+        self.displayImagePath = goal.displayImagePath
+        self.createdAt = goal.createdAt
+        self.updatedAt = goal.updatedAt
     }
 }

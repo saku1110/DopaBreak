@@ -1,0 +1,7 @@
+DOPABREAK_BUNDLE_PREFIX = com.dopabreak
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+SWIFT_VERSION = 5.0
+
+// 実機署名（2026-07-08・Toshiki Sakuraya 個人チーム。過去の全profileと一致）
+DEVELOPMENT_TEAM = C76D9UB7AV
+CODE_SIGN_STYLE = Automatic

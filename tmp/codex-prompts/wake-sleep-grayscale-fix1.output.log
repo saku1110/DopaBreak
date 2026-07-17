@@ -1,0 +1,1013 @@
+2026-07-09T00:30:43.489148Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/paywall-optimization/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489214Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/design-md/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489219Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/tiktok-buzz-checker/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489222Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/tdd-workflow/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489225Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/security-review/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489227Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/onboarding-optimization/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489229Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/local-citation-audit/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489231Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/gbp-full-audit/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489233Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/local-intent-pages/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489235Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/review-management/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:30:43.489237Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/seoskills/llmo-aio/SKILL.md: missing YAML frontmatter delimited by ---
+OpenAI Codex v0.139.0
+--------
+workdir: /Users/solotech/Desktop/test-project
+model: gpt-5.5
+provider: openai
+approval: on-request
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019f4448-b46a-7880-b90a-661cb89777f0
+--------
+user
+# 修正指示: DayTimeContext の起床窓ロジックのバグ
+
+前タスクの実装をFableが検証したところ、`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift` の `isInWakeWindow` にバグを発見した。原因はFableが前タスクのプロンプトで渡したテスト仕様例が数学的に誤っていたこと（起床窓は仕様上「起床時刻〜+30分」の前方一方向のみのはずが、誤って「起床時刻の前後」を含む例を指示してしまった）。
+
+## バグの内容
+`isInWakeWindow`内の「carry」分岐（46〜51行目付近、`carryLength` / `carryStart` を使う部分）が、起床時刻が `00:00〜00:29`（`wakeMinutes < 30`）の場合にのみ発火し、本来30分のはずの起床窓を最大60分まで不正に拡張し、かつ本来の起床時刻より前の時間帯まで「起床窓」と誤判定してしまう。例: `wakeMinutes = 0`（00:00）の場合、正しくは窓 `[00:00, 00:30)` のみだが、現状の実装だと `[23:30, 00:30)` の60分間が起床窓になってしまう。
+
+これに対応する形で書かれたテスト `testWakeWindowWrapsAcrossMidnight`（`wakeMinutes: 10, nowMinutes: 1_430` → `.wake`を期待）も、同じ誤った前提に基づいており不正確。
+
+## 修正方針
+1. `isInWakeWindow`の特殊な「carry」分岐を削除し、単純に `isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)` の結果をそのまま返すだけにする（`isInWindow`内の`normalizedMinutes`によるmod 1440演算だけで、起床時刻が23:xx台で窓が翌日0時をまたぐ正当なケースは既に正しく処理できる。問題は00:00〜00:29台の起床時刻を不必要に「前日夜まで」拡張していたことだけ）
+2. `DayTimeContextTests.swift`の`testWakeWindowWrapsAcrossMidnight`を、正当な深夜またぎ例に差し替える: `wakeMinutes: 1_430`（23:50）、`nowMinutes: 10`（00:10）→ `.wake`を期待（窓は23:50〜00:20なので00:10は含まれる）
+3. 追加で以下の境界ケースをテストに加える:
+   - `wakeMinutes: 0`（00:00）の場合、`nowMinutes: 1_430`（前日23:50）は`.normal`であること（起床時刻より前は起床窓に含まれないことの回帰防止）
+   - `wakeMinutes: 0`の場合、`nowMinutes: 29`は`.wake`、`nowMinutes: 30`は`.normal`であること（境界値がちょうど30分幅であることの確認）
+4. `sleep`側の実装・テストは正しいので変更不要
+
+## 完了条件
+- `cd ios/Packages/DopaBreakCore && swift test` が全件パスすること
+- 修正後のコードと修正理由を簡潔に報告すること（コード全文の貼り付けは不要、diffの要約でよい）
+
+codex
+対象ファイルと既存テストを確認してから、指定どおり最小修正します。まず実装とテストの現状を読んで、差分の当て方を決めます。
+exec
+/bin/zsh -lc "sed -n '1,180p' ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift" in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+import Foundation
+
+public enum DayTimeContext: Equatable, Sendable {
+    case wake
+    case sleep
+    case normal
+
+    private static let minutesPerDay = 1_440
+    private static let wakeWindowLengthMinutes = 30
+    private static let sleepWindowLengthMinutes = 60
+
+    public static func resolve(
+        now: Date,
+        wakeMinutes: Int?,
+        bedMinutes: Int?,
+        calendar: Calendar = .current
+    ) -> DayTimeContext {
+        guard wakeMinutes != nil || bedMinutes != nil else {
+            return .normal
+        }
+
+        let components = calendar.dateComponents([.hour, .minute], from: now)
+        let nowMinutes = ((components.hour ?? 0) * 60) + (components.minute ?? 0)
+
+        if let wakeMinutes, isInWakeWindow(nowMinutes: nowMinutes, wakeMinutes: wakeMinutes) {
+            return .wake
+        }
+
+        if let bedMinutes,
+           isInWindow(
+               nowMinutes,
+               start: bedMinutes - sleepWindowLengthMinutes,
+               lengthMinutes: sleepWindowLengthMinutes
+           ) {
+            return .sleep
+        }
+
+        return .normal
+    }
+
+    private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+            return true
+        }
+
+        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+        let carryStart = wakeMinutes - carryLength
+        guard carryLength > 0, carryStart < 0 else {
+            return false
+        }
+        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
+    }
+
+    private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+        guard lengthMinutes > 0 else {
+            return false
+        }
+        if lengthMinutes >= minutesPerDay {
+            return true
+        }
+
+        let normalizedStart = normalizedMinutes(start)
+        let elapsed = normalizedMinutes(nowMinutes - normalizedStart)
+        return elapsed < lengthMinutes
+    }
+
+    private static func normalizedMinutes(_ value: Int) -> Int {
+        ((value % minutesPerDay) + minutesPerDay) % minutesPerDay
+    }
+}
+
+exec
+/bin/zsh -lc 'rg -n "WakeWindow|wake window|wakeWindow|isInWakeWindow|DayTimeContext" ios/Packages/DopaBreakCore/Tests ios/Packages/DopaBreakCore/Sources' in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:5:final class DayTimeContextTests: XCTestCase {
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:18:    func testWakeWindowIncludesStart() {
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:22:    func testWakeWindowExcludesOneMinuteBeforeStart() {
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:26:    func testWakeWindowExcludesEnd() {
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:38:    func testWakeWindowWrapsAcrossMidnight() {
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:51:    private func resolve(nowMinutes: Int, wakeMinutes: Int?, bedMinutes: Int?) -> DayTimeContext {
+ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:52:        DayTimeContext.resolve(
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:3:public enum DayTimeContext: Equatable, Sendable {
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:9:    private static let wakeWindowLengthMinutes = 30
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:17:    ) -> DayTimeContext {
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:25:        if let wakeMinutes, isInWakeWindow(nowMinutes: nowMinutes, wakeMinutes: wakeMinutes) {
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:41:    private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:42:        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:46:        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+
+exec
+/bin/zsh -lc 'git status --short' in /Users/solotech/Desktop/test-project
+ exited 128 in 0ms:
+fatal: not a git repository (or any of the parent directories): .git
+
+codex
+実装側は説明どおり、`isInWakeWindow` が通常判定の後に `carryLength` で追加判定しています。`git status` はこの作業ディレクトリではリポジトリとして認識されなかったので、差分確認はファイル単位で進めます。
+exec
+/bin/zsh -lc "sed -n '1,140p' ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift" in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+import Foundation
+import XCTest
+@testable import DopaBreakCore
+
+final class DayTimeContextTests: XCTestCase {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    func testNoWakeOrBedTimeReturnsNormal() {
+        XCTAssertEqual(resolve(nowMinutes: 0, wakeMinutes: nil, bedMinutes: nil), .normal)
+        XCTAssertEqual(resolve(nowMinutes: 720, wakeMinutes: nil, bedMinutes: nil), .normal)
+        XCTAssertEqual(resolve(nowMinutes: 1_439, wakeMinutes: nil, bedMinutes: nil), .normal)
+    }
+
+    func testWakeWindowIncludesStart() {
+        XCTAssertEqual(resolve(nowMinutes: 420, wakeMinutes: 420, bedMinutes: nil), .wake)
+    }
+
+    func testWakeWindowExcludesOneMinuteBeforeStart() {
+        XCTAssertEqual(resolve(nowMinutes: 419, wakeMinutes: 420, bedMinutes: nil), .normal)
+    }
+
+    func testWakeWindowExcludesEnd() {
+        XCTAssertEqual(resolve(nowMinutes: 450, wakeMinutes: 420, bedMinutes: nil), .normal)
+    }
+
+    func testSleepWindowIncludesStart() {
+        XCTAssertEqual(resolve(nowMinutes: 1_320, wakeMinutes: nil, bedMinutes: 1_380), .sleep)
+    }
+
+    func testSleepWindowExcludesEnd() {
+        XCTAssertEqual(resolve(nowMinutes: 1_380, wakeMinutes: nil, bedMinutes: 1_380), .normal)
+    }
+
+    func testWakeWindowWrapsAcrossMidnight() {
+        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
+    }
+
+    func testSleepWindowWrapsAcrossMidnight() {
+        XCTAssertEqual(resolve(nowMinutes: 1_400, wakeMinutes: nil, bedMinutes: 20), .sleep)
+        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: nil, bedMinutes: 20), .sleep)
+    }
+
+    func testWakeTakesPriorityWhenWakeAndSleepWindowsOverlap() {
+        XCTAssertEqual(resolve(nowMinutes: 420, wakeMinutes: 420, bedMinutes: 450), .wake)
+    }
+
+    private func resolve(nowMinutes: Int, wakeMinutes: Int?, bedMinutes: Int?) -> DayTimeContext {
+        DayTimeContext.resolve(
+            now: date(minutes: nowMinutes),
+            wakeMinutes: wakeMinutes,
+            bedMinutes: bedMinutes,
+            calendar: calendar
+        )
+    }
+
+    private func date(minutes: Int) -> Date {
+        DateComponents(
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 7,
+            day: 9,
+            hour: minutes / 60,
+            minute: minutes % 60
+        ).date!
+    }
+}
+
+exec
+/bin/zsh -lc 'ls -la' in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+total 16
+drwxr-xr-x@   9 solotech  staff   288 Jul  2 14:59 .
+drwx------@ 302 solotech  staff  9664 Jul  7 16:03 ..
+-rw-r--r--@   1 solotech  staff  6148 Jun 29 16:26 .DS_Store
+drwxr-xr-x@   4 solotech  staff   128 Jul  8 18:01 .claude
+drwxr-xr-x@   7 solotech  staff   224 Jul  2 14:47 design
+drwxr-xr-x@  19 solotech  staff   608 Jul  9 09:14 docs
+drwxr-xr-x@  15 solotech  staff   480 Jul  9 09:26 ios
+drwxr-xr-x@   6 solotech  staff   192 Jul  2 16:33 output
+drwxr-xr-x@   7 solotech  staff   224 Jul  9 09:17 tmp
+
+exec
+/bin/zsh -lc 'ls -la ios/Packages/DopaBreakCore' in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+total 8
+drwxr-xr-x@  7 solotech  staff  224 Jul  2 15:02 .
+drwxr-xr-x@  3 solotech  staff   96 Jul  2 14:59 ..
+drwxr-xr-x@ 10 solotech  staff  320 Jul  9 09:28 .build
+drwxrwxrwx@  4 solotech  staff  128 Jul  2 17:12 .swiftpm
+-rw-r--r--@  1 solotech  staff  584 Jul  2 15:13 Package.swift
+drwxr-xr-x@  3 solotech  staff   96 Jul  2 14:59 Sources
+drwxr-xr-x@  3 solotech  staff   96 Jul  2 14:59 Tests
+
+codex
+これから `isInWakeWindow` を通常の半開区間判定だけに戻し、テストは「23:50 起床で 00:10 が含まれる」ケースと、00:00 起床の回帰境界を追加します。 sleep 側には触れません。
+apply patch
+patch: completed
+/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+
+apply patch
+patch: completed
+/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+diff --git a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+index 4c1a8e471930676144e826f6baed0c119149e87a..f168273368393a70c47fa68ad249357ac3008906
+--- a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
++++ b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+@@ -36,7 +36,16 @@
+     }
+ 
+     func testWakeWindowWrapsAcrossMidnight() {
+-        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
++    }
++
++    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
++        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
++    }
++
++    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
++        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+     }
+ 
+     func testSleepWindowWrapsAcrossMidnight() {
+
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+diff --git a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+index 4c1a8e471930676144e826f6baed0c119149e87a..f168273368393a70c47fa68ad249357ac3008906
+--- a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
++++ b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+@@ -36,7 +36,16 @@
+     }
+ 
+     func testWakeWindowWrapsAcrossMidnight() {
+-        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
++    }
++
++    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
++        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
++    }
++
++    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
++        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+     }
+ 
+     func testSleepWindowWrapsAcrossMidnight() {
+
+codex
+修正を入れました。次に指定の `swift test` をパッケージ直下で実行して、既存の sleep 判定も含めて全体が通るか確認します。
+exec
+/bin/zsh -lc 'swift test' in /Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+diff --git a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+index 4c1a8e471930676144e826f6baed0c119149e87a..f168273368393a70c47fa68ad249357ac3008906
+--- a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
++++ b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+@@ -36,7 +36,16 @@
+     }
+ 
+     func testWakeWindowWrapsAcrossMidnight() {
+-        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
++    }
++
++    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
++        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
++    }
++
++    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
++        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+     }
+ 
+     func testSleepWindowWrapsAcrossMidnight() {
+
+ exited 1 in 666ms:
+warning: /Users/solotech/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/solotech/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/solotech/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+error: 'dopabreakcore': Invalid manifest (compiled with: ["/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc", "-vfsoverlay", "/var/folders/bb/0d3d9md55m91nptchg83hmv80000gn/T/TemporaryDirectory.1FKCEE/vfs.yaml", "-L", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-lPackageDescription", "-Xlinker", "-rpath", "-Xlinker", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-target", "arm64-apple-macosx13.0", "-sdk", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk", "-F", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks", "-I", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib", "-L", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib", "-swift-version", "5", "-I", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-sdk", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk", "-package-description-version", "5.10.0", "/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Package.swift", "-o", "/var/folders/bb/0d3d9md55m91nptchg83hmv80000gn/T/TemporaryDirectory.Dzgdek/dopabreakcore-manifest"])
+<unknown>:0: error: error opening '/Users/solotech/.cache/clang/ModuleCache/Swift-1WGUA83CSIF7.swiftmodule' for output: /Users/solotech/.cache/clang/ModuleCache: Operation not permitted
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx13.0'
+error: 'dopabreakcore': Invalid manifest (compiled with: ["/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc", "-vfsoverlay", "/var/folders/bb/0d3d9md55m91nptchg83hmv80000gn/T/TemporaryDirectory.L7rEib/vfs.yaml", "-L", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-lPackageDescription", "-Xlinker", "-rpath", "-Xlinker", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-target", "arm64-apple-macosx13.0", "-sdk", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk", "-F", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks", "-I", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib", "-L", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib", "-swift-version", "5", "-I", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-sdk", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk", "-package-description-version", "5.10.0", "/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Package.swift", "-o", "/var/folders/bb/0d3d9md55m91nptchg83hmv80000gn/T/TemporaryDirectory.MH5Yci/dopabreakcore-manifest"])
+<unknown>:0: error: error opening '/Users/solotech/.cache/clang/ModuleCache/Swift-1WGUA83CSIF7.swiftmodule' for output: /Users/solotech/.cache/clang/ModuleCache: Operation not permitted
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx13.0'
+error: ExitCode(rawValue: 1)
+[0/1] Planning build
+error: 'dopabreakcore': Invalid manifest (compiled with: ["/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc", "-vfsoverlay", "/var/folders/bb/0d3d9md55m91nptchg83hmv80000gn/T/TemporaryDirectory.I1NeIf/vfs.yaml", "-L", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-lPackageDescription", "-Xlinker", "-rpath", "-Xlinker", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-target", "arm64-apple-macosx13.0", "-sdk", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk", "-F", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks", "-I", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib", "-L", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib", "-swift-version", "5", "-I", "/Applications/Xcode-16.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/pm/ManifestAPI", "-sdk", "/Applications/Xcode-16.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk", "-package-description-version", "5.10.0", "/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Package.swift", "-o", "/var/folders/bb/0d3d9md55m91nptchg83hmv80000gn/T/TemporaryDirectory.uIlURX/dopabreakcore-manifest"])
+<unknown>:0: error: error opening '/Users/solotech/.cache/clang/ModuleCache/Swift-1WGUA83CSIF7.swiftmodule' for output: /Users/solotech/.cache/clang/ModuleCache: Operation not permitted
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx13.0'
+
+codex
+`swift test` はコード起因ではなく、SwiftPM/clang のユーザーキャッシュ `~/.cache` への書き込みがサンドボックスで拒否されて失敗しました。検証に必要なので、同じコマンドを通常権限で再実行します。
+exec
+/bin/zsh -lc 'swift test' in /Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore
+2026-07-09T00:32:00.748024Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/paywall-optimization/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748047Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/design-md/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748051Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/tiktok-buzz-checker/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748053Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/tdd-workflow/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748055Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/security-review/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748058Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/onboarding-optimization/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748060Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/local-citation-audit/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748062Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/gbp-full-audit/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748063Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/local-intent-pages/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748065Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/meoskills/review-management/SKILL.md: missing YAML frontmatter delimited by ---
+2026-07-09T00:32:00.748067Z ERROR codex_core::session::session: failed to load skill /Users/solotech/.codex/skills/seoskills/llmo-aio/SKILL.md: missing YAML frontmatter delimited by ---
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+diff --git a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+index 4c1a8e471930676144e826f6baed0c119149e87a..f168273368393a70c47fa68ad249357ac3008906
+--- a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
++++ b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+@@ -36,7 +36,16 @@
+     }
+ 
+     func testWakeWindowWrapsAcrossMidnight() {
+-        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
++    }
++
++    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
++        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
++    }
++
++    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
++        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+     }
+ 
+     func testSleepWindowWrapsAcrossMidnight() {
+
+ succeeded in 2262ms:
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[2/4] Write swift-version-5BDAB9E9C0126B9D.txt
+[4/6] Compiling DopaBreakCore DayTimeContext.swift
+[5/6] Emitting module DopaBreakCore
+/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/StatsService.swift:10:17: warning: stored property 'now' of 'Sendable'-conforming struct 'StatsService' has non-sendable type '() -> Date'; this is an error in the Swift 6 language mode
+  8 |     private let logStore: SQLiteLogStore
+  9 |     private let calendar: Calendar
+ 10 |     private let now: () -> Date
+    |                 |- warning: stored property 'now' of 'Sendable'-conforming struct 'StatsService' has non-sendable type '() -> Date'; this is an error in the Swift 6 language mode
+    |                 `- note: a function type must be marked '@Sendable' to conform to 'Sendable'
+ 11 | 
+ 12 |     public init(
+[6/9] Compiling DopaBreakCoreTests DayTimeContextTests.swift
+[7/9] Emitting module DopaBreakCoreTests
+[7/9] Write Objects.LinkFileList
+[8/9] Linking DopaBreakCorePackageTests
+Build complete! (0.89s)
+Test Suite 'All tests' started at 2026-07-09 09:32:14.690.
+Test Suite 'DopaBreakCorePackageTests.xctest' started at 2026-07-09 09:32:14.690.
+Test Suite 'DayTimeContextTests' started at 2026-07-09 09:32:14.690.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testNoWakeOrBedTimeReturnsNormal]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testNoWakeOrBedTimeReturnsNormal]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testSleepWindowExcludesEnd]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testSleepWindowExcludesEnd]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testSleepWindowIncludesStart]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testSleepWindowIncludesStart]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testSleepWindowWrapsAcrossMidnight]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testSleepWindowWrapsAcrossMidnight]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeTakesPriorityWhenWakeAndSleepWindowsOverlap]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeTakesPriorityWhenWakeAndSleepWindowsOverlap]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowAtMidnightDoesNotIncludePreviousDay]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowAtMidnightDoesNotIncludePreviousDay]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowExcludesEnd]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowExcludesEnd]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowExcludesOneMinuteBeforeStart]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowExcludesOneMinuteBeforeStart]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowIncludesStart]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowIncludesStart]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowWrapsAcrossMidnight]' started.
+Test Case '-[DopaBreakCoreTests.DayTimeContextTests testWakeWindowWrapsAcrossMidnight]' passed (0.000 seconds).
+Test Suite 'DayTimeContextTests' passed at 2026-07-09 09:32:14.692.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'DopaBreakCoreTests' started at 2026-07-09 09:32:14.692.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testAppGroupIdentifier]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testAppGroupIdentifier]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testAttemptLogJSONRoundTripWithNilOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testAttemptLogJSONRoundTripWithNilOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testAttemptLogJSONRoundTripWithPopulatedOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testAttemptLogJSONRoundTripWithPopulatedOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testDateFractionalSecondsRoundTripThroughSnapshotStore]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testDateFractionalSecondsRoundTripThroughSnapshotStore]' passed (0.004 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testDecodingPlainISO8601DateStillSucceeds]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testDecodingPlainISO8601DateStillSucceeds]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testGoalJSONRoundTripWithNilOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testGoalJSONRoundTripWithNilOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testGoalJSONRoundTripWithPopulatedOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testGoalJSONRoundTripWithPopulatedOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testInterventionModeRawValuesMatchDesign]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testInterventionModeRawValuesMatchDesign]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testInterventionStateJSONRoundTripWithNilOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testInterventionStateJSONRoundTripWithNilOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testInterventionStateJSONRoundTripWithPopulatedOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testInterventionStateJSONRoundTripWithPopulatedOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testLockSurfaceStateJSONRoundTripWithNilOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testLockSurfaceStateJSONRoundTripWithNilOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testLockSurfaceStateJSONRoundTripWithPopulatedOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testLockSurfaceStateJSONRoundTripWithPopulatedOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testReflectionLogJSONRoundTripWithNilOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testReflectionLogJSONRoundTripWithNilOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testReflectionLogJSONRoundTripWithPopulatedOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testReflectionLogJSONRoundTripWithPopulatedOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSelfCheckSnapshotJSONRoundTrip]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSelfCheckSnapshotJSONRoundTrip]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSelfCheckSnapshotStoreRoundTrip]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSelfCheckSnapshotStoreRoundTrip]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSettingsStoreReadsAndWritesTypedValues]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSettingsStoreReadsAndWritesTypedValues]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreAbsentFileReturnsNil]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreAbsentFileReturnsNil]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreCorruptedFileThrowsTypedError]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreCorruptedFileThrowsTypedError]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreOverwritesExistingFile]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreOverwritesExistingFile]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreWritesAndReads]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSnapshotStoreWritesAndReads]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreAttemptCountOnDayUsesCalendarBoundary]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreAttemptCountOnDayUsesCalendarBoundary]' passed (0.012 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreConcurrentInsertsFromTwoQueues]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreConcurrentInsertsFromTwoQueues]' passed (0.013 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreDateRangeFiltersAttemptsAndReflections]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreDateRangeFiltersAttemptsAndReflections]' passed (0.007 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreDeleteAllLogsRemovesAttemptsAndReflections]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreDeleteAllLogsRemovesAttemptsAndReflections]' passed (0.006 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreInsertsAndFetchesAttemptsAndReflections]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreInsertsAndFetchesAttemptsAndReflections]' passed (0.007 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreReopensWithIdempotentMigration]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreReopensWithIdempotentMigration]' passed (0.007 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreUpdatesUnansweredReflectionAnswers]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testSQLiteStoreUpdatesUnansweredReflectionAnswers]' passed (0.007 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testTargetRuleJSONRoundTripWithNilOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testTargetRuleJSONRoundTripWithNilOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testTargetRuleJSONRoundTripWithPopulatedOptionals]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testTargetRuleJSONRoundTripWithPopulatedOptionals]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testWidgetSnapshotJSONRoundTrip]' started.
+Test Case '-[DopaBreakCoreTests.DopaBreakCoreTests testWidgetSnapshotJSONRoundTrip]' passed (0.000 seconds).
+Test Suite 'DopaBreakCoreTests' passed at 2026-07-09 09:32:14.764.
+	 Executed 31 tests, with 0 failures (0 unexpected) in 0.072 (0.073) seconds
+Test Suite 'EntitlementGateTests' started at 2026-07-09 09:32:14.764.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeGateValues]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeGateValues]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeGoalLimitBoundaries]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeGoalLimitBoundaries]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeRuleLimitBoundaries]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeRuleLimitBoundaries]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeTargetTokenLimitBoundaries]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeTargetTokenLimitBoundaries]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeThemeGateAllowsOnlyE1]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testFreeThemeGateAllowsOnlyE1]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testInitFromIsProMapsTier]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testInitFromIsProMapsTier]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProductClassification]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProductClassification]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProductIDsMatchStoreKitCatalog]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProductIDsMatchStoreKitCatalog]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProGateValues]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProGateValues]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProGoalLimitBoundaries]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProGoalLimitBoundaries]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProRuleLimitBoundaries]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProRuleLimitBoundaries]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProTargetTokenLimitBoundaries]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProTargetTokenLimitBoundaries]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProThemeGateAllowsAllThemes]' started.
+Test Case '-[DopaBreakCoreTests.EntitlementGateTests testProThemeGateAllowsAllThemes]' passed (0.000 seconds).
+Test Suite 'EntitlementGateTests' passed at 2026-07-09 09:32:14.765.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'GoalStoreTests' started at 2026-07-09 09:32:14.765.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testDeleteByIDRemovesOnlyRequestedGoal]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testDeleteByIDRemovesOnlyRequestedGoal]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testEmptyTitleFailsValidation]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testEmptyTitleFailsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testLegacyHeroYearFileDecodesHeroFirstThenYear]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testLegacyHeroYearFileDecodesHeroFirstThenYear]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testLockScreenTitleLongerThanSixteenCharactersFailsValidation]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testLockScreenTitleLongerThanSixteenCharactersFailsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testMoveGoalChangesListOrder]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testMoveGoalChangesListOrder]' passed (0.003 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testPersistsAcrossStoreInstances]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testPersistsAcrossStoreInstances]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testSavesFlatGoalListInInsertionOrder]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testSavesFlatGoalListInInsertionOrder]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testTitleLongerThanFortyCharactersFailsValidation]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testTitleLongerThanFortyCharactersFailsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testUpdatesByIdPreservingPositionAndCreatedAt]' started.
+Test Case '-[DopaBreakCoreTests.GoalStoreTests testUpdatesByIdPreservingPositionAndCreatedAt]' passed (0.002 seconds).
+Test Suite 'GoalStoreTests' passed at 2026-07-09 09:32:14.777.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.012 (0.012) seconds
+Test Suite 'InterventionEngineTests' started at 2026-07-09 09:32:14.777.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testAdvanceStepFromIdleThrows]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testAdvanceStepFromIdleThrows]' passed (0.006 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testAttemptCount24hCountsPriorSameRuleAttempts]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testAttemptCount24hCountsPriorSameRuleAttempts]' passed (0.009 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testBeginInterventionAllowedFromResolvedSteps]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testBeginInterventionAllowedFromResolvedSteps]' passed (0.017 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testBeginInterventionFromActiveStepThrows]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testBeginInterventionFromActiveStepThrows]' passed (0.006 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testDecodesLegacyStateWithoutIntentField]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testDecodesLegacyStateWithoutIntentField]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testFullHappyPathCancel]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testFullHappyPathCancel]' passed (0.009 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testFullHappyPathOpenExpireReshieldReflectionAnswer]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testFullHappyPathOpenExpireReshieldReflectionAnswer]' passed (0.010 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testIntentPersistsAcrossEngineInstancesForCancel]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testIntentPersistsAcrossEngineInstancesForCancel]' passed (0.008 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testIntentPersistsAcrossEngineInstancesForOpen]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testIntentPersistsAcrossEngineInstancesForOpen]' passed (0.009 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testInterventionEngineErrorDescriptions]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testInterventionEngineErrorDescriptions]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testPendingReflectionNotHiddenByManyOldUnanswered]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testPendingReflectionNotHiddenByManyOldUnanswered]' passed (0.011 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testPendingReflectionWindowBoundary]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testPendingReflectionWindowBoundary]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordCancelAllowedFromIntentSelection]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordCancelAllowedFromIntentSelection]' passed (0.008 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordIntentFromBreathingThrows]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordIntentFromBreathingThrows]' passed (0.006 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordOpenBeforeDecisionThrows]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordOpenBeforeDecisionThrows]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordOpenWithNonPositiveDurationThrows]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testRecordOpenWithNonPositiveDurationThrows]' passed (0.007 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testReflectionSkipWriterThrowsOnMissingDatabase]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testReflectionSkipWriterThrowsOnMissingDatabase]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testResetToIdleClearsContext]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testResetToIdleClearsContext]' passed (0.006 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testSkipDoesNotAffectAlreadyAnsweredReflectionOrThrowOnUnknownId]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testSkipDoesNotAffectAlreadyAnsweredReflectionOrThrowOnUnknownId]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testSkipReflectionExcludesItFromPending]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testSkipReflectionExcludesItFromPending]' passed (0.010 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testStatePersistsAcrossEngineInstances]' started.
+Test Case '-[DopaBreakCoreTests.InterventionEngineTests testStatePersistsAcrossEngineInstances]' passed (0.006 seconds).
+Test Suite 'InterventionEngineTests' passed at 2026-07-09 09:32:14.926.
+	 Executed 21 tests, with 0 failures (0 unexpected) in 0.149 (0.149) seconds
+Test Suite 'InterventionTargetStoreTests' started at 2026-07-09 09:32:14.926.
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testDefaultSelectionIsEmpty]' started.
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testDefaultSelectionIsEmpty]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testDuplicateIDThrowsValidation]' started.
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testDuplicateIDThrowsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testPersistsAcrossInstances]' started.
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testPersistsAcrossInstances]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testSaveLoadAndOrdering]' started.
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testSaveLoadAndOrdering]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testUnknownIDThrowsValidation]' started.
+Test Case '-[DopaBreakCoreTests.InterventionTargetStoreTests testUnknownIDThrowsValidation]' passed (0.000 seconds).
+Test Suite 'InterventionTargetStoreTests' passed at 2026-07-09 09:32:14.928.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'LossEstimatorTests' started at 2026-07-09 09:32:14.928.
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testUnknownBucketThrows]' started.
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testUnknownBucketThrows]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testUsageBucketsMapToDailyMinutes]' started.
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testUsageBucketsMapToDailyMinutes]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testWaveDashAliasesMatchDocumentedBuckets]' started.
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testWaveDashAliasesMatchDocumentedBuckets]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testYearlyDaysExampleMatchesOnboardingSpec]' started.
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testYearlyDaysExampleMatchesOnboardingSpec]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testYearlyDaysFormulaRoundsToNearestDay]' started.
+Test Case '-[DopaBreakCoreTests.LossEstimatorTests testYearlyDaysFormulaRoundsToNearestDay]' passed (0.000 seconds).
+Test Suite 'LossEstimatorTests' passed at 2026-07-09 09:32:14.929.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'RuleStoreTests' started at 2026-07-09 09:32:14.929.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testAllRulesAreSortedByCreatedAtAscending]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testAllRulesAreSortedByCreatedAtAscending]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testCatalogTargetRuleAllowsEmptySelectionData]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testCatalogTargetRuleAllowsEmptySelectionData]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testCatalogTargetRuleReusesExistingCatalogRule]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testCatalogTargetRuleReusesExistingCatalogRule]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testCreatesRuleWithDefaultValues]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testCreatesRuleWithDefaultValues]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testDeleteRule]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testDeleteRule]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEmptyNameFailsValidation]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEmptyNameFailsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEmptySelectionDataFailsValidation]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEmptySelectionDataFailsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEnableAndDisableAdvanceUpdatedAt]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEnableAndDisableAdvanceUpdatedAt]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEnableAndDisableRoundTrip]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEnableAndDisableRoundTrip]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEnabledRulesReturnsOnlyEnabledRules]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testEnabledRulesReturnsOnlyEnabledRules]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testNameLongerThanFortyCharactersFailsValidation]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testNameLongerThanFortyCharactersFailsValidation]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testPersistsAcrossStoreInstances]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testPersistsAcrossStoreInstances]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUnknownIdThrowsValidationForEnableDisableModeScheduleAndDelete]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUnknownIdThrowsValidationForEnableDisableModeScheduleAndDelete]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUnknownIdThrowsValidationForSaveUpdate]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUnknownIdThrowsValidationForSaveUpdate]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUpdateMode]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUpdateMode]' passed (0.001 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUpdateScheduleAndClearSchedule]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUpdateScheduleAndClearSchedule]' passed (0.002 seconds).
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUpdatesExistingRuleAndAdvancesUpdatedAt]' started.
+Test Case '-[DopaBreakCoreTests.RuleStoreTests testUpdatesExistingRuleAndAdvancesUpdatedAt]' passed (0.001 seconds).
+Test Suite 'RuleStoreTests' passed at 2026-07-09 09:32:14.946.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.017 (0.017) seconds
+Test Suite 'SNSAppCatalogTests' started at 2026-07-09 09:32:14.946.
+Test Case '-[DopaBreakCoreTests.SNSAppCatalogTests testCatalogMatchesApprovedMVPOrder]' started.
+Test Case '-[DopaBreakCoreTests.SNSAppCatalogTests testCatalogMatchesApprovedMVPOrder]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.SNSAppCatalogTests testLookupReturnsDisplayNameAndURLScheme]' started.
+Test Case '-[DopaBreakCoreTests.SNSAppCatalogTests testLookupReturnsDisplayNameAndURLScheme]' passed (0.000 seconds).
+Test Case '-[DopaBreakCoreTests.SNSAppCatalogTests testUnknownLookupReturnsNil]' started.
+Test Case '-[DopaBreakCoreTests.SNSAppCatalogTests testUnknownLookupReturnsNil]' passed (0.000 seconds).
+Test Suite 'SNSAppCatalogTests' passed at 2026-07-09 09:32:14.946.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'StatsServiceTests' started at 2026-07-09 09:32:14.946.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testAppRuleBreakdownCountsPerRule]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testAppRuleBreakdownCountsPerRule]' passed (0.006 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testAttemptsTodayAndCancelledTodayRespectUTCDayBoundary]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testAttemptsTodayAndCancelledTodayRespectUTCDayBoundary]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testHappinessDeltaBreakdownCountsAnsweredOnly]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testHappinessDeltaBreakdownCountsAnsweredOnly]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testIntentBreakdownCountsNonNilIntents]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testIntentBreakdownCountsNonNilIntents]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testReflectionBreakdownCountsAnsweredOnly]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testReflectionBreakdownCountsAnsweredOnly]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWastedTimeRealizationRate]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWastedTimeRealizationRate]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWastedTimeRealizationRateZeroWhenNoAnsweredReflections]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWastedTimeRealizationRateZeroWhenNoAnsweredReflections]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWeeklySummaryTotalsAndPerDay]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWeeklySummaryTotalsAndPerDay]' passed (0.005 seconds).
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWeeklySummaryZeroStateHasSevenEmptyDays]' started.
+Test Case '-[DopaBreakCoreTests.StatsServiceTests testWeeklySummaryZeroStateHasSevenEmptyDays]' passed (0.005 seconds).
+Test Suite 'StatsServiceTests' passed at 2026-07-09 09:32:14.994.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.048 (0.048) seconds
+Test Suite 'DopaBreakCorePackageTests.xctest' passed at 2026-07-09 09:32:14.994.
+	 Executed 124 tests, with 0 failures (0 unexpected) in 0.302 (0.304) seconds
+Test Suite 'All tests' passed at 2026-07-09 09:32:14.994.
+	 Executed 124 tests, with 0 failures (0 unexpected) in 0.302 (0.305) seconds
+◇ Test run started.
+↳ Testing Library Version: 102 (arm64e-apple-macos13.0)
+✔ Test run with 0 tests passed after 0.001 seconds.
+
+codex
+検証は通りました。最後に修正後の該当箇所の行番号を確認して、報告用に変更点を整理します。
+exec
+/bin/zsh -lc "nl -ba ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift | sed -n '35,65p'" in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+    35	            return .sleep
+    36	        }
+    37	
+    38	        return .normal
+    39	    }
+    40	
+    41	    private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+    42	        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+    43	    }
+    44	
+    45	    private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+    46	        guard lengthMinutes > 0 else {
+    47	            return false
+    48	        }
+    49	        if lengthMinutes >= minutesPerDay {
+    50	            return true
+    51	        }
+    52	
+    53	        let normalizedStart = normalizedMinutes(start)
+    54	        let elapsed = normalizedMinutes(nowMinutes - normalizedStart)
+    55	        return elapsed < lengthMinutes
+    56	    }
+    57	
+    58	    private static func normalizedMinutes(_ value: Int) -> Int {
+    59	        ((value % minutesPerDay) + minutesPerDay) % minutesPerDay
+    60	    }
+    61	}
+
+exec
+/bin/zsh -lc "nl -ba ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift | sed -n '30,55p'" in /Users/solotech/Desktop/test-project
+ succeeded in 0ms:
+    30	    func testSleepWindowIncludesStart() {
+    31	        XCTAssertEqual(resolve(nowMinutes: 1_320, wakeMinutes: nil, bedMinutes: 1_380), .sleep)
+    32	    }
+    33	
+    34	    func testSleepWindowExcludesEnd() {
+    35	        XCTAssertEqual(resolve(nowMinutes: 1_380, wakeMinutes: nil, bedMinutes: 1_380), .normal)
+    36	    }
+    37	
+    38	    func testWakeWindowWrapsAcrossMidnight() {
+    39	        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
+    40	    }
+    41	
+    42	    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
+    43	        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
+    44	    }
+    45	
+    46	    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
+    47	        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
+    48	        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+    49	    }
+    50	
+    51	    func testSleepWindowWrapsAcrossMidnight() {
+    52	        XCTAssertEqual(resolve(nowMinutes: 1_400, wakeMinutes: nil, bedMinutes: 20), .sleep)
+    53	        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: nil, bedMinutes: 20), .sleep)
+    54	    }
+    55	
+
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+diff --git a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+index 4c1a8e471930676144e826f6baed0c119149e87a..f168273368393a70c47fa68ad249357ac3008906
+--- a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
++++ b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+@@ -36,7 +36,16 @@
+     }
+ 
+     func testWakeWindowWrapsAcrossMidnight() {
+-        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
++    }
++
++    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
++        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
++    }
++
++    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
++        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+     }
+ 
+     func testSleepWindowWrapsAcrossMidnight() {
+
+codex
+修正完了しました。
+
+変更点:
+- [DayTimeContext.swift](/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:41)
+  - `isInWakeWindow` から `carryLength` / `carryStart` の特殊分岐を削除。
+  - 起床窓は `wakeMinutes` 起点の `[wake, wake + 30分)` のみを `isInWindow` で判定する形に修正しました。
+
+- [DayTimeContextTests.swift](/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:38)
+  - 誤っていた深夜またぎテストを `wakeMinutes: 1_430`, `nowMinutes: 10` に差し替え。
+  - `wakeMinutes: 0` で前日 23:50 が `.normal` になる回帰テストを追加。
+  - `wakeMinutes: 0` で 00:29 は `.wake`、00:30 は `.normal` になる境界テストを追加。
+
+検証:
+- `cd ios/Packages/DopaBreakCore && swift test`
+- 結果: 124 tests, 0 failures
+
+なお、`StatsService.swift` の Swift 6 `Sendable` warning は既存の警告で、今回の修正対象外です。
+diff --git a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+index a2bb38e6c4eeb12b1c1893ddeaeddc8332811bb4..e5d721c79902c0baf24d56844d7c013820cd9671
+--- a/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
++++ b/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift
+@@ -39,16 +39,7 @@
+     }
+ 
+     private static func isInWakeWindow(nowMinutes: Int, wakeMinutes: Int) -> Bool {
+-        if isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes) {
+-            return true
+-        }
+-
+-        let carryLength = wakeWindowLengthMinutes - normalizedMinutes(wakeMinutes)
+-        let carryStart = wakeMinutes - carryLength
+-        guard carryLength > 0, carryStart < 0 else {
+-            return false
+-        }
+-        return isInWindow(nowMinutes, start: carryStart, lengthMinutes: carryLength)
++        isInWindow(nowMinutes, start: wakeMinutes, lengthMinutes: wakeWindowLengthMinutes)
+     }
+ 
+     private static func isInWindow(_ nowMinutes: Int, start: Int, lengthMinutes: Int) -> Bool {
+diff --git a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+index 4c1a8e471930676144e826f6baed0c119149e87a..f168273368393a70c47fa68ad249357ac3008906
+--- a/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
++++ b/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift
+@@ -36,7 +36,16 @@
+     }
+ 
+     func testWakeWindowWrapsAcrossMidnight() {
+-        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 10, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 10, wakeMinutes: 1_430, bedMinutes: nil), .wake)
++    }
++
++    func testWakeWindowAtMidnightDoesNotIncludePreviousDay() {
++        XCTAssertEqual(resolve(nowMinutes: 1_430, wakeMinutes: 0, bedMinutes: nil), .normal)
++    }
++
++    func testWakeWindowAtMidnightUsesThirtyMinuteHalfOpenRange() {
++        XCTAssertEqual(resolve(nowMinutes: 29, wakeMinutes: 0, bedMinutes: nil), .wake)
++        XCTAssertEqual(resolve(nowMinutes: 30, wakeMinutes: 0, bedMinutes: nil), .normal)
+     }
+ 
+     func testSleepWindowWrapsAcrossMidnight() {
+
+tokens used
+36,084
+修正完了しました。
+
+変更点:
+- [DayTimeContext.swift](/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/DayTimeContext.swift:41)
+  - `isInWakeWindow` から `carryLength` / `carryStart` の特殊分岐を削除。
+  - 起床窓は `wakeMinutes` 起点の `[wake, wake + 30分)` のみを `isInWindow` で判定する形に修正しました。
+
+- [DayTimeContextTests.swift](/Users/solotech/Desktop/test-project/ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DayTimeContextTests.swift:38)
+  - 誤っていた深夜またぎテストを `wakeMinutes: 1_430`, `nowMinutes: 10` に差し替え。
+  - `wakeMinutes: 0` で前日 23:50 が `.normal` になる回帰テストを追加。
+  - `wakeMinutes: 0` で 00:29 は `.wake`、00:30 は `.normal` になる境界テストを追加。
+
+検証:
+- `cd ios/Packages/DopaBreakCore && swift test`
+- 結果: 124 tests, 0 failures
+
+なお、`StatsService.swift` の Swift 6 `Sendable` warning は既存の警告で、今回の修正対象外です。

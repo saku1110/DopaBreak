@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=402, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<title>F1 墨と灯 - Post-Use Reflection (S-07)</title>
+<style>
+:root{
+  --bg:#0F0D0A;
+  --bg2:#161209;
+  --card:#1A1610;
+  --ink:#F2EAD9;
+  --muted:#9C8E7D;
+  --line:rgba(242,234,217,.10);
+  --accent:#E4A14E;
+  --accent-dim:rgba(228,161,78,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
+html,body{width:402px;height:874px;overflow:hidden;}
+body{background:linear-gradient(180deg,#12100C 0%,#0F0D0A 40%,#0C0A08 100%);color:var(--ink);font-family:'Zen Kaku Gothic New',sans-serif;}
+.screen{width:402px;height:874px;padding:0 28px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+.status{height:54px;display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:6px;font-family:'Space Grotesk';font-weight:600;font-size:15px;letter-spacing:.02em;flex:0 0 54px;}
+.status .r{display:flex;gap:6px;align-items:center;}
+.home{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;width:134px;height:5px;border-radius:3px;background:rgba(242,234,217,.28);z-index:3;}
+.tag{font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.4em;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:12px;}
+.tag::after{content:"";height:1px;flex:1;background:var(--line);}
+.page{flex:1;display:flex;flex-direction:column;padding-top:22px;}
+.title{font-family:'Shippori Mincho B1',serif;font-size:33px;line-height:1.42;font-weight:700;letter-spacing:.04em;margin-top:18px;}
+.session{margin-top:14px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.02em;}
+.session b{font-family:'Space Grotesk';color:var(--ink);font-weight:600;}
+.choice-list{display:flex;flex-direction:column;margin-top:22px;border-top:1px solid var(--line);}
+.choice{height:56px;padding:0 4px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);font-size:15.5px;font-weight:500;color:var(--ink);letter-spacing:.03em;}
+.choice .mark{width:20px;height:20px;border-radius:50%;border:1px solid rgba(242,234,217,.22);}
+.choice.selected{color:var(--accent);font-weight:700;padding-left:14px;position:relative;background:linear-gradient(90deg,var(--accent-dim),transparent 70%);}
+.choice.selected::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;background:var(--accent);}
+.choice.selected .mark{border-color:var(--accent);background:var(--accent);box-shadow:0 0 14px rgba(228,161,78,.45);}
+.q2-label{margin-top:26px;font-family:'JetBrains Mono';font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted);}
+.q2{margin-top:8px;font-family:'Shippori Mincho B1',serif;font-size:19px;font-weight:700;letter-spacing:.04em;}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
+.chip{height:46px;border-radius:4px;border:1px solid var(--line);background:transparent;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:var(--muted);letter-spacing:.06em;}
+.chip.selected{border-color:rgba(228,161,78,.6);background:var(--accent-dim);color:var(--accent);font-weight:700;}
+.bottom-actions{margin-top:auto;padding-bottom:36px;}
+.btn{height:56px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;letter-spacing:.2em;}
+.btn.primary{background:var(--accent);color:#14100A;}
+.link-ghost{margin-top:14px;text-align:center;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.08em;}
+</style>
+</head>
+<body>
+<div class="screen">
+<div class="status">
+  <span>22:47</span>
+  <span class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></g></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="none" aria-hidden="true"><path d="M8.5 10.5a1.4 1.4 0 100 .01M3 6.2a8 8 0 0111 0M.7 3.4a12 12 0 0115.6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <svg width="26" height="13" viewBox="0 0 26 13" aria-hidden="true"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".5"/><rect x="3" y="3" width="16" height="7" rx="1.5" fill="currentColor"/><rect x="23.5" y="4.5" width="1.6" height="4" rx="1" fill="currentColor" fill-opacity=".5"/></svg>
+  </span>
+</div>
+<main class="page">
+  <div class="tag">Reflection</div>
+  <h1 class="title">SNSを見て<br>どうだった</h1>
+  <div class="session">Instagram · <b>5分</b> の利用が終わりました</div>
+  <div class="choice-list">
+    <div class="choice"><span>満足感があった</span><span class="mark"></span></div>
+    <div class="choice"><span>楽しかった</span><span class="mark"></span></div>
+    <div class="choice selected"><span>何も得られなかった</span><span class="mark"></span></div>
+    <div class="choice"><span>時間を失った感じがする</span><span class="mark"></span></div>
+    <div class="choice"><span>気分が下がった</span><span class="mark"></span></div>
+  </div>
+  <div class="q2-label">Happiness / Focus</div>
+  <div class="q2">幸福感や集中は増えた？</div>
+  <div class="chips">
+    <div class="chip">増えた</div>
+    <div class="chip selected">変わらない</div>
+    <div class="chip">減った</div>
+  </div>
+  <div class="bottom-actions">
+    <div class="btn primary">記録する</div>
+    <div class="link-ghost">今回はスキップ</div>
+  </div>
+</main>
+<div class="home"></div></div>
+</body>
+</html>

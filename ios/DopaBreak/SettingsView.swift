@@ -1,0 +1,798 @@
+import DopaBreakCore
+import FamilyControls
+import SwiftUI
+import UIKit
+
+struct SettingsView: View {
+    let model: AppModel
+    let settingsStore: SettingsStore
+    let onResetOnboarding: () -> Void
+
+    @State private var rules: [TargetRule] = []
+    @State private var selectedMode: InterventionMode = .standard
+    @State private var activitySelection = FamilyActivitySelection()
+    @State private var isAuthorizationSheetPresented = false
+    @State private var isFamilyActivityPickerPresented = false
+    @State private var authorizationWasDenied = false
+    @State private var isRequestingAuthorization = false
+    @State private var shouldOpenPickerAfterAuthorization = false
+    @State private var isPaywallPresented = false
+    @State private var isTargetPickerPresented = false
+    @State private var isAutomationGuidePresented = false
+    @State private var morningNotificationEnabled = true
+    @State private var weeklyReportNotificationEnabled = true
+    @State private var liveActivityEnabled = true
+    @State private var selectedLockTheme: LockTheme = .e1
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
+                ScreenHeader(eyebrow: "SETTINGS", title: "設定")
+                    .padding(.top, 18)
+
+                targetSection
+
+                wakeSleepSection
+
+                lockSurfaceSection
+
+                accountSection
+
+                appSection
+
+                Text("SNSなどのアプリを止める機能は、iPhone実機でのみ動作します。")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .padding(.horizontal, 4)
+            }
+            .padding(.horizontal, DesignTokens.horizontalPadding)
+            .padding(.bottom, 24)
+        }
+        .dopaScreenBackground()
+        .onAppear {
+            refreshSettingsState()
+        }
+        .sheet(isPresented: $isAuthorizationSheetPresented) {
+            authorizationSheet
+        }
+        .familyActivityPicker(
+            isPresented: $isFamilyActivityPickerPresented,
+            selection: $activitySelection
+        )
+        .fullScreenCover(isPresented: $isPaywallPresented) {
+            PaywallView(storeService: model.storeService)
+        }
+        .sheet(isPresented: $isTargetPickerPresented) {
+            TargetAppPickerSheet(model: model) {
+                isPaywallPresented = true
+            }
+        }
+        .sheet(isPresented: $isAutomationGuidePresented) {
+            AutomationGuideView(model: model, settingsStore: settingsStore)
+        }
+        .onChange(of: isAuthorizationSheetPresented) { oldValue, newValue in
+            guard oldValue, !newValue else {
+                return
+            }
+            defer { shouldOpenPickerAfterAuthorization = false }
+            if shouldOpenPickerAfterAuthorization, model.screenTime.isAuthorized {
+                presentFamilyActivityPicker()
+            }
+        }
+        .onChange(of: isFamilyActivityPickerPresented) { oldValue, newValue in
+            guard oldValue, !newValue else {
+                return
+            }
+            saveActivitySelection()
+        }
+    }
+
+    private var targetSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(text: "対象")
+
+            CardContainer {
+                VStack(spacing: 0) {
+                    Button {
+                        isTargetPickerPresented = true
+                    } label: {
+                        settingsRow(label: "止めるアプリ", value: targetAppsSummary)
+                    }
+                    .buttonStyle(.plain)
+
+                    divider
+                    breathDurationRow
+
+                    divider
+                    Button {
+                        isAutomationGuidePresented = true
+                    } label: {
+                        settingsRow(label: "自動で一呼吸を出す設定", value: "")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var wakeSleepSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(text: "起床・就寝時刻")
+
+            CardContainer {
+                VStack(spacing: 0) {
+                    timePickerRow(label: "起床時刻", selection: wakeTimeBinding)
+
+                    divider
+                    timePickerRow(label: "就寝時刻", selection: bedTimeBinding)
+                }
+            }
+        }
+    }
+
+    private var lockSurfaceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(text: "ロック画面の表示")
+
+            CardContainer {
+                VStack(spacing: 0) {
+                    toggleRow(label: "朝の目標通知", isOn: morningNotificationBinding)
+
+                    divider
+                    timePickerRow(label: "通知時刻", selection: morningNotificationTimeBinding)
+                        .disabled(!morningNotificationEnabled)
+                        .opacity(morningNotificationEnabled ? 1 : 0.45)
+
+                    divider
+                    toggleRow(label: "週次レポート通知", isOn: weeklyReportNotificationBinding)
+
+                    divider
+                    toggleRow(label: "Live Activity", isOn: liveActivityBinding)
+
+                    divider
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("テーマ")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(DesignTokens.primaryText)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(LockTheme.allCases, id: \.self) { theme in
+                                    themeChip(theme)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 14)
+                }
+            }
+        }
+    }
+
+    private func themeChip(_ theme: LockTheme) -> some View {
+        let isSelected = selectedLockTheme == theme
+        let isAllowed = model.entitlementGate.lockThemeAllowed(theme)
+        let palette = theme.palette
+
+        return Button {
+            guard isAllowed else {
+                isPaywallPresented = true
+                return
+            }
+            selectedLockTheme = theme
+            settingsStore.lockTheme = theme
+            model.refreshLockSurfaces()
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color(lockThemeColor: palette.accent))
+                    .frame(width: 8, height: 8)
+                Text(theme.displayName)
+                    .font(.system(size: 13, weight: .bold))
+                if theme != .e1 {
+                    Text("Pro")
+                        .font(.system(size: 9, weight: .black))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color(lockThemeColor: palette.accent).opacity(0.18))
+                        .clipShape(Capsule())
+                }
+            }
+            .foregroundStyle(isSelected ? DesignTokens.background : DesignTokens.primaryText)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 38)
+            .background(isSelected ? DesignTokens.accent : DesignTokens.backgroundRaised)
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
+            )
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleRow(label: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(label)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DesignTokens.primaryText)
+        }
+        .tint(DesignTokens.accent)
+        .padding(.vertical, 14)
+    }
+
+    // MVP: スクリーンタイム許可・完全ブロック（FamilyActivityPicker）・止める強さの行はUI非表示。
+    // 実装コードは温存（screenTimeRow / modePickerRow / ruleEnabledBinding / familyActivityPicker配線 等）。
+    // v1.1のdeepFocus/nightOnly再配線時に再利用する（docs/12 §5）。
+
+    private var targetAppsSummary: String {
+        let ids = (try? model.targetStore.selectedCatalogIDs()) ?? []
+        guard !ids.isEmpty else {
+            return "未設定"
+        }
+        let names = ids.compactMap { SNSAppCatalog.app(catalogID: $0)?.displayName }
+        return names.joined(separator: "・")
+    }
+
+    private var breathDurationRow: some View {
+        HStack(spacing: 12) {
+            Text("一呼吸の長さ")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DesignTokens.primaryText)
+
+            Spacer()
+
+            Picker("一呼吸の長さ", selection: breathDurationBinding) {
+                Text("3秒").tag(3)
+                Text("5秒").tag(5)
+                Text("8秒").tag(8)
+            }
+            .pickerStyle(.menu)
+            .tint(DesignTokens.secondaryText)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var breathDurationBinding: Binding<Int> {
+        Binding(
+            get: { settingsStore.breathDurationSeconds },
+            set: { settingsStore.breathDurationSeconds = $0 }
+        )
+    }
+
+    private func timePickerRow(label: String, selection: Binding<Date>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DesignTokens.primaryText)
+
+            Spacer()
+
+            DatePicker(label, selection: selection, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(DesignTokens.secondaryText)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var wakeTimeBinding: Binding<Date> {
+        Binding(
+            get: { dateForTime(minutes: settingsStore.wakeTimeMinutes, defaultMinutes: 420) },
+            set: { settingsStore.wakeTimeMinutes = minutes(from: $0) }
+        )
+    }
+
+    private var bedTimeBinding: Binding<Date> {
+        Binding(
+            get: { dateForTime(minutes: settingsStore.bedTimeMinutes, defaultMinutes: 1_380) },
+            set: { settingsStore.bedTimeMinutes = minutes(from: $0) }
+        )
+    }
+
+    private var morningNotificationBinding: Binding<Bool> {
+        Binding(
+            get: { morningNotificationEnabled },
+            set: { value in
+                morningNotificationEnabled = value
+                settingsStore.morningNotificationEnabled = value
+                model.refreshLockSurfaces()
+            }
+        )
+    }
+
+    private var morningNotificationTimeBinding: Binding<Date> {
+        Binding(
+            get: { dateForTime(minutes: settingsStore.morningNotificationMinutes, defaultMinutes: 420) },
+            set: { date in
+                settingsStore.morningNotificationMinutes = minutes(from: date)
+                model.refreshLockSurfaces()
+            }
+        )
+    }
+
+    private var weeklyReportNotificationBinding: Binding<Bool> {
+        Binding(
+            get: { weeklyReportNotificationEnabled },
+            set: { value in
+                weeklyReportNotificationEnabled = value
+                settingsStore.weeklyReportNotificationEnabled = value
+                model.refreshLockSurfaces()
+            }
+        )
+    }
+
+    private var liveActivityBinding: Binding<Bool> {
+        Binding(
+            get: { liveActivityEnabled },
+            set: { value in
+                liveActivityEnabled = value
+                settingsStore.liveActivityEnabled = value
+                model.refreshLockSurfaces(restartLiveActivity: value)
+            }
+        )
+    }
+
+    private func dateForTime(minutes: Int?, defaultMinutes: Int) -> Date {
+        let calendar = Calendar.current
+        let normalized = normalizedMinutes(minutes ?? defaultMinutes)
+        let startOfDay = calendar.startOfDay(for: Date())
+        return calendar.date(byAdding: .minute, value: normalized, to: startOfDay) ?? Date()
+    }
+
+    private func minutes(from date: Date) -> Int {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return ((components.hour ?? 0) * 60) + (components.minute ?? 0)
+    }
+
+    private func normalizedMinutes(_ value: Int) -> Int {
+        ((value % 1_440) + 1_440) % 1_440
+    }
+
+    private var appSection: some View {
+        CardContainer {
+            VStack(spacing: 0) {
+                settingsRow(label: "バージョン", value: versionText)
+                #if DEBUG
+                divider
+                Button {
+                    onResetOnboarding()
+                } label: {
+                    settingsRow(label: "オンボーディングをもう一度見る", value: "")
+                }
+                .buttonStyle(.plain)
+                divider
+                Button {
+                    copyFunnelEvents()
+                } label: {
+                    settingsRow(label: "イベントログをコピー", value: "")
+                }
+                .buttonStyle(.plain)
+                #endif
+            }
+        }
+    }
+
+    #if DEBUG
+    private func copyFunnelEvents() {
+        guard let events = try? model.funnelEventStore.allEvents(),
+              let data = try? JSONEncoder().encode(events),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+        UIPasteboard.general.string = json
+    }
+    #endif
+
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(text: "アカウント/課金")
+
+            CardContainer {
+                VStack(spacing: 0) {
+                    if model.storeService.isPro {
+                        settingsRow(label: "Pro状態", value: "Pro")
+                    } else {
+                        Button {
+                            isPaywallPresented = true
+                        } label: {
+                            settingsRow(label: "Pro状態", value: "Free")
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    divider
+
+                    Button {
+                        Task {
+                            await model.restorePurchases()
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text("購入を復元")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(DesignTokens.primaryText)
+
+                            Spacer()
+
+                            if model.storeService.isRestoring {
+                                ProgressView()
+                                    .tint(DesignTokens.secondaryText)
+                            }
+                        }
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model.storeService.isRestoring)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var screenTimeRow: some View {
+        if model.screenTime.isAuthorized {
+            settingsRow(label: "スクリーンタイム", value: "許可済み")
+        } else {
+            Button {
+                shouldOpenPickerAfterAuthorization = false
+                authorizationWasDenied = false
+                isAuthorizationSheetPresented = true
+            } label: {
+                settingsRow(label: "スクリーンタイム", value: "未許可")
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var modePickerRow: some View {
+        HStack(spacing: 12) {
+            Text("止める強さ")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DesignTokens.primaryText)
+
+            Spacer()
+
+            Picker("止める強さ", selection: modeBinding) {
+                ForEach(InterventionMode.allCases, id: \.self) { mode in
+                    Text(mode.displayTitle).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(DesignTokens.secondaryText)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var authorizationSheet: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("SNSの前で止める許可")
+                .font(.system(size: 28, weight: .black))
+                .foregroundStyle(DesignTokens.primaryText)
+
+            Text(authorizationSheetBody)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DesignTokens.secondaryText)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button("許可する") {
+                Task {
+                    await requestScreenTimeAuthorization()
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle(isEnabled: !isRequestingAuthorization))
+            .disabled(isRequestingAuthorization)
+
+            Spacer()
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.background)
+        .presentationDetents([.medium])
+        .preferredColorScheme(.dark)
+    }
+
+    private var authorizationSheetBody: String {
+        if authorizationWasDenied {
+            return "許可がないため、SNSを開く前の確認はまだ使えません。設定からいつでも有効にできます。"
+        }
+        return "選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。"
+    }
+
+    private func settingsRow(label: String, value: String) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DesignTokens.primaryText)
+
+            Spacer()
+
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DesignTokens.secondaryText)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(DesignTokens.hairline)
+            .frame(height: 1)
+    }
+
+    private var primaryRule: TargetRule? {
+        rules.first
+    }
+
+    private var appSelectionSummary: String {
+        guard let primaryRule else {
+            return "未設定"
+        }
+
+        let counts = selectionCounts(for: primaryRule)
+        var summaries: [String] = []
+        if counts.applications > 0 {
+            summaries.append("アプリ\(counts.applications)個")
+        }
+        if counts.categories > 0 {
+            summaries.append("カテゴリ\(counts.categories)個")
+        }
+        if counts.webDomains > 0 {
+            summaries.append("Webサイト\(counts.webDomains)個")
+        }
+        return summaries.isEmpty ? "未設定" : summaries.joined(separator: "・")
+    }
+
+    private var ruleEnabledBinding: Binding<Bool> {
+        Binding(
+            get: {
+                primaryRule?.isEnabled ?? false
+            },
+            set: { isEnabled in
+                setRuleEnabled(isEnabled)
+            }
+        )
+    }
+
+    private var modeBinding: Binding<InterventionMode> {
+        Binding(
+            get: {
+                selectedMode
+            },
+            set: { mode in
+                setSelectedMode(mode)
+            }
+        )
+    }
+
+    private func refreshSettingsState() {
+        if settingsStore.wakeTimeMinutes == nil {
+            settingsStore.wakeTimeMinutes = 420
+        }
+        if settingsStore.bedTimeMinutes == nil {
+            settingsStore.bedTimeMinutes = 1_380
+        }
+        morningNotificationEnabled = settingsStore.morningNotificationEnabled
+        weeklyReportNotificationEnabled = settingsStore.weeklyReportNotificationEnabled
+        liveActivityEnabled = settingsStore.liveActivityEnabled
+        selectedLockTheme = model.lockSurfaceState.theme
+
+        model.screenTime.refresh()
+        do {
+            rules = try model.ruleStore.allRules()
+            selectedMode = modeAllowedForCurrentEntitlement(primaryRule?.mode ?? pendingMode)
+        } catch {
+            rules = []
+            selectedMode = modeAllowedForCurrentEntitlement(pendingMode)
+            model.alertMessage = "データを読み込めませんでした"
+        }
+    }
+
+    private func handleAppSelectionTap() {
+        if model.screenTime.isAuthorized {
+            presentFamilyActivityPicker()
+        } else {
+            shouldOpenPickerAfterAuthorization = true
+            authorizationWasDenied = false
+            isAuthorizationSheetPresented = true
+        }
+    }
+
+    private func presentFamilyActivityPicker() {
+        activitySelection = currentActivitySelection()
+        isFamilyActivityPickerPresented = true
+    }
+
+    @MainActor
+    private func requestScreenTimeAuthorization() async {
+        guard !isRequestingAuthorization else {
+            return
+        }
+
+        isRequestingAuthorization = true
+        defer { isRequestingAuthorization = false }
+
+        let granted = await model.screenTime.requestAuthorization()
+        if granted {
+            model.syncShield()
+            isAuthorizationSheetPresented = false
+        } else {
+            authorizationWasDenied = true
+        }
+    }
+
+    private func saveActivitySelection() {
+        let isSelectionEmpty = activitySelection.applicationTokens.isEmpty
+            && activitySelection.categoryTokens.isEmpty
+            && activitySelection.webDomainTokens.isEmpty
+
+        if shouldShowPaywallForSelectedTargets(isSelectionEmpty: isSelectionEmpty) {
+            activitySelection = currentActivitySelection()
+            isPaywallPresented = true
+            return
+        }
+
+        do {
+            if let rule = primaryRule {
+                if isSelectionEmpty {
+                    settingsStore.pendingInterventionMode = modeAllowedForCurrentEntitlement(selectedMode).rawValue
+                    try model.ruleStore.deleteRule(id: rule.id)
+                } else {
+                    let mode = modeAllowedForCurrentEntitlement(selectedMode)
+                    let data = try JSONEncoder().encode(activitySelection)
+                    try model.ruleStore.saveFamilyActivitySelection(
+                        data,
+                        name: rule.name,
+                        mode: mode,
+                        defaultDurationMinutes: rule.defaultDurationMinutes,
+                        ruleId: rule.id
+                    )
+                }
+            } else if !isSelectionEmpty {
+                let mode = modeAllowedForCurrentEntitlement(pendingMode)
+                settingsStore.pendingInterventionMode = mode.rawValue
+                let data = try JSONEncoder().encode(activitySelection)
+                try model.ruleStore.saveFamilyActivitySelection(
+                    data,
+                    name: "SNS",
+                    mode: mode
+                )
+                selectedMode = mode
+            }
+
+            refreshSettingsState()
+            model.syncShield()
+        } catch CoreError.validation(let message) {
+            model.alertMessage = message
+        } catch {
+            model.alertMessage = "データを保存できませんでした"
+        }
+    }
+
+    private func shouldShowPaywallForSelectedTargets(isSelectionEmpty: Bool) -> Bool {
+        let gate = model.entitlementGate
+
+        if !isSelectionEmpty,
+           primaryRule == nil,
+           !gate.canAddRule(currentCount: rules.count) {
+            return true
+        }
+
+        if let limit = gate.targetAppTokensLimit,
+           selectedTargetTokenCount(activitySelection) > limit {
+            return true
+        }
+
+        return false
+    }
+
+    private func setRuleEnabled(_ isEnabled: Bool) {
+        guard let rule = primaryRule else {
+            return
+        }
+
+        do {
+            if isEnabled {
+                if rule.mode == .deepFocus, !model.entitlementGate.strictModeAllowed {
+                    try model.ruleStore.updateMode(id: rule.id, mode: .standard)
+                    selectedMode = .standard
+                }
+                try model.ruleStore.enableRule(id: rule.id)
+            } else {
+                try model.ruleStore.disableRule(id: rule.id)
+            }
+            refreshSettingsState()
+            model.syncShield()
+        } catch CoreError.validation(let message) {
+            model.alertMessage = message
+        } catch {
+            model.alertMessage = "データを保存できませんでした"
+        }
+    }
+
+    private func setSelectedMode(_ mode: InterventionMode) {
+        guard modeAllowedForCurrentEntitlement(mode) == mode else {
+            isPaywallPresented = true
+            selectedMode = modeAllowedForCurrentEntitlement(primaryRule?.mode ?? pendingMode)
+            return
+        }
+
+        selectedMode = mode
+
+        guard let rule = primaryRule else {
+            settingsStore.pendingInterventionMode = mode.rawValue
+            return
+        }
+
+        do {
+            try model.ruleStore.updateMode(id: rule.id, mode: mode)
+            refreshSettingsState()
+        } catch CoreError.validation(let message) {
+            model.alertMessage = message
+        } catch {
+            model.alertMessage = "データを保存できませんでした"
+        }
+    }
+
+    private func modeAllowedForCurrentEntitlement(_ mode: InterventionMode) -> InterventionMode {
+        if mode == .deepFocus, !model.entitlementGate.strictModeAllowed {
+            return .standard
+        }
+        return mode
+    }
+
+    private func currentActivitySelection() -> FamilyActivitySelection {
+        guard let rule = primaryRule,
+              let selection = try? JSONDecoder().decode(
+                FamilyActivitySelection.self,
+                from: rule.activitySelectionData
+              ) else {
+            return FamilyActivitySelection()
+        }
+        return selection
+    }
+
+    private func selectionCounts(for rule: TargetRule) -> (applications: Int, categories: Int, webDomains: Int) {
+        guard let selection = try? JSONDecoder().decode(
+            FamilyActivitySelection.self,
+            from: rule.activitySelectionData
+        ) else {
+            return (0, 0, 0)
+        }
+        return (
+            selection.applicationTokens.count,
+            selection.categoryTokens.count,
+            selection.webDomainTokens.count
+        )
+    }
+
+    private func selectedTargetTokenCount(_ selection: FamilyActivitySelection) -> Int {
+        selection.applicationTokens.count
+            + selection.categoryTokens.count
+            + selection.webDomainTokens.count
+    }
+
+    private var pendingMode: InterventionMode {
+        guard let rawValue = settingsStore.pendingInterventionMode,
+              let mode = InterventionMode(rawValue: rawValue) else {
+            return .standard
+        }
+        return mode
+    }
+
+    private var versionText: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+
+        switch (shortVersion, build) {
+        case let (shortVersion?, build?):
+            return "\(shortVersion) (\(build))"
+        case let (shortVersion?, nil):
+            return shortVersion
+        default:
+            return "1.0"
+        }
+    }
+}

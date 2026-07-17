@@ -1,0 +1,151 @@
+import DopaBreakCore
+import SwiftUI
+
+/// `.sheet(item:)` で使うための Identifiable 準拠（Core側の型定義は変更しない）。
+extension ReflectionLog: @retroactive Identifiable {}
+
+/// 見たあとの振り返り（doc11 §7 振り返り）。アプリがアクティブになった際、
+/// engine.pendingReflection() が対象を返したら表示する。
+struct PostUseReflectionSheet: View {
+    let engine: InterventionEngine
+    let reflection: ReflectionLog
+    let onFinished: () -> Void
+
+    @State private var satisfaction: PostUseSatisfaction?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                SmallLabel(text: "REFLECTION")
+
+                if let satisfaction {
+                    happinessStep(satisfaction: satisfaction)
+                } else {
+                    satisfactionStep
+                }
+
+                Button("今回はスキップ") {
+                    skip()
+                }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(DesignTokens.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(DesignTokens.background)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+        .preferredColorScheme(.dark)
+        .animation(.easeInOut(duration: 0.2), value: satisfaction)
+    }
+
+    private var satisfactionStep: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("SNSを見て\nどうだった？")
+                .font(.system(size: 34, weight: .black))
+                .foregroundStyle(DesignTokens.primaryText)
+                .tracking(-0.8)
+
+            Text("必要な時間を使い終えました。次の選択のために記録します。")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(DesignTokens.secondaryText)
+
+            VStack(spacing: 10) {
+                choiceButton(PostUseSatisfaction.satisfied.displayTitle) { satisfaction = .satisfied }
+                choiceButton(PostUseSatisfaction.fun.displayTitle) { satisfaction = .fun }
+                choiceButton(PostUseSatisfaction.nothingGained.displayTitle) { satisfaction = .nothingGained }
+                choiceButton(PostUseSatisfaction.lostTime.displayTitle) { satisfaction = .lostTime }
+                choiceButton(PostUseSatisfaction.feltWorse.displayTitle) { satisfaction = .feltWorse }
+            }
+        }
+    }
+
+    private func happinessStep(satisfaction: PostUseSatisfaction) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            CardContainer {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(DesignTokens.accent)
+                    Text(satisfaction.displayTitle)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(DesignTokens.primaryText)
+                }
+            }
+
+            Text("幸福感や集中は\n増えた？")
+                .font(.system(size: 32, weight: .black))
+                .foregroundStyle(DesignTokens.primaryText)
+
+            VStack(spacing: 10) {
+                choiceButton(HappinessDelta.increased.displayTitle) {
+                    finish(satisfaction: satisfaction, happinessDelta: .increased)
+                }
+                choiceButton(HappinessDelta.unchanged.displayTitle) {
+                    finish(satisfaction: satisfaction, happinessDelta: .unchanged)
+                }
+                choiceButton(HappinessDelta.decreased.displayTitle) {
+                    finish(satisfaction: satisfaction, happinessDelta: .decreased)
+                }
+            }
+        }
+    }
+
+    private func choiceButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(DesignTokens.primaryText)
+                Spacer()
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(DesignTokens.card)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(DesignTokens.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func finish(satisfaction: PostUseSatisfaction, happinessDelta: HappinessDelta) {
+        try? engine.recordPostUseReflection(
+            id: reflection.id,
+            satisfaction: satisfaction,
+            happinessDelta: happinessDelta
+        )
+        onFinished()
+    }
+
+    private func skip() {
+        try? engine.skipReflection(id: reflection.id)
+        onFinished()
+    }
+}
+
+extension PostUseSatisfaction {
+    var displayTitle: String {
+        switch self {
+        case .satisfied: return "満足感があった"
+        case .fun: return "楽しかった"
+        case .nothingGained: return "何も得られなかった"
+        case .lostTime: return "時間を失った"
+        case .feltWorse: return "気分が下がった"
+        }
+    }
+}
+
+extension HappinessDelta {
+    var displayTitle: String {
+        switch self {
+        case .increased: return "上がった"
+        case .unchanged: return "変わらない"
+        case .decreased: return "下がった"
+        }
+    }
+}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=402, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<title>F1 墨と灯 - Home</title>
+<style>
+:root{
+  --bg:#0F0D0A;
+  --card:#1A1610;
+  --ink:#F2EAD9;
+  --muted:#9C8E7D;
+  --line:rgba(242,234,217,.10);
+  --accent:#E4A14E;
+  --accent-dim:rgba(228,161,78,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
+html,body{width:402px;height:874px;overflow:hidden;}
+body{background:linear-gradient(180deg,#12100C 0%,#0F0D0A 40%,#0C0A08 100%);color:var(--ink);font-family:'Zen Kaku Gothic New',sans-serif;}
+.screen{width:402px;height:874px;padding:0 28px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+.status{height:54px;display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:6px;font-family:'Space Grotesk';font-weight:600;font-size:15px;letter-spacing:.02em;flex:0 0 54px;}
+.status .r{display:flex;gap:6px;align-items:center;}
+.home{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;width:134px;height:5px;border-radius:3px;background:rgba(242,234,217,.28);z-index:3;}
+.page{flex:1;display:flex;flex-direction:column;padding-top:16px;padding-bottom:108px;}
+.date{font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.34em;color:var(--muted);text-transform:uppercase;}
+.hero-label{margin-top:26px;font-family:'JetBrains Mono';font-size:10px;letter-spacing:.32em;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:12px;}
+.hero-label::after{content:"";height:1px;flex:1;background:var(--line);}
+.hero-goal{margin-top:16px;font-family:'Shippori Mincho B1',serif;font-size:31px;line-height:1.5;font-weight:700;letter-spacing:.04em;}
+.year-goal{margin-top:12px;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:.04em;}
+.year-goal b{color:var(--ink);font-weight:700;}
+.gate-label{margin-top:32px;font-family:'JetBrains Mono';font-size:10px;letter-spacing:.32em;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:12px;}
+.gate-label::after{content:"";height:1px;flex:1;background:var(--line);}
+.gate-row{display:grid;grid-template-columns:1fr auto;align-items:center;padding:17px 2px;border-bottom:1px solid var(--line);}
+.gate-app{font-size:15px;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:11px;}
+.gate-app .sym{width:30px;height:30px;border-radius:50%;border:1px solid rgba(242,234,217,.2);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-size:13px;font-weight:700;}
+.gate-num{font-family:'Space Grotesk';font-size:15px;color:var(--muted);}
+.gate-num b{color:var(--accent);font-weight:700;font-size:19px;letter-spacing:-.02em;}
+.week{margin-top:26px;}
+.bars{height:86px;display:flex;align-items:end;gap:12px;border-bottom:1px solid var(--line);padding-bottom:0;}
+.bar{flex:1;background:rgba(242,234,217,.12);border-radius:2px 2px 0 0;}
+.bar.hot{background:var(--accent);}
+.bar-labels{display:flex;gap:12px;margin-top:8px;}
+.bar-labels span{flex:1;text-align:center;font-family:'JetBrains Mono';font-size:9px;letter-spacing:.1em;color:var(--muted);}
+.week-note{margin-top:14px;color:var(--muted);font-size:12.5px;line-height:1.7;letter-spacing:.02em;}
+.week-note b{color:var(--ink);}
+.tabbar{position:absolute;left:20px;right:20px;bottom:20px;height:70px;border:1px solid var(--line);border-radius:6px;background:rgba(22,18,12,.94);display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:7px 8px;z-index:4;backdrop-filter:blur(16px);}
+.tabitem{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--muted);font-family:'JetBrains Mono';font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;}
+.tabitem.active{color:var(--accent);}
+.tabitem svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+</style>
+</head>
+<body>
+<div class="screen">
+<div class="status">
+  <span>7:32</span>
+  <span class="r">
+    <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></g></svg>
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="none" aria-hidden="true"><path d="M8.5 10.5a1.4 1.4 0 100 .01M3 6.2a8 8 0 0111 0M.7 3.4a12 12 0 0115.6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <svg width="26" height="13" viewBox="0 0 26 13" aria-hidden="true"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".5"/><rect x="3" y="3" width="16" height="7" rx="1.5" fill="currentColor"/><rect x="23.5" y="4.5" width="1.6" height="4" rx="1" fill="currentColor" fill-opacity=".5"/></svg>
+  </span>
+</div>
+<main class="page">
+  <div class="date">7月2日 水曜日</div>
+  <div class="hero-label">人生の目標</div>
+  <div class="hero-goal">英語で仕事が<br>できる自分になる</div>
+  <div class="year-goal">1年の目標 ─ <b>TOEIC 800点</b></div>
+  <div class="gate-label">今日のゲート</div>
+  <div>
+    <div class="gate-row">
+      <div class="gate-app"><span class="sym">X</span>X</div>
+      <div class="gate-num">18回試行 · <b>7</b> 回止まれた</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-app"><span class="sym">Ig</span>Instagram</div>
+      <div class="gate-num">6回試行 · <b>4</b> 回止まれた</div>
+    </div>
+  </div>
+  <div class="week">
+    <div class="bars">
+      <div class="bar" style="height:38%"></div>
+      <div class="bar" style="height:52%"></div>
+      <div class="bar" style="height:44%"></div>
+      <div class="bar hot" style="height:72%"></div>
+      <div class="bar" style="height:30%"></div>
+      <div class="bar" style="height:24%"></div>
+      <div class="bar hot" style="height:58%"></div>
+    </div>
+    <div class="bar-labels"><span>木</span><span>金</span><span>土</span><span>日</span><span>月</span><span>火</span><span>水</span></div>
+    <div class="week-note">今週は <b>4時間12分</b> を取り戻しています。<br>22時以降の試行が最も多い一週間でした。</div>
+  </div>
+</main>
+<nav class="tabbar">
+  <div class="tabitem active"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2z"/></svg>Home</div>
+  <div class="tabitem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>Goals</div>
+  <div class="tabitem"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/></svg>Stats</div>
+  <div class="tabitem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 00-2-1.2L14 3h-4l-.5 2.6a7 7 0 00-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 002 1.2L10 21h4l.5-2.6a7 7 0 002-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2z"/></svg>Settings</div>
+</nav>
+<div class="home"></div></div>
+</body>
+</html>

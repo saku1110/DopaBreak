@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=402, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<title>DopaBreak - Why it works</title>
+<style>
+:root{
+  --bg:#0A0B0D; --card:#14171C; --ink:#F4F5F2; --muted:#7E8694;
+  --line:rgba(255,255,255,.08); --accent:#C7F94D;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
+html,body{width:402px;height:874px;overflow:hidden;}
+body{background:radial-gradient(120% 80% at 50% -10%, #15181E 0%, var(--bg) 55%);color:var(--ink);
+  font-family:'Zen Kaku Gothic New','Space Grotesk',sans-serif;}
+.screen{width:402px;height:874px;padding:0 26px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+.status{height:54px;display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:6px;
+  color:var(--ink);font-family:'Space Grotesk';font-weight:600;font-size:15px;letter-spacing:.02em;flex:0 0 54px;}
+.status .r{display:flex;gap:6px;align-items:center;}
+.home{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.32);}
+.page{flex:1;display:flex;flex-direction:column;padding-top:22px;}
+.tag{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase;}
+.title{margin-top:22px;font-size:33px;line-height:1.22;font-weight:900;letter-spacing:.01em;}
+.title .hl{color:var(--accent);}
+.subtitle{margin-top:16px;color:var(--muted);font-size:15px;line-height:1.66;font-weight:500;}
+.subtitle b{color:var(--ink);font-weight:700;}
+.principles{margin-top:26px;display:flex;flex-direction:column;gap:14px;}
+.pr{display:grid;grid-template-columns:46px 1fr;gap:14px;align-items:center;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;}
+.pr .ic{width:46px;height:46px;border-radius:13px;border:1px solid rgba(199,249,77,.30);
+  background:rgba(199,249,77,.07);display:flex;align-items:center;justify-content:center;color:var(--accent);}
+.pr .ic svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.pr h3{font-size:16px;font-weight:900;letter-spacing:.01em;}
+.pr p{margin-top:4px;color:var(--muted);font-size:12.5px;line-height:1.45;font-weight:500;}
+.foot{margin-top:auto;padding-bottom:38px;}
+.disclaimer{color:var(--muted);font-size:11px;line-height:1.55;text-align:center;margin-bottom:16px;opacity:.85;}
+.btn{height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:700;letter-spacing:.04em;background:var(--accent);color:#0A0B0D;}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="status">
+    <span>9:41</span>
+    <span class="r">
+      <svg width="18" height="12" viewBox="0 0 18 12"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></g></svg>
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="none"><path d="M8.5 10.5a1.4 1.4 0 100 .01M3 6.2a8 8 0 0111 0M.7 3.4a12 12 0 0115.6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".5"/><rect x="3" y="3" width="16" height="7" rx="1.5" fill="currentColor"/><rect x="23.5" y="4.5" width="1.6" height="4" rx="1" fill="currentColor" fill-opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <main class="page">
+    <div class="tag">Why it works / 科学的背景</div>
+    <h1 class="title">意志の力では、<br><span class="hl">勝てない。</span></h1>
+    <p class="subtitle">つい開いてしまうのは、あなたが弱いからではありません。SNSは“無意識の起動”を狙って設計されています。DopaBreakは、認知行動療法や行動科学で確立した<b>4つの考え方</b>を、開く一瞬の設計に落とし込みます。</p>
+
+    <div class="principles">
+      <div class="pr">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="5" width="3.4" height="14" rx="1.5"/><rect x="13.6" y="5" width="3.4" height="14" rx="1.5"/></svg></div>
+        <div><h3>間を置く</h3><p>衝動と行動の間に、ひと呼吸。</p></div>
+      </div>
+      <div class="pr">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/></svg></div>
+        <div><h3>意図を問う</h3><p>「何のために？」で自動操縦を切る。</p></div>
+      </div>
+      <div class="pr">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.5 5.8"/><path d="M3.4 12.6 6 10l2.6 2.6"/></svg></div>
+        <div><h3>目標に戻す</h3><p>行動を、なりたい自分に繋ぎ直す。</p></div>
+      </div>
+      <div class="pr">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M6 4h9l4 4v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M9 12.5l2 2 4-4.2"/></svg></div>
+        <div><h3>記録する</h3><p>気づきが、次の選択を変える。</p></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <p class="disclaimer">※本アプリは医療行為・診断・治療を目的とするものではありません。</p>
+      <div class="btn">続ける</div>
+    </div>
+  </main>
+  <div class="home"></div>
+</div>
+</body>
+</html>

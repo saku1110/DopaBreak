@@ -1,0 +1,61 @@
+# バックログ
+
+## 最優先（死活項目）
+
+- [x] **FamilyControls distribution entitlement — 承認済み（2026-07-03）＋ポータル設定完了（2026-07-08）**
+      App Group＋5 App ID登録→4 App IDでFamily Controls (Distribution)＋App Groups有効化まで完了。**TestFlight/ストア提出のブロッカー完全解消**（docs/10 §3）
+- [x] 正式名の承認: **DopaBreak**（2026-07-02・モック画面反映済み）
+- [x] docs本文一括リネーム＋商品ID（dopabreak.pro.*）・App Group（group.com.dopabreak.shared）変更（2026-07-02実行済み。Web商標クイック検索=痕跡ゼロ。J-PlatPat/USPTO正式検索は提出前チェックで実施・ドメイン取得は見送り）
+
+## Phase 1 残タスク
+- [ ] 08_widget_guide.html を O-08 Notification Guide（通知許可＋Live Activity）版に改訂
+
+## Phase 2: 実装（Codex委譲・FABLE_BRIEF §7 の分割単位）
+
+第1スプリントで技術検証6項目を必ず消化:
+1. 選択した対象アプリにカスタムシールドを出せるか
+2. ShieldActionで段階的な画面遷移を実現できるか
+3. 指定時間だけ一時開放して再シールドできるか
+4. App GroupからExtensionが目標snapshotを安定して読めるか
+5. WidgetとShieldが同じ目標データを表示できるか
+6. 選択時間終了時に利用後リフレクションを表示できるか
+
+実装順（1タスク=1 `codex exec`・workspace-writeサンドボックス・長時間はrun_in_background）:
+- [x] (1) App Group＋ローカル保存（2026-07-02完了: ios/scaffold＋DopaBreakCore Models/Storage。28テスト・カバレッジ90%・BUILD SUCCEEDED・Fable独立検証済み）
+- [x] (2) 目標作成（ヒーロー＋1年の2枠）（2026-07-02完了・シミュレータ動作確認済み）
+- [x] (3) FamilyControls権限（2026-07-08完了: ScreenTimeCenter＋Settings許可導線。オンボ側は既存）
+- [x] (4) FamilyActivityPicker（2026-07-08完了: **RuleStore新規作成**（Core・rules.json永続化・15テスト）＋Settings配線。Coreは選択データを不透明Dataで保持しFamilyControls非依存）
+- [x] (5) ManagedSettingsシールド（2026-07-08完了: ShieldController・named store "dopabreak.rules"・fail-safe同期＝読取失敗時は保護維持）
+- [x] (6) ShieldConfiguration表示（2026-07-08完了: 静的UI・doc11 §6b文言・読取専用・失敗時最小構成。**「理由を選んで続ける」副ボタンは(7)で追加**）
+      ※(3)-(6)の実機動作確認（技術検証①④⑤）は未・オーナー作業（current.md参照）
+- [ ] (7) ShieldAction（開かない/続ける）★中核ロジックは実装済み（InterventionEngine 2026-07-02 Opus）— 配線時に InterventionState へ intent フィールド追加（doc05 §5の既知制約解消）
+- [ ] (8) 時間選択と一時開放 ★エンジン側（recordOpen/reshieldIfExpired）実装済み・UI/Extension配線のみ
+      ⚠️ このタスクでExtensionプロセスがルールを書き始めるため、**RuleStoreのread-modify-writeに跨プロセス排他（NSFileCoordinator等）を導入すること**（2026-07-08 Codexレビュー指摘。現状は書き込みが本体アプリMainActorのみのため繰り延べ・GoalStoreと同一パターン）
+- [ ] (9) 利用後リフレクション ★エンジン側（pendingReflection/recordPostUseReflection/skip）実装済み・UI配線のみ
+- [ ] (10) AttemptLog/ReflectionLogと統計 ★StatsService実装済み（週次サマリー含む）・Stats画面への結線のみ
+- [ ] (11) ロック画面サーフェス（朝の通知＋Live Activity(ActivityKit)＋Home Widget・テーマ6種）
+- [x] (12) StoreKit 2＋ペイウォール（2026-07-08 Codex実装＋Fable検証: EntitlementGate=Core純粋ロジック100%テスト／StoreService=StoreKit2購入/復元/currentEntitlements/updatesリスナー／PaywallView=3段doc06§10文言／DopaBreak.storekit 4商品・P1Wトライアル／AppModel・Settings・Onboarding・Home年目標ゲート配線。99テスト0失敗・BUILD SUCCEEDED。**品質ゲート完了**: Codex独立レビュー6件→Fable裁定(4採用/2却下=仕様誤読)→Codex修正→Fable再検証。修正=トライアルCTA対象者限定/法的文言プラン別出し分け/deepFocusのProゲート/ShieldController適用層Free制限/復元フィードバック）
+- [x] (13前半) Onboarding 14ステップ（2026-07-03完了: doc07文言転記・LossEstimator・シミュレータ通し動作確認・73テスト。**Paywall polishはStoreKit(12)とセットで残**）
+- [x] InterventionState.intent 跨プロセス永続化（2026-07-03 Opus・後方互換テスト付き・doc05§5注記解消）
+
+## Phase 3: 品質・レビュー
+- [ ] セキュリティ/プライバシーレビュー（security-review・オンデバイス徹底・Privacy Manifest）
+- [ ] Codex独立レビュー
+- [ ] /app-store /preflight 提出前チェック（スクショ10枚/15秒プレビュー含む）
+
+## Phase 4: マーケ成果物
+- [ ] 広告クリエイティブ切り口（感情アーク5本×A/B）＋台本
+- [ ] LP（日/英最小）＋「SNSを一番開く時間」診断リード
+- [ ] ASO/SEO（キーワード・タイトル・サブタイトル・説明文）
+- [ ] 法務（Terms/Privacy/特商法）
+- [ ] Permission denied分岐のモック
+
+## v1.1
+- [ ] 「今日の1つ」（TodayFocus）実装（設計正本: docs/14_today_focus.md・2026-07-09オーナー承認）: Core `TodayFocus`/`FocusLog`＋片側集計→ホーム入力枠→一呼吸S-03/Live Activity主役表示→朝の通知導線→週次レポート「代わりにやれたこと」。UI文言はdoc14 §3の承認→doc11転記後にCodex委譲
+
+## 既知の制約（MVPピボット・2026-07-08）
+- [ ] Free=1個ゲートはTargetAppPickerSheet(UI)のみ強制。ユーザーが手動でiOS Shortcutsのオートメーションを直接複数アプリに設定すればすり抜け可能（Shortcuts自体はアプリ外システムのため技術的に完全制御不可）。実害軽微・v1.1でPro導線を締める際に再検討
+
+## アイデア置き場
+- 自社実測データが貯まったら 06b Why Science をPNAS引用から自社数値に差替（マーケ資産化）
+- ハードペイウォール vs スキップ可のA/B（オンボO-08b→P-01）

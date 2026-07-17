@@ -11,6 +11,7 @@ public final class SettingsStore: @unchecked Sendable {
         static let pendingMidSessionCheckInCatalogID = "pendingMidSessionCheckInCatalogID"
         static let verifiedAutomationCatalogIDs = "verifiedAutomationCatalogIDs"
         static let firstLaunchDate = "firstLaunchDate"
+        static let lastAppOpenedDateKey = "lastAppOpenedDateKey"
         static let wakeTimeMinutes = "wakeTimeMinutes"
         static let bedTimeMinutes = "bedTimeMinutes"
         static let morningNotificationEnabled = "morningNotificationEnabled"
@@ -30,6 +31,7 @@ public final class SettingsStore: @unchecked Sendable {
             pendingStartInterventionCatalogID,
             pendingMidSessionCheckInCatalogID,
             verifiedAutomationCatalogIDs,
+            lastAppOpenedDateKey,
             wakeTimeMinutes,
             bedTimeMinutes,
             morningNotificationEnabled,
@@ -112,6 +114,11 @@ public final class SettingsStore: @unchecked Sendable {
     public var firstLaunchDate: Date? {
         get { userDefaults.object(forKey: Key.firstLaunchDate) as? Date }
         set { setOptional(newValue, forKey: Key.firstLaunchDate) }
+    }
+
+    public var lastAppOpenedDateKey: String? {
+        get { userDefaults.string(forKey: Key.lastAppOpenedDateKey) }
+        set { setOptional(newValue, forKey: Key.lastAppOpenedDateKey) }
     }
 
     public var wakeTimeMinutes: Int? {

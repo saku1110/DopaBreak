@@ -16,7 +16,7 @@ struct SettingsView: View {
     @State private var authorizationWasDenied = false
     @State private var isRequestingAuthorization = false
     @State private var shouldOpenPickerAfterAuthorization = false
-    @State private var isPaywallPresented = false
+    @State private var paywallPlacement: PaywallPlacement?
     @State private var isTargetPickerPresented = false
     @State private var isAutomationGuidePresented = false
     @State private var isDeleteAllDataConfirmationPresented = false
@@ -63,12 +63,12 @@ struct SettingsView: View {
             isPresented: $isFamilyActivityPickerPresented,
             selection: $activitySelection
         )
-        .fullScreenCover(isPresented: $isPaywallPresented) {
-            PaywallView(storeService: model.storeService)
+        .fullScreenCover(item: $paywallPlacement) { placement in
+            PaywallView(storeService: model.storeService, placement: placement)
         }
         .sheet(isPresented: $isTargetPickerPresented) {
             TargetAppPickerSheet(model: model) {
-                isPaywallPresented = true
+                paywallPlacement = .settingsTargetAppLimit
             }
         }
         .sheet(isPresented: $isAutomationGuidePresented) {
@@ -192,7 +192,7 @@ struct SettingsView: View {
 
         return Button {
             guard isAllowed else {
-                isPaywallPresented = true
+                paywallPlacement = .settingsThemeGate
                 return
             }
             selectedLockTheme = theme
@@ -410,7 +410,7 @@ struct SettingsView: View {
                         settingsRow(label: "Pro状態", value: "Pro")
                     } else {
                         Button {
-                            isPaywallPresented = true
+                            paywallPlacement = .settingsProStatusRow
                         } label: {
                             settingsRow(label: "Pro状態", value: "Free")
                         }
@@ -701,7 +701,7 @@ struct SettingsView: View {
 
         if shouldShowPaywallForSelectedTargets(isSelectionEmpty: isSelectionEmpty) {
             activitySelection = currentActivitySelection()
-            isPaywallPresented = true
+            paywallPlacement = .settingsFamilyActivityLimit
             return
         }
 
@@ -785,7 +785,7 @@ struct SettingsView: View {
 
     private func setSelectedMode(_ mode: InterventionMode) {
         guard modeAllowedForCurrentEntitlement(mode) == mode else {
-            isPaywallPresented = true
+            paywallPlacement = .settingsModeGate
             selectedMode = modeAllowedForCurrentEntitlement(primaryRule?.mode ?? pendingMode)
             return
         }

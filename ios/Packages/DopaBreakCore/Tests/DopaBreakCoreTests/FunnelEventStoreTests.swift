@@ -57,6 +57,38 @@ final class FunnelEventStoreTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
 
+    func testMeasurementFoundationEventsPersistNamesAndDetails() throws {
+        let store = try makeStore()
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+
+        try store.record(name: .onboardingStepCompleted, detail: "pre_paywall_summary", at: timestamp)
+        try store.record(name: .paywallDismissed, detail: "onboarding_prepaywall_summary", at: timestamp)
+        try store.record(name: .prePaywallSkipped, detail: "pre_paywall_summary", at: timestamp)
+        try store.record(name: .appOpened, at: timestamp)
+
+        XCTAssertEqual(
+            try store.allEvents(),
+            [
+                FunnelEvent(
+                    name: "onboardingStepCompleted",
+                    detail: "pre_paywall_summary",
+                    occurredAt: timestamp
+                ),
+                FunnelEvent(
+                    name: "paywallDismissed",
+                    detail: "onboarding_prepaywall_summary",
+                    occurredAt: timestamp
+                ),
+                FunnelEvent(
+                    name: "prePaywallSkipped",
+                    detail: "pre_paywall_summary",
+                    occurredAt: timestamp
+                ),
+                FunnelEvent(name: "appOpened", occurredAt: timestamp)
+            ]
+        )
+    }
+
     private func makeStore() throws -> FunnelEventStore {
         FunnelEventStore(
             snapshotStore: JSONSnapshotStore(containerProvider: FixedContainer(url: try makeTemporaryDirectory()))

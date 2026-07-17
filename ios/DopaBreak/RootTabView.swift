@@ -60,17 +60,11 @@ struct RootTabView: View {
             Text(model.alertMessage ?? "")
         }
         .onAppear {
-            model.refresh(restartLiveActivity: true)
-            checkPendingIntervention()
-            checkPendingMidSessionCheckIn()
-            checkPendingReflection()
+            handleAppActive()
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
-            model.refresh(restartLiveActivity: true)
-            checkPendingIntervention()
-            checkPendingMidSessionCheckIn()
-            checkPendingReflection()
+            handleAppActive()
         }
         .fullScreenCover(isPresented: interventionPresented) {
             if let catalogID = model.pendingInterventionCatalogID,
@@ -123,6 +117,13 @@ struct RootTabView: View {
 
     private func checkPendingIntervention() {
         model.consumePendingInterventionRequest(from: settingsStore)
+    }
+
+    private func handleAppActive() {
+        model.refresh(restartLiveActivity: true)
+        checkPendingIntervention()
+        checkPendingMidSessionCheckIn()
+        checkPendingReflection()
     }
 
     private func checkPendingReflection() {

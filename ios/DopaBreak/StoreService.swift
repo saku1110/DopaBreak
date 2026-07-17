@@ -3,6 +3,12 @@ import Foundation
 import Observation
 import StoreKit
 
+enum PaywallDismissalPolicy {
+    static func shouldRecord(isPro: Bool, hasPendingPurchase: Bool) -> Bool {
+        !isPro && !hasPendingPurchase
+    }
+}
+
 @MainActor
 @Observable
 final class StoreService {
@@ -47,6 +53,7 @@ final class StoreService {
     private(set) var isEligibleForAnnualIntroOffer = false
     private(set) var isPro = false
     private(set) var hasResolvedEntitlement = false
+    private(set) var hasPendingPurchase = false
     private(set) var isLoadingProducts = false
     private(set) var isPurchasing = false
     private(set) var isRestoring = false
@@ -112,6 +119,7 @@ final class StoreService {
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
+                hasPendingPurchase = false
                 await transaction.finish()
                 await refreshEntitlement()
                 try? funnelEventStore.record(name: .trialOrPurchaseStarted, detail: transaction.productID, at: now())
@@ -119,6 +127,7 @@ final class StoreService {
             case .userCancelled:
                 return false
             case .pending:
+                hasPendingPurchase = true
                 alertMessage = "購入の確認が保留中です"
                 return false
             @unknown default:
@@ -131,8 +140,20 @@ final class StoreService {
         }
     }
 
-    func recordPaywallShown() {
-        try? funnelEventStore.record(name: .paywallShown, at: now())
+    func recordPaywallShown(placement: String) {
+        try? funnelEventStore.record(name: .paywallShown, detail: placement, at: now())
+    }
+
+    @discardableResult
+    func recordPaywallDismissedIfNeeded(placement: String) -> Bool {
+        guard PaywallDismissalPolicy.shouldRecord(
+            isPro: isPro,
+            hasPendingPurchase: hasPendingPurchase
+        ) else {
+            return false
+        }
+        try? funnelEventStore.record(name: .paywallDismissed, detail: placement, at: now())
+        return true
     }
 
     @discardableResult
@@ -181,6 +202,9 @@ final class StoreService {
         }
 
         isPro = !entitledProductIDs.isEmpty
+        if isPro {
+            hasPendingPurchase = false
+        }
         hasResolvedEntitlement = true
     }
 

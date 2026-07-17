@@ -82,4 +82,18 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertNil(store.pendingMidSessionCheckInCatalogID)
         XCTAssertNil(defaults.object(forKey: "pendingMidSessionCheckInCatalogID"))
     }
+
+    func testLastAppOpenedDateKeyRoundTripsAndClears() {
+        XCTAssertNil(store.lastAppOpenedDateKey)
+
+        store.lastAppOpenedDateKey = "2026-07-17"
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.lastAppOpenedDateKey, "2026-07-17")
+
+        reloaded.lastAppOpenedDateKey = nil
+
+        XCTAssertNil(store.lastAppOpenedDateKey)
+        XCTAssertNil(defaults.object(forKey: "lastAppOpenedDateKey"))
+    }
 }

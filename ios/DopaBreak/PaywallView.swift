@@ -3,6 +3,20 @@ import Foundation
 import StoreKit
 import SwiftUI
 
+enum PaywallPlacement: String, CaseIterable, Identifiable {
+    case goalsLimit = "goals_limit"
+    case settingsTargetAppLimit = "settings_target_app_limit"
+    case settingsFamilyActivityLimit = "settings_family_activity_limit"
+    case settingsProStatusRow = "settings_pro_status_row"
+    case settingsThemeGate = "settings_theme_gate"
+    case settingsModeGate = "settings_mode_gate"
+    case onboardingPrepaywallSummary = "onboarding_prepaywall_summary"
+    case onboardingModeGate = "onboarding_mode_gate"
+    case onboardingTargetAppGate = "onboarding_target_app_gate"
+
+    var id: String { rawValue }
+}
+
 private enum PaywallPlan: CaseIterable, Identifiable {
     case annual
     case monthly
@@ -19,11 +33,13 @@ private enum PaywallPlan: CaseIterable, Identifiable {
 
 struct PaywallView: View {
     let storeService: StoreService
+    let placement: PaywallPlacement
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlan: PaywallPlan = .annual
     @State private var alertMessage: String?
     @State private var didRecordAppearance = false
+    @State private var didRecordDismissal = false
 
     private var isBusy: Bool {
         storeService.isPurchasing || storeService.isRestoring
@@ -49,7 +65,7 @@ struct PaywallView: View {
         .onAppear {
             guard !didRecordAppearance else { return }
             didRecordAppearance = true
-            storeService.recordPaywallShown()
+            storeService.recordPaywallShown(placement: placement.rawValue)
         }
         .task {
             await storeService.loadProducts()
@@ -147,7 +163,7 @@ struct PaywallView: View {
                 .disabled(isBusy)
 
                 Button("あとで") {
-                    dismiss()
+                    dismissWithoutPurchase()
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .disabled(isBusy)
@@ -361,6 +377,13 @@ struct PaywallView: View {
         } else if let message = storeService.alertMessage {
             alertMessage = message
         }
+    }
+
+    private func dismissWithoutPurchase() {
+        guard !didRecordDismissal else { return }
+        didRecordDismissal = true
+        storeService.recordPaywallDismissedIfNeeded(placement: placement.rawValue)
+        dismiss()
     }
 
     private var alertPresented: Binding<Bool> {

@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 import UserNotifications
 
-private enum OnboardingStep: Int, CaseIterable {
+enum OnboardingStep: Int, CaseIterable {
     case welcome
     case selfCheck
     case quizAimless
@@ -30,6 +30,25 @@ private enum OnboardingStep: Int, CaseIterable {
 
     var next: OnboardingStep? {
         Self(rawValue: rawValue + 1)
+    }
+
+    var identifier: String {
+        switch self {
+        case .welcome: return "welcome"
+        case .selfCheck: return "self_check"
+        case .quizAimless: return "quiz_aimless"
+        case .quizRegret: return "quiz_regret"
+        case .quizResult: return "quiz_result"
+        case .chooseApps: return "choose_apps"
+        case .goalSetup: return "goal_setup"
+        case .chooseMode: return "choose_mode"
+        case .preview: return "preview"
+        case .whyScience: return "why_science"
+        case .permission: return "permission"
+        case .notificationGuide: return "notification_guide"
+        case .prePaywallSummary: return "pre_paywall_summary"
+        case .ready: return "ready"
+        }
     }
 }
 
@@ -151,7 +170,7 @@ struct OnboardingFlow: View {
     @State private var showDeepFocusConfirmation = false
     @State private var notificationMessage: String?
     @State private var isRequestingNotifications = false
-    @State private var isPaywallPresented = false
+    @State private var paywallPlacement: PaywallPlacement?
     @State private var flowAlert: OnboardingAlert?
 
     var body: some View {
@@ -172,12 +191,12 @@ struct OnboardingFlow: View {
                 dismissButton: .default(Text("閉じる"))
             )
         }
-        .fullScreenCover(isPresented: $isPaywallPresented, onDismiss: {
+        .fullScreenCover(item: $paywallPlacement, onDismiss: {
             if step == .prePaywallSummary {
                 advance()
             }
-        }) {
-            PaywallView(storeService: model.storeService)
+        }) { placement in
+            PaywallView(storeService: model.storeService, placement: placement)
         }
         .alert("Deep Focusは強めの設定です", isPresented: $showDeepFocusConfirmation) {
             Button("Deep Focusで始める") {
@@ -346,9 +365,9 @@ struct OnboardingFlow: View {
                 Task { await requestNotifications() }
             }
         case .prePaywallSummary:
-            primaryButton("続ける") { isPaywallPresented = true }
+            primaryButton("続ける") { paywallPlacement = .onboardingPrepaywallSummary }
         case .ready:
-            primaryButton("DopaBreakをはじめる") { onComplete() }
+            primaryButton("DopaBreakをはじめる") { advance() }
         case .quizAimless, .quizRegret:
             EmptyView()
         }
@@ -364,7 +383,10 @@ struct OnboardingFlow: View {
         case .notificationGuide:
             secondaryButton("あとで") { advance() }
         case .prePaywallSummary:
-            secondaryButton("あとで") { advance() }
+            secondaryButton("あとで") {
+                model.recordFunnelEvent(.prePaywallSkipped, detail: step.identifier)
+                advance()
+            }
         default:
             EmptyView()
         }
@@ -983,7 +1005,7 @@ private extension OnboardingFlow {
 
     func selectMode(_ mode: InterventionMode) {
         guard modeAllowedForCurrentEntitlement(mode) == mode else {
-            isPaywallPresented = true
+            paywallPlacement = .onboardingModeGate
             return
         }
         selectedMode = mode
@@ -1196,7 +1218,11 @@ private extension OnboardingFlow {
 
 private extension OnboardingFlow {
     func advance() {
-        guard let next = step.next else {
+        let completedStep = step
+        model.recordFunnelEvent(.onboardingStepCompleted, detail: completedStep.identifier)
+
+        guard let next = completedStep.next else {
+            onComplete()
             return
         }
         direction = .forward
@@ -1247,7 +1273,7 @@ private extension OnboardingFlow {
             return
         }
         guard model.entitlementGate.canAddTargetTokens(currentCount: selectedCatalogIDs.count) else {
-            isPaywallPresented = true
+            paywallPlacement = .onboardingTargetAppGate
             return
         }
         selectedCatalogIDs.append(item.catalogID)

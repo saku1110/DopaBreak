@@ -2,9 +2,13 @@ import Foundation
 
 public enum FunnelEventName: String, Codable, Equatable, Sendable {
     case onboardingCompleted
+    case onboardingStepCompleted
     case automationVerified
     case paywallShown
+    case paywallDismissed
+    case prePaywallSkipped
     case trialOrPurchaseStarted
+    case appOpened
 }
 
 public struct FunnelEvent: Codable, Equatable, Sendable {

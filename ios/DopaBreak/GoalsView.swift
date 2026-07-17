@@ -4,7 +4,7 @@ import SwiftUI
 struct GoalsView: View {
     let model: AppModel
     @State private var editorRoute: GoalEditorRoute?
-    @State private var isPaywallPresented = false
+    @State private var paywallPlacement: PaywallPlacement?
 
     var body: some View {
         NavigationStack {
@@ -50,8 +50,8 @@ struct GoalsView: View {
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
         }
-        .fullScreenCover(isPresented: $isPaywallPresented) {
-            PaywallView(storeService: model.storeService)
+        .fullScreenCover(item: $paywallPlacement) { placement in
+            PaywallView(storeService: model.storeService, placement: placement)
         }
     }
 
@@ -114,7 +114,7 @@ struct GoalsView: View {
             if model.canAddGoal {
                 editorRoute = GoalEditorRoute(goal: nil)
             } else {
-                isPaywallPresented = true
+                paywallPlacement = .goalsLimit
             }
         } label: {
             Text("目標を追加")

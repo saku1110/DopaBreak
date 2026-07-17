@@ -55,6 +55,21 @@ targets:
         embed: true
     scheme:
       storeKitConfiguration: ../DopaBreak/DopaBreak.storekit
+      testTargets:
+        - DopaBreakTests
+
+  DopaBreakTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DopaBreakTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: DopaBreak
+      - package: DopaBreakCore
 
   ShieldConfigExtension:
     type: app-extension

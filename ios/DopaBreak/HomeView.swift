@@ -4,7 +4,6 @@ import SwiftUI
 struct HomeView: View {
     let model: AppModel
     @State private var editorRoute: GoalEditorRoute?
-    @State private var isPaywallPresented = false
 
     var body: some View {
         ScrollView {
@@ -30,9 +29,6 @@ struct HomeView: View {
         .onAppear { model.refresh() }
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
-        }
-        .fullScreenCover(isPresented: $isPaywallPresented) {
-            PaywallView(storeService: model.storeService)
         }
     }
 

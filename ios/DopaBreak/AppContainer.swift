@@ -133,6 +133,14 @@ final class AppModel {
         try? funnelEventStore.record(name: name, detail: detail, at: now())
     }
 
+    func recordAppOpenedIfNeeded() {
+        let recorder = DailyAppOpenRecorder(
+            settingsStore: settingsStore,
+            funnelEventStore: funnelEventStore
+        )
+        try? recorder.recordIfNeeded(at: now())
+    }
+
     func refresh(
         restartLiveActivity: Bool = false,
         scheduleNotifications: Bool = true

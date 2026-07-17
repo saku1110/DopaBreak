@@ -18,34 +18,33 @@ struct DopaBreakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if onboarding.isCompleted {
-                    RootTabView(
-                        model: model,
-                        settingsStore: onboarding.settingsStore,
-                        onResetOnboarding: {
-                            onboarding.reset()
-                        }
-                    )
-                } else {
-                    OnboardingFlow(
-                        model: model,
-                        settingsStore: onboarding.settingsStore,
-                        onComplete: {
-                            onboarding.complete()
-                            model.recordFunnelEvent(.onboardingCompleted)
-                            model.refresh()
-                        }
-                    )
+            AppLifecycleView(onAppActive: handleAppActive) {
+                Group {
+                    if onboarding.isCompleted {
+                        RootTabView(
+                            model: model,
+                            settingsStore: onboarding.settingsStore,
+                            onResetOnboarding: {
+                                onboarding.reset()
+                            }
+                        )
+                    } else {
+                        OnboardingFlow(
+                            model: model,
+                            settingsStore: onboarding.settingsStore,
+                            onComplete: {
+                                onboarding.complete()
+                                model.recordFunnelEvent(.onboardingCompleted)
+                                model.refresh()
+                            }
+                        )
+                    }
                 }
             }
-                .preferredColorScheme(.dark)
-                .onOpenURL { url in
-                    handleOpenURL(url)
-                }
-                .onAppear {
-                    consumePendingInterventionRequest()
-                }
+            .preferredColorScheme(.dark)
+            .onOpenURL { url in
+                handleOpenURL(url)
+            }
         }
     }
 
@@ -70,6 +69,34 @@ struct DopaBreakApp: App {
     /// AppIntent（別プロセス実行）が SettingsStore 経由で残した起動要求を取り込む。
     private func consumePendingInterventionRequest() {
         model.consumePendingInterventionRequest(from: onboarding.settingsStore)
+    }
+
+    private func handleAppActive() {
+        model.recordAppOpenedIfNeeded()
+        consumePendingInterventionRequest()
+    }
+}
+
+struct AppLifecycleView<Content: View>: View {
+    private let onAppActive: () -> Void
+    private let content: Content
+    @Environment(\.scenePhase) private var scenePhase
+
+    init(
+        onAppActive: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.onAppActive = onAppActive
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .onAppear(perform: onAppActive)
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                onAppActive()
+            }
     }
 }
 

@@ -283,3 +283,57 @@ Claude Code側で6レンズ監査（ビジュアル/介入UX/オンボ/ペイウ
 - 検証:
   - `swift test --package-path ios/Packages/DopaBreakCore`: 147テスト成功、失敗0。
   - `xcodegen generate`後、ShieldConfigExtensionを含むgeneric iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
+
+## 2026-07-17 — Measurement foundation batch 1（端末内ファネル計測）
+
+- 作成・変更:
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/FunnelEventStore.swift`: `onboardingStepCompleted` / `paywallDismissed` / `prePaywallSkipped` / `appOpened`を追加。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/DailyAppOpenRecorder.swift` / `Storage/SettingsStore.swift`: ユーザーのローカルCalendar日付キーで`appOpened`を1日1回にするCoreサービスと`lastAppOpenedDateKey`を追加。
+  - `ios/DopaBreak/OnboardingFlow.swift`: 全14ステップの安定snake_case IDを定義し、全完了遷移を`advance()`へ集約して離脱前stepを記録。実在していた`prePaywallSummary`の「あとで」では`prePaywallSkipped`も記録。
+  - `ios/DopaBreak/PaywallView.swift` / `StoreService.swift` / `GoalsView.swift` / `SettingsView.swift`: Bool提示状態を型付き`PaywallPlacement`へ変更し、表示元を`paywallShown.detail`へ保存。「あとで」だけ`paywallDismissed`を保存し、購入・復元成功後のdismissでは保存しない。
+  - `ios/DopaBreak/RootTabView.swift` / `AppContainer.swift`: 初回`onAppear`とscenePhase `.active`を共通処理へまとめ、どちらが先でも日次dedupeを実行。
+  - `ios/DopaBreak/HomeView.swift`: 代入元がなく到達不能だった未属性Paywall coverを削除。
+  - `ios/DopaBreakTests/MeasurementFoundationTests.swift` / `ios/project.yml`: アプリ層テストターゲットと、14 step ID・9 placement ID・Paywallイベントdetailの回帰テストを追加。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/{DailyAppOpenRecorderTests,FunnelEventStoreTests,SettingsStoreTests,LocalDataResetterTests}.swift`: 新イベント、東京日付境界のdedupe、設定永続化、全削除時のキー消去を検証。
+- 採用した方針:
+  - placementは`goals_limit`、`settings_target_app_limit`、`settings_family_activity_limit`、`settings_pro_status_row`、`settings_theme_gate`、`settings_mode_gate`、`onboarding_prepaywall_summary`、`onboarding_mode_gate`、`onboarding_target_app_gate`の9値。非表示で温存中のFamilyActivityPicker上限経路は、現行カタログPickerと分析上区別する。
+  - step IDは表示文言やenumのInt順に依存せず、`welcome`から`ready`まで14個を明示する。Ready CTAも`advance()`へ通し、14番目の完了を欠落させない。
+  - `appOpened`はイベント書込み成功後だけ日付キーを更新する。Calendarは`.autoupdatingCurrent`を使い、端末の現行Calendar/timezoneに追従する。
+- 却下した案:
+  - PaywallViewへplacement文字列のdefault/unknownを持たせる案は、将来の提示元追加で無属性イベントを再発させるため不採用。全到達可能な提示元でenum指定を必須にした。
+  - `prePaywallSkipped`を省く案は、現行UIに`prePaywallSummary`の「あとで」導線が実在したため不採用。新しいUIは追加していない。
+  - foreground復帰ごとの`appOpened`記録は、要件の1日1回とD1/D7/D30ローカル集計の粒度に合わないため不採用。
+- Claude Code側の実装制約:
+  - Paywall提示元を追加する場合は`PaywallPlacement`へ安定IDを追加し、`fullScreenCover(item:)`へ必ず渡す。購入/復元成功dismissを`paywallDismissed`へ数えない。
+  - Onboardingの順序・名称を変える場合も既存identifierを分析互換の正として扱い、意味が同じなら変更しない。完了CTAは`advance()`を通す。
+  - `lastAppOpenedDateKey`は端末内データ全削除のreset対象から外さない。外部analytics SDKやnetwork送信は本batchの範囲外。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 151テスト成功、失敗0。
+  - iPhone 16 Pro Simulatorの`DopaBreakTests`: 3テスト成功、失敗0（`TEST SUCCEEDED`）。
+  - `xcodegen generate`後、generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
+
+## 2026-07-17 — Measurement foundation 独立レビュー修正
+
+- 作成・変更:
+  - `ios/DopaBreak/DopaBreakApp.swift`: `WindowGroup`内のオンボーディング/メインタブ両分岐を`AppLifecycleView`で包み、cold launchとscene `.active`の`appOpened`記録を常設ルートへ移動。
+  - `ios/DopaBreak/RootTabView.swift`: タブ配下に限定されていた`appOpened`記録を削除し、タブ固有のrefresh・保留処理だけを維持。
+  - `ios/DopaBreak/StoreService.swift` / `PaywallView.swift`: Pro権利取得済み、またはStoreKit購入が`.pending`の間は`paywallDismissed`を記録しない判定を追加。Transaction更新でPro取得後はpending状態を解消。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/DailyAppOpenRecorder.swift`: 保存済み最大日付キーより新しい日だけ記録する単調増加dedupeへ変更。
+  - `ios/DopaBreakTests/MeasurementFoundationTests.swift`: オンボーディング未完了の共通ルート表示で`appOpened`が保存されるアプリ層テストと、Pro/pending時のPaywall離脱抑止テストを追加。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/DailyAppOpenRecorderTests.swift`: D→D-1→D→D+1でDを二重計上しない回帰テストを追加。
+- 採用した方針:
+  - `appOpened`のライフサイクル責務はオンボーディング状態に依存しない`WindowGroup`直下の単一choke pointへ置く。`onAppear`とforeground復帰の双方から呼ぶが、Coreの日次dedupeで同日重複を防ぐ。
+  - `paywallDismissed`は確定した「未購入離脱」だけを表す。既にProなら記録せず、Ask to Buy等のpendingも結果未確定なので記録しない。
+  - 時計/タイムゾーン巻き戻し対策は全日付集合を保存せず、既存の`lastAppOpenedDateKey`を最大キーとして扱う低コストな単調増加方式にした。
+- 却下した案:
+  - OnboardingFlowとRootTabViewの両方へ記録処理を複製する案は、将来のroot分岐追加時に欠落しやすいため不採用。
+  - 記録済み全日付キーを無期限保存する案は、低頻度の端末時計エッジケースに対して状態管理が過剰なため不採用。
+  - async購入完了時にPaywallを外部から強制dismissする案は画面所有権を広げるため今回は行わず、誤った離脱イベントの抑止に限定。
+- Claude Code側の実装制約:
+  - `AppLifecycleView`はオンボーディングと`RootTabView`の外側に維持する。`appOpened`をタブ配下だけへ戻さない。
+  - Paywallの「あとで」は`StoreService.recordPaywallDismissedIfNeeded`を通し、`isPro`/`hasPendingPurchase`確認を迂回しない。
+  - 単調増加方式では端末時計を未来へ大きく進めて戻した場合、その最大日付を越えるまで新規記録を抑止する。重複によるretention水増しを避ける方を優先した既知のトレードオフ。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 152テスト成功、失敗0。
+  - `xcodegen generate`後、generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
+  - iPhone 16 Pro Simulatorの`DopaBreakTests`: 5テスト成功、失敗0（`TEST SUCCEEDED`）。

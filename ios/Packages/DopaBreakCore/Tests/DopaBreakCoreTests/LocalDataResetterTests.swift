@@ -105,6 +105,7 @@ final class LocalDataResetterTests: XCTestCase {
         context.settingsStore.pendingMidSessionCheckInCatalogID = "youtube"
         context.settingsStore.verifiedAutomationCatalogIDs = ["instagram"]
         context.settingsStore.firstLaunchDate = timestamp
+        context.settingsStore.lastAppOpenedDateKey = "2027-01-15"
         context.settingsStore.wakeTimeMinutes = 480
         context.settingsStore.bedTimeMinutes = 1_320
         context.settingsStore.morningNotificationEnabled = false
@@ -138,6 +139,7 @@ final class LocalDataResetterTests: XCTestCase {
         XCTAssertNil(context.settingsStore.pendingMidSessionCheckInCatalogID)
         XCTAssertEqual(context.settingsStore.verifiedAutomationCatalogIDs, [])
         XCTAssertEqual(context.settingsStore.firstLaunchDate, timestamp)
+        XCTAssertNil(context.settingsStore.lastAppOpenedDateKey)
         XCTAssertNil(context.settingsStore.wakeTimeMinutes)
         XCTAssertNil(context.settingsStore.bedTimeMinutes)
         XCTAssertTrue(context.settingsStore.morningNotificationEnabled)

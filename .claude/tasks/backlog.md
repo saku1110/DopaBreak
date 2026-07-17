@@ -11,7 +11,7 @@ Fable(このセッション)は独立に906要件で同種監査を実施し、*
 
 ### 今回のセッションで実装中（codex exec委譲・優先度順）
 - [x] **G1: 設定にプライバシー/全データ削除機能がない**（FR-605 Must違反・審査ブロッカー級。レポート§1・§5参照）— 2026-07-17実装完了。Codex独立レビューで実バグ3件検出→修正済み（①ログDB破損時に削除全体が無効化される ②予約済み通知が削除後も生き残り一部状態を復活させ得る ③firstLaunchDateリセットでFree枠14日拡大猶予を悪用再取得できる）。147テスト0失敗・BUILD SUCCEEDED・Fable独立検証済み
-- [ ] **G4: GoalType残骸の削除**（Core/GoalStore/ShieldConfigurationExtensionからhero/year型を除去しフラットリストに統一。レポート§5・Fable監査で相互検証済み）— 実装中
+- [x] **G4: GoalType残骸の削除**（Core/GoalStore/ShieldConfigurationExtensionからhero/year型を除去しフラットリストに統一。レポート§5・Fable監査で相互検証済み）— 2026-07-17実装完了。Codex独立レビューで実バグ1件検出→修正済み（orderedForMigrationが読取時のみ正規化し永続化していなかったため、旧`[year,hero]`保存順の端末でプライマリ目標が入れ替わる回帰。一回限りの移行処理で是正）。148テスト0失敗・BUILD SUCCEEDED・Fable独立検証済み
 - [ ] **計測基盤の第一弾**（レポート§4優先1-3: オンボstep_completed／paywallShownへのplacement付与／app_opened）
 
 ## 最優先（死活項目）

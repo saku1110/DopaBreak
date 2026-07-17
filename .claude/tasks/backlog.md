@@ -1,5 +1,19 @@
 # バックログ
 
+## 設計書vs実装ギャップ — 2本の監査の統合（2026-07-17）
+
+**正本レポート: `output/audits/audit-2026-07-17-cvr-retention-gaps.md`**（同日・別セッションでCVR/継続率5レンズ+Codexアプリ実装検証込みの監査済み。905要件照合・G1-G7・B1-B14・C1-C7・R1-R7）。
+Fable(このセッション)は独立に906要件で同種監査を実施し、**G4(GoalType残骸)を完全に同一の根拠で再検出**（相互検証成立）。Fable側で追加検出した項目のみ以下に残す（他はレポート本体を参照）:
+
+- [ ] **doc11(UI文言正本)未登録の英語ラベル21箇所**: `SmallLabel`で使われる"INTERCEPTED"/"USAGE SUMMARY"/"DECISION"/"BEHAVIOR SIGNAL"等がdoc11に一切記載なし（InterventionFlowView/OnboardingFlow/StatsView/PaywallView等6ファイル）。doc11へ追記するか日本語文言に置き換えるか要判断
+- [ ] **サブスク維持系ライフサイクル施策（doc15計画分）**: レポートC4/C5と同一（リバーストライアル・週1提示・Day5通知・Month1/12レポート）。レポート側に統合済みのため二重記載しない
+- [ ] **Notification Content Extension未実装**: doc06が要求する「折り畳み通知ロングタップでテーマ付きカスタムUI」用拡張ターゲットが存在しない。優先度低（v1.1候補）
+
+### 今回のセッションで実装中（codex exec委譲・優先度順）
+- [ ] **G1: 設定にプライバシー/全データ削除機能がない**（FR-605 Must違反・審査ブロッカー級。レポート§1・§5参照）
+- [ ] **G4: GoalType残骸の削除**（Core/GoalStore/ShieldConfigurationExtensionからhero/year型を除去しフラットリストに統一。レポート§5・Fable監査で相互検証済み）
+- [ ] **計測基盤の第一弾**（レポート§4優先1-3: オンボstep_completed／paywallShownへのplacement付与／app_opened）
+
 ## 最優先（死活項目）
 
 - [x] **FamilyControls distribution entitlement — 承認済み（2026-07-03）＋ポータル設定完了（2026-07-08）**

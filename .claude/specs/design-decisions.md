@@ -353,3 +353,46 @@ Claude Code側で6レンズ監査（ビジュアル/介入UX/オンボ/ペイウ
   - `swift test --package-path ios/Packages/DopaBreakCore`: 152テスト成功、失敗0。
   - `xcodegen generate`後、generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
   - iPhone 16 Pro Simulatorの`DopaBreakTests`: 5テスト成功、失敗0（`TEST SUCCEEDED`）。
+
+## 2026-07-18 — コピー確定改訂（オーナー承認・Q1再設計＋ペイウォール2行目差し替え）
+
+- オーナー決定:
+  - ペイウォール見出し2行目: 検証済みD案「開く前に、一拍おく」を**却下**（「一拍おく」はどの層にも響きにくい語彙）。代案Aを採用し、さらに**読点を削除**して「**開く前にブレーキ**」で確定。アプリ名（Break）の回収・KR版「브레이크」と背骨統一。
+  - 読点の癖への指摘: 「なんでも読点を入れるな」。以後、短い表示コピーでは読点をデフォルトで入れない（doc11 §0の運用を厳格化）。
+  - Q1（O-02）: 「1日に何回、無意識にSNSを開いていますか？」は**却下**（回数は覚えていない→迷って進めない＝離脱要因。96回アンカーは三人称統計で「へー」で終わる）。**時間質問へ変更**: 「SNSを見ている時間は／1日どれくらいですか？」＋補助線「ざっくりでOKです」（選択肢の直前）＋時間バケット4択。案A（「SNSを見ている時間」先頭立て）をオーナーが選択。
+- 設計上の発見:
+  - doc07 O-02の原設計はもともと時間バケットであり、実装が回数＋96回アンカーへドリフトしていた。今回は正本回帰。
+  - LossEstimatorは時間キー（1時間未満/1-2時間/2-4時間/4時間以上→45/90/150/270分）を実装済みのためCore変更ゼロ。回数キーは過去の保存データ互換のため残す。
+  - EntitlementGate.statsDays（Free=1日/Pro=無制限）が実在するため、ペイウォール機能行は「記録を全期間さかのぼれる」で誠実に書ける（C3の空約束「詳細な統計と継続記録」を置換）。
+- 正本改訂: doc07 §5末尾「2026-07-18 文言確定改訂」表＋doc11 §5「2026-07-18 ペイウォール見出し・機能行の確定改訂」を追加。矛盾時はこの2表が正。
+- 保留（本改訂に含めない）: ペイウォールサブコピー差し替え（「取り返した」の語の可否）、勝ち画面doc13案、US/KR全文言（ローンチ前にJPと同じコールドリード検証必須）。
+
+## 2026-07-18 — 確定コピーをSwiftUIへ反映
+
+- 作成・変更:
+  - `ios/DopaBreak/OnboardingFlow.swift`: O-02を時間質問・時間バケットへ変更し、補助線を設問と選択肢の間へ配置。推計結果、対象アプリCTA、STEP表記、科学説明、オートメーション案内、準備画面の確定文言を反映。
+  - `ios/DopaBreak/PaywallView.swift`: 見出しを2行化し、`SelfCheckSnapshot.estimatedYearlyDays`から一度だけ解決した個人推計値を数字アクセントで表示。機能行2件を実際のPro差分へ更新。
+  - `ios/DopaBreakTests/MeasurementFoundationTests.swift`: ペイウォール年間日数のsnapshotあり／nil時fallbackを検証するアプリ層テストを追加。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/LossEstimatorTests.swift`: オンボーディングの確定時間バケットへテスト文言を同期。
+- 採用した方針:
+  - O-02の`ざっくりでOKです`は既存`centeredLead`を`optionSection`内で使い、折り返す中央見出しと選択肢の間に置いた。既存の中央寄せ階層と`screenScroll`構造は維持。
+  - ペイウォールは既存の`DefaultContainerProvider`＋`JSONSnapshotStore`パターンをinitializerの既定依存として使い、body再評価ごとの読み込みを避けた。表示値の決定は純粋な`resolvedYearlyDays(snapshot:)`へ分離。
+  - 2行見出しは既存30pt black、tracking -1、minimumScaleFactor 0.78を各行に維持し、1行目の動的な数字だけaccent色とした。
+- 却下・変更しなかった案:
+  - 年間日数38の直接固定表示、補助線を選択肢の下へ残す案、ペイウォールサブコピー変更、画面構造のリファクタは確定仕様外のため不採用。
+- Claude Code側の実装制約:
+  - ペイウォール年間日数はsnapshot値を最優先し、未取得時は`LossEstimator.estimate(usageBucket: "2-4時間")`、その推計自体が失敗した場合だけliteral 38を使う順序を維持する。
+  - `screenScroll`の`.containerRelativeFrame(.horizontal)`、オンボーディング訴求文の中央寄せ、ペイウォールサブコピーは変更しない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 152テスト成功、失敗0。
+  - `cd ios && xcodegen generate`: 成功。
+  - generic iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。
+  - iPhone 16 Pro Simulatorの`DopaBreakTests`: 6テスト成功、失敗0（`TEST SUCCEEDED`）。
+
+### 同日追記 — Codex独立レビュー裁定（2026-07-18）
+
+- 指摘#1「PaywallView initの同期ファイルI/O（9箇所×毎構築）」→ **却下**。self_check_snapshot.jsonは1KB未満の単発読みでOSキャッシュも効き、初回フレームへの実測影響は無視できる。キャッシュ化すると全データ削除→再オンボーディング時に古い{N}を表示する鮮度バグを生む。プリペイウォール直前にスナップショットが更新される本アプリでは毎構築時読みが正しい。プロファイリングでjank実測が出た場合のみ再検討。
+- 指摘#2「レガシー回数バケツの回帰テスト消失」→ **採用**。互換キー維持（過去の保存データ対応）は設計判断のため、専用回帰テストを復元。
+- 指摘#3「永続化経路・破損データfallbackの統合テスト不在」→ **部分採用**。書き込み→注入→解決の統合テストと破損JSON→38 fallbackテストを追加。レンダリング/Dynamic Typeのスナップショットテストはハーネス未導入のため不採用（導入判断は別タスク）。
+- 採用2件の反映後の最終検証（Fable独立実行）: Core 158テスト0失敗・アプリ層 7テスト0失敗・generic Simulator向け `BUILD SUCCEEDED`。
+

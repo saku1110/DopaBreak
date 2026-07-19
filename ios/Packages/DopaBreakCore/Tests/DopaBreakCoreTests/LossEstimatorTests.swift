@@ -16,7 +16,15 @@ final class LossEstimatorTests: XCTestCase {
         XCTAssertEqual(try LossEstimator.estimate(usageBucket: "2～4時間").dailyMinutes, 150)
     }
 
-    func testOpenCountBucketsMapToOnboardingEstimate() throws {
+    func testOnboardingTimeBucketsMapToEstimate() throws {
+        XCTAssertEqual(try LossEstimator.estimate(usageBucket: "1時間未満").dailyMinutes, 45)
+        XCTAssertEqual(try LossEstimator.estimate(usageBucket: "1〜2時間").dailyMinutes, 90)
+        XCTAssertEqual(try LossEstimator.estimate(usageBucket: "2〜4時間").dailyMinutes, 150)
+        XCTAssertEqual(try LossEstimator.estimate(usageBucket: "4時間以上").dailyMinutes, 270)
+    }
+
+    func testLegacyOpenCountBucketsRemainSupportedForPersistedData() throws {
+        // These keys must not be removed while old persisted SelfCheckSnapshot data can exist.
         XCTAssertEqual(try LossEstimator.estimate(usageBucket: "5回未満").dailyMinutes, 45)
         XCTAssertEqual(try LossEstimator.estimate(usageBucket: "5〜15回").dailyMinutes, 90)
         XCTAssertEqual(try LossEstimator.estimate(usageBucket: "15〜30回").dailyMinutes, 150)

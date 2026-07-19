@@ -150,7 +150,7 @@ struct OnboardingFlow: View {
     let onComplete: () -> Void
 
     private let snapshotStore = JSONSnapshotStore(containerProvider: DefaultContainerProvider())
-    private let usageOptions = ["5回未満", "5〜15回", "15〜30回", "30回以上"]
+    private let usageOptions = ["1時間未満", "1〜2時間", "2〜4時間", "4時間以上"]
     private let frequencyOptions = ["全くない", "数日", "半分以上", "ほとんど毎日"]
     private let goalPresets = ["読書を30分", "筋トレを続ける", "資格の勉強"]
 
@@ -340,7 +340,7 @@ struct OnboardingFlow: View {
         case .quizResult:
             primaryButton("この時間を、変える") { advance() }
         case .chooseApps:
-            primaryButton(selectedCatalogIDs.isEmpty ? "アプリを選ぶ" : "\(selectedCatalogIDs.count)つのアプリをブロック") {
+            primaryButton(selectedCatalogIDs.isEmpty ? "アプリを選ぶ" : "この\(selectedCatalogIDs.count)つで始める") {
                 persistSelectedAppsAndAdvance()
             }
         case .goalSetup:
@@ -425,11 +425,10 @@ private extension OnboardingFlow {
                 centeredEyebrow("質問 1 / 3")
                 centeredLead("回答は端末内にのみ保存されます。")
 
-                optionSection(title: "1日に何回、無意識にSNSを開いていますか？") {
+                optionSection(title: "SNSを見ている時間は\n1日どれくらいですか？") {
+                    centeredLead("ざっくりでOKです")
                     singleSelectOptions(usageOptions, selection: $usageBucket)
                 }
-
-                centeredLead("平均的な人は1日96回スマホを手に取ります。")
             }
         }
     }
@@ -501,7 +500,7 @@ private extension OnboardingFlow {
                 centeredLead("※ご回答からの推計値です。医療診断ではありません。")
                     .padding(.top, 8)
 
-                centeredLead("眠る時間を除けば、起きている人生の約1年分以上に相当します。")
+                centeredLead("このままなら10年で 約\(estimate.yearlyDays * 10)日")
             }
             .frame(maxWidth: .infinity, alignment: .center)
         }
@@ -510,7 +509,6 @@ private extension OnboardingFlow {
     var chooseAppsContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredEyebrow("STEP 02 / 04")
                 centeredTitle("止めたいアプリを選ぶ")
                 centeredLead("いつでも変更できます。")
 
@@ -601,7 +599,6 @@ private extension OnboardingFlow {
     var chooseModeContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredEyebrow("STEP 04 / 04")
                 centeredTitle("どのくらい強く\n止めますか？")
                 centeredLead("生活に合う強さを選べます。")
 
@@ -649,7 +646,7 @@ private extension OnboardingFlow {
         screenScroll {
             VStack(alignment: .leading, spacing: 22) {
                 centeredEyebrow("WHY IT WORKS / 科学的背景")
-                centeredTitle("意志の力では、\n勝てない。")
+                centeredTitle("意志の力では、\n勝てない")
                 centeredLead("つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。")
 
                 CardContainer {
@@ -678,7 +675,7 @@ private extension OnboardingFlow {
         screenScroll {
             VStack(alignment: .leading, spacing: 22) {
                 centeredTitle("自動で一呼吸を出す設定")
-                centeredLead("ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。")
+                centeredLead("ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。設定は一度だけ・約2分です。")
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
@@ -767,8 +764,8 @@ private extension OnboardingFlow {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow("あなた専用プラン / READY")
-                centeredTitle("準備が、整いました")
-                centeredLead("この設定で、無意識にSNSを開く瞬間をDopaBreakが止めます。")
+                centeredTitle("準備が整いました")
+                centeredLead("この設定で、開く前の一呼吸が増えます。")
 
                 CardContainer {
                     VStack(spacing: 0) {
@@ -776,7 +773,7 @@ private extension OnboardingFlow {
                         divider
                         summaryRow(label: "戻る先", value: goalSummaryText.isEmpty ? "未設定" : goalSummaryText)
                         divider
-                        summaryRow(label: "取り戻せる時間", value: "年 約\(summaryYearlyDays)日分")
+                        summaryRow(label: "対象の時間", value: "年 約\(summaryYearlyDays)日分")
                     }
                 }
 
@@ -800,7 +797,7 @@ private extension OnboardingFlow {
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 
                 VStack(spacing: 12) {
-                    titleText("準備完了。")
+                    titleText("準備完了")
                         .multilineTextAlignment(.center)
                     bodyText("今日から、開く前に選び直す。")
                         .multilineTextAlignment(.center)

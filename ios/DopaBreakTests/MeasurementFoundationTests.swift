@@ -98,6 +98,65 @@ final class MeasurementFoundationTests: XCTestCase {
         )
     }
 
+    func testPaywallResolvedYearlyDaysUsesSnapshotAndFallsBackToDefaultEstimate() {
+        let snapshot = SelfCheckSnapshot(
+            id: UUID(),
+            usageBucket: "4時間以上",
+            aimlessScrollBucket: "ほとんど毎日",
+            regretBucket: "半分以上",
+            estimatedDailyMinutes: 270,
+            estimatedYearlyDays: 68,
+            createdAt: Date()
+        )
+
+        XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: snapshot), 68)
+        XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: nil), 38)
+    }
+
+    @MainActor
+    func testPaywallViewResolvesYearlyDaysFromPersistedSnapshotAndFallsBackOnCorruptData() throws {
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MeasurementFoundationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+
+        let snapshotStore = JSONSnapshotStore(
+            containerProvider: FixedContainer(url: containerURL)
+        )
+        try snapshotStore.write(
+            SelfCheckSnapshot(
+                id: UUID(),
+                usageBucket: "4時間以上",
+                aimlessScrollBucket: "ほとんど毎日",
+                regretBucket: "半分以上",
+                estimatedDailyMinutes: 270,
+                estimatedYearlyDays: 68,
+                createdAt: Date()
+            ),
+            to: .selfCheckSnapshot
+        )
+        let service = StoreService(
+            funnelEventStore: FunnelEventStore(snapshotStore: snapshotStore)
+        )
+
+        let persistedView = PaywallView(
+            storeService: service,
+            placement: .settingsThemeGate,
+            snapshotStore: snapshotStore
+        )
+        XCTAssertEqual(persistedView.yearlyDays, 68)
+
+        try Data("not json".utf8).write(
+            to: containerURL.appendingPathComponent("self_check_snapshot.json")
+        )
+        let fallbackView = PaywallView(
+            storeService: service,
+            placement: .settingsThemeGate,
+            snapshotStore: snapshotStore
+        )
+        XCTAssertEqual(fallbackView.yearlyDays, 38)
+    }
+
     @MainActor
     func testStoreServiceRecordsPaywallShownAndDismissedWithPlacement() throws {
         let containerURL = FileManager.default.temporaryDirectory

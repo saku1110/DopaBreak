@@ -34,12 +34,35 @@ private enum PaywallPlan: CaseIterable, Identifiable {
 struct PaywallView: View {
     let storeService: StoreService
     let placement: PaywallPlacement
+    let yearlyDays: Int
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlan: PaywallPlan = .annual
     @State private var alertMessage: String?
     @State private var didRecordAppearance = false
     @State private var didRecordDismissal = false
+
+    init(
+        storeService: StoreService,
+        placement: PaywallPlacement,
+        snapshotStore: JSONSnapshotStore = JSONSnapshotStore(
+            containerProvider: DefaultContainerProvider()
+        )
+    ) {
+        self.storeService = storeService
+        self.placement = placement
+        let snapshot = try? snapshotStore.read(
+            SelfCheckSnapshot.self,
+            from: .selfCheckSnapshot
+        )
+        yearlyDays = Self.resolvedYearlyDays(snapshot: snapshot)
+    }
+
+    static func resolvedYearlyDays(snapshot: SelfCheckSnapshot?) -> Int {
+        snapshot?.estimatedYearlyDays ??
+            (try? LossEstimator.estimate(usageBucket: "2-4時間").yearlyDays) ??
+            38
+    }
 
     private var isBusy: Bool {
         storeService.isPurchasing || storeService.isRestoring
@@ -92,13 +115,22 @@ struct PaywallView: View {
                         .padding(14)
                 }
 
-            (Text("その ").foregroundStyle(DesignTokens.primaryText)
-                + Text("38").foregroundStyle(DesignTokens.accent)
-                + Text(" 日を、人生に使う").foregroundStyle(DesignTokens.primaryText))
-                .font(.system(size: 30, weight: .black))
-                .tracking(-1)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
+            VStack(alignment: .leading, spacing: 2) {
+                (Text("「あと5分だけ」が年").foregroundStyle(DesignTokens.primaryText)
+                    + Text("\(yearlyDays)").foregroundStyle(DesignTokens.accent)
+                    + Text("日").foregroundStyle(DesignTokens.primaryText))
+                    .font(.system(size: 30, weight: .black))
+                    .tracking(-1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                Text("開く前にブレーキ")
+                    .font(.system(size: 30, weight: .black))
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .tracking(-1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
 
             Text("無意識に消える時間を、あなたが選んだ目標へ戻します。")
                 .font(.system(size: 14, weight: .medium))
@@ -113,9 +145,9 @@ struct PaywallView: View {
             divider
             PaywallFeatureRow(text: "ロック画面テーマを着せ替え")
             divider
-            PaywallFeatureRow(text: "詳細な統計と継続記録")
+            PaywallFeatureRow(text: "記録を全期間さかのぼれる")
             divider
-            PaywallFeatureRow(text: "複数の目標とモード")
+            PaywallFeatureRow(text: "目標を何個でも追加できる")
         }
         .padding(.horizontal, 4)
     }

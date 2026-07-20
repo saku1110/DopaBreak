@@ -244,7 +244,7 @@ struct DopaBreakLiveActivity: Widget {
                 .frame(height: 1)
 
             HStack(spacing: 14) {
-                Text("今日 開かずに我慢 \(state.todayCancelledCount)回")
+                Text("今日 開かずに戻れた \(state.todayCancelledCount)回")
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
                 Text("開こうとした \(state.todayAttemptCount)回")
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))

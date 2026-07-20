@@ -15,7 +15,7 @@ struct StatsView: View {
                         .monospacedDigit()
                         .foregroundStyle(DesignTokens.primaryText)
                         .tracking(-2)
-                    Text("開かずに我慢できた割合")
+                    Text("開かずに戻れた割合")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(DesignTokens.secondaryText)
                 }

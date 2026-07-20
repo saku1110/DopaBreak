@@ -109,7 +109,7 @@ final class LockSurfaceCoordinator {
            weeklySummary.attempts > 0 {
             let content = UNMutableNotificationContent()
             content.title = "今週のふりかえり"
-            content.body = "開かずに我慢 \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回"
+            content.body = "開かずに戻れた \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回"
             content.sound = .default
             let trigger = UNCalendarNotificationTrigger(
                 dateMatching: DateComponents(hour: hour, minute: minute, weekday: 2),

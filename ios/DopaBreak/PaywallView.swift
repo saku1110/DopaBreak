@@ -132,7 +132,7 @@ struct PaywallView: View {
                     .minimumScaleFactor(0.78)
             }
 
-            Text("無意識に消える時間を、あなたが選んだ目標へ戻します。")
+            Text("がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開かずに戻れた回数が毎日ホームに積み上がります。")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(DesignTokens.secondaryText)
                 .lineSpacing(4)

@@ -379,13 +379,15 @@ struct InterventionFlowView: View {
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
 
-                Text("開かなかった。\nあなたの勝ち")
+                Text("開かなかった\n今日も自分で選べた")
                     .font(.system(size: 32, weight: .black))
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
 
-                Text("今日\(flow.todayAttemptDisplayCount)回目の、意図した選択。")
+                Text("今日\(flow.todayAttemptDisplayCount)回目")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DesignTokens.secondaryText)
 

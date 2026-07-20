@@ -379,7 +379,7 @@ struct InterventionFlowView: View {
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
 
-                Text("開かなかった\n今日も自分で選べた")
+                Text("開かなかった\n自分の時間に戻る")
                     .font(.system(size: 32, weight: .black))
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
@@ -404,7 +404,7 @@ struct InterventionFlowView: View {
 
                 CardContainer {
                     HStack(spacing: 18) {
-                        metricColumn(label: "開かなかった", value: todayCancelledCountText)
+                        metricColumn(label: "開かずに戻れた", value: todayCancelledCountText)
                         Rectangle()
                             .fill(DesignTokens.hairline)
                             .frame(width: 1, height: 54)

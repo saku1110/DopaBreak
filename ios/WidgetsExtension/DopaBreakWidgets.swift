@@ -92,7 +92,7 @@ struct DopaBreakHomeWidgetView: View {
                 .monospacedDigit()
                 .foregroundStyle(Color(lockThemeColor: palette.accent))
 
-            Text("今日 開かなかった")
+            Text("今日 開かずに戻れた")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
 
@@ -131,7 +131,7 @@ struct DopaBreakHomeWidgetView: View {
                     .font(.system(size: 32, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text("今日 開かなかった")
+                Text("今日 開かずに戻れた")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
                 Spacer(minLength: 0)

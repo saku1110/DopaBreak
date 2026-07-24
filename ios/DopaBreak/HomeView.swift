@@ -3,12 +3,24 @@ import SwiftUI
 
 struct HomeView: View {
     let model: AppModel
+    let settingsStore: SettingsStore
     @State private var editorRoute: GoalEditorRoute?
+    @State private var isAutomationGuidePresented = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 heroBand
+                if let remainingDays = model.reverseTrialRemainingDays {
+                    reverseTrialBanner(remainingDays: remainingDays)
+                        .padding(.top, 20)
+                        .padding(.horizontal, DesignTokens.horizontalPadding)
+                }
+                if !unverifiedAutomationTargets.isEmpty {
+                    automationStatusBanner
+                        .padding(.top, 20)
+                        .padding(.horizontal, DesignTokens.horizontalPadding)
+                }
                 goalSection
                     .padding(.top, 20)
                 if isFirstDayEmpty {
@@ -26,9 +38,61 @@ struct HomeView: View {
             .padding(.bottom, 28)
         }
         .dopaScreenBackground()
-        .onAppear { model.refresh() }
+        .onAppear {
+            model.refresh()
+            model.isChildModalActive = isAnyChildModalPresented
+        }
+        .onChange(of: isAnyChildModalPresented) { _, isPresented in
+            model.isChildModalActive = isPresented
+        }
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
+        }
+        .sheet(isPresented: $isAutomationGuidePresented) {
+            AutomationGuideView(model: model, settingsStore: settingsStore)
+        }
+    }
+
+    private var isAnyChildModalPresented: Bool {
+        editorRoute != nil || isAutomationGuidePresented
+    }
+
+    private func reverseTrialBanner(remainingDays: Int) -> some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(localized: "home.reverse_trial.title", defaultValue: "Proのすべての機能を体験中 あと\(remainingDays)日"))
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(String(localized: "home.reverse_trial.body", defaultValue: "期間が終わると無料プランに戻ります。購入は不要です。"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var automationStatusBanner: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(automationStatusTitle)
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(String(localized: "home.automation_status.body", defaultValue: "対象アプリを開いたときに一呼吸が出れば設定完了です。"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button(String(localized: "home.automation_status.action", defaultValue: "設定を確認")) {
+                    isAutomationGuidePresented = true
+                }
+                .buttonStyle(SecondaryButtonStyle())
+            }
         }
     }
 
@@ -37,10 +101,10 @@ struct HomeView: View {
             MorningHorizon(height: 132, alignment: .center, bottomFade: 0.97)
 
             HStack {
-                SmallLabel(text: "TODAY ・ \(todayText)")
+                SmallLabel(text: String(localized: "home.hero.today", defaultValue: "TODAY ・ \(todayText)"))
                 Spacer()
                 if !isFirstDayEmpty {
-                    Text("\(model.weekCancelledCount)回 / 今週")
+                    Text(String(localized: "home.hero.week_count", defaultValue: "\(model.weekCancelledCount)回 / 今週"))
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .foregroundStyle(DesignTokens.secondaryText)
                         .padding(.horizontal, 10)
@@ -70,7 +134,7 @@ struct HomeView: View {
             CardContainer {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
-                        SmallLabel(text: "あなたの目標")
+                        SmallLabel(text: String(localized: "home.goal.label", defaultValue: "あなたの目標"))
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 12, weight: .bold))
@@ -96,7 +160,7 @@ struct HomeView: View {
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    SmallLabel(text: "あなたの目標")
+                    SmallLabel(text: String(localized: "home.goal.label", defaultValue: "あなたの目標"))
                     Spacer()
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 12, weight: .bold))
@@ -118,14 +182,14 @@ struct HomeView: View {
 
     private var firstDayEmptySection: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("最初のひと呼吸から\n今日が始まる")
+            Text(String(localized: "home.first_day.title", defaultValue: "最初のひと呼吸から\n今日が始まる"))
                 .font(.system(size: 38, weight: .black))
                 .foregroundStyle(DesignTokens.primaryText)
                 .tracking(-0.8)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("対象アプリを開こうとすると、ここに記録がつきます")
+            Text(String(localized: "home.first_day.body", defaultValue: "対象アプリを開こうとすると、ここに記録がつきます"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(DesignTokens.secondaryText)
                 .lineSpacing(4)
@@ -143,21 +207,21 @@ struct HomeView: View {
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.accent)
                     .tracking(-3)
-                Text("回")
+                Text(String(localized: "home.achievement.count_unit", defaultValue: "回"))
                     .font(.system(size: 30, weight: .black))
                     .foregroundStyle(DesignTokens.accent)
             }
 
-            Text("今日、自分で選べた")
+            Text(String(localized: "home.achievement.title", defaultValue: "今日、自分で選べた"))
                 .font(.system(size: 24, weight: .black))
                 .foregroundStyle(DesignTokens.primaryText)
 
             if model.todayAttemptCount == 0 {
-                Text("最初の選択から、今日の記録が始まります")
+                Text(String(localized: "home.achievement.empty_body", defaultValue: "最初の選択から、今日の記録が始まります"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DesignTokens.secondaryText)
             } else {
-                Text("開こうとした\(model.todayAttemptCount)回のうち、\(successRateText)で立ち止まれました")
+                Text(String(localized: "home.achievement.summary", defaultValue: "開こうとした\(model.todayAttemptCount)回のうち、\(successRateText)で立ち止まれました"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DesignTokens.secondaryText)
             }
@@ -169,11 +233,18 @@ struct HomeView: View {
     private var metricsCard: some View {
         CardContainer {
             HStack(spacing: 18) {
-                homeMetric(value: "\(model.todayCancelledCount)回", label: "開かずに戻れた", accent: true)
+                homeMetric(
+                    value: String(localized: "home.metric.count", defaultValue: "\(model.todayCancelledCount)回"),
+                    label: String(localized: "home.metric.cancelled", defaultValue: "開かずに戻れた"),
+                    accent: true
+                )
                 Rectangle()
                     .fill(DesignTokens.hairline)
                     .frame(width: 1, height: 58)
-                homeMetric(value: "\(model.todayAttemptCount)回", label: "開こうとした")
+                homeMetric(
+                    value: String(localized: "home.metric.count", defaultValue: "\(model.todayAttemptCount)回"),
+                    label: String(localized: "home.metric.attempted", defaultValue: "開こうとした")
+                )
             }
         }
         .padding(.horizontal, DesignTokens.horizontalPadding)
@@ -182,7 +253,7 @@ struct HomeView: View {
     private var weekSignal: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 14) {
-                SmallLabel(text: "THIS WEEK")
+                SmallLabel(text: String(localized: "home.week.eyebrow", defaultValue: "THIS WEEK"))
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
                         Capsule().fill(DesignTokens.hairline)
@@ -192,7 +263,7 @@ struct HomeView: View {
                     }
                 }
                 .frame(height: 5)
-                Text("今週 \(model.weekCancelledCount)回、自分で選び直しました")
+                Text(String(localized: "home.week.summary", defaultValue: "今週 \(model.weekCancelledCount)回、自分で選び直しました"))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DesignTokens.secondaryText)
             }
@@ -214,7 +285,26 @@ struct HomeView: View {
     }
 
     private var primaryGoalTitle: String {
-        model.goals.first?.title ?? "SNSの先ではなく、戻りたい先を決める"
+        model.goals.first?.title ?? String(localized: "home.goal.fallback", defaultValue: "SNSの先ではなく、戻りたい先を決める")
+    }
+
+    private var unverifiedAutomationCatalogIDs: [String] {
+        AutomationVerification.unverifiedCatalogIDs(
+            selectedCatalogIDs: (try? model.targetStore.selectedCatalogIDs()) ?? [],
+            verifiedCatalogIDs: settingsStore.verifiedAutomationCatalogIDs
+        )
+    }
+
+    private var unverifiedAutomationTargets: [SNSAppCatalogItem] {
+        unverifiedAutomationCatalogIDs.compactMap { SNSAppCatalog.app(catalogID: $0) }
+    }
+
+    private var automationStatusTitle: String {
+        if unverifiedAutomationTargets.count == 1,
+           let target = unverifiedAutomationTargets.first {
+            return String(localized: "home.automation_status.title_single", defaultValue: "\(target.displayName)の一呼吸はまだ動いていません")
+        }
+        return String(localized: "home.automation_status.title_multiple", defaultValue: "\(unverifiedAutomationCatalogIDs.count)個のアプリで一呼吸がまだ動いていません")
     }
 
     private var isFirstDayEmpty: Bool {

@@ -70,11 +70,15 @@ final class AppModel {
     private(set) var todayCancelledCount = 0
     private(set) var weekAttemptCount = 0
     private(set) var weekCancelledCount = 0
+    private(set) var allTimeCancelledCount = 0
     var alertMessage: String?
 
     /// 開始待ちの介入起動要求（AppIntent / URLスキーム経由）。RootTabView がこれを監視して
     /// InterventionFlowView を全画面表示する。
     var pendingInterventionCatalogID: String?
+
+    /// RootTabViewの自動提示と競合する、各タブ配下のsheet/fullScreenCover表示状態。
+    var isChildModalActive = false
 
     init(
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
@@ -100,7 +104,16 @@ final class AppModel {
         self.targetStore = InterventionTargetStore(snapshotStore: snapshotStore)
         self.screenTime = ScreenTimeCenter()
         self.shield = ShieldController(ruleStore: resolvedRuleStore)
-        self.storeService = StoreService(funnelEventStore: funnelEventStore, now: now)
+        self.storeService = StoreService(
+            funnelEventStore: funnelEventStore,
+            now: now,
+            onProEntitlementActivated: {
+                guard resolvedSettingsStore.reverseTrialStartedAt != nil else {
+                    return
+                }
+                resolvedSettingsStore.reverseTrialEndPaywallShown = true
+            }
+        )
         let resolvedLogStore = try? SQLiteLogStore(containerProvider: containerProvider)
         self.logStore = resolvedLogStore
         self.statsService = resolvedLogStore.map {
@@ -125,7 +138,10 @@ final class AppModel {
         }
 
         if logStore == nil {
-            alertMessage = "記録データを準備できませんでした"
+            alertMessage = String(
+                localized: "app.error.record_store_unavailable",
+                defaultValue: "記録データを準備できませんでした"
+            )
         }
     }
 
@@ -141,6 +157,11 @@ final class AppModel {
         try? recorder.recordIfNeeded(at: now())
     }
 
+    @discardableResult
+    func startReverseTrialIfNeeded() -> Bool {
+        settingsStore.startReverseTrialIfNeeded(at: now())
+    }
+
     func refresh(
         restartLiveActivity: Bool = false,
         scheduleNotifications: Bool = true
@@ -154,7 +175,7 @@ final class AppModel {
                 scheduleNotifications: scheduleNotifications
             )
         } catch {
-            alertMessage = "データを読み込めませんでした"
+            alertMessage = String(localized: "app.error.data_load", defaultValue: "データを読み込めませんでした")
         }
     }
 
@@ -199,7 +220,12 @@ final class AppModel {
             lockSurfaceCoordinator.rescheduleNotifications(
                 goals: goals,
                 state: state,
-                weeklySummary: weeklySummary
+                weeklySummary: weeklySummary,
+                day14Warning: day14WarningSchedule(),
+                retentionNotifications: retentionNotificationSchedules(),
+                firstLaunchDate: settingsStore.firstLaunchDate,
+                verifiedAutomationCatalogIDs: settingsStore.verifiedAutomationCatalogIDs,
+                now: now()
             )
         }
         Task {
@@ -213,11 +239,55 @@ final class AppModel {
         }
     }
 
+    func rescheduleNotificationsAfterAuthorization() async {
+        refreshLockSurfaces()
+        await lockSurfaceCoordinator.waitForNotificationReschedule()
+    }
+
     var entitlementGate: EntitlementGate {
         EntitlementGate(
-            isPro: storeService.isPro,
+            isPro: storeService.isPro || reverseTrialActive,
             now: now(),
             firstLaunchDate: settingsStore.firstLaunchDate
+        )
+    }
+
+    var reverseTrialActive: Bool {
+        ReverseTrialPolicy.isActive(
+            startedAt: settingsStore.reverseTrialStartedAt,
+            now: now()
+        )
+    }
+
+    var reverseTrialRemainingDays: Int? {
+        ReverseTrialPolicy.remainingDays(
+            startedAt: settingsStore.reverseTrialStartedAt,
+            now: now()
+        )
+    }
+
+    var shouldPresentReverseTrialEndPaywall: Bool {
+        ReverseTrialPolicy.shouldPresentEndPaywall(
+            startedAt: settingsStore.reverseTrialStartedAt,
+            isPro: storeService.isPro,
+            endPaywallShown: settingsStore.reverseTrialEndPaywallShown,
+            now: now()
+        )
+    }
+
+    var shouldPresentDay14Warning: Bool {
+        let targetCount = (try? targetStore.selectedCatalogIDs().count) ?? 0
+        return entitlementGate.shouldScheduleDay14Warning(targetCount: targetCount)
+    }
+
+    var day14ClampNotice: String? {
+        guard let catalogID = settingsStore.day14ClampKeptCatalogID,
+              let app = SNSAppCatalog.app(catalogID: catalogID) else {
+            return nil
+        }
+        return String(
+            localized: "app.day14_clamp.notice",
+            defaultValue: "無料プランのため、よく開こうとしていた\(app.displayName)を残しました"
         )
     }
 
@@ -252,7 +322,7 @@ final class AppModel {
             return true
         } catch {
             refresh(scheduleNotifications: false)
-            alertMessage = "データを削除できませんでした"
+            alertMessage = String(localized: "app.error.data_delete", defaultValue: "データを削除できませんでした")
             return false
         }
     }
@@ -274,16 +344,17 @@ final class AppModel {
     func addGoal(
         title: String,
         category: GoalCategory,
-        lockScreenTitle: String?
+        lockScreenTitle: String?,
+        id: UUID = UUID()
     ) -> Bool {
         guard canAddGoal else {
-            alertMessage = "目標の追加にはProが必要です"
+            alertMessage = String(localized: "app.error.goal_pro_required", defaultValue: "目標の追加にはProが必要です")
             return false
         }
         let now = Date()
         return persistGoal(
             Goal(
-                id: UUID(),
+                id: id,
                 title: title,
                 lockScreenTitle: normalizedLockTitle(lockScreenTitle),
                 category: category,
@@ -317,7 +388,7 @@ final class AppModel {
             alertMessage = message
             return false
         } catch {
-            alertMessage = "目標を保存できませんでした"
+            alertMessage = String(localized: "app.error.goal_save", defaultValue: "目標を保存できませんでした")
             return false
         }
     }
@@ -329,7 +400,7 @@ final class AppModel {
             refresh()
             return true
         } catch {
-            alertMessage = "目標を削除できませんでした"
+            alertMessage = String(localized: "app.error.goal_delete", defaultValue: "目標を削除できませんでした")
             return false
         }
     }
@@ -342,7 +413,7 @@ final class AppModel {
             try goalStore.moveGoal(from: sourceIndex, to: destination)
             refresh()
         } catch {
-            alertMessage = "並び替えできませんでした"
+            alertMessage = String(localized: "app.error.goal_reorder", defaultValue: "並び替えできませんでした")
         }
     }
 
@@ -352,6 +423,14 @@ final class AppModel {
             return
         }
         pendingInterventionCatalogID = catalogID
+    }
+
+    func isCurrentInterventionTarget(catalogID: String) -> Bool {
+        guard SNSAppCatalog.contains(catalogID: catalogID),
+              let selectedCatalogIDs = try? targetStore.selectedCatalogIDs() else {
+            return false
+        }
+        return selectedCatalogIDs.contains(catalogID)
     }
 
     func consumePendingIntervention() -> String? {
@@ -371,14 +450,33 @@ final class AppModel {
 
     /// URLスキームを含む本体内の起動要求を、検収記録とともに処理する。
     func consumeInterventionRequest(catalogID: String, settingsStore: SettingsStore) {
-        guard SNSAppCatalog.contains(catalogID: catalogID) else {
+        guard let target = SNSAppCatalog.app(catalogID: catalogID) else {
             return
         }
         if !settingsStore.isAutomationVerified(catalogID: catalogID) {
             settingsStore.markAutomationVerified(catalogID: catalogID)
             recordFunnelEvent(.automationVerified, detail: catalogID)
+            lockSurfaceCoordinator.cancelD1ActivationNotification()
+        }
+        guard let selectedCatalogIDs = try? targetStore.selectedCatalogIDs(),
+              selectedCatalogIDs.contains(catalogID) else {
+            return
+        }
+        if let interventionEngine {
+            try? interventionEngine.reshieldIfExpired()
+            if let rule = try? ruleStore.catalogTargetRule(for: target),
+               let state = try? interventionEngine.currentState(),
+               state.hasActiveTemporaryAllowance(at: now(), for: rule.id) {
+                return
+            }
         }
         requestStartIntervention(catalogID: catalogID)
+    }
+
+    func setTargetCatalogIDs(_ catalogIDs: [String]) throws {
+        try targetStore.setTargets(catalogIDs)
+        settingsStore.day14ClampKeptCatalogID = nil
+        refreshLockSurfaces()
     }
 
     func todayAttemptCountForCurrentRule(catalogID: String) -> Int {
@@ -413,6 +511,12 @@ final class AppModel {
         let weekAttempts = try attemptsInLastSevenDays(calendar: calendar, logStore: logStore)
         weekAttemptCount = weekAttempts.count
         weekCancelledCount = weekAttempts.filter { $0.decision == .cancelled }.count
+
+        if let statsService {
+            allTimeCancelledCount = try statsService.cancelledAttemptsAllTime()
+        } else {
+            allTimeCancelledCount = 0
+        }
     }
 
     private func attempts(
@@ -444,6 +548,7 @@ final class AppModel {
         todayCancelledCount = 0
         weekAttemptCount = 0
         weekCancelledCount = 0
+        allTimeCancelledCount = 0
     }
 
     private func clampSelectedTargetsToEntitlementLimit() throws {
@@ -451,11 +556,193 @@ final class AppModel {
             return
         }
         let selectedCatalogIDs = try targetStore.selectedCatalogIDs()
-        let clampedCatalogIDs = entitlementGate.clampedTargetAppCatalogIDs(selectedCatalogIDs)
+        let fallbackCatalogIDs = entitlementGate.clampedTargetAppCatalogIDs(selectedCatalogIDs)
+        let clampedCatalogIDs: [String]
+        if let logStore,
+           selectedCatalogIDs.count > (entitlementGate.targetAppTokensLimit ?? Int.max) {
+            do {
+                let rules = try ruleStore.allRules()
+                let ruleIDToCatalogID: [UUID: String] = Dictionary(uniqueKeysWithValues: selectedCatalogIDs.compactMap { catalogID in
+                    guard let target = SNSAppCatalog.app(catalogID: catalogID),
+                          let rule = rules.first(where: {
+                              $0.activitySelectionData.isEmpty && $0.name == target.displayName
+                          }) else {
+                        return nil
+                    }
+                    return (rule.id, catalogID)
+                })
+                let end = now()
+                let attempts = try logStore.fetchAttempts(
+                    from: end.addingTimeInterval(-14 * 86_400),
+                    to: end
+                )
+                var countsByCatalogID: [String: Int] = [:]
+                for attempt in attempts {
+                    guard let catalogID = ruleIDToCatalogID[attempt.ruleId] else {
+                        continue
+                    }
+                    countsByCatalogID[catalogID, default: 0] += 1
+                }
+                clampedCatalogIDs = entitlementGate.clampedTargetAppCatalogIDs(
+                    selectedCatalogIDs,
+                    attemptCountsByCatalogID: countsByCatalogID
+                )
+            } catch {
+                clampedCatalogIDs = fallbackCatalogIDs
+            }
+        } else {
+            clampedCatalogIDs = fallbackCatalogIDs
+        }
         guard clampedCatalogIDs != selectedCatalogIDs else {
             return
         }
         try targetStore.setTargets(clampedCatalogIDs)
+        settingsStore.day14ClampKeptCatalogID = clampedCatalogIDs.first
+    }
+
+    private func day14WarningSchedule() -> Day14WarningSchedule? {
+        guard storeService.hasResolvedEntitlement else {
+            return nil
+        }
+        let selectedCatalogIDs = (try? targetStore.selectedCatalogIDs()) ?? []
+        let gate = entitlementGate
+        guard gate.shouldScheduleDay14Warning(targetCount: selectedCatalogIDs.count),
+              let firstLaunchDate = gate.firstLaunchDate else {
+            return nil
+        }
+
+        let calendar = Calendar.current
+        guard let day12 = calendar.date(byAdding: .day, value: 12, to: firstLaunchDate) else {
+            return nil
+        }
+
+        let morningTime = stateForDay14Warning
+        var components = calendar.dateComponents([.year, .month, .day], from: day12)
+        components.hour = morningTime.hour
+        components.minute = morningTime.minute
+        guard let morningDate = calendar.date(from: components),
+              let nominalFireDate = calendar.date(
+                  byAdding: .minute,
+                  value: morningTime.addThirtyMinutes ? 30 : 0,
+                  to: morningDate
+              ) else {
+            return nil
+        }
+        let currentDate = now()
+        let day14Boundary = firstLaunchDate.addingTimeInterval(14 * 86_400)
+        guard let fireDate = Day14WarningSchedule.nextFireDate(
+            nominalFireDate: nominalFireDate,
+            now: currentDate,
+            day14Boundary: day14Boundary
+        ) else {
+            return nil
+        }
+
+        let periodEnd = min(
+            currentDate,
+            day14Boundary
+        )
+        let cancelledCount: Int
+        if let statsService {
+            cancelledCount = (try? statsService.cancelledAttempts(
+                from: firstLaunchDate,
+                to: periodEnd
+            )) ?? 0
+        } else {
+            cancelledCount = 0
+        }
+        return Day14WarningSchedule(fireDate: fireDate, cancelledCount: cancelledCount)
+    }
+
+    private func retentionNotificationSchedules() -> RetentionNotificationSchedules {
+        guard storeService.hasResolvedEntitlement else {
+            return .empty
+        }
+
+        let currentDate = now()
+        let calendar = Calendar.current
+
+        let trialDay5: RetentionNotificationSchedule?
+        if let trial = storeService.annualTrialEntitlement,
+           RetentionNotificationPolicy.shouldScheduleRenewalNotification(
+               willAutoRenew: trial.willAutoRenew
+           ),
+           let fireDate = RetentionNotificationDateCalculator.trialDay5Date(
+               from: trial.purchaseDate,
+               calendar: calendar
+           ),
+           RetentionNotificationDateCalculator.isFuture(fireDate, relativeTo: currentDate) {
+            trialDay5 = RetentionNotificationSchedule(
+                fireDate: fireDate,
+                cancelledCount: attemptSummary(from: trial.purchaseDate, to: currentDate).cancelled,
+                attemptCount: 0
+            )
+        } else {
+            trialDay5 = nil
+        }
+
+        let month1: RetentionNotificationSchedule?
+        if let subscription = storeService.activeSubscriptionEntitlement,
+           let fireDate = RetentionNotificationDateCalculator.month1Date(
+               from: subscription.initialPurchaseDate,
+               calendar: calendar
+           ),
+           RetentionNotificationDateCalculator.isFuture(fireDate, relativeTo: currentDate) {
+            let summary = attemptSummary(from: subscription.initialPurchaseDate, to: currentDate)
+            month1 = RetentionNotificationSchedule(
+                fireDate: fireDate,
+                cancelledCount: summary.cancelled,
+                attemptCount: summary.attempts
+            )
+        } else {
+            month1 = nil
+        }
+
+        let month12: RetentionNotificationSchedule?
+        if let subscription = storeService.activeSubscriptionEntitlement,
+           RetentionNotificationPolicy.shouldScheduleRenewalNotification(
+               willAutoRenew: subscription.willAutoRenew
+           ),
+           subscription.isAnnual,
+           let fireDate = RetentionNotificationDateCalculator.month12Date(
+               from: subscription.purchaseDate,
+               calendar: calendar
+           ),
+           RetentionNotificationDateCalculator.isFuture(fireDate, relativeTo: currentDate) {
+            month12 = RetentionNotificationSchedule(
+                fireDate: fireDate,
+                cancelledCount: attemptSummary(from: subscription.purchaseDate, to: currentDate).cancelled,
+                attemptCount: 0
+            )
+        } else {
+            month12 = nil
+        }
+
+        return RetentionNotificationSchedules(
+            trialDay5: trialDay5,
+            month1: month1,
+            month12: month12
+        )
+    }
+
+    private func attemptSummary(from start: Date, to end: Date) -> AttemptSummary {
+        guard start < end, let statsService else {
+            return AttemptSummary(attempts: 0, cancelled: 0)
+        }
+        return (try? statsService.attemptSummary(from: start, to: end)) ??
+            AttemptSummary(attempts: 0, cancelled: 0)
+    }
+
+    private var stateForDay14Warning: (hour: Int, minute: Int, addThirtyMinutes: Bool) {
+        let state = lockSurfaceState
+        if state.morningNotificationEnabled {
+            return (
+                state.morningNotificationTime.hour ?? 7,
+                state.morningNotificationTime.minute ?? 0,
+                true
+            )
+        }
+        return (9, 0, false)
     }
 
     private func normalizedLockTitle(_ value: String?) -> String? {

@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var shouldOpenPickerAfterAuthorization = false
     @State private var paywallPlacement: PaywallPlacement?
     @State private var isTargetPickerPresented = false
+    @State private var shouldPresentTargetAppPaywallAfterDismiss = false
     @State private var isAutomationGuidePresented = false
     @State private var isDeleteAllDataConfirmationPresented = false
     @State private var isDeletionFeedbackVisible = false
@@ -29,7 +30,10 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
-                ScreenHeader(eyebrow: "SETTINGS", title: "設定")
+                ScreenHeader(
+                    eyebrow: String(localized: "settings.header.eyebrow", defaultValue: "SETTINGS"),
+                    title: String(localized: "settings.header.title", defaultValue: "設定")
+                )
                     .padding(.top, 18)
 
                 targetSection
@@ -44,7 +48,7 @@ struct SettingsView: View {
 
                 appSection
 
-                Text("SNSなどのアプリを止める機能は、iPhone実機でのみ動作します。")
+                Text(String(localized: "settings.device_only_note", defaultValue: "SNSなどのアプリを止める機能は、iPhone実機でのみ動作します。"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(DesignTokens.secondaryText)
                     .padding(.horizontal, 4)
@@ -55,6 +59,10 @@ struct SettingsView: View {
         .dopaScreenBackground()
         .onAppear {
             refreshSettingsState()
+            model.isChildModalActive = isAnyChildModalPresented
+        }
+        .onChange(of: isAnyChildModalPresented) { _, isPresented in
+            model.isChildModalActive = isPresented
         }
         .sheet(isPresented: $isAuthorizationSheetPresented) {
             authorizationSheet
@@ -64,27 +72,41 @@ struct SettingsView: View {
             selection: $activitySelection
         )
         .fullScreenCover(item: $paywallPlacement) { placement in
-            PaywallView(storeService: model.storeService, placement: placement)
+            PaywallView(
+                storeService: model.storeService,
+                placement: placement,
+                settingsStore: settingsStore
+            )
         }
-        .sheet(isPresented: $isTargetPickerPresented) {
-            TargetAppPickerSheet(model: model) {
+        .sheet(isPresented: $isTargetPickerPresented, onDismiss: {
+            guard shouldPresentTargetAppPaywallAfterDismiss else {
+                return
+            }
+            shouldPresentTargetAppPaywallAfterDismiss = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { return }
                 paywallPlacement = .settingsTargetAppLimit
+            }
+        }) {
+            TargetAppPickerSheet(model: model) {
+                shouldPresentTargetAppPaywallAfterDismiss = true
             }
         }
         .sheet(isPresented: $isAutomationGuidePresented) {
             AutomationGuideView(model: model, settingsStore: settingsStore)
         }
         .confirmationDialog(
-            "全データを削除しますか",
+            String(localized: "settings.delete_all.confirmation.title", defaultValue: "全データを削除しますか"),
             isPresented: $isDeleteAllDataConfirmationPresented,
             titleVisibility: .visible
         ) {
-            Button("削除する", role: .destructive) {
+            Button(String(localized: "settings.delete_all.confirmation.delete", defaultValue: "削除する"), role: .destructive) {
                 deleteAllData()
             }
-            Button("キャンセル", role: .cancel) {}
+            Button(String(localized: "settings.delete_all.confirmation.cancel", defaultValue: "キャンセル"), role: .cancel) {}
         } message: {
-            Text("目標・記録・設定がすべて削除されます。この操作は取り消せません。")
+            Text(String(localized: "settings.delete_all.confirmation.message", defaultValue: "目標・記録・設定がすべて削除されます。この操作は取り消せません。"))
         }
         .onChange(of: isAuthorizationSheetPresented) { oldValue, newValue in
             guard oldValue, !newValue else {
@@ -103,18 +125,40 @@ struct SettingsView: View {
         }
     }
 
+    private var isAnyChildModalPresented: Bool {
+        isAuthorizationSheetPresented
+            || isFamilyActivityPickerPresented
+            || paywallPlacement != nil
+            || isTargetPickerPresented
+            || isAutomationGuidePresented
+            || isDeleteAllDataConfirmationPresented
+    }
+
     private var targetSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "対象")
+            SmallLabel(text: String(localized: "settings.target.section", defaultValue: "対象"))
 
             CardContainer {
                 VStack(spacing: 0) {
                     Button {
                         isTargetPickerPresented = true
                     } label: {
-                        settingsRow(label: "止めるアプリ", value: targetAppsSummary)
+                        settingsRow(
+                            label: String(localized: "settings.target.apps", defaultValue: "止めるアプリ"),
+                            value: targetAppsSummary
+                        )
                     }
                     .buttonStyle(.plain)
+
+                    if let day14ClampNotice = model.day14ClampNotice {
+                        Text(day14ClampNotice)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 14)
+                    }
 
                     divider
                     breathDurationRow
@@ -123,7 +167,10 @@ struct SettingsView: View {
                     Button {
                         isAutomationGuidePresented = true
                     } label: {
-                        settingsRow(label: "自動で一呼吸を出す設定", value: "")
+                        settingsRow(
+                            label: String(localized: "settings.target.automation", defaultValue: "自動で一呼吸を出す設定"),
+                            value: ""
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -133,14 +180,20 @@ struct SettingsView: View {
 
     private var wakeSleepSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "起床・就寝時刻")
+            SmallLabel(text: String(localized: "settings.schedule.section", defaultValue: "起床・就寝時刻"))
 
             CardContainer {
                 VStack(spacing: 0) {
-                    timePickerRow(label: "起床時刻", selection: wakeTimeBinding)
+                    timePickerRow(
+                        label: String(localized: "settings.schedule.wake_time", defaultValue: "起床時刻"),
+                        selection: wakeTimeBinding
+                    )
 
                     divider
-                    timePickerRow(label: "就寝時刻", selection: bedTimeBinding)
+                    timePickerRow(
+                        label: String(localized: "settings.schedule.bed_time", defaultValue: "就寝時刻"),
+                        selection: bedTimeBinding
+                    )
                 }
             }
         }
@@ -148,26 +201,38 @@ struct SettingsView: View {
 
     private var lockSurfaceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "ロック画面の表示")
+            SmallLabel(text: String(localized: "settings.lock_screen.section", defaultValue: "ロック画面の表示"))
 
             CardContainer {
                 VStack(spacing: 0) {
-                    toggleRow(label: "朝の目標通知", isOn: morningNotificationBinding)
+                    toggleRow(
+                        label: String(localized: "settings.lock_screen.morning_notification", defaultValue: "朝の目標通知"),
+                        isOn: morningNotificationBinding
+                    )
 
                     divider
-                    timePickerRow(label: "通知時刻", selection: morningNotificationTimeBinding)
+                    timePickerRow(
+                        label: String(localized: "settings.lock_screen.notification_time", defaultValue: "通知時刻"),
+                        selection: morningNotificationTimeBinding
+                    )
                         .disabled(!morningNotificationEnabled)
                         .opacity(morningNotificationEnabled ? 1 : 0.45)
 
                     divider
-                    toggleRow(label: "週次レポート通知", isOn: weeklyReportNotificationBinding)
+                    toggleRow(
+                        label: String(localized: "settings.lock_screen.weekly_report", defaultValue: "週次レポート通知"),
+                        isOn: weeklyReportNotificationBinding
+                    )
 
                     divider
-                    toggleRow(label: "Live Activity", isOn: liveActivityBinding)
+                    toggleRow(
+                        label: String(localized: "settings.lock_screen.live_activity", defaultValue: "Live Activity"),
+                        isOn: liveActivityBinding
+                    )
 
                     divider
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("テーマ")
+                        Text(String(localized: "settings.lock_screen.theme", defaultValue: "テーマ"))
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(DesignTokens.primaryText)
 
@@ -206,7 +271,7 @@ struct SettingsView: View {
                 Text(theme.displayName)
                     .font(.system(size: 13, weight: .bold))
                 if theme != .e1 {
-                    Text("Pro")
+                    Text(String(localized: "settings.status.pro", defaultValue: "Pro"))
                         .font(.system(size: 9, weight: .black))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -244,7 +309,7 @@ struct SettingsView: View {
     private var targetAppsSummary: String {
         let ids = (try? model.targetStore.selectedCatalogIDs()) ?? []
         guard !ids.isEmpty else {
-            return "未設定"
+            return String(localized: "settings.value.not_set", defaultValue: "未設定")
         }
         let names = ids.compactMap { SNSAppCatalog.app(catalogID: $0)?.displayName }
         return names.joined(separator: "・")
@@ -252,16 +317,16 @@ struct SettingsView: View {
 
     private var breathDurationRow: some View {
         HStack(spacing: 12) {
-            Text("一呼吸の長さ")
+            Text(String(localized: "settings.breath_duration.label", defaultValue: "一呼吸の長さ"))
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DesignTokens.primaryText)
 
             Spacer()
 
-            Picker("一呼吸の長さ", selection: breathDurationBinding) {
-                Text("3秒").tag(3)
-                Text("5秒").tag(5)
-                Text("8秒").tag(8)
+            Picker(String(localized: "settings.breath_duration.label", defaultValue: "一呼吸の長さ"), selection: breathDurationBinding) {
+                Text(String(localized: "settings.breath_duration.three_seconds", defaultValue: "3秒")).tag(3)
+                Text(String(localized: "settings.breath_duration.five_seconds", defaultValue: "5秒")).tag(5)
+                Text(String(localized: "settings.breath_duration.eight_seconds", defaultValue: "8秒")).tag(8)
             }
             .pickerStyle(.menu)
             .tint(DesignTokens.secondaryText)
@@ -368,20 +433,29 @@ struct SettingsView: View {
     private var appSection: some View {
         CardContainer {
             VStack(spacing: 0) {
-                settingsRow(label: "バージョン", value: versionText)
+                settingsRow(
+                    label: String(localized: "settings.app.version", defaultValue: "バージョン"),
+                    value: versionText
+                )
                 #if DEBUG
                 divider
                 Button {
                     onResetOnboarding()
                 } label: {
-                    settingsRow(label: "オンボーディングをもう一度見る", value: "")
+                    settingsRow(
+                        label: String(localized: "settings.debug.replay_onboarding", defaultValue: "オンボーディングをもう一度見る"),
+                        value: ""
+                    )
                 }
                 .buttonStyle(.plain)
                 divider
                 Button {
                     copyFunnelEvents()
                 } label: {
-                    settingsRow(label: "イベントログをコピー", value: "")
+                    settingsRow(
+                        label: String(localized: "settings.debug.copy_event_log", defaultValue: "イベントログをコピー"),
+                        value: ""
+                    )
                 }
                 .buttonStyle(.plain)
                 #endif
@@ -402,19 +476,50 @@ struct SettingsView: View {
 
     private var accountSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "アカウント/課金")
+            SmallLabel(text: String(localized: "settings.account.section", defaultValue: "アカウント/課金"))
 
             CardContainer {
                 VStack(spacing: 0) {
                     if model.storeService.isPro {
-                        settingsRow(label: "Pro状態", value: "Pro")
+                        settingsRow(
+                            label: String(localized: "settings.account.pro_status", defaultValue: "Pro状態"),
+                            value: String(localized: "settings.status.pro", defaultValue: "Pro")
+                        )
                     } else {
                         Button {
                             paywallPlacement = .settingsProStatusRow
                         } label: {
-                            settingsRow(label: "Pro状態", value: "Free")
+                            settingsRow(
+                                label: String(localized: "settings.account.pro_status", defaultValue: "Pro状態"),
+                                value: String(localized: "settings.status.free", defaultValue: "Free")
+                            )
                         }
                         .buttonStyle(.plain)
+                    }
+
+                    if model.storeService.hasResolvedEntitlement && !model.storeService.isPro {
+                        divider
+
+                        Button {
+                            Task {
+                                await purchaseLifetimePlan()
+                            }
+                        } label: {
+                            ZStack(alignment: .trailing) {
+                                settingsRow(
+                                    label: String(localized: "settings.account.lifetime_plan", defaultValue: "買い切りプラン"),
+                                    value: model.storeService.lifetimeProduct?.displayPrice
+                                        ?? String(localized: "settings.value.unavailable", defaultValue: "—")
+                                )
+
+                                if model.storeService.isPurchasing {
+                                    ProgressView()
+                                        .tint(DesignTokens.secondaryText)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isBillingBusy)
                     }
 
                     divider
@@ -425,7 +530,7 @@ struct SettingsView: View {
                         }
                     } label: {
                         HStack(spacing: 12) {
-                            Text("購入を復元")
+                            Text(String(localized: "settings.account.restore", defaultValue: "購入を復元"))
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(DesignTokens.primaryText)
 
@@ -439,27 +544,57 @@ struct SettingsView: View {
                         .padding(.vertical, 14)
                     }
                     .buttonStyle(.plain)
-                    .disabled(model.storeService.isRestoring)
+                    .disabled(isBillingBusy)
                 }
             }
         }
     }
 
+    private var isBillingBusy: Bool {
+        model.storeService.isLoadingProducts
+            || model.storeService.isPurchasing
+            || model.storeService.isRestoring
+    }
+
+    @MainActor
+    private func purchaseLifetimePlan() async {
+        if model.storeService.lifetimeProduct == nil {
+            await model.storeService.loadProducts()
+        }
+
+        guard let lifetimeProduct = model.storeService.lifetimeProduct else {
+            model.alertMessage = String(localized: "settings.error.product_load", defaultValue: "商品情報を読み込めませんでした")
+            return
+        }
+
+        guard !model.storeService.isPro else { return }
+        let didBecomePro = await model.storeService.purchase(lifetimeProduct)
+        if !didBecomePro, let message = model.storeService.alertMessage {
+            model.alertMessage = message
+        }
+    }
+
     private var privacySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "プライバシー")
+            SmallLabel(text: String(localized: "settings.privacy.section", defaultValue: "プライバシー"))
 
             CardContainer {
                 VStack(spacing: 0) {
                     Link(destination: AppURLs.privacy) {
-                        settingsRow(label: "プライバシーポリシー", value: "")
+                        settingsRow(
+                            label: String(localized: "settings.privacy.policy", defaultValue: "プライバシーポリシー"),
+                            value: ""
+                        )
                     }
                     .buttonStyle(.plain)
 
                     divider
 
                     Link(destination: AppURLs.terms) {
-                        settingsRow(label: "利用規約", value: "")
+                        settingsRow(
+                            label: String(localized: "settings.privacy.terms", defaultValue: "利用規約"),
+                            value: ""
+                        )
                     }
                     .buttonStyle(.plain)
 
@@ -469,8 +604,10 @@ struct SettingsView: View {
                         isDeleteAllDataConfirmationPresented = true
                     } label: {
                         settingsRow(
-                            label: "全データを削除",
-                            value: isDeletionFeedbackVisible ? "削除しました" : "",
+                            label: String(localized: "settings.privacy.delete_all", defaultValue: "全データを削除"),
+                            value: isDeletionFeedbackVisible
+                                ? String(localized: "settings.privacy.deleted", defaultValue: "削除しました")
+                                : "",
                             labelColor: DesignTokens.danger,
                             valueColor: DesignTokens.accent
                         )
@@ -498,14 +635,20 @@ struct SettingsView: View {
     @ViewBuilder
     private var screenTimeRow: some View {
         if model.screenTime.isAuthorized {
-            settingsRow(label: "スクリーンタイム", value: "許可済み")
+            settingsRow(
+                label: String(localized: "settings.screen_time.label", defaultValue: "スクリーンタイム"),
+                value: String(localized: "settings.screen_time.authorized", defaultValue: "許可済み")
+            )
         } else {
             Button {
                 shouldOpenPickerAfterAuthorization = false
                 authorizationWasDenied = false
                 isAuthorizationSheetPresented = true
             } label: {
-                settingsRow(label: "スクリーンタイム", value: "未許可")
+                settingsRow(
+                    label: String(localized: "settings.screen_time.label", defaultValue: "スクリーンタイム"),
+                    value: String(localized: "settings.screen_time.not_authorized", defaultValue: "未許可")
+                )
             }
             .buttonStyle(.plain)
         }
@@ -513,13 +656,13 @@ struct SettingsView: View {
 
     private var modePickerRow: some View {
         HStack(spacing: 12) {
-            Text("止める強さ")
+            Text(String(localized: "settings.mode.label", defaultValue: "止める強さ"))
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DesignTokens.primaryText)
 
             Spacer()
 
-            Picker("止める強さ", selection: modeBinding) {
+            Picker(String(localized: "settings.mode.label", defaultValue: "止める強さ"), selection: modeBinding) {
                 ForEach(InterventionMode.allCases, id: \.self) { mode in
                     Text(mode.displayTitle).tag(mode)
                 }
@@ -532,7 +675,7 @@ struct SettingsView: View {
 
     private var authorizationSheet: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("SNSの前で止める許可")
+            Text(String(localized: "settings.authorization.title", defaultValue: "SNSの前で止める許可"))
                 .font(.system(size: 28, weight: .black))
                 .foregroundStyle(DesignTokens.primaryText)
 
@@ -542,7 +685,7 @@ struct SettingsView: View {
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("許可する") {
+            Button(String(localized: "settings.authorization.allow", defaultValue: "許可する")) {
                 Task {
                     await requestScreenTimeAuthorization()
                 }
@@ -561,9 +704,9 @@ struct SettingsView: View {
 
     private var authorizationSheetBody: String {
         if authorizationWasDenied {
-            return "許可がないため、SNSを開く前の確認はまだ使えません。設定からいつでも有効にできます。"
+            return String(localized: "settings.authorization.denied_body", defaultValue: "許可がないため、SNSを開く前の確認はまだ使えません。設定からいつでも有効にできます。")
         }
-        return "選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。"
+        return String(localized: "settings.authorization.body", defaultValue: "選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。")
     }
 
     private func settingsRow(
@@ -599,21 +742,23 @@ struct SettingsView: View {
 
     private var appSelectionSummary: String {
         guard let primaryRule else {
-            return "未設定"
+            return String(localized: "settings.value.not_set", defaultValue: "未設定")
         }
 
         let counts = selectionCounts(for: primaryRule)
         var summaries: [String] = []
         if counts.applications > 0 {
-            summaries.append("アプリ\(counts.applications)個")
+            summaries.append(String(localized: "settings.selection.app_count", defaultValue: "アプリ\(counts.applications)個"))
         }
         if counts.categories > 0 {
-            summaries.append("カテゴリ\(counts.categories)個")
+            summaries.append(String(localized: "settings.selection.category_count", defaultValue: "カテゴリ\(counts.categories)個"))
         }
         if counts.webDomains > 0 {
-            summaries.append("Webサイト\(counts.webDomains)個")
+            summaries.append(String(localized: "settings.selection.website_count", defaultValue: "Webサイト\(counts.webDomains)個"))
         }
-        return summaries.isEmpty ? "未設定" : summaries.joined(separator: "・")
+        return summaries.isEmpty
+            ? String(localized: "settings.value.not_set", defaultValue: "未設定")
+            : summaries.joined(separator: "・")
     }
 
     private var ruleEnabledBinding: Binding<Bool> {
@@ -657,7 +802,7 @@ struct SettingsView: View {
         } catch {
             rules = []
             selectedMode = modeAllowedForCurrentEntitlement(pendingMode)
-            model.alertMessage = "データを読み込めませんでした"
+            model.alertMessage = String(localized: "settings.error.data_load", defaultValue: "データを読み込めませんでした")
         }
     }
 
@@ -738,7 +883,7 @@ struct SettingsView: View {
         } catch CoreError.validation(let message) {
             model.alertMessage = message
         } catch {
-            model.alertMessage = "データを保存できませんでした"
+            model.alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
         }
     }
 
@@ -779,7 +924,7 @@ struct SettingsView: View {
         } catch CoreError.validation(let message) {
             model.alertMessage = message
         } catch {
-            model.alertMessage = "データを保存できませんでした"
+            model.alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
         }
     }
 
@@ -803,7 +948,7 @@ struct SettingsView: View {
         } catch CoreError.validation(let message) {
             model.alertMessage = message
         } catch {
-            model.alertMessage = "データを保存できませんでした"
+            model.alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
         }
     }
 

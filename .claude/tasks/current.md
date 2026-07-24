@@ -2,7 +2,7 @@
 
 ## プロジェクト情報
 - **プロジェクト名**: **DopaBreak**（2026-07-02承認・旧仮称LifeFocus・docs本文リネーム済み）— SNS依存改善iOSアプリ
-- **最終更新**: 2026-07-17（総合監査＋オンボ訴求文言の中央寄せ実装。**正本レポート: output/audits/audit-2026-07-17-cvr-retention-gaps.md**）
+- **最終更新**: 2026-07-20（**監査バグB1-B14全件＋CVR施策C1-C5＋R1完遂**。後半=R1可視化・C5トライアル防衛線・週1提示・C4リバーストライアル3日→一括レビュー7件全採用是正（ペイウォール・オーケストレーション一元化・通知世代競合・willAutoRenew分岐等）。**192 Coreテスト0失敗・BUILD SUCCEEDED**（Fable独立検証）。監査残=C6日本向け長文ペイウォール・C7小粒群・R2-R7・計測基盤優先4-7・オーナー判断待ち構造提案）
 
 ## ⚠️ 2026-07-17 監査による訂正（本ファイルのstale項目）
 - ペイウォール2段化は**7/15にCodexアプリで実装済み**（残=Lifetime設定画面導線のみ）。7/12 Codex指摘は8件中2件修正済み・6件未修正（監査レポート§1）
@@ -49,7 +49,7 @@
 - [x] **WP3: ローカル計測イベント（2026-07-10）**: FunnelEventStore（App Group JSON・4イベント・5000件キャップ・外部送信なし）・フック=オンボ完了/検収/ペイウォール表示/購入・DEBUG限定エクスポート
 - [x] **WP4: Codex総合レビュー7件→6件採用・修正（2026-07-10）**: ①14日経過時の保存済み選択をゲート上限へクランプ ②週次通知=無料と確定（doc05修正・Pro=詳細分析） ③週次通知を単発・毎回再登録方式へ（本文の陳腐化解消） ④⑤Intent書き込みをpendingキー1本に限定し検収マーク/イベント記録を本体消費点へ移動=単一ライター化（プロセス間競合根治） ⑥Live Activity更新の単一フライト化＋全経路で最大1件保証 ⑦doc05 §11をローカル4イベントに整合。指摘1前半（Shortcuts直接設定でのFreeゲートすり抜け）は2026-07-08オーナー受容済み既知制約のため対象外。**最終: 139テスト0失敗・BUILD SUCCEEDED（7ターゲット）**
 - [x] **2026-07-12 Fable検証セッション（モック→SwiftUI実装の確認）**: 144テスト0失敗・BUILD SUCCEEDED（xcodegen＋simulator）・シミュレータ実起動OK（Welcome/Home/URLスキーム`dopabreak://intervene`→介入フロー・direct目的の呼吸スキップ→時間選択の動作をスクショ確認=output/screenshots/verify-0712-*.png）。design-qa.md「passed」の主張と実装は概ね整合。DesignTokensのbg/cardがE1スペック値と1〜2階調ずれ（#0B0D0F vs #0A0B0D等・目視不可のP3）
-- [ ] **🔴 Codex独立レビュー指摘対応（2026-07-12・9件）**: High3件=①`temporarilyAllowed`（N分だけ開く承認中）に再オートメーション/URL起動で許可時間が破棄されフル介入が再表示（StartInterventionIntent.performが無条件書込み＋InterventionFlowModel.start()のresumableに temporarilyAllowed が無い） ②recordOpenがURL起動失敗でも開いた扱いで記録・通知予約 ③理由カード/CTA連打の再入ガードなし（engine遷移エラー→.failed、呼吸タスクが.failedを上書きの可能性）。Medium4件=オンボ戻る→進むで目標重複保存（Freeは上限詰みリスク）/スキップ時に未保存目標「英語で話す」を要約・通知プレビュー表示/振り返り保存失敗をtry?で握り潰し/ペイウォール商品ロード中に購入可。Low1件=Home日付の日跨ぎ未更新。→ ペイウォール2段化のCodex委譲と同時に修正が効率的
+- [x] **Codex独立レビュー指摘対応（2026-07-12→2026-07-24解消）**: 2026-07-24のコミット前レビューで再照合し、High3件のうち①②は既に閉塞済み・③(再入ガード)が`start()`ライフサイクル再入で未閉塞と判明→**#1-6を修正しコミット**（①`start()`冪等化=世代トークン＋breathTask再startキャンセル＋呼吸完了stageガード ②Day14通知タップ保留フラグをentitlement未解決時に保持 ③通常再予約でdelivered通知を消さない ④Day14フォールバックをday14Boundary前に限定 ⑤通知権限の非同期取得を確定拒否として誤用しない ⑥D1取消を全体notificationGenerationから分離）。回帰テスト2件追加（start()再入・Day14境界）。**残**: 旧Medium=スキップ時の未保存目標露出（M2）/Low=Home日付日跨ぎ は未再検証（軽微・別途）
 - [ ] **オーナー判断待ち（未実装・意図的）**: ①介入フロー1画面短縮（ディベート推奨だがdoc12承認フローと矛盾するため保留） ②doc13コピー刷新の承認（メインコピー選定・「開かずに我慢」→「開かずに戻れた」等の置換）**※注: 7/11実装のHomeView・介入フロー勝ち画面は未承認のdoc13案文言（開かずに戻れた/開かなかった等）を先行使用中。doc11正本（開かずに我慢/開かずに戻る）と乖離 → doc13承認してdoc11改訂 or 実装を正本に戻すの二択**
 - [ ] **🔴 オーナー実機作業**: 実機一気通貫テスト（オートメーション設定→介入→検収バッジ確認）・朝/週次通知・Live Activity/Widget/テーマの実機確認・モノクロShortcuts設定
   - Fable独立検証: 113テスト0失敗・実機ビルドBUILD SUCCEEDED・目標「全件箇条書き」表示確認・エンジン状態遷移がdoc05と一致・データ移行テストあり・Codexの代わりにFableが7項目セルフレビュー（競合状態/状態機械誤用/データ整合性/ゲート/通知/URL/並行処理）でブロッカーなし確認
@@ -62,7 +62,26 @@
 - [x] **02c_marketing_impact_plan.md 作成**（インパクト順・Tier S/A/B/C・許容CPI/CPT・90日カレンダー・テスト6件・予算3シナリオ）
 - [x] **docs/15_pricing_design.md 作成（2026-07-11）**: SOSA 2026ベンチマークで価格設計を検証・確定。フリーミアム/7日トライアル/年額¥4,980は支持。KPI3段目標（P50/Q3/P90）設定
 - [x] **価格改定オーナー承認・反映（2026-07-11）**: ①月額¥980確定（.storekit反映済み） ②ペイウォール2段確定 ③LTV基準40%でdoc01 §8-2/8-3改訂（CPI許容¥140→¥100） ④米国価格=月額$9.99（1.5倍・NA中央値）/年額$39.99+$49.99A/B/Lifetime $119.99
-- [ ] **実装（Codex委譲・価格改定分）**: PaywallView 3段→2段化・Lifetime導線を設定画面へ移動・月額¥980表示確認（doc06 P-01改訂とセット。docs/15 §8参照）
+- [x] **実装（Codex委譲・2026-07-21）: ペイウォール2段化＋月換算ヒーロー表示＋Settings買い切り行**: PaywallViewからLifetime除去・年額/月額とも「◯円/月」ヒーロー表示（24pt・StoreKit実価格÷12動的算出）・「年間◯円を一括請求」可読表示・法務文言に請求額明記（§5c準拠）・Settings「買い切りプラン」行（Free時のみ）。doc06 §10-11/doc11 §5c/docs/15 §3.3改訂済み。品質ゲート完遂: Codex実装→Fable検証→Codex独立レビュー3件指摘（P1フォールバック価格・P1 entitlement未解決時の買い切り行・P2購入/復元競合）→全件採用→Codex修正→Fable再検証（価格リテラルゼロ・hasResolvedEntitlementゲート・isBillingBusy相互排他・192テスト0失敗・BUILD SUCCEEDED）。doc11 §5cに「—」プレースホルダ規則追記済み
+- [x] **価格・ペイウォール知見のスキル汎用化（2026-07-21 オーナー指示）**: subscription-benchmarks SKILL.mdに「実戦決定ルール」5項目（LTV=Q3基準・地域差は月額1.5倍/年額A/B・月額アンカー中央値以上・2プラン+月換算ヒーロー・計測はDL→トライアル開始率）／paywall-optimization SKILL.mdにパターン15（月換算ヒーロー＋ガードレール）・16（2プラン+Lifetime移設）＋チェックリスト3項目追加
+- [x] **ASC登録の事前調査・自動化準備完了（2026-07-23）**: asc CLI 3.1.0公開APIキー認証OK・DopaBreakレコード未作成を確認・**有料App契約は締結済みと確認**（BestSwipeにサブスク2本存在=契約Activeの証拠）・`scripts/asc-setup-dopabreak.sh` 作成（サブスク3本+7日トライアル+買い切りIAP+JP価格+検証を一括・構文チェック済み）。**RevenueCatは不要と判断**（実装はStoreKit2ネイティブ・A/Bはリモート構成で実装済み・RC導入はコード変更を伴うため見送り）
+- [ ] **🔴 オーナー作業（ASC・5分）: `asc web auth login --apple-id <Apple ID>` を実行**（アプリレコード作成はAppleの制約で公開API不可・webセッション必須。2FAは本人デバイスのみ）→ 完了後Fableが `asc web apps create`（名称=DopaBreak − SNS依存対策・スクリーンタイム / bundle=com.dopabreak.app / SKU=dopabreak-ios / ja-JP）→ スクリプト実行→検証まで自動実行
+- [ ] ASC登録後: 各商品の審査用スクリーンショット添付・サンドボックス実機テスト（購入/復元/動的価格）
+
+## 🔴 方針転換（2026-07-24 オーナー決定）: 日本＋韓国＋米国 3市場同時ローンチ
+旧「JP先行→US10-12か月目→KR Tier C」を撤回。3言語同時提出。docs/01 §11改訂済み。ワークストリーム:
+- [x] **A. アプリi18n土台完了（2026-07-24・Codex実装+Fable検証）**: `ios/DopaBreak/Localizable.xcstrings`（237キー: Paywall29/Onboarding134/Home21/Settings53・ja=source/ko・en=空）。project.yml+Info.plistをja/ko/en対応。補間は%@/%lld/%%で正常保全・独立BUILD SUCCEEDED・192テスト0失敗。キー対応表＋残222ハードコード棚卸し=`.claude/specs/i18n-launch-inventory.md`。**⚠️注意: paywall.header.line1が prefix「「あと5分だけ」が年」+suffix「日」に分割抽出（数字にアクセント色のため）→ ko/enはフラグメント直訳不可・翻訳時に文全体で再構成が必要**
+- [ ] **A2. 残222ハードコード＋拡張機能i18n**: 🔄Codex背景実行中（batch2・b428f5og2）。inventory基準で移行＋widget/shield拡張の.xcstrings新設
+- [ ] **A3. 237キーのko/en翻訳**（Fable作成→Codexレビュー→韓国語ネイティブ）:
+  - [~] **Paywall 29キー: ko/en翻訳ドラフト完了＋書式検証スクリプト準備済み**（scratchpad/paywall_translations.json + apply_translations.py・%@/%lld/%%一致検証付き）。**⚠️適用はCodex batch2完了後に順序化**（同一xcstringsの書き込み競合回避）→適用後にビルド＋Codex翻訳レビュー
+  - [ ] Onboarding134/Home21/Settings53のko/en翻訳（次バッチ）
+- [x] **韓国語ネイティブレビュー用パッケージ作成（docs/17）**: ASO＋Paywall韓国語＋直訳＋確認ポイント＋入手先。オーナーがネイティブに渡せる形
+- [ ] **B. 3ストアASO**: JP(02c確定)／US(`DopaBreak: Screen Time & Dopamine Detox`・02c)／KR新規(タイトル・サブ・KW=KO+EN(UK)索引・スクショ)
+- [ ] **C. 3通貨価格**: JP¥980/¥4,980/¥14,800確定・US$9.99/$39.99+$49.99A/B/$119.99確定(docs/15)・**KR ₩は docs/15 §3.4で算出済み（月₩9,900/年₩49,000/年A/B₩39,000/買切₩149,000・FX実査2026-07-23）→残=オーナー正式サインオフ＋AppleのKRW price point載否検証（アプリレコード作成後）**。ASCスクリプト(scripts/asc-setup-dopabreak.sh)は3テリトリー対応済み・買い切りのKR/US厳密上書きのみ残
+- [ ] **D. 3法域法務**: JP／US英語／KR韓国語(전자상거래법のサブスク解約/返金表示)・年齢レーティング
+- [ ] **E. サブスク/IAP 3言語ローカライズ**: ja/ko/en display name・description
+- [ ] **F. 多言語CS自動化**: 定型返信＋自動翻訳（オーナー絶対条件「CS軽い」を守る・solo-automation）
+- [ ] **翻訳QA**: Fable作成→Codex独立レビュー→人間ネイティブ最終確認(launch-criticalのみ)。韓国語コピーはまだ未作成（現状アプリは日本語のみ）
 - [ ] **🔴 オーナー判断2件**: ①ドメイン取得（SEO/LP/診断の前提・年数千円） ②初期予算水準（推奨=準備期¥50-80k/月）
 - [ ] W1-2: ASOメタデータ最終化（/seo-aso）→ スクショ10枚＋15秒プレビュー制作
 - [ ] W1-2: レビュー依頼トリガー・共有カード・CRM通知の文言をdocs/11へ追加→実装(13後半)バックログに統合

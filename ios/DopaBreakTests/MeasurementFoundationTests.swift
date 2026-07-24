@@ -28,7 +28,7 @@ final class MeasurementFoundationTests: XCTestCase {
         )
     }
 
-    func testPaywallPlacementIdentifiersCoverAllNinePresentationSites() {
+    func testPaywallPlacementIdentifiersCoverAllPresentationSites() {
         XCTAssertEqual(
             Set(PaywallPlacement.allCases.map(\.rawValue)),
             Set([
@@ -40,7 +40,11 @@ final class MeasurementFoundationTests: XCTestCase {
                 "settings_mode_gate",
                 "onboarding_prepaywall_summary",
                 "onboarding_mode_gate",
-                "onboarding_target_app_gate"
+                "onboarding_target_app_gate",
+                "stats_history_gate",
+                "day14_warning",
+                "weekly",
+                "reverse_trial_end"
             ])
         )
     }
@@ -98,6 +102,38 @@ final class MeasurementFoundationTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testAppModelEntitlementGateIncludesReverseTrialThenReturnsToFree() throws {
+        let suiteName = "MeasurementFoundationTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        var currentDate = startedAt
+        let settingsStore = SettingsStore(userDefaults: defaults)
+        settingsStore.startReverseTrialIfNeeded(at: startedAt)
+        do {
+            var model: AppModel? = AppModel(
+                containerProvider: UnavailableContainer(),
+                settingsStore: settingsStore,
+                now: { currentDate }
+            )
+
+            XCTAssertEqual(model!.entitlementGate.tier, .pro)
+            XCTAssertNil(model!.entitlementGate.statsDays)
+            XCTAssertNil(model!.entitlementGate.targetAppTokensLimit)
+
+            currentDate = ReverseTrialPolicy.endDate(startedAt: startedAt)
+            model!.refresh(scheduleNotifications: false)
+
+            XCTAssertEqual(model!.entitlementGate.tier, .free)
+            XCTAssertEqual(model!.entitlementGate.statsDays, 1)
+            XCTAssertTrue(model!.shouldPresentReverseTrialEndPaywall)
+            model = nil
+        }
+    }
+
     func testPaywallResolvedYearlyDaysUsesSnapshotAndFallsBackToDefaultEstimate() {
         let snapshot = SelfCheckSnapshot(
             id: UUID(),
@@ -111,6 +147,110 @@ final class MeasurementFoundationTests: XCTestCase {
 
         XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: snapshot), 68)
         XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: nil), 38)
+    }
+
+    func testDay14WarningScheduleUsesNominalTimeUntilItHasPassed() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let nominal = now.addingTimeInterval(6 * 60 * 60)
+        let boundary = now.addingTimeInterval(2 * 86_400)
+
+        XCTAssertEqual(
+            Day14WarningSchedule.nextFireDate(
+                nominalFireDate: nominal,
+                now: now,
+                day14Boundary: boundary
+            ),
+            nominal
+        )
+    }
+
+    func testDay14WarningScheduleUsesEarlierFutureFallbackAfterNominalTime() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let nominal = now.addingTimeInterval(-60)
+        let boundary = now.addingTimeInterval(20 * 60 * 60)
+
+        XCTAssertEqual(
+            Day14WarningSchedule.nextFireDate(
+                nominalFireDate: nominal,
+                now: now,
+                day14Boundary: boundary
+            ),
+            now.addingTimeInterval(60 * 60)
+        )
+    }
+
+    func testDay14WarningScheduleDoesNotUsePastBoundaryFallback() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let nominal = now.addingTimeInterval(-60)
+        let boundary = now.addingTimeInterval(6 * 60 * 60)
+
+        XCTAssertEqual(
+            Day14WarningSchedule.nextFireDate(
+                nominalFireDate: nominal,
+                now: now,
+                day14Boundary: boundary
+            ),
+            now.addingTimeInterval(60 * 60)
+        )
+        XCTAssertNil(
+            Day14WarningSchedule.nextFireDate(
+                nominalFireDate: nominal,
+                now: boundary,
+                day14Boundary: boundary
+            )
+        )
+    }
+
+    func testDay14WarningScheduleDoesNotFallbackAcrossDay14Boundary() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let nominal = now.addingTimeInterval(-60)
+        let boundary = now.addingTimeInterval(30 * 60)
+
+        XCTAssertNil(
+            Day14WarningSchedule.nextFireDate(
+                nominalFireDate: nominal,
+                now: now,
+                day14Boundary: boundary
+            )
+        )
+    }
+
+    @MainActor
+    func testRestartDuringBreathingDoesNotAllowStaleTaskToAdvance() async throws {
+        let suiteName = "MeasurementFoundationTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MeasurementFoundationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+
+        let settingsStore = SettingsStore(userDefaults: defaults)
+        settingsStore.breathDurationSeconds = 3
+        let model = AppModel(
+            containerProvider: FixedContainer(url: containerURL),
+            settingsStore: settingsStore
+        )
+        let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
+        let flow = InterventionFlowModel(
+            target: target,
+            model: model,
+            settingsStore: settingsStore
+        )
+        defer { flow.stop() }
+
+        flow.start()
+        flow.selectReason(.boredom)
+        XCTAssertEqual(flow.stage, .breathing)
+
+        flow.start()
+        XCTAssertEqual(flow.stage, .reasonSelection)
+
+        try await Task.sleep(nanoseconds: 3_200_000_000)
+        XCTAssertEqual(flow.stage, .reasonSelection)
+        XCTAssertEqual(try model.interventionEngine?.currentStep(), .intentSelection)
     }
 
     @MainActor
@@ -188,5 +328,11 @@ final class MeasurementFoundationTests: XCTestCase {
                 )
             ]
         )
+    }
+}
+
+private struct UnavailableContainer: ContainerProviding {
+    func containerURL() throws -> URL {
+        throw NSError(domain: "MeasurementFoundationTests", code: 1)
     }
 }

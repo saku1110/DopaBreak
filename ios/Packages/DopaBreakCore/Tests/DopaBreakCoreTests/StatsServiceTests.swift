@@ -16,6 +16,42 @@ final class StatsServiceTests: XCTestCase {
         XCTAssertEqual(try stats.cancelledToday(), 1)
     }
 
+    func testCancelledAttemptsAllTimeCountsOnlyCancelledLogs() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: date(-10_000), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: date(10), decision: .opened))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: date(20), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: date(500))
+
+        XCTAssertEqual(try stats.cancelledAttemptsAllTime(), 2)
+    }
+
+    func testCancelledAttemptsCountsOnlyCancelledLogsInRange() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: date(10), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: date(20), decision: .opened))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: date(30), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: date(500))
+
+        XCTAssertEqual(try stats.cancelledAttempts(from: date(15), to: date(31)), 1)
+    }
+
+    func testAttemptSummaryCountsAttemptsAndCancelledLogsInRange() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: date(10), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: date(20), decision: .opened))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: date(30), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: date(500))
+
+        XCTAssertEqual(
+            try stats.attemptSummary(from: date(15), to: date(31)),
+            AttemptSummary(attempts: 2, cancelled: 1)
+        )
+    }
+
     func testIntentBreakdownCountsNonNilIntents() throws {
         let log = try makeLogStore()
         try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: date(10), decision: .cancelled, intent: .boredom))

@@ -102,9 +102,14 @@ final class LocalDataResetterTests: XCTestCase {
         context.settingsStore.selectedAppBrands = ["Instagram"]
         context.settingsStore.breathDurationSeconds = 8
         context.settingsStore.pendingStartInterventionCatalogID = "instagram"
-        context.settingsStore.pendingMidSessionCheckInCatalogID = "youtube"
+        context.settingsStore.pendingMidSessionCheckIn = PendingMidSessionCheckIn(
+            catalogID: "youtube",
+            writtenAt: timestamp
+        )
         context.settingsStore.verifiedAutomationCatalogIDs = ["instagram"]
         context.settingsStore.firstLaunchDate = timestamp
+        context.settingsStore.reverseTrialStartedAt = timestamp
+        context.settingsStore.reverseTrialEndPaywallShown = true
         context.settingsStore.lastAppOpenedDateKey = "2027-01-15"
         context.settingsStore.wakeTimeMinutes = 480
         context.settingsStore.bedTimeMinutes = 1_320
@@ -136,9 +141,11 @@ final class LocalDataResetterTests: XCTestCase {
         XCTAssertNil(context.settingsStore.selectedAppBrands)
         XCTAssertEqual(context.settingsStore.breathDurationSeconds, 3)
         XCTAssertNil(context.settingsStore.pendingStartInterventionCatalogID)
-        XCTAssertNil(context.settingsStore.pendingMidSessionCheckInCatalogID)
+        XCTAssertNil(context.settingsStore.pendingMidSessionCheckIn)
         XCTAssertEqual(context.settingsStore.verifiedAutomationCatalogIDs, [])
         XCTAssertEqual(context.settingsStore.firstLaunchDate, timestamp)
+        XCTAssertNil(context.settingsStore.reverseTrialStartedAt)
+        XCTAssertFalse(context.settingsStore.reverseTrialEndPaywallShown)
         XCTAssertNil(context.settingsStore.lastAppOpenedDateKey)
         XCTAssertNil(context.settingsStore.wakeTimeMinutes)
         XCTAssertNil(context.settingsStore.bedTimeMinutes)

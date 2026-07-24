@@ -1,25 +1,35 @@
 import DopaBreakCore
+import Foundation
 
 extension InterventionMode {
     var displayTitle: String {
         switch self {
         case .deepFocus:
-            return "ディープフォーカス"
+            return String(localized: "intervention_mode.deep_focus.title", defaultValue: "ディープフォーカス")
         case .standard:
-            return "標準"
+            return String(localized: "intervention_mode.standard.title", defaultValue: "標準")
         case .nightOnly:
-            return "夜だけ強化"
+            return String(localized: "intervention_mode.night_only.title", defaultValue: "夜だけ強化")
         }
     }
 
     var detailText: String {
         switch self {
         case .deepFocus:
-            return "作業中はSNSを開く前に強く止める"
+            return String(
+                localized: "intervention_mode.deep_focus.detail",
+                defaultValue: "作業中はSNSを開く前に強く止める"
+            )
         case .standard:
-            return "SNSを開く前にひと呼吸と理由確認"
+            return String(
+                localized: "intervention_mode.standard.detail",
+                defaultValue: "SNSを開く前にひと呼吸と理由確認"
+            )
         case .nightOnly:
-            return "夜は確認を強くして開きすぎを防ぐ"
+            return String(
+                localized: "intervention_mode.night_only.detail",
+                defaultValue: "夜は確認を強くして開きすぎを防ぐ"
+            )
         }
     }
 }

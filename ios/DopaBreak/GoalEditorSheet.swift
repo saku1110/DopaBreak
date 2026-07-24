@@ -13,17 +13,17 @@ extension GoalCategory {
     var japaneseLabel: String {
         switch self {
         case .study:
-            return "学び"
+            return String(localized: "goal_editor.category.study", defaultValue: "学び")
         case .work:
-            return "仕事"
+            return String(localized: "goal_editor.category.work", defaultValue: "仕事")
         case .health:
-            return "健康"
+            return String(localized: "goal_editor.category.health", defaultValue: "健康")
         case .sleep:
-            return "睡眠"
+            return String(localized: "goal_editor.category.sleep", defaultValue: "睡眠")
         case .creative:
-            return "創作"
+            return String(localized: "goal_editor.category.creative", defaultValue: "創作")
         case .other:
-            return "その他"
+            return String(localized: "goal_editor.category.other", defaultValue: "その他")
         }
     }
 }
@@ -60,11 +60,15 @@ struct GoalEditorSheet: View {
                 .padding(.bottom, isExisting ? 150 : 96)
             }
             .dopaScreenBackground()
-            .navigationTitle(isExisting ? "目標を編集" : "目標を追加")
+            .navigationTitle(
+                isExisting
+                    ? String(localized: "goal_editor.title.edit", defaultValue: "目標を編集")
+                    : String(localized: "goal_editor.title.add", defaultValue: "目標を追加")
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("閉じる") {
+                    Button(String(localized: "goal_editor.action.close", defaultValue: "閉じる")) {
                         dismiss()
                     }
                     .foregroundStyle(DesignTokens.secondaryText)
@@ -81,12 +85,16 @@ struct GoalEditorSheet: View {
     private var inputBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SmallLabel(text: "目標")
+                SmallLabel(text: String(localized: "goal_editor.goal.label", defaultValue: "目標"))
                 Spacer()
                 counterText(count: title.count, limit: 40)
             }
             fieldContainer {
-                TextField("例 英語で商談できる自分になる", text: $title, axis: .vertical)
+                TextField(
+                    String(localized: "goal_editor.goal.placeholder", defaultValue: "例 英語で商談できる自分になる"),
+                    text: $title,
+                    axis: .vertical
+                )
                     .lineLimit(2...4)
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(DesignTokens.primaryText)
@@ -101,9 +109,9 @@ struct GoalEditorSheet: View {
 
     private var categoryBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "カテゴリ")
+            SmallLabel(text: String(localized: "goal_editor.category.label", defaultValue: "カテゴリ"))
             fieldContainer {
-                Picker("カテゴリ", selection: $category) {
+                Picker(String(localized: "goal_editor.category.label", defaultValue: "カテゴリ"), selection: $category) {
                     ForEach(GoalCategory.allCases, id: \.self) { category in
                         Text(category.japaneseLabel).tag(category)
                     }
@@ -117,12 +125,15 @@ struct GoalEditorSheet: View {
     private var lockScreenBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SmallLabel(text: "ロック画面用の短い表示名")
+                SmallLabel(text: String(localized: "goal_editor.lock_title.label", defaultValue: "ロック画面用の短い表示名"))
                 Spacer()
                 counterText(count: lockScreenTitle.count, limit: 16)
             }
             fieldContainer {
-                TextField("ロック画面用の短い表示名", text: $lockScreenTitle)
+                TextField(
+                    String(localized: "goal_editor.lock_title.placeholder", defaultValue: "ロック画面用の短い表示名"),
+                    text: $lockScreenTitle
+                )
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(DesignTokens.primaryText)
             }
@@ -136,7 +147,7 @@ struct GoalEditorSheet: View {
 
     private var actionArea: some View {
         VStack(spacing: 10) {
-            Button("保存") {
+            Button(String(localized: "goal_editor.action.save", defaultValue: "保存")) {
                 let saved: Bool
                 if let goal {
                     saved = model.updateGoal(
@@ -165,7 +176,7 @@ struct GoalEditorSheet: View {
                         dismiss()
                     }
                 } label: {
-                    Text("削除")
+                    Text(String(localized: "goal_editor.action.delete", defaultValue: "削除"))
                         .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
@@ -201,7 +212,7 @@ struct GoalEditorSheet: View {
     }
 
     private func counterText(count: Int, limit: Int) -> some View {
-        Text("\(count)/\(limit)")
+        Text(String(localized: "goal_editor.character_count", defaultValue: "\(count)/\(limit)"))
             .font(.system(size: 12, weight: .medium, design: .monospaced))
             .foregroundStyle(count > limit ? DesignTokens.danger : DesignTokens.secondaryText)
     }

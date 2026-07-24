@@ -20,7 +20,10 @@ struct GoalsView: View {
                         .onMove(perform: model.moveGoal)
                     }
                 } header: {
-                    ScreenHeader(eyebrow: "YOUR GOAL", title: "目標")
+                    ScreenHeader(
+                        eyebrow: String(localized: "goals.header.eyebrow", defaultValue: "YOUR GOAL"),
+                        title: String(localized: "goals.header.title", defaultValue: "目標")
+                    )
                         .textCase(.none)
                         .padding(.top, 12)
                 }
@@ -46,6 +49,10 @@ struct GoalsView: View {
         .tint(DesignTokens.accent)
         .onAppear {
             model.refresh()
+            model.isChildModalActive = isAnyChildModalPresented
+        }
+        .onChange(of: isAnyChildModalPresented) { _, isPresented in
+            model.isChildModalActive = isPresented
         }
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
@@ -55,15 +62,19 @@ struct GoalsView: View {
         }
     }
 
+    private var isAnyChildModalPresented: Bool {
+        editorRoute != nil || paywallPlacement != nil
+    }
+
     private var emptyRow: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 18) {
-                SmallLabel(text: "目標")
-                Text("戻りたい自分を決める")
+                SmallLabel(text: String(localized: "goals.empty.label", defaultValue: "目標"))
+                Text(String(localized: "goals.empty.title", defaultValue: "戻りたい自分を決める"))
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(DesignTokens.primaryText)
 
-                Text("目標は、あなたを連れ戻す錨です。開く前に思い出せる言葉を置きましょう。")
+                Text(String(localized: "goals.empty.description", defaultValue: "目標は、あなたを連れ戻す錨です。開く前に思い出せる言葉を置きましょう。"))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(DesignTokens.secondaryText)
                     .lineSpacing(3)
@@ -117,7 +128,7 @@ struct GoalsView: View {
                 paywallPlacement = .goalsLimit
             }
         } label: {
-            Text("目標を追加")
+            Text(String(localized: "goals.action.add", defaultValue: "目標を追加"))
         }
         .buttonStyle(PrimaryButtonStyle())
         .padding(.bottom, 20)

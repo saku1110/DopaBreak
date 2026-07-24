@@ -2,8 +2,18 @@ import DopaBreakCore
 import Foundation
 import UserNotifications
 
+extension Notification.Name {
+    static let pendingMidSessionCheckInDidChange = Notification.Name(
+        "DopaBreak.pendingMidSessionCheckInDidChange"
+    )
+    static let pendingDay14WarningDidChange = Notification.Name(
+        "DopaBreak.pendingDay14WarningDidChange"
+    )
+}
+
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     private static let midSessionPrefix = "dopabreak.midsession."
+    private static let day14WarningIdentifier = "dopabreak.day14warning"
 
     private let settingsStore: SettingsStore
 
@@ -23,6 +33,14 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse
     ) async {
         let identifier = response.notification.request.identifier
+        if identifier == Self.day14WarningIdentifier {
+            await MainActor.run {
+                settingsStore.pendingDay14Warning = PendingDay14Warning(writtenAt: Date())
+                NotificationCenter.default.post(name: .pendingDay14WarningDidChange, object: nil)
+            }
+            return
+        }
+
         guard identifier.hasPrefix(Self.midSessionPrefix) else {
             return
         }
@@ -41,6 +59,12 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
             return
         }
 
-        settingsStore.pendingMidSessionCheckInCatalogID = catalogID
+        await MainActor.run {
+            settingsStore.pendingMidSessionCheckIn = PendingMidSessionCheckIn(
+                catalogID: catalogID,
+                writtenAt: Date()
+            )
+            NotificationCenter.default.post(name: .pendingMidSessionCheckInDidChange, object: nil)
+        }
     }
 }

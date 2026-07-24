@@ -29,6 +29,27 @@ public struct StatsService: Sendable {
         try todaysAttempts().filter { $0.decision == .cancelled }.count
     }
 
+    /// 全期間の「開かずに戻れた（cancelled）」件数。
+    public func cancelledAttemptsAllTime() throws -> Int {
+        try logStore.cancelledAttemptCount()
+    }
+
+    /// 指定期間の「開かずに戻れた（cancelled）」件数。
+    public func cancelledAttempts(from: Date, to: Date) throws -> Int {
+        try logStore.fetchAttempts(from: from, to: to)
+            .filter { $0.decision == .cancelled }
+            .count
+    }
+
+    /// 指定期間の試行数と「開かずに戻れた」件数を同時に返す。
+    public func attemptSummary(from: Date, to: Date) throws -> AttemptSummary {
+        let attempts = try logStore.fetchAttempts(from: from, to: to)
+        return AttemptSummary(
+            attempts: attempts.count,
+            cancelled: attempts.filter { $0.decision == .cancelled }.count
+        )
+    }
+
     /// 意図カテゴリ別の試行数。intent が nil の試行は除外する。
     public func intentBreakdown(from: Date, to: Date) throws -> [IntentCategory: Int] {
         var result: [IntentCategory: Int] = [:]
@@ -129,6 +150,16 @@ public struct StatsService: Sendable {
             return wasted.contains(satisfaction)
         }.count
         return Double(count) / Double(answered.count)
+    }
+}
+
+public struct AttemptSummary: Equatable, Sendable {
+    public let attempts: Int
+    public let cancelled: Int
+
+    public init(attempts: Int, cancelled: Int) {
+        self.attempts = attempts
+        self.cancelled = cancelled
     }
 }
 

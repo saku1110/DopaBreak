@@ -35,9 +35,12 @@ struct DopaBreakHomeProvider: TimelineProvider {
             value: 1,
             to: Calendar.current.startOfDay(for: now)
         ) ?? now.addingTimeInterval(86_400)
+        var nextMidnightSnapshot = snapshot
+        nextMidnightSnapshot.todayCancelledCount = 0
+        nextMidnightSnapshot.todayAttemptCount = 0
         let entries = [
             DopaBreakHomeEntry(date: now, snapshot: snapshot),
-            DopaBreakHomeEntry(date: nextMidnight, snapshot: snapshot)
+            DopaBreakHomeEntry(date: nextMidnight, snapshot: nextMidnightSnapshot)
         ]
         completion(Timeline(entries: entries, policy: .atEnd))
     }
@@ -48,14 +51,14 @@ struct DopaBreakHomeProvider: TimelineProvider {
     }
 
     private static let placeholderSnapshot = WidgetSnapshot(
-        primaryGoalTitle: "あなたの戻る先",
-        displayTitle: "あなたの戻る先",
+        primaryGoalTitle: String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先"),
+        displayTitle: String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先"),
         todayCancelledCount: 0,
         todayAttemptCount: 0,
         theme: .e1,
         updatedAt: Date(),
-        goalTitles: ["あなたの戻る先"],
-        displayTitles: ["あなたの戻る先"]
+        goalTitles: [String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先")],
+        displayTitles: [String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先")]
     )
 }
 
@@ -87,18 +90,26 @@ struct DopaBreakHomeWidgetView: View {
                 .fill(Color(lockThemeColor: palette.accent))
                 .frame(width: 7, height: 7)
 
-            Text("\(entry.snapshot.todayCancelledCount)")
+            Text(
+                String(
+                    localized: "widget.count.value",
+                    defaultValue: "\(entry.snapshot.todayCancelledCount)"
+                )
+            )
                 .font(.system(size: 42, weight: .black, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Color(lockThemeColor: palette.accent))
 
-            Text("今日 開かずに戻れた")
+            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かずに戻れた"))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
 
             Spacer(minLength: 4)
 
-            Text(displayTitles.first ?? "戻る先を設定")
+            Text(
+                displayTitles.first
+                    ?? String(localized: "widget.goal.fallback", defaultValue: "戻る先を設定")
+            )
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.primaryText))
                 .lineLimit(2)
@@ -108,7 +119,7 @@ struct DopaBreakHomeWidgetView: View {
     private var mediumContent: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("YOUR GOAL")
+                Text(String(localized: "widget.goal.eyebrow", defaultValue: "YOUR GOAL"))
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.4)
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
@@ -127,11 +138,16 @@ struct DopaBreakHomeWidgetView: View {
                 .frame(width: 1)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("\(entry.snapshot.todayCancelledCount)")
+                Text(
+                    String(
+                        localized: "widget.count.value",
+                        defaultValue: "\(entry.snapshot.todayCancelledCount)"
+                    )
+                )
                     .font(.system(size: 32, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text("今日 開かずに戻れた")
+                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かずに戻れた"))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
                 Spacer(minLength: 0)
@@ -162,8 +178,12 @@ struct DopaBreakHomeWidget: Widget {
         StaticConfiguration(kind: kind, provider: DopaBreakHomeProvider()) { entry in
             DopaBreakHomeWidgetView(entry: entry)
         }
-        .configurationDisplayName("DopaBreak")
-        .description("目標と今日の実績を表示します")
+        .configurationDisplayName(
+            String(localized: "widget.configuration.name", defaultValue: "DopaBreak")
+        )
+        .description(
+            String(localized: "widget.configuration.description", defaultValue: "目標と今日の実績を表示します")
+        )
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -180,12 +200,17 @@ struct DopaBreakLiveActivity: Widget {
             let palette = theme(for: context.state).palette
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Text("今日")
+                    Text(String(localized: "live_activity.today", defaultValue: "今日"))
                         .font(.caption2.bold())
                         .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("\(context.state.todayCancelledCount)回")
+                    Text(
+                        String(
+                            localized: "widget.count.with_unit",
+                            defaultValue: "\(context.state.todayCancelledCount)回"
+                        )
+                    )
                         .font(.headline.monospacedDigit())
                         .foregroundStyle(Color(lockThemeColor: palette.accent))
                 }
@@ -200,14 +225,24 @@ struct DopaBreakLiveActivity: Widget {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } compactLeading: {
-                Text("\(context.state.todayCancelledCount)")
+                Text(
+                    String(
+                        localized: "widget.count.value",
+                        defaultValue: "\(context.state.todayCancelledCount)"
+                    )
+                )
                     .font(.caption.bold().monospacedDigit())
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
             } compactTrailing: {
-                Text("回")
+                Text(String(localized: "widget.count.unit", defaultValue: "回"))
                     .font(.caption2.bold())
             } minimal: {
-                Text("\(context.state.todayCancelledCount)")
+                Text(
+                    String(
+                        localized: "widget.count.value",
+                        defaultValue: "\(context.state.todayCancelledCount)"
+                    )
+                )
                     .font(.caption2.bold().monospacedDigit())
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
             }
@@ -220,7 +255,7 @@ struct DopaBreakLiveActivity: Widget {
     ) -> some View {
         let palette = theme(for: state).palette
         return VStack(alignment: .leading, spacing: 10) {
-            Text("あなたの戻る先")
+            Text(String(localized: "live_activity.goal.eyebrow", defaultValue: "あなたの戻る先"))
                 .font(.system(size: 10, weight: .bold))
                 .textCase(.uppercase)
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
@@ -244,9 +279,19 @@ struct DopaBreakLiveActivity: Widget {
                 .frame(height: 1)
 
             HStack(spacing: 14) {
-                Text("今日 開かずに戻れた \(state.todayCancelledCount)回")
+                Text(
+                    String(
+                        localized: "live_activity.summary.cancelled",
+                        defaultValue: "今日 開かずに戻れた \(state.todayCancelledCount)回"
+                    )
+                )
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text("開こうとした \(state.todayAttemptCount)回")
+                Text(
+                    String(
+                        localized: "live_activity.summary.attempted",
+                        defaultValue: "開こうとした \(state.todayAttemptCount)回"
+                    )
+                )
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
             }
             .font(.system(size: 12, weight: .semibold))

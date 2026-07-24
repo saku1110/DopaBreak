@@ -67,6 +67,16 @@ public final class SQLiteLogStore: @unchecked Sendable {
         return try countAttempts(from: start, to: end)
     }
 
+    public func cancelledAttemptCount() throws -> Int {
+        try attemptDatabase.perform { db in
+            let sql = "SELECT COUNT(*) FROM attempt_logs WHERE decision = ?"
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindText(Decision.cancelled.rawValue, to: statement, at: 1, db: db, sql: sql)
+            return try fetchCount(statement, db: db, sql: sql)
+        }
+    }
+
     public func insert(_ log: ReflectionLog) throws {
         try reflectionDatabase.perform { db in
             let sql = """

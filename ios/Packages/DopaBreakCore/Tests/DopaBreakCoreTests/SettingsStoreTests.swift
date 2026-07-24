@@ -69,18 +69,50 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(state.theme, .shinrin)
     }
 
-    func testPendingMidSessionCheckInCatalogIDRoundTripsAndClears() {
-        XCTAssertNil(store.pendingMidSessionCheckInCatalogID)
+    func testPendingMidSessionCheckInRoundTripsAndClears() {
+        XCTAssertNil(store.pendingMidSessionCheckIn)
 
-        store.pendingMidSessionCheckInCatalogID = "instagram"
+        let pending = PendingMidSessionCheckIn(
+            catalogID: "instagram",
+            writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        store.pendingMidSessionCheckIn = pending
 
         let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertEqual(reloaded.pendingMidSessionCheckInCatalogID, "instagram")
+        XCTAssertEqual(reloaded.pendingMidSessionCheckIn, pending)
 
-        reloaded.pendingMidSessionCheckInCatalogID = nil
+        reloaded.pendingMidSessionCheckIn = nil
 
-        XCTAssertNil(store.pendingMidSessionCheckInCatalogID)
-        XCTAssertNil(defaults.object(forKey: "pendingMidSessionCheckInCatalogID"))
+        XCTAssertNil(store.pendingMidSessionCheckIn)
+        XCTAssertNil(defaults.object(forKey: "pendingMidSessionCheckIn"))
+    }
+
+    func testPendingDay14WarningRoundTripsAndExpiresAfter24Hours() {
+        let writtenAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let pending = PendingDay14Warning(writtenAt: writtenAt)
+        store.pendingDay14Warning = pending
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.pendingDay14Warning, pending)
+        XCTAssertTrue(pending.isValid(at: writtenAt.addingTimeInterval(24 * 60 * 60)))
+        XCTAssertFalse(pending.isValid(at: writtenAt.addingTimeInterval(24 * 60 * 60 + 1)))
+
+        reloaded.pendingDay14Warning = nil
+
+        XCTAssertNil(store.pendingDay14Warning)
+        XCTAssertNil(defaults.object(forKey: "pendingDay14Warning"))
+    }
+
+    func testDay14ClampKeptCatalogIDRoundTripsAndClears() {
+        store.day14ClampKeptCatalogID = "instagram"
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.day14ClampKeptCatalogID, "instagram")
+
+        reloaded.day14ClampKeptCatalogID = nil
+
+        XCTAssertNil(store.day14ClampKeptCatalogID)
+        XCTAssertNil(defaults.object(forKey: "day14ClampKeptCatalogID"))
     }
 
     func testLastAppOpenedDateKeyRoundTripsAndClears() {
@@ -95,5 +127,88 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertNil(store.lastAppOpenedDateKey)
         XCTAssertNil(defaults.object(forKey: "lastAppOpenedDateKey"))
+    }
+
+    func testOnboardingSavedGoalIDRoundTripsAndClears() {
+        let goalID = UUID().uuidString
+        XCTAssertNil(store.onboardingSavedGoalID)
+
+        store.onboardingSavedGoalID = goalID
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.onboardingSavedGoalID, goalID)
+
+        reloaded.onboardingSavedGoalID = nil
+
+        XCTAssertNil(store.onboardingSavedGoalID)
+        XCTAssertNil(defaults.object(forKey: "onboardingSavedGoalID"))
+    }
+
+    func testResetToDefaultsClearsOnboardingSavedGoalID() {
+        store.onboardingSavedGoalID = UUID().uuidString
+
+        store.resetToDefaults()
+
+        XCTAssertNil(store.onboardingSavedGoalID)
+    }
+
+    func testWeeklyPaywallDatesRoundTripAndClear() {
+        let onboardingDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let shownDate = onboardingDate.addingTimeInterval(7 * 24 * 60 * 60)
+        let anyShownDate = shownDate.addingTimeInterval(60)
+
+        store.onboardingCompletedAt = onboardingDate
+        store.lastWeeklyPaywallShownAt = shownDate
+        store.lastAnyPaywallShownAt = anyShownDate
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.onboardingCompletedAt, onboardingDate)
+        XCTAssertEqual(reloaded.lastWeeklyPaywallShownAt, shownDate)
+        XCTAssertEqual(reloaded.lastAnyPaywallShownAt, anyShownDate)
+
+        reloaded.onboardingCompletedAt = nil
+        reloaded.lastWeeklyPaywallShownAt = nil
+        reloaded.lastAnyPaywallShownAt = nil
+
+        XCTAssertNil(store.onboardingCompletedAt)
+        XCTAssertNil(store.lastWeeklyPaywallShownAt)
+        XCTAssertNil(store.lastAnyPaywallShownAt)
+        XCTAssertNil(defaults.object(forKey: "onboardingCompletedAt"))
+        XCTAssertNil(defaults.object(forKey: "lastWeeklyPaywallShownAt"))
+        XCTAssertNil(defaults.object(forKey: "lastAnyPaywallShownAt"))
+    }
+
+    func testResetToDefaultsClearsWeeklyPaywallDates() {
+        store.onboardingCompletedAt = Date()
+        store.lastWeeklyPaywallShownAt = Date()
+        store.lastAnyPaywallShownAt = Date()
+
+        store.resetToDefaults()
+
+        XCTAssertNil(store.onboardingCompletedAt)
+        XCTAssertNil(store.lastWeeklyPaywallShownAt)
+        XCTAssertNil(store.lastAnyPaywallShownAt)
+    }
+
+    func testReverseTrialValuesRoundTripAndStartIsNotOverwritten() {
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        XCTAssertTrue(store.startReverseTrialIfNeeded(at: startedAt))
+        XCTAssertFalse(store.startReverseTrialIfNeeded(at: startedAt.addingTimeInterval(60)))
+        store.reverseTrialEndPaywallShown = true
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.reverseTrialStartedAt, startedAt)
+        XCTAssertTrue(reloaded.reverseTrialEndPaywallShown)
+    }
+
+    func testResetToDefaultsClearsReverseTrialState() {
+        store.reverseTrialStartedAt = Date()
+        store.reverseTrialEndPaywallShown = true
+
+        store.resetToDefaults()
+
+        XCTAssertNil(store.reverseTrialStartedAt)
+        XCTAssertFalse(store.reverseTrialEndPaywallShown)
     }
 }

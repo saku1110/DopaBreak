@@ -1,0 +1,10 @@
+{
+  "sourceLanguage": "ja",
+  "strings": {
+    "shield.action.close": {"comment":"Screen: Shield","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"開かない"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
+    "shield.subtitle.fallback": {"comment":"Screen: Shield","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"なんのために開く？"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
+    "shield.subtitle.goal": {"comment":"Screen: Shield","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"戻る先 %@"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
+    "shield.title": {"comment":"Screen: Shield","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"ひと呼吸"}},"ko":{"stringUnit":{"state":"new","value":""}}}}
+  },
+  "version": "1.0"
+}

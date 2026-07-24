@@ -15,11 +15,11 @@ struct TargetAppPickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("止めるアプリを選ぶ")
+                    Text(String(localized: "target_app_picker.title", defaultValue: "止めるアプリを選ぶ"))
                         .font(.system(size: 28, weight: .black))
                         .foregroundStyle(DesignTokens.primaryText)
 
-                    Text("開こうとした瞬間に一呼吸を出したいアプリを選びます。")
+                    Text(String(localized: "target_app_picker.description", defaultValue: "開こうとした瞬間に一呼吸を出したいアプリを選びます。"))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(DesignTokens.secondaryText)
                         .lineSpacing(4)
@@ -55,7 +55,7 @@ struct TargetAppPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("閉じる") {
+                    Button(String(localized: "target_app_picker.action.close", defaultValue: "閉じる")) {
                         dismiss()
                     }
                     .foregroundStyle(DesignTokens.secondaryText)
@@ -106,9 +106,12 @@ struct TargetAppPickerSheet: View {
     private var targetLimitDescription: String? {
         switch model.entitlementGate.targetAppTokensLimit {
         case 3:
-            return "はじめの14日は3つまで追加できます"
+            return String(
+                localized: "target_app_picker.limit.trial",
+                defaultValue: "はじめの14日は3つまで追加できます"
+            )
         case 1:
-            return "無料プランでは1つまで"
+            return String(localized: "target_app_picker.limit.free", defaultValue: "無料プランでは1つまで")
         default:
             return nil
         }
@@ -124,8 +127,8 @@ struct TargetAppPickerSheet: View {
         }
 
         guard model.entitlementGate.canAddTargetTokens(currentCount: selectedCatalogIDs.count) else {
-            dismiss()
             onPaywallNeeded()
+            dismiss()
             return
         }
 
@@ -135,11 +138,11 @@ struct TargetAppPickerSheet: View {
 
     private func persist() {
         do {
-            try model.targetStore.setTargets(selectedCatalogIDs)
+            try model.setTargetCatalogIDs(selectedCatalogIDs)
         } catch CoreError.validation(let message) {
             errorMessage = message
         } catch {
-            errorMessage = "保存できませんでした"
+            errorMessage = String(localized: "target_app_picker.error.save", defaultValue: "保存できませんでした")
         }
     }
 }

@@ -7,6 +7,7 @@ extension ReflectionLog: @retroactive Identifiable {}
 /// 見たあとの振り返り（doc11 §7 振り返り）。アプリがアクティブになった際、
 /// engine.pendingReflection() が対象を返したら表示する。
 struct PostUseReflectionSheet: View {
+    let model: AppModel
     let engine: InterventionEngine
     let reflection: ReflectionLog
     let onFinished: () -> Void
@@ -16,7 +17,7 @@ struct PostUseReflectionSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                SmallLabel(text: "REFLECTION")
+                SmallLabel(text: String(localized: "reflection.eyebrow", defaultValue: "REFLECTION"))
 
                 if let satisfaction {
                     happinessStep(satisfaction: satisfaction)
@@ -24,7 +25,7 @@ struct PostUseReflectionSheet: View {
                     satisfactionStep
                 }
 
-                Button("今回はスキップ") {
+                Button(String(localized: "reflection.action.skip", defaultValue: "今回はスキップ")) {
                     skip()
                 }
                 .font(.system(size: 15, weight: .bold))
@@ -43,12 +44,12 @@ struct PostUseReflectionSheet: View {
 
     private var satisfactionStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("SNSを見て\nどうだった？")
+            Text(String(localized: "reflection.satisfaction.title", defaultValue: "SNSを見て\nどうだった？"))
                 .font(.system(size: 34, weight: .black))
                 .foregroundStyle(DesignTokens.primaryText)
                 .tracking(-0.8)
 
-            Text("必要な時間を使い終えました。次の選択のために記録します。")
+            Text(String(localized: "reflection.satisfaction.description", defaultValue: "必要な時間を使い終えました。次の選択のために記録します。"))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(DesignTokens.secondaryText)
 
@@ -75,7 +76,7 @@ struct PostUseReflectionSheet: View {
                 }
             }
 
-            Text("幸福感や集中は\n増えた？")
+            Text(String(localized: "reflection.happiness.title", defaultValue: "幸福感や集中は\n増えた？"))
                 .font(.system(size: 32, weight: .black))
                 .foregroundStyle(DesignTokens.primaryText)
 
@@ -114,28 +115,41 @@ struct PostUseReflectionSheet: View {
     }
 
     private func finish(satisfaction: PostUseSatisfaction, happinessDelta: HappinessDelta) {
-        try? engine.recordPostUseReflection(
-            id: reflection.id,
-            satisfaction: satisfaction,
-            happinessDelta: happinessDelta
-        )
-        onFinished()
+        do {
+            try engine.recordPostUseReflection(
+                id: reflection.id,
+                satisfaction: satisfaction,
+                happinessDelta: happinessDelta
+            )
+            onFinished()
+        } catch {
+            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+        }
     }
 
     private func skip() {
-        try? engine.skipReflection(id: reflection.id)
-        onFinished()
+        do {
+            try engine.skipReflection(id: reflection.id)
+            onFinished()
+        } catch {
+            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+        }
     }
 }
 
 extension PostUseSatisfaction {
     var displayTitle: String {
         switch self {
-        case .satisfied: return "満足感があった"
-        case .fun: return "楽しかった"
-        case .nothingGained: return "何も得られなかった"
-        case .lostTime: return "時間を失った"
-        case .feltWorse: return "気分が下がった"
+        case .satisfied:
+            return String(localized: "reflection.satisfaction.satisfied", defaultValue: "満足感があった")
+        case .fun:
+            return String(localized: "reflection.satisfaction.fun", defaultValue: "楽しかった")
+        case .nothingGained:
+            return String(localized: "reflection.satisfaction.nothing_gained", defaultValue: "何も得られなかった")
+        case .lostTime:
+            return String(localized: "reflection.satisfaction.lost_time", defaultValue: "時間を失った")
+        case .feltWorse:
+            return String(localized: "reflection.satisfaction.felt_worse", defaultValue: "気分が下がった")
         }
     }
 }
@@ -143,9 +157,12 @@ extension PostUseSatisfaction {
 extension HappinessDelta {
     var displayTitle: String {
         switch self {
-        case .increased: return "上がった"
-        case .unchanged: return "変わらない"
-        case .decreased: return "下がった"
+        case .increased:
+            return String(localized: "reflection.happiness.increased", defaultValue: "上がった")
+        case .unchanged:
+            return String(localized: "reflection.happiness.unchanged", defaultValue: "変わらない")
+        case .decreased:
+            return String(localized: "reflection.happiness.decreased", defaultValue: "下がった")
         }
     }
 }

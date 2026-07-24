@@ -489,4 +489,45 @@ public struct InterventionState: Codable, Equatable, Sendable {
         self.allowedUntil = allowedUntil
         self.intent = intent
     }
+
+    public func hasActiveTemporaryAllowance(at date: Date, for ruleId: UUID) -> Bool {
+        guard currentStep == .temporarilyAllowed,
+              self.ruleId == ruleId,
+              let allowedUntil else {
+            return false
+        }
+        return date < allowedUntil
+    }
+}
+
+public struct PendingMidSessionCheckIn: Codable, Equatable, Sendable {
+    public static let validityInterval: TimeInterval = 30 * 60
+
+    public let catalogID: String
+    public let writtenAt: Date
+
+    public init(catalogID: String, writtenAt: Date) {
+        self.catalogID = catalogID
+        self.writtenAt = writtenAt
+    }
+
+    public func isValid(at date: Date) -> Bool {
+        let age = date.timeIntervalSince(writtenAt)
+        return age >= 0 && age <= Self.validityInterval
+    }
+}
+
+public struct PendingDay14Warning: Codable, Equatable, Sendable {
+    public static let validityInterval: TimeInterval = 24 * 60 * 60
+
+    public let writtenAt: Date
+
+    public init(writtenAt: Date) {
+        self.writtenAt = writtenAt
+    }
+
+    public func isValid(at date: Date) -> Bool {
+        let age = date.timeIntervalSince(writtenAt)
+        return age >= 0 && age <= Self.validityInterval
+    }
 }

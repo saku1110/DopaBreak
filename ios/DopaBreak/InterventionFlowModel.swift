@@ -30,12 +30,18 @@ enum InterventionReason: String, CaseIterable, Identifiable {
 
     var displayTitle: String {
         switch self {
-        case .work: return "仕事で使う"
-        case .research: return "調べもの"
-        case .communication: return "連絡を確認"
-        case .posting: return "投稿する"
-        case .boredom: return "暇つぶし"
-        case .unconscious: return "なんとなく"
+        case .work:
+            return String(localized: "intervention.reason.work", defaultValue: "仕事で使う")
+        case .research:
+            return String(localized: "intervention.reason.research", defaultValue: "調べもの")
+        case .communication:
+            return String(localized: "intervention.reason.communication", defaultValue: "連絡を確認")
+        case .posting:
+            return String(localized: "intervention.reason.posting", defaultValue: "投稿する")
+        case .boredom:
+            return String(localized: "intervention.reason.boredom", defaultValue: "暇つぶし")
+        case .unconscious:
+            return String(localized: "intervention.reason.unconscious", defaultValue: "なんとなく")
         }
     }
 
@@ -64,7 +70,9 @@ enum InterventionDuration: Int, CaseIterable, Identifiable {
 
     var id: Int { rawValue }
 
-    var displayTitle: String { "\(rawValue)分" }
+    var displayTitle: String {
+        String(localized: "intervention.duration.option", defaultValue: "\(rawValue)分")
+    }
 
     var seconds: Int { rawValue * 60 }
 }
@@ -82,8 +90,11 @@ final class InterventionFlowModel {
     private(set) var todayAttemptDisplayCount = 0
     private(set) var selectedReason: InterventionReason?
     private(set) var selectedDuration: InterventionDuration = .tenMinutes
+    private(set) var isAwaitingTargetOpen = false
+    private(set) var notificationsAuthorized = false
 
     private var breathTask: Task<Void, Never>?
+    private var startGeneration = 0
     private var ruleId: UUID?
     private var lastAttemptId: UUID?
 
@@ -105,8 +116,33 @@ final class InterventionFlowModel {
     }
 
     func start() {
+        breathTask?.cancel()
+        breathTask = nil
+        startGeneration += 1
+        let generation = startGeneration
+
+        Task { [weak self] in
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            guard let self, generation == self.startGeneration else {
+                return
+            }
+            self.notificationsAuthorized = switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                true
+            case .notDetermined, .denied:
+                false
+            @unknown default:
+                false
+            }
+        }
+
         guard let engine = model.interventionEngine else {
-            stage = .failed("記録データを準備できませんでした")
+            stage = .failed(
+                String(
+                    localized: "intervention.error.record_store_unavailable",
+                    defaultValue: "記録データを準備できませんでした"
+                )
+            )
             return
         }
         do {
@@ -123,7 +159,7 @@ final class InterventionFlowModel {
             todayAttemptDisplayCount = model.todayAttemptCountForCurrentRule(catalogID: target.catalogID) + 1
             stage = .reasonSelection
         } catch {
-            stage = .failed("準備できませんでした")
+            stage = .failed(String(localized: "intervention.error.preparation", defaultValue: "準備できませんでした"))
         }
     }
 
@@ -138,6 +174,7 @@ final class InterventionFlowModel {
         breathTotalSeconds = total
         breathRemainingSeconds = total
         stage = .breathing
+        let generation = startGeneration
 
         breathTask = Task { [weak self] in
             var remaining = total
@@ -147,20 +184,28 @@ final class InterventionFlowModel {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 remaining -= 1
             }
-            if Task.isCancelled { return }
-            self?.stage = .usageSummary
+            guard let self,
+                  !Task.isCancelled,
+                  generation == self.startGeneration,
+                  self.stage == .breathing else {
+                return
+            }
+            self.stage = .usageSummary
         }
     }
 
     func advanceToGoalReminder() {
+        guard stage == .usageSummary else { return }
         stage = .goalReminder
     }
 
     func advanceToDecision() {
+        guard stage == .goalReminder else { return }
         stage = .decision
     }
 
     func selectReason(_ reason: InterventionReason) {
+        guard stage == .reasonSelection else { return }
         guard let engine = model.interventionEngine else { return }
         do {
             selectedReason = reason
@@ -173,34 +218,42 @@ final class InterventionFlowModel {
                 beginBreathing()
             }
         } catch {
-            stage = .failed("進められませんでした")
+            stage = .failed(String(localized: "intervention.error.progression", defaultValue: "進められませんでした"))
         }
     }
 
     func chooseCancel() {
+        guard stage == .decision || stage == .durationSelection else { return }
         guard let engine = model.interventionEngine else { return }
         do {
             try engine.recordCancel()
             model.refresh()
             stage = .win
         } catch {
-            stage = .failed("記録できませんでした")
+            stage = .failed(String(localized: "intervention.error.record", defaultValue: "記録できませんでした"))
         }
     }
 
     func chooseOpenWithTime() {
+        guard stage == .decision else { return }
         stage = .durationSelection
     }
 
     func chooseDuration(_ duration: InterventionDuration) {
+        guard stage == .durationSelection else { return }
         selectedDuration = duration
     }
 
     func confirmSelectedDuration() {
+        guard stage == .durationSelection else { return }
         open(for: selectedDuration)
     }
 
     private func open(for duration: InterventionDuration) {
+        openTargetApp(for: duration)
+    }
+
+    private func recordOpenAndScheduleNotifications(for duration: InterventionDuration) {
         guard let engine = model.interventionEngine else { return }
         do {
             try engine.recordOpen(durationSeconds: duration.seconds)
@@ -209,16 +262,21 @@ final class InterventionFlowModel {
             if duration.seconds >= 600 {
                 scheduleMidSessionCheckIn(after: duration)
             }
-            openTargetApp()
         } catch {
-            stage = .failed("記録できませんでした")
+            stage = .failed(String(localized: "intervention.error.record", defaultValue: "記録できませんでした"))
         }
     }
 
     private func scheduleTimeUpNotification(after duration: InterventionDuration) {
         let content = UNMutableNotificationContent()
-        content.title = "そろそろひと休み"
-        content.body = "そろそろ\(duration.rawValue)分。見てどうだった？"
+        content.title = String(
+            localized: "intervention.notification.time_up.title",
+            defaultValue: "そろそろひと休み"
+        )
+        content.body = String(
+            localized: "intervention.notification.time_up.body",
+            defaultValue: "そろそろ\(duration.rawValue)分。見てどうだった？"
+        )
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(
@@ -230,13 +288,20 @@ final class InterventionFlowModel {
             content: content,
             trigger: trigger
         )
-        UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(request) { _ in
+        }
     }
 
     private func scheduleMidSessionCheckIn(after duration: InterventionDuration) {
         let content = UNMutableNotificationContent()
-        content.title = "まだ見てる？"
-        content.body = "戻る先を思い出す時間です"
+        content.title = String(
+            localized: "intervention.notification.check_in.title",
+            defaultValue: "まだ見てる？"
+        )
+        content.body = String(
+            localized: "intervention.notification.check_in.body",
+            defaultValue: "戻る先を思い出す時間です"
+        )
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(
@@ -248,21 +313,34 @@ final class InterventionFlowModel {
             content: content,
             trigger: trigger
         )
-        UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(request) { _ in
+        }
     }
 
-    private func openTargetApp() {
+    private func openTargetApp(for duration: InterventionDuration) {
+        let fallbackMessage = String(
+            localized: "intervention.opening.manual_fallback",
+            defaultValue: "ホーム画面から\(target.displayName)を開いてください"
+        )
         guard let urlScheme = target.urlScheme, let url = URL(string: urlScheme) else {
-            stage = .opening(fallbackMessage: "ホームに戻って開き直してください")
+            stage = .opening(fallbackMessage: fallbackMessage)
+            // URLスキームがないアプリは、この案内から手動で開く前提で記録と通知を維持する。
+            recordOpenAndScheduleNotifications(for: duration)
             return
         }
 
+        isAwaitingTargetOpen = true
         stage = .opening(fallbackMessage: nil)
         UIApplication.shared.open(url, options: [:]) { [weak self] success in
             guard let self else { return }
-            if !success {
-                self.stage = .opening(fallbackMessage: "ホームに戻って開き直してください")
+            if success {
+                self.recordOpenAndScheduleNotifications(for: duration)
+            } else {
+                self.stage = .opening(fallbackMessage: fallbackMessage)
+                // URL起動失敗時も、この案内から手動で開く前提で記録と通知を維持する。
+                self.recordOpenAndScheduleNotifications(for: duration)
             }
+            self.isAwaitingTargetOpen = false
         }
     }
 }

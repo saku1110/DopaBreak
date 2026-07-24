@@ -1,4 +1,5 @@
 import DopaBreakCore
+import Foundation
 import ManagedSettings
 import ManagedSettingsUI
 import UIKit
@@ -26,8 +27,12 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             let goal = try goalStore.primaryGoal()
             let subtitle = goal.map { goal in
                 let lockScreenTitle = goal.lockScreenTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                return "戻る先 \(lockScreenTitle.isEmpty ? goal.title : lockScreenTitle)"
-            } ?? "なんのために開く？"
+                let title = lockScreenTitle.isEmpty ? goal.title : lockScreenTitle
+                return String(
+                    localized: "shield.subtitle.goal",
+                    defaultValue: "戻る先 \(title)"
+                )
+            } ?? String(localized: "shield.subtitle.fallback", defaultValue: "なんのために開く？")
 
             return baseConfiguration(subtitle: subtitle)
         } catch {
@@ -40,7 +45,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             backgroundBlurStyle: .dark,
             backgroundColor: ShieldColors.inkBlack,
             title: ShieldConfiguration.Label(
-                text: "ひと呼吸",
+                text: String(localized: "shield.title", defaultValue: "ひと呼吸"),
                 color: ShieldColors.paper
             ),
             subtitle: subtitle.map {
@@ -50,7 +55,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 )
             },
             primaryButtonLabel: ShieldConfiguration.Label(
-                text: "開かない",
+                text: String(localized: "shield.action.close", defaultValue: "開かない"),
                 color: ShieldColors.inkBlack
             ),
             primaryButtonBackgroundColor: ShieldColors.electricLime,

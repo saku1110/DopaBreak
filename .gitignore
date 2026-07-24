@@ -4,3 +4,6 @@ ios/**/.build/
 ios/**/xcuserdata/
 ios/*.xcodeproj/
 ios/**/*.xcuserstate
+
+# Codex委譲の作業用プロンプト・巨大な実行ログ（成果はコミット済み・再現不要）
+tmp/

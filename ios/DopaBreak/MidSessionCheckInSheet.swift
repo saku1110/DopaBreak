@@ -8,7 +8,7 @@ struct MidSessionCheckInSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("まだ見てる？")
+                Text(String(localized: "mid_session_check_in.title", defaultValue: "まだ見てる？"))
                     .font(.system(size: 34, weight: .black))
                     .foregroundStyle(DesignTokens.primaryText)
                     .tracking(-0.8)
@@ -28,7 +28,7 @@ struct MidSessionCheckInSheet: View {
 
             Spacer(minLength: 0)
 
-            Button("閉じる") {
+            Button(String(localized: "mid_session_check_in.action.close", defaultValue: "閉じる")) {
                 dismiss()
             }
             .buttonStyle(PrimaryButtonStyle())
@@ -43,8 +43,14 @@ struct MidSessionCheckInSheet: View {
 
     private var reminderText: String {
         guard let goal = model.goals.first else {
-            return "何のために開いたか思い出せますか"
+            return String(
+                localized: "mid_session_check_in.reminder.no_goal",
+                defaultValue: "何のために開いたか思い出せますか"
+            )
         }
-        return "戻る先　\(goal.title)"
+        return String(
+            localized: "mid_session_check_in.reminder.goal",
+            defaultValue: "戻る先　\(goal.title)"
+        )
     }
 }

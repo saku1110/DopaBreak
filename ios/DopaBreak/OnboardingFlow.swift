@@ -77,7 +77,7 @@ private struct TimeLedgerMotif: View {
             ledger(at: context.date)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("今日の24時間のうち、現在時刻までの経過を示しています")
+        .accessibilityLabel(String(localized: "onboarding.welcome.ledger.accessibility_label", defaultValue: "今日の24時間のうち、現在時刻までの経過を示しています"))
     }
 
     private func ledger(at date: Date) -> some View {
@@ -87,7 +87,7 @@ private struct TimeLedgerMotif: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                SmallLabel(text: "TODAY / 1,440 MINUTES")
+                SmallLabel(text: String(localized: "onboarding.welcome.ledger.eyebrow", defaultValue: "TODAY / 1,440 MINUTES"))
                 Spacer()
                 Text(String(format: "%02d:%02d", currentHour, currentMinute))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -108,7 +108,7 @@ private struct TimeLedgerMotif: View {
             HStack {
                 Text("00")
                 Spacer()
-                Text("過ぎた時間")
+                Text(String(localized: "onboarding.welcome.ledger.elapsed_time", defaultValue: "過ぎた時間"))
                 Spacer()
                 Text("24")
             }
@@ -119,7 +119,7 @@ private struct TimeLedgerMotif: View {
                 Circle()
                     .fill(DesignTokens.accent)
                     .frame(width: 6, height: 6)
-                Text("今日という時間は、いまも減り続けている。")
+                Text(String(localized: "onboarding.welcome.ledger.body", defaultValue: "今日という時間は、いまも減り続けている。"))
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(DesignTokens.secondaryText)
             }
@@ -152,7 +152,11 @@ struct OnboardingFlow: View {
     private let snapshotStore = JSONSnapshotStore(containerProvider: DefaultContainerProvider())
     private let usageOptions = ["1時間未満", "1〜2時間", "2〜4時間", "4時間以上"]
     private let frequencyOptions = ["全くない", "数日", "半分以上", "ほとんど毎日"]
-    private let goalPresets = ["読書を30分", "筋トレを続ける", "資格の勉強"]
+    private let goalPresets = [
+        String(localized: "onboarding.goal.preset.reading", defaultValue: "読書を30分"),
+        String(localized: "onboarding.goal.preset.workout", defaultValue: "筋トレを続ける"),
+        String(localized: "onboarding.goal.preset.study", defaultValue: "資格の勉強"),
+    ]
 
     @State private var step: OnboardingStep = .welcome
     @State private var direction: SlideDirection = .forward
@@ -164,6 +168,7 @@ struct OnboardingFlow: View {
     @State private var appSelectionMessage: String?
     @State private var heroGoal = ""
     @State private var lockScreenTitle = ""
+    @State private var savedGoalID: UUID?
     @State private var goalCategory: GoalCategory = .other
     @State private var isLockScreenTitleExpanded = false
     @State private var selectedMode: InterventionMode = .standard
@@ -172,6 +177,26 @@ struct OnboardingFlow: View {
     @State private var isRequestingNotifications = false
     @State private var paywallPlacement: PaywallPlacement?
     @State private var flowAlert: OnboardingAlert?
+
+    init(
+        model: AppModel,
+        settingsStore: SettingsStore,
+        onComplete: @escaping () -> Void
+    ) {
+        self.model = model
+        self.settingsStore = settingsStore
+        self.onComplete = onComplete
+
+        let restoredGoalID = settingsStore.onboardingSavedGoalID.flatMap(UUID.init(uuidString:))
+        _savedGoalID = State(initialValue: restoredGoalID)
+
+        if let restoredGoalID,
+           let goal = model.goals.first(where: { $0.id == restoredGoalID }) {
+            _heroGoal = State(initialValue: goal.title)
+            _lockScreenTitle = State(initialValue: goal.lockScreenTitle ?? "")
+            _goalCategory = State(initialValue: goal.category)
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -188,7 +213,7 @@ struct OnboardingFlow: View {
             Alert(
                 title: Text(alert.title),
                 message: Text(alert.message),
-                dismissButton: .default(Text("閉じる"))
+                dismissButton: .default(Text(String(localized: "onboarding.action.close", defaultValue: "閉じる")))
             )
         }
         .fullScreenCover(item: $paywallPlacement, onDismiss: {
@@ -196,18 +221,25 @@ struct OnboardingFlow: View {
                 advance()
             }
         }) { placement in
-            PaywallView(storeService: model.storeService, placement: placement)
+            PaywallView(
+                storeService: model.storeService,
+                placement: placement,
+                settingsStore: settingsStore,
+                onDismissWithoutPurchase: {
+                    model.startReverseTrialIfNeeded()
+                }
+            )
         }
-        .alert("Deep Focusは強めの設定です", isPresented: $showDeepFocusConfirmation) {
-            Button("Deep Focusで始める") {
+        .alert(String(localized: "onboarding.mode.deep_focus.confirmation.title", defaultValue: "Deep Focusは強めの設定です"), isPresented: $showDeepFocusConfirmation) {
+            Button(String(localized: "onboarding.mode.deep_focus.confirmation.start", defaultValue: "Deep Focusで始める")) {
                 persistModeAndAdvance(.deepFocus)
             }
-            Button("通常モードにする") {
+            Button(String(localized: "onboarding.mode.deep_focus.confirmation.standard", defaultValue: "通常モードにする")) {
                 selectedMode = .standard
                 persistModeAndAdvance(.standard)
             }
         } message: {
-            Text("集中時間中は、簡単にはSNSを開けません。")
+            Text(String(localized: "onboarding.mode.deep_focus.confirmation.message", defaultValue: "集中時間中は、簡単にはSNSを開けません。"))
         }
         .preferredColorScheme(.dark)
     }
@@ -334,40 +366,44 @@ struct OnboardingFlow: View {
     private var primaryAction: some View {
         switch step {
         case .welcome:
-            primaryButton("はじめる") { advance() }
+            primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "はじめる")) { advance() }
         case .selfCheck:
-            primaryButton("次へ", enabled: usageBucket != nil) { advance() }
+            primaryButton(String(localized: "onboarding.action.next", defaultValue: "次へ"), enabled: usageBucket != nil) { advance() }
         case .quizResult:
-            primaryButton("この時間を、変える") { advance() }
+            primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を、変える")) { advance() }
         case .chooseApps:
-            primaryButton(selectedCatalogIDs.isEmpty ? "アプリを選ぶ" : "この\(selectedCatalogIDs.count)つで始める") {
+            primaryButton(
+                selectedCatalogIDs.isEmpty
+                    ? String(localized: "onboarding.apps.action.empty", defaultValue: "アプリを選ぶ")
+                    : String(localized: "onboarding.apps.action.selected", defaultValue: "この\(selectedCatalogIDs.count)つで始める")
+            ) {
                 persistSelectedAppsAndAdvance()
             }
         case .goalSetup:
-            primaryButton("次へ") { saveGoalAndAdvance(skipped: false) }
+            primaryButton(String(localized: "onboarding.action.next", defaultValue: "次へ")) { saveGoalAndAdvance(skipped: false) }
         case .chooseMode:
-            primaryButton("この設定で進む") { confirmModeIfNeeded() }
+            primaryButton(String(localized: "onboarding.mode.action", defaultValue: "この設定で進む")) { confirmModeIfNeeded() }
         case .preview:
-            primaryButton("なるほど、続ける") { advance() }
+            primaryButton(String(localized: "onboarding.preview.action", defaultValue: "なるほど、続ける")) { advance() }
         case .whyScience:
-            primaryButton("続ける") { advance() }
+            primaryButton(String(localized: "onboarding.action.continue", defaultValue: "続ける")) { advance() }
         case .permission:
             VStack(spacing: 10) {
-                primaryButton("ショートカットを開く") { openShortcutsAndAdvance() }
-                Text("設定できたかどうかは 対象アプリを開いたときに自動で確認されます")
+                primaryButton(String(localized: "onboarding.automation.action", defaultValue: "ショートカットを開く")) { openShortcutsAndAdvance() }
+                Text(String(localized: "onboarding.automation.action_note", defaultValue: "設定できたかどうかは 対象アプリを開いたときに自動で確認されます"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(DesignTokens.secondaryText)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
             }
         case .notificationGuide:
-            primaryButton("通知をオンにする", enabled: !isRequestingNotifications) {
+            primaryButton(String(localized: "onboarding.notification.action", defaultValue: "通知をオンにする"), enabled: !isRequestingNotifications) {
                 Task { await requestNotifications() }
             }
         case .prePaywallSummary:
-            primaryButton("続ける") { paywallPlacement = .onboardingPrepaywallSummary }
+            primaryButton(String(localized: "onboarding.action.continue", defaultValue: "続ける")) { paywallPlacement = .onboardingPrepaywallSummary }
         case .ready:
-            primaryButton("DopaBreakをはじめる") { advance() }
+            primaryButton(String(localized: "onboarding.ready.action", defaultValue: "DopaBreakをはじめる")) { advance() }
         case .quizAimless, .quizRegret:
             EmptyView()
         }
@@ -377,13 +413,13 @@ struct OnboardingFlow: View {
     private var secondaryAction: some View {
         switch step {
         case .goalSetup:
-            textOnlyButton("あとで設定する") { saveGoalAndAdvance(skipped: true) }
+            textOnlyButton(String(localized: "onboarding.goal.action.later", defaultValue: "あとで設定する")) { saveGoalAndAdvance(skipped: true) }
         case .permission:
-            secondaryButton("あとで") { advance() }
+            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
         case .notificationGuide:
-            secondaryButton("あとで") { advance() }
+            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
         case .prePaywallSummary:
-            secondaryButton("あとで") {
+            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) {
                 model.recordFunnelEvent(.prePaywallSkipped, detail: step.identifier)
                 advance()
             }
@@ -396,12 +432,12 @@ struct OnboardingFlow: View {
 private extension OnboardingFlow {
     var welcomeContent: some View {
         screenScroll {
-            centeredEyebrow("DOPABREAK")
+            centeredEyebrow(String(localized: "onboarding.welcome.eyebrow", defaultValue: "DOPABREAK"))
 
             Spacer(minLength: 292)
 
             VStack(alignment: .center, spacing: 22) {
-                Text("人生の時間は\n二度と戻らない")
+                Text(String(localized: "onboarding.welcome.title", defaultValue: "人生の時間は\n二度と戻らない"))
                     .font(.system(size: 44, weight: .black))
                     .foregroundStyle(DesignTokens.primaryText)
                     .lineSpacing(2)
@@ -409,9 +445,9 @@ private extension OnboardingFlow {
                     .minimumScaleFactor(0.74)
                     .multilineTextAlignment(.center)
 
-                centeredLead("そのスクロールが、いちばん高くついている。")
+                centeredLead(String(localized: "onboarding.welcome.lead", defaultValue: "そのスクロールが、いちばん高くついている。"))
 
-                Text("開く前に、選び直す")
+                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "開く前に、選び直す"))
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(DesignTokens.accent)
             }
@@ -422,11 +458,11 @@ private extension OnboardingFlow {
     var selfCheckContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredEyebrow("質問 1 / 3")
-                centeredLead("回答は端末内にのみ保存されます。")
+                centeredEyebrow(String(localized: "onboarding.self_check.eyebrow", defaultValue: "質問 1 / 3"))
+                centeredLead(String(localized: "onboarding.self_check.privacy_note", defaultValue: "回答は端末内にのみ保存されます。"))
 
-                optionSection(title: "SNSを見ている時間は\n1日どれくらいですか？") {
-                    centeredLead("ざっくりでOKです")
+                optionSection(title: String(localized: "onboarding.self_check.title", defaultValue: "SNSを見ている時間は\n1日どれくらいですか？")) {
+                    centeredLead(String(localized: "onboarding.self_check.hint", defaultValue: "ざっくりでOKです"))
                     singleSelectOptions(usageOptions, selection: $usageBucket)
                 }
             }
@@ -436,9 +472,9 @@ private extension OnboardingFlow {
     var aimlessQuizContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 26) {
-                centeredEyebrow("質問 2 / 3")
-                centeredLead("この2週間、次のことはどれくらい当てはまりますか？")
-                centeredTitle("気づけば、目的もなく\nスクロールしている")
+                centeredEyebrow(String(localized: "onboarding.aimless.eyebrow", defaultValue: "質問 2 / 3"))
+                centeredLead(String(localized: "onboarding.aimless.lead", defaultValue: "この2週間、次のことはどれくらい当てはまりますか？"))
+                centeredTitle(String(localized: "onboarding.aimless.title", defaultValue: "気づけば、目的もなく\nスクロールしている"))
                 frequencyButtons(selection: aimlessScrollBucket) { option in
                     aimlessScrollBucket = option
                     advance()
@@ -450,9 +486,9 @@ private extension OnboardingFlow {
     var regretQuizContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 26) {
-                centeredEyebrow("質問 3 / 3")
-                centeredLead("SNSを閉じたあとの気持ちは")
-                centeredTitle("「時間を溶かした」と\n感じることがある")
+                centeredEyebrow(String(localized: "onboarding.regret.eyebrow", defaultValue: "質問 3 / 3"))
+                centeredLead(String(localized: "onboarding.regret.lead", defaultValue: "SNSを閉じたあとの気持ちは"))
+                centeredTitle(String(localized: "onboarding.regret.title", defaultValue: "「時間を溶かした」と\n感じることがある"))
                 frequencyButtons(selection: regretBucket) { option in
                     regretBucket = option
                     if persistSelfCheckSnapshot() {
@@ -467,8 +503,8 @@ private extension OnboardingFlow {
         let estimate = currentEstimate
         return screenScroll {
             VStack(alignment: .center, spacing: 24) {
-                centeredEyebrow("推計結果 / YOUR RESULT")
-                centeredLead("あなたの回答にもとづく推計では")
+                centeredEyebrow(String(localized: "onboarding.result.eyebrow", defaultValue: "推計結果 / YOUR RESULT"))
+                centeredLead(String(localized: "onboarding.result.lead", defaultValue: "あなたの回答にもとづく推計では"))
 
                 VStack(alignment: .center, spacing: 16) {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
@@ -476,31 +512,31 @@ private extension OnboardingFlow {
                             .font(.system(size: 70, weight: .black, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(DesignTokens.accent)
-                        Text("/ 日")
+                        Text(String(localized: "onboarding.result.per_day", defaultValue: "/ 日"))
                             .font(.system(size: 20, weight: .black))
                             .foregroundStyle(DesignTokens.primaryText)
                     }
 
-                    centeredLead("が毎日、SNSに溶けています")
+                    centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "が毎日、SNSに溶けています"))
 
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text("1年に換算すると 約")
+                        Text(String(localized: "onboarding.result.yearly.prefix", defaultValue: "1年に換算すると 約"))
                             .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(DesignTokens.primaryText)
                         Text("\(estimate.yearlyDays)")
                             .font(.system(size: 58, weight: .black, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(DesignTokens.accent)
-                        Text("日")
+                        Text(String(localized: "onboarding.result.yearly.suffix", defaultValue: "日"))
                             .font(.system(size: 28, weight: .black))
                             .foregroundStyle(DesignTokens.primaryText)
                     }
                 }
 
-                centeredLead("※ご回答からの推計値です。医療診断ではありません。")
+                centeredLead(String(localized: "onboarding.result.disclaimer", defaultValue: "※ご回答からの推計値です。医療診断ではありません。"))
                     .padding(.top, 8)
 
-                centeredLead("このままなら10年で 約\(estimate.yearlyDays * 10)日")
+                centeredLead(String(localized: "onboarding.result.ten_years", defaultValue: "このままなら10年で 約\(estimate.yearlyDays * 10)日"))
             }
             .frame(maxWidth: .infinity, alignment: .center)
         }
@@ -509,8 +545,9 @@ private extension OnboardingFlow {
     var chooseAppsContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredTitle("止めたいアプリを選ぶ")
-                centeredLead("いつでも変更できます。")
+                centeredTitle(String(localized: "onboarding.apps.title", defaultValue: "止めたいアプリを選ぶ"))
+                centeredLead(String(localized: "onboarding.apps.lead", defaultValue: "いつでも変更できます。"))
+                centeredLead(String(localized: "onboarding.apps.free_limit_note", defaultValue: "はじめの14日は3つまで追加できます"))
 
                 VStack(spacing: 10) {
                     ForEach(SNSAppCatalog.all) { item in
@@ -528,11 +565,11 @@ private extension OnboardingFlow {
     var goalSetupContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 22) {
-                centeredEyebrow("あなたの目標 / GOAL")
-                centeredTitle("空いたこの時間で\n何をしますか？")
+                centeredEyebrow(String(localized: "onboarding.goal.eyebrow", defaultValue: "あなたの目標 / GOAL"))
+                centeredTitle(String(localized: "onboarding.goal.title", defaultValue: "空いたこの時間で\n何をしますか？"))
 
                 fieldContainer {
-                    TextField("例: 英語で話せるようになる", text: $heroGoal, axis: .vertical)
+                    TextField(String(localized: "onboarding.goal.placeholder", defaultValue: "例: 英語で話せるようになる"), text: $heroGoal, axis: .vertical)
                         .lineLimit(1...3)
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(DesignTokens.primaryText)
@@ -558,7 +595,7 @@ private extension OnboardingFlow {
                         }
                     } label: {
                         HStack(spacing: 12) {
-                            Text("ロック画面に出す短い言葉(任意)")
+                            Text(String(localized: "onboarding.goal.lock_screen_label", defaultValue: "ロック画面に出す短い言葉(任意)"))
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(DesignTokens.secondaryText)
                                 .multilineTextAlignment(.leading)
@@ -578,11 +615,15 @@ private extension OnboardingFlow {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityValue(isLockScreenTitleExpanded ? "展開中" : "折りたたみ中")
+                    .accessibilityValue(
+                        isLockScreenTitleExpanded
+                            ? String(localized: "onboarding.goal.lock_screen_expanded", defaultValue: "展開中")
+                            : String(localized: "onboarding.goal.lock_screen_collapsed", defaultValue: "折りたたみ中")
+                    )
 
                     if isLockScreenTitleExpanded {
                         fieldContainer {
-                            TextField("例: 英語で話す", text: $lockScreenTitle)
+                            TextField(String(localized: "onboarding.goal.lock_screen_placeholder", defaultValue: "例: 英語で話す"), text: $lockScreenTitle)
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundStyle(DesignTokens.primaryText)
                                 .onChange(of: lockScreenTitle) { _, value in
@@ -599,8 +640,8 @@ private extension OnboardingFlow {
     var chooseModeContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredTitle("どのくらい強く\n止めますか？")
-                centeredLead("生活に合う強さを選べます。")
+                centeredTitle(String(localized: "onboarding.mode.title", defaultValue: "どのくらい強く\n止めますか？"))
+                centeredLead(String(localized: "onboarding.mode.lead", defaultValue: "生活に合う強さを選べます。"))
 
                 VStack(spacing: 12) {
                     ForEach(InterventionMode.allCases, id: \.self) { mode in
@@ -616,26 +657,26 @@ private extension OnboardingFlow {
     var previewContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 22) {
-                centeredEyebrow("PREVIEW")
-                centeredTitle("SNSを開こうとすると、\nこうなります")
-                centeredLead("目的を確かめて、必要なときだけ意図して開けるようにします。")
+                centeredEyebrow(String(localized: "onboarding.preview.eyebrow", defaultValue: "PREVIEW"))
+                centeredTitle(String(localized: "onboarding.preview.title", defaultValue: "SNSを開こうとすると、\nこうなります"))
+                centeredLead(String(localized: "onboarding.preview.lead", defaultValue: "目的を確かめて、必要なときだけ意図して開けるようにします。"))
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
-                        numberedLine("1. 何のために開くか確認する")
-                        numberedLine("2. 仕事や連絡なら、すぐ時間を選ぶ")
-                        numberedLine("3. 暇つぶしなら、一呼吸して選び直す")
-                        numberedLine("4. 使った後の満足感を振り返る")
+                        numberedLine(String(localized: "onboarding.preview.step1", defaultValue: "1. 何のために開くか確認する"))
+                        numberedLine(String(localized: "onboarding.preview.step2", defaultValue: "2. 仕事や連絡なら、すぐ時間を選ぶ"))
+                        numberedLine(String(localized: "onboarding.preview.step3", defaultValue: "3. 暇つぶしなら、一呼吸して選び直す"))
+                        numberedLine(String(localized: "onboarding.preview.step4", defaultValue: "4. 使った後の満足感を振り返る"))
                     }
                 }
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("何のために開く？")
+                        Text(String(localized: "onboarding.preview.card.title", defaultValue: "何のために開く？"))
                             .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(DesignTokens.primaryText)
-                        previewChoice("開かない", highlighted: true)
-                        previewChoice("理由を選んで続ける", highlighted: false)
+                        previewChoice(String(localized: "onboarding.preview.card.cancel", defaultValue: "開かない"), highlighted: true)
+                        previewChoice(String(localized: "onboarding.preview.card.continue", defaultValue: "理由を選んで続ける"), highlighted: false)
                     }
                 }
             }
@@ -645,27 +686,39 @@ private extension OnboardingFlow {
     var whyScienceContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 22) {
-                centeredEyebrow("WHY IT WORKS / 科学的背景")
-                centeredTitle("意志の力では、\n勝てない")
-                centeredLead("つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。")
+                centeredEyebrow(String(localized: "onboarding.science.eyebrow", defaultValue: "WHY IT WORKS / 科学的背景"))
+                centeredTitle(String(localized: "onboarding.science.title", defaultValue: "意志の力では、\n勝てない"))
+                centeredLead(String(localized: "onboarding.science.lead", defaultValue: "つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。"))
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 14) {
-                        principleLine("1. 摩擦", "反射的な起動に一拍置く")
-                        principleLine("2. 実行意図", "開く前に理由を言語化する")
-                        principleLine("3. 自己モニタリング", "今日何回目かを見る")
-                        principleLine("4. 自己観察", "見た後の満足感を記録する")
+                        principleLine(
+                            String(localized: "onboarding.science.principle1.title", defaultValue: "1. 摩擦"),
+                            String(localized: "onboarding.science.principle1.detail", defaultValue: "反射的な起動に一拍置く")
+                        )
+                        principleLine(
+                            String(localized: "onboarding.science.principle2.title", defaultValue: "2. 実行意図"),
+                            String(localized: "onboarding.science.principle2.detail", defaultValue: "開く前に理由を言語化する")
+                        )
+                        principleLine(
+                            String(localized: "onboarding.science.principle3.title", defaultValue: "3. 自己モニタリング"),
+                            String(localized: "onboarding.science.principle3.detail", defaultValue: "今日何回目かを見る")
+                        )
+                        principleLine(
+                            String(localized: "onboarding.science.principle4.title", defaultValue: "4. 自己観察"),
+                            String(localized: "onboarding.science.principle4.detail", defaultValue: "見た後の満足感を記録する")
+                        )
                     }
                 }
 
                 centeredLead(
-                    "開く前にワンクッション置く手法は、\n査読付き研究（PNAS, 2023）で\nSNS利用を平均57%減らすことが\n示されています。"
+                    String(localized: "onboarding.science.research", defaultValue: "開く前にワンクッション置く手法は、\n査読付き研究（PNAS, 2023）で\nSNS利用を平均57%減らすことが\n示されています。")
                 )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    bodyText("※他社アプリ(one sec)を対象とした研究です。")
-                    bodyText("※本アプリの効果を保証するものではありません。")
-                    bodyText("※医療・治療を目的としたアプリではありません。")
+                    bodyText(String(localized: "onboarding.science.disclaimer.study", defaultValue: "※他社アプリ(one sec)を対象とした研究です。"))
+                    bodyText(String(localized: "onboarding.science.disclaimer.effect", defaultValue: "※本アプリの効果を保証するものではありません。"))
+                    bodyText(String(localized: "onboarding.science.disclaimer.medical", defaultValue: "※医療・治療を目的としたアプリではありません。"))
                 }
             }
         }
@@ -674,24 +727,24 @@ private extension OnboardingFlow {
     var automationGuideContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 22) {
-                centeredTitle("自動で一呼吸を出す設定")
-                centeredLead("ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。設定は一度だけ・約2分です。")
+                centeredTitle(String(localized: "onboarding.automation.title", defaultValue: "自動で一呼吸を出す設定"))
+                centeredLead(String(localized: "onboarding.automation.lead", defaultValue: "ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。設定は一度だけ・約2分です。"))
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
-                        numberedLine("1. オートメーションを開く")
-                        numberedLine("2. ＋を押してAppを選ぶ")
-                        numberedLine("3. 対象アプリを選び開かれたときを選ぶ")
-                        numberedLine("4. すぐに実行を選ぶ")
-                        numberedLine("5. アクションでDopaBreakで一呼吸を選ぶ")
+                        numberedLine(String(localized: "onboarding.automation.step1", defaultValue: "1. オートメーションを開く"))
+                        numberedLine(String(localized: "onboarding.automation.step2", defaultValue: "2. ＋を押してAppを選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step3", defaultValue: "3. 対象アプリを選び開かれたときを選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step4", defaultValue: "4. すぐに実行を選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step5", defaultValue: "5. アクションでDopaBreakで一呼吸を選ぶ"))
                     }
                 }
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 10) {
-                        SmallLabel(text: "設定するアプリ")
+                        SmallLabel(text: String(localized: "onboarding.automation.apps_label", defaultValue: "設定するアプリ"))
                         if selectedTargets.isEmpty {
-                            Text("先に止めるアプリを選んでください。")
+                            Text(String(localized: "onboarding.automation.apps_empty", defaultValue: "先に止めるアプリを選んでください。"))
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(DesignTokens.secondaryText)
                         } else {
@@ -711,28 +764,28 @@ private extension OnboardingFlow {
     var notificationGuideContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredEyebrow("NOTIFICATION")
-                centeredTitle("ロック画面に、\n戻る先を")
-                centeredLead("朝の通知とLive Activityで、目標を毎日思い出します。")
+                centeredEyebrow(String(localized: "onboarding.notification.eyebrow", defaultValue: "NOTIFICATION"))
+                centeredTitle(String(localized: "onboarding.notification.title", defaultValue: "ロック画面に、\n戻る先を"))
+                centeredLead(String(localized: "onboarding.notification.lead", defaultValue: "朝の通知とLive Activityで、目標を毎日思い出します。"))
 
                 ZStack(alignment: .bottom) {
                     MorningHorizon(height: 300, alignment: .center, bottomFade: 0.78)
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            SmallLabel(text: "DOPABREAK")
+                            SmallLabel(text: String(localized: "onboarding.notification.preview.app_name", defaultValue: "DOPABREAK"))
                             Spacer()
-                            SmallLabel(text: "今")
+                            SmallLabel(text: String(localized: "onboarding.notification.preview.now", defaultValue: "今"))
                         }
                         Text(notificationGoalText)
                             .font(.system(size: 20, weight: .black))
                             .foregroundStyle(DesignTokens.primaryText)
                             .lineLimit(2)
                         HStack(spacing: 6) {
-                            Text("今日")
+                            Text(String(localized: "onboarding.notification.preview.today", defaultValue: "今日"))
                                 .foregroundStyle(DesignTokens.secondaryText)
-                            Text("\(model.todayCancelledCount)回")
+                            Text(String(localized: "onboarding.notification.preview.count", defaultValue: "\(model.todayCancelledCount)回"))
                                 .foregroundStyle(DesignTokens.accent)
-                            Text("開かずに戻れた")
+                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開かずに戻れた"))
                                 .foregroundStyle(DesignTokens.secondaryText)
                         }
                         .font(.system(size: 14, weight: .bold))
@@ -763,21 +816,32 @@ private extension OnboardingFlow {
     var prePaywallSummaryContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredEyebrow("あなた専用プラン / READY")
-                centeredTitle("準備が整いました")
-                centeredLead("この設定で、開く前の一呼吸が増えます。")
+                centeredEyebrow(String(localized: "onboarding.summary.eyebrow", defaultValue: "あなた専用プラン / READY"))
+                centeredTitle(String(localized: "onboarding.summary.title", defaultValue: "準備が整いました"))
+                centeredLead(String(localized: "onboarding.summary.lead", defaultValue: "この設定で、開く前の一呼吸が増えます。"))
 
                 CardContainer {
                     VStack(spacing: 0) {
-                        summaryRow(label: "止めるアプリ", value: selectedAppsSummary)
+                        summaryRow(
+                            label: String(localized: "onboarding.summary.apps", defaultValue: "止めるアプリ"),
+                            value: selectedAppsSummary
+                        )
                         divider
-                        summaryRow(label: "戻る先", value: goalSummaryText.isEmpty ? "未設定" : goalSummaryText)
+                        summaryRow(
+                            label: String(localized: "onboarding.summary.goal", defaultValue: "戻る先"),
+                            value: goalSummaryText.isEmpty
+                                ? String(localized: "onboarding.value.not_set", defaultValue: "未設定")
+                                : goalSummaryText
+                        )
                         divider
-                        summaryRow(label: "対象の時間", value: "年 約\(summaryYearlyDays)日分")
+                        summaryRow(
+                            label: String(localized: "onboarding.summary.time", defaultValue: "対象の時間"),
+                            value: String(localized: "onboarding.summary.yearly_days", defaultValue: "年 約\(summaryYearlyDays)日分")
+                        )
                     }
                 }
 
-                centeredLead("開く前に選べる状態を、今日から始めます。")
+                centeredLead(String(localized: "onboarding.summary.footer", defaultValue: "開く前に選べる状態を、今日から始めます。"))
             }
         }
     }
@@ -797,20 +861,38 @@ private extension OnboardingFlow {
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 
                 VStack(spacing: 12) {
-                    titleText("準備完了")
+                    titleText(String(localized: "onboarding.ready.title", defaultValue: "準備完了"))
                         .multilineTextAlignment(.center)
-                    bodyText("今日から、開く前に選び直す。")
+                    bodyText(String(localized: "onboarding.ready.body", defaultValue: "今日から、開く前に選び直す。"))
                         .multilineTextAlignment(.center)
                 }
 
                 if !goalSummaryText.isEmpty {
                     CardContainer {
                         VStack(alignment: .leading, spacing: 10) {
-                            SmallLabel(text: "あなたの目標")
+                            SmallLabel(text: String(localized: "onboarding.ready.goal_label", defaultValue: "あなたの目標"))
                             Text(goalSummaryText)
                                 .font(.system(size: 20, weight: .black))
                                 .foregroundStyle(DesignTokens.primaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+
+                if let firstTarget = selectedTargets.first,
+                   firstTarget.urlScheme != nil {
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Button(String(localized: "onboarding.ready.test_action", defaultValue: "最初のテストをする")) {
+                                testFirstAutomation(firstTarget)
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+
+                            Text(String(localized: "onboarding.ready.test_body", defaultValue: "\(firstTarget.displayName)を開いて一呼吸が出れば成功です。"))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(DesignTokens.secondaryText)
+                                .lineSpacing(4)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
@@ -889,7 +971,7 @@ private extension OnboardingFlow {
         VStack(spacing: 10) {
             ForEach(options, id: \.self) { option in
                 optionButton(
-                    title: option,
+                    title: usageOptionTitle(option),
                     isSelected: selection.wrappedValue == option
                 ) {
                     selection.wrappedValue = option
@@ -904,7 +986,7 @@ private extension OnboardingFlow {
     ) -> some View {
         VStack(spacing: 10) {
             ForEach(frequencyOptions, id: \.self) { option in
-                optionButton(title: option, isSelected: selection == option) {
+                optionButton(title: frequencyOptionTitle(option), isSelected: selection == option) {
                     action(option)
                 }
             }
@@ -939,6 +1021,36 @@ private extension OnboardingFlow {
     func optionStroke(isSelected: Bool) -> some View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
             .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
+    }
+
+    func usageOptionTitle(_ option: String) -> String {
+        switch option {
+        case "1時間未満":
+            return String(localized: "onboarding.self_check.option.less_than_hour", defaultValue: "1時間未満")
+        case "1〜2時間":
+            return String(localized: "onboarding.self_check.option.one_to_two_hours", defaultValue: "1〜2時間")
+        case "2〜4時間":
+            return String(localized: "onboarding.self_check.option.two_to_four_hours", defaultValue: "2〜4時間")
+        case "4時間以上":
+            return String(localized: "onboarding.self_check.option.four_plus_hours", defaultValue: "4時間以上")
+        default:
+            return option
+        }
+    }
+
+    func frequencyOptionTitle(_ option: String) -> String {
+        switch option {
+        case "全くない":
+            return String(localized: "onboarding.frequency.option.never", defaultValue: "全くない")
+        case "数日":
+            return String(localized: "onboarding.frequency.option.some_days", defaultValue: "数日")
+        case "半分以上":
+            return String(localized: "onboarding.frequency.option.more_than_half", defaultValue: "半分以上")
+        case "ほとんど毎日":
+            return String(localized: "onboarding.frequency.option.almost_daily", defaultValue: "ほとんど毎日")
+        default:
+            return option
+        }
     }
 }
 
@@ -1064,9 +1176,9 @@ private extension OnboardingFlow {
 
     var categoryBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: "カテゴリ")
+            SmallLabel(text: String(localized: "onboarding.goal.category", defaultValue: "カテゴリ"))
             fieldContainer {
-                Picker("カテゴリ", selection: $goalCategory) {
+                Picker(String(localized: "onboarding.goal.category", defaultValue: "カテゴリ"), selection: $goalCategory) {
                     ForEach(GoalCategory.allCases, id: \.self) { category in
                         Text(category.japaneseLabel).tag(category)
                     }
@@ -1182,12 +1294,12 @@ private extension OnboardingFlow {
     var selectedAppsSummary: String {
         let targets = selectedTargets
         guard let first = targets.first else {
-            return "未設定"
+            return String(localized: "onboarding.value.not_set", defaultValue: "未設定")
         }
         if targets.count == 1 {
             return first.displayName
         }
-        return "\(first.displayName) ほか\(targets.count - 1)件"
+        return String(localized: "onboarding.summary.additional_apps", defaultValue: "\(first.displayName) ほか\(targets.count - 1)件")
     }
 
     var goalSummaryText: String {
@@ -1199,7 +1311,9 @@ private extension OnboardingFlow {
     var notificationGoalText: String {
         let currentGoal = model.goals.first?.lockScreenTitle ?? model.goals.first?.title
         let localGoal = goalSummaryText
-        return localGoal.isEmpty ? (currentGoal ?? "目標を設定すると、ここに表示されます") : localGoal
+        return localGoal.isEmpty
+            ? (currentGoal ?? String(localized: "onboarding.notification.preview.goal_fallback", defaultValue: "目標を設定すると、ここに表示されます"))
+            : localGoal
     }
 
     var summaryYearlyDays: Int {
@@ -1219,6 +1333,7 @@ private extension OnboardingFlow {
         model.recordFunnelEvent(.onboardingStepCompleted, detail: completedStep.identifier)
 
         guard let next = completedStep.next else {
+            settingsStore.onboardingSavedGoalID = nil
             onComplete()
             return
         }
@@ -1278,11 +1393,11 @@ private extension OnboardingFlow {
 
     func persistSelectedAppsAndAdvance() {
         guard !selectedCatalogIDs.isEmpty else {
-            appSelectionMessage = "まずは1つだけ選びましょう。\n\n一番無意識に開いてしまうSNSから始めるのがおすすめです。"
+            appSelectionMessage = String(localized: "onboarding.apps.empty_selection_message", defaultValue: "まずは1つだけ選びましょう。\n\n一番無意識に開いてしまうSNSから始めるのがおすすめです。")
             return
         }
         do {
-            try model.targetStore.setTargets(selectedCatalogIDs)
+            try model.setTargetCatalogIDs(selectedCatalogIDs)
             appSelectionMessage = nil
             advance()
         } catch CoreError.validation(let message) {
@@ -1304,15 +1419,38 @@ private extension OnboardingFlow {
             return
         }
 
-        let saved = model.addGoal(
-            title: normalizedTitle,
-            category: goalCategory,
-            lockScreenTitle: lockScreenTitle
-        )
+        let saved: Bool
+        if let savedGoalID {
+            guard let savedGoal = model.goals.first(where: { $0.id == savedGoalID }) else {
+                flowAlert = OnboardingAlert(
+                    title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
+                    message: String(localized: "onboarding.error.save.message", defaultValue: "データを保存できませんでした")
+                )
+                return
+            }
+            saved = model.updateGoal(
+                savedGoal,
+                title: normalizedTitle,
+                category: goalCategory,
+                lockScreenTitle: lockScreenTitle
+            )
+        } else {
+            let newGoalID = UUID()
+            saved = model.addGoal(
+                title: normalizedTitle,
+                category: goalCategory,
+                lockScreenTitle: lockScreenTitle,
+                id: newGoalID
+            )
+            if saved {
+                self.savedGoalID = newGoalID
+                settingsStore.onboardingSavedGoalID = newGoalID.uuidString
+            }
+        }
         if !saved {
             flowAlert = OnboardingAlert(
-                title: "保存できませんでした",
-                message: model.alertMessage ?? "データを保存できませんでした"
+                title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
+                message: model.alertMessage ?? String(localized: "onboarding.error.save.message", defaultValue: "データを保存できませんでした")
             )
             return
         }
@@ -1354,6 +1492,14 @@ private extension OnboardingFlow {
         advance()
     }
 
+    func testFirstAutomation(_ target: SNSAppCatalogItem) {
+        guard let scheme = target.urlScheme,
+              let url = URL(string: scheme) else {
+            return
+        }
+        UIApplication.shared.open(url)
+    }
+
     @MainActor
     func requestNotifications() async {
         guard !isRequestingNotifications else {
@@ -1365,7 +1511,12 @@ private extension OnboardingFlow {
         do {
             let granted = try await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])
-            granted ? advance() : showNotificationFallback()
+            if granted {
+                await model.rescheduleNotificationsAfterAuthorization()
+                advance()
+            } else {
+                showNotificationFallback()
+            }
         } catch {
             showNotificationFallback()
         }
@@ -1374,22 +1525,24 @@ private extension OnboardingFlow {
 
 private extension OnboardingFlow {
     func showNotificationFallback() {
-        notificationMessage = "通知はあとで設定できます。"
+        notificationMessage = String(localized: "onboarding.notification.fallback", defaultValue: "通知はあとで設定できます。")
     }
 
     func showSaveError() {
         flowAlert = OnboardingAlert(
-            title: "保存できませんでした",
-            message: "データを保存できませんでした"
+            title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
+            message: String(localized: "onboarding.error.save.message", defaultValue: "データを保存できませんでした")
         )
     }
 
     func dailyTimeText(minutes: Int) -> String {
         if minutes < 60 {
-            return "\(minutes)分"
+            return String(localized: "onboarding.result.duration.minutes", defaultValue: "\(minutes)分")
         }
         let hours = Double(minutes) / 60.0
-        return hours.rounded() == hours ? "\(Int(hours))時間" : "\(hours)時間"
+        return hours.rounded() == hours
+            ? String(localized: "onboarding.result.duration.hours", defaultValue: "\(Int(hours))時間")
+            : String(localized: "onboarding.result.duration.decimal_hours", defaultValue: "\(hours)時間")
     }
 
     func trim(_ binding: Binding<String>, to limit: Int, value: String) {

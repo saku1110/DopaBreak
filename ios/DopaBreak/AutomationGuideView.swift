@@ -17,37 +17,37 @@ struct AutomationGuideView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    Text("自動で一呼吸を出す設定")
+                    Text(String(localized: "automation_guide.title", defaultValue: "自動で一呼吸を出す設定"))
                         .font(.system(size: 28, weight: .black))
                         .foregroundStyle(DesignTokens.primaryText)
 
-                    Text("ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。")
+                    Text(String(localized: "automation_guide.description", defaultValue: "ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。"))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(DesignTokens.secondaryText)
                         .lineSpacing(4)
 
-                    Button("ショートカットを開く") {
+                    Button(String(localized: "automation_guide.action.open_shortcuts", defaultValue: "ショートカットを開く")) {
                         openShortcutsApp()
                     }
                     .buttonStyle(PrimaryButtonStyle())
 
                     CardContainer {
                         VStack(alignment: .leading, spacing: 14) {
-                            numberedStep(1, "オートメーションを開く")
-                            numberedStep(2, "＋を押してAppを選ぶ")
-                            numberedStep(3, "対象アプリを選び開かれたときを選ぶ")
-                            numberedStep(4, "すぐに実行を選ぶ")
-                            numberedStep(5, "アクションでDopaBreakで一呼吸を選ぶ")
+                            numberedStep(1, String(localized: "automation_guide.step.open_automation", defaultValue: "オートメーションを開く"))
+                            numberedStep(2, String(localized: "automation_guide.step.add_app", defaultValue: "＋を押してAppを選ぶ"))
+                            numberedStep(3, String(localized: "automation_guide.step.choose_app_opened", defaultValue: "対象アプリを選び開かれたときを選ぶ"))
+                            numberedStep(4, String(localized: "automation_guide.step.run_immediately", defaultValue: "すぐに実行を選ぶ"))
+                            numberedStep(5, String(localized: "automation_guide.step.add_dopabreak_action", defaultValue: "アクションでDopaBreakで一呼吸を選ぶ"))
                         }
                     }
 
                     CardContainer {
                         VStack(alignment: .leading, spacing: 0) {
-                            SmallLabel(text: "設定するアプリ")
+                            SmallLabel(text: String(localized: "automation_guide.apps.section", defaultValue: "設定するアプリ"))
                                 .padding(.bottom, 12)
 
                             if selectedTargets.isEmpty {
-                                Text("先に止めるアプリを選んでください。")
+                                Text(String(localized: "automation_guide.apps.empty", defaultValue: "先に止めるアプリを選んでください。"))
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(DesignTokens.secondaryText)
                             } else {
@@ -64,7 +64,7 @@ struct AutomationGuideView: View {
                         }
                     }
 
-                    Text("設定できたかどうかは 対象アプリを開いたときに自動で確認されます")
+                    Text(String(localized: "automation_guide.verification.note", defaultValue: "設定できたかどうかは 対象アプリを開いたときに自動で確認されます"))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(DesignTokens.secondaryText)
                         .lineSpacing(4)
@@ -77,7 +77,7 @@ struct AutomationGuideView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("閉じる") {
+                    Button(String(localized: "automation_guide.action.close", defaultValue: "閉じる")) {
                         dismiss()
                     }
                     .foregroundStyle(DesignTokens.secondaryText)
@@ -114,12 +114,12 @@ struct AutomationGuideView: View {
             }
 
             if target.urlScheme == nil {
-                Text("Safariはホーム画面から開いて確認してください")
+                Text(String(localized: "automation_guide.safari.note", defaultValue: "Safariはホーム画面から開いて確認してください"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DesignTokens.secondaryText)
                     .lineSpacing(3)
             } else {
-                Button("テストする") {
+                Button(String(localized: "automation_guide.action.test", defaultValue: "テストする")) {
                     testAutomation(target)
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -129,7 +129,11 @@ struct AutomationGuideView: View {
 
     private func automationStatusBadge(catalogID: String) -> some View {
         let isVerified = verifiedAutomationCatalogIDs.contains(catalogID)
-        return Text(isVerified ? "設定済み" : "未確認")
+        return Text(
+            isVerified
+                ? String(localized: "automation_guide.status.verified", defaultValue: "設定済み")
+                : String(localized: "automation_guide.status.unverified", defaultValue: "未確認")
+        )
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(isVerified ? DesignTokens.accent : DesignTokens.secondaryText)
             .padding(.horizontal, 10)
@@ -144,7 +148,7 @@ struct AutomationGuideView: View {
 
     private func numberedStep(_ index: Int, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Text("\(index)")
+            Text(String(localized: "automation_guide.step.number", defaultValue: "\(index)"))
                 .font(.system(size: 13, weight: .black))
                 .foregroundStyle(DesignTokens.background)
                 .frame(width: 22, height: 22)

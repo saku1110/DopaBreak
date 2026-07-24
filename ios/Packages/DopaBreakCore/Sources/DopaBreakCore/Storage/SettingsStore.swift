@@ -8,10 +8,18 @@ public final class SettingsStore: @unchecked Sendable {
         static let selectedAppBrands = "selectedAppBrands"
         static let breathDurationSeconds = "breathDurationSeconds"
         static let pendingStartInterventionCatalogID = "pendingStartInterventionCatalogID"
-        static let pendingMidSessionCheckInCatalogID = "pendingMidSessionCheckInCatalogID"
+        static let pendingMidSessionCheckIn = "pendingMidSessionCheckIn"
+        static let pendingDay14Warning = "pendingDay14Warning"
         static let verifiedAutomationCatalogIDs = "verifiedAutomationCatalogIDs"
+        static let day14ClampKeptCatalogID = "day14ClampKeptCatalogID"
+        static let onboardingSavedGoalID = "onboardingSavedGoalID"
+        static let onboardingCompletedAt = "onboardingCompletedAt"
         static let firstLaunchDate = "firstLaunchDate"
         static let lastAppOpenedDateKey = "lastAppOpenedDateKey"
+        static let lastWeeklyPaywallShownAt = "lastWeeklyPaywallShownAt"
+        static let lastAnyPaywallShownAt = "lastAnyPaywallShownAt"
+        static let reverseTrialStartedAt = "reverseTrialStartedAt"
+        static let reverseTrialEndPaywallShown = "reverseTrialEndPaywallShown"
         static let wakeTimeMinutes = "wakeTimeMinutes"
         static let bedTimeMinutes = "bedTimeMinutes"
         static let morningNotificationEnabled = "morningNotificationEnabled"
@@ -29,9 +37,17 @@ public final class SettingsStore: @unchecked Sendable {
             selectedAppBrands,
             breathDurationSeconds,
             pendingStartInterventionCatalogID,
-            pendingMidSessionCheckInCatalogID,
+            pendingMidSessionCheckIn,
+            pendingDay14Warning,
             verifiedAutomationCatalogIDs,
+            day14ClampKeptCatalogID,
+            onboardingSavedGoalID,
+            onboardingCompletedAt,
             lastAppOpenedDateKey,
+            lastWeeklyPaywallShownAt,
+            lastAnyPaywallShownAt,
+            reverseTrialStartedAt,
+            reverseTrialEndPaywallShown,
             wakeTimeMinutes,
             bedTimeMinutes,
             morningNotificationEnabled,
@@ -90,9 +106,36 @@ public final class SettingsStore: @unchecked Sendable {
         set { setOptional(newValue, forKey: Key.pendingStartInterventionCatalogID) }
     }
 
-    public var pendingMidSessionCheckInCatalogID: String? {
-        get { userDefaults.string(forKey: Key.pendingMidSessionCheckInCatalogID) }
-        set { setOptional(newValue, forKey: Key.pendingMidSessionCheckInCatalogID) }
+    public var pendingMidSessionCheckIn: PendingMidSessionCheckIn? {
+        get {
+            guard let data = userDefaults.data(forKey: Key.pendingMidSessionCheckIn) else {
+                return nil
+            }
+            return try? JSONDecoder().decode(PendingMidSessionCheckIn.self, from: data)
+        }
+        set {
+            guard let newValue, let data = try? JSONEncoder().encode(newValue) else {
+                userDefaults.removeObject(forKey: Key.pendingMidSessionCheckIn)
+                return
+            }
+            userDefaults.set(data, forKey: Key.pendingMidSessionCheckIn)
+        }
+    }
+
+    public var pendingDay14Warning: PendingDay14Warning? {
+        get {
+            guard let data = userDefaults.data(forKey: Key.pendingDay14Warning) else {
+                return nil
+            }
+            return try? JSONDecoder().decode(PendingDay14Warning.self, from: data)
+        }
+        set {
+            guard let newValue, let data = try? JSONEncoder().encode(newValue) else {
+                userDefaults.removeObject(forKey: Key.pendingDay14Warning)
+                return
+            }
+            userDefaults.set(data, forKey: Key.pendingDay14Warning)
+        }
     }
 
     public var verifiedAutomationCatalogIDs: [String] {
@@ -111,6 +154,21 @@ public final class SettingsStore: @unchecked Sendable {
         verifiedAutomationCatalogIDs.contains(catalogID)
     }
 
+    public var day14ClampKeptCatalogID: String? {
+        get { userDefaults.string(forKey: Key.day14ClampKeptCatalogID) }
+        set { setOptional(newValue, forKey: Key.day14ClampKeptCatalogID) }
+    }
+
+    public var onboardingSavedGoalID: String? {
+        get { userDefaults.string(forKey: Key.onboardingSavedGoalID) }
+        set { setOptional(newValue, forKey: Key.onboardingSavedGoalID) }
+    }
+
+    public var onboardingCompletedAt: Date? {
+        get { userDefaults.object(forKey: Key.onboardingCompletedAt) as? Date }
+        set { setOptional(newValue, forKey: Key.onboardingCompletedAt) }
+    }
+
     public var firstLaunchDate: Date? {
         get { userDefaults.object(forKey: Key.firstLaunchDate) as? Date }
         set { setOptional(newValue, forKey: Key.firstLaunchDate) }
@@ -119,6 +177,35 @@ public final class SettingsStore: @unchecked Sendable {
     public var lastAppOpenedDateKey: String? {
         get { userDefaults.string(forKey: Key.lastAppOpenedDateKey) }
         set { setOptional(newValue, forKey: Key.lastAppOpenedDateKey) }
+    }
+
+    public var lastWeeklyPaywallShownAt: Date? {
+        get { userDefaults.object(forKey: Key.lastWeeklyPaywallShownAt) as? Date }
+        set { setOptional(newValue, forKey: Key.lastWeeklyPaywallShownAt) }
+    }
+
+    public var lastAnyPaywallShownAt: Date? {
+        get { userDefaults.object(forKey: Key.lastAnyPaywallShownAt) as? Date }
+        set { setOptional(newValue, forKey: Key.lastAnyPaywallShownAt) }
+    }
+
+    public var reverseTrialStartedAt: Date? {
+        get { userDefaults.object(forKey: Key.reverseTrialStartedAt) as? Date }
+        set { setOptional(newValue, forKey: Key.reverseTrialStartedAt) }
+    }
+
+    public var reverseTrialEndPaywallShown: Bool {
+        get { userDefaults.bool(forKey: Key.reverseTrialEndPaywallShown) }
+        set { userDefaults.set(newValue, forKey: Key.reverseTrialEndPaywallShown) }
+    }
+
+    @discardableResult
+    public func startReverseTrialIfNeeded(at date: Date) -> Bool {
+        guard reverseTrialStartedAt == nil else {
+            return false
+        }
+        reverseTrialStartedAt = date
+        return true
     }
 
     public var wakeTimeMinutes: Int? {

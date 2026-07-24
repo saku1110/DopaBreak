@@ -109,16 +109,23 @@ final class OnboardingCoordinator {
     init(settingsStore: SettingsStore? = nil) {
         let resolvedStore = settingsStore ?? Self.makeSettingsStore()
         self.settingsStore = resolvedStore
+        if resolvedStore.onboardingCompleted,
+           resolvedStore.onboardingCompletedAt == nil {
+            resolvedStore.onboardingCompletedAt = Date()
+        }
         self.isCompleted = resolvedStore.onboardingCompleted
     }
 
     func complete() {
         settingsStore.onboardingCompleted = true
+        settingsStore.onboardingCompletedAt = Date()
+        settingsStore.onboardingSavedGoalID = nil
         isCompleted = true
     }
 
     func reset() {
         settingsStore.onboardingCompleted = false
+        settingsStore.onboardingCompletedAt = nil
         isCompleted = false
     }
 

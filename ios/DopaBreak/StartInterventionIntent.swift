@@ -14,17 +14,38 @@ enum SNSAppEnum: String, AppEnum {
     case line
     case safari
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "SNSアプリ"
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(
+        name: LocalizedStringResource(
+            "shortcuts.app.type_name",
+            defaultValue: "SNSアプリ"
+        )
+    )
 
     static var caseDisplayRepresentations: [SNSAppEnum: DisplayRepresentation] = [
-        .instagram: DisplayRepresentation(title: "Instagram"),
-        .x: DisplayRepresentation(title: "X"),
-        .tiktok: DisplayRepresentation(title: "TikTok"),
-        .youtube: DisplayRepresentation(title: "YouTube"),
-        .facebook: DisplayRepresentation(title: "Facebook"),
-        .threads: DisplayRepresentation(title: "Threads"),
-        .line: DisplayRepresentation(title: "LINE"),
-        .safari: DisplayRepresentation(title: "Safari")
+        .instagram: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.instagram", defaultValue: "Instagram")
+        ),
+        .x: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.x", defaultValue: "X")
+        ),
+        .tiktok: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.tiktok", defaultValue: "TikTok")
+        ),
+        .youtube: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.youtube", defaultValue: "YouTube")
+        ),
+        .facebook: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.facebook", defaultValue: "Facebook")
+        ),
+        .threads: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.threads", defaultValue: "Threads")
+        ),
+        .line: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.line", defaultValue: "LINE")
+        ),
+        .safari: DisplayRepresentation(
+            title: LocalizedStringResource("shortcuts.app.safari", defaultValue: "Safari")
+        )
     ]
 
     /// SNSAppCatalog.catalogID と同一の文字列（rawValue）。
@@ -34,11 +55,24 @@ enum SNSAppEnum: String, AppEnum {
 /// ショートカットのオートメーションから実行される、DopaBreak起動用のAppIntent（doc12 §2）。
 /// `openAppWhenRun = true` により、対象アプリが開かれた瞬間にDopaBreakを前面起動する。
 struct StartInterventionIntent: AppIntent {
-    static var title: LocalizedStringResource = "DopaBreakで一呼吸"
-    static var description = IntentDescription("対象アプリを開く前にDopaBreakの一呼吸フローを表示します。")
+    static var title = LocalizedStringResource(
+        "shortcuts.intervention.title",
+        defaultValue: "DopaBreakで一呼吸"
+    )
+    static var description = IntentDescription(
+        LocalizedStringResource(
+            "shortcuts.intervention.description",
+            defaultValue: "対象アプリを開く前にDopaBreakの一呼吸フローを表示します。"
+        )
+    )
     static var openAppWhenRun: Bool = true
 
-    @Parameter(title: "アプリ")
+    @Parameter(
+        title: LocalizedStringResource(
+            "shortcuts.intervention.parameter.app",
+            defaultValue: "アプリ"
+        )
+    )
     var app: SNSAppEnum
 
     init() {}

@@ -26,7 +26,9 @@ struct InterventionFlowView: View {
             flow.stop()
         }
         .task(id: openingTaskID) {
-            guard case .opening(let message) = flow.stage, message == nil else {
+            guard case .opening(let message) = flow.stage,
+                  message == nil,
+                  !flow.isAwaitingTargetOpen else {
                 return
             }
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -37,8 +39,11 @@ struct InterventionFlowView: View {
     }
 
     private var openingTaskID: String {
+        if case .opening(let message) = flow.stage, message == nil {
+            return flow.isAwaitingTargetOpen ? "opening-pending" : "opening-ready"
+        }
         if case .opening = flow.stage {
-            return "opening"
+            return "opening-fallback"
         }
         return "idle"
     }
@@ -72,7 +77,7 @@ struct InterventionFlowView: View {
     private var breathingScreen: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SmallLabel(text: "INTERCEPTED")
+                SmallLabel(text: String(localized: "intervention.breath.eyebrow", defaultValue: "INTERCEPTED"))
                 Spacer()
                 SmallLabel(text: target.displayName.uppercased())
             }
@@ -83,7 +88,12 @@ struct InterventionFlowView: View {
 
             VStack(spacing: 28) {
                 VStack(spacing: 14) {
-                    Text("\(flow.breathRemainingSeconds)")
+                    Text(
+                        String(
+                            localized: "intervention.breath.countdown",
+                            defaultValue: "\(flow.breathRemainingSeconds)"
+                        )
+                    )
                         .font(.system(size: 92, weight: .black, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(DesignTokens.primaryText)
@@ -112,10 +122,15 @@ struct InterventionFlowView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
 
                 VStack(spacing: 8) {
-                    Text("ひと呼吸おきましょう")
+                    Text(String(localized: "intervention.breath.title", defaultValue: "ひと呼吸おきましょう"))
                         .font(.system(size: 24, weight: .black))
                         .foregroundStyle(DesignTokens.primaryText)
-                    SmallLabel(text: "BREATHE · \(flow.breathTotalSeconds) SEC")
+                    SmallLabel(
+                        text: String(
+                            localized: "intervention.breath.timer_label",
+                            defaultValue: "BREATHE · \(flow.breathTotalSeconds) SEC"
+                        )
+                    )
                 }
             }
             .frame(maxWidth: .infinity)
@@ -132,24 +147,34 @@ struct InterventionFlowView: View {
                 if flow.dayTimeContext != .normal {
                     dayTimeContextBanner(for: flow.dayTimeContext)
                 }
-                SmallLabel(text: "USAGE SUMMARY")
-                Text("\(flow.todayAttemptDisplayCount)回")
+                SmallLabel(text: String(localized: "intervention.usage_summary.eyebrow", defaultValue: "USAGE SUMMARY"))
+                Text(
+                    String(
+                        localized: "intervention.usage_summary.attempt_count",
+                        defaultValue: "\(flow.todayAttemptDisplayCount)回"
+                    )
+                )
                     .font(.system(size: 72, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.primaryText)
                     .tracking(-2)
-                titleText("すでに開いています")
+                titleText(String(localized: "intervention.usage_summary.title", defaultValue: "すでに開いています"))
                 CardContainer {
                     VStack(alignment: .leading, spacing: 7) {
-                        SmallLabel(text: "YOUR GOAL")
-                        Text(flow.goals.first?.title ?? "開く目的を確かめる")
+                        SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
+                        Text(
+                            flow.goals.first?.title
+                                ?? String(localized: "intervention.goal.fallback", defaultValue: "開く目的を確かめる")
+                        )
                             .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(DesignTokens.primaryText)
                     }
                 }
             }
         } action: {
-            primaryButton("目標を思い出す") { flow.advanceToGoalReminder() }
+            primaryButton(String(localized: "intervention.usage_summary.action.continue", defaultValue: "目標を思い出す")) {
+                flow.advanceToGoalReminder()
+            }
         }
     }
 
@@ -159,15 +184,25 @@ struct InterventionFlowView: View {
         stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
                 if flow.goals.isEmpty {
-                    titleText("何のために開きますか？")
+                    titleText(
+                        String(
+                            localized: "intervention.goal_reminder.empty_title",
+                            defaultValue: "何のために開きますか？"
+                        )
+                    )
                 } else {
-                    SmallLabel(text: "YOUR GOAL")
-                    titleText("戻りたい自分")
+                    SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
+                    titleText(String(localized: "intervention.goal_reminder.title", defaultValue: "戻りたい自分"))
                     CardContainer {
                         VStack(alignment: .leading, spacing: 14) {
                             ForEach(flow.goals, id: \.id) { goal in
                                 HStack(alignment: .top, spacing: 10) {
-                                    Text("・")
+                                    Text(
+                                        String(
+                                            localized: "intervention.goal_reminder.list_separator",
+                                            defaultValue: "・"
+                                        )
+                                    )
                                         .foregroundStyle(DesignTokens.accent)
                                     Text(goal.title)
                                         .font(.system(size: 18, weight: .bold))
@@ -179,7 +214,9 @@ struct InterventionFlowView: View {
                 }
             }
         } action: {
-            primaryButton("どうするか選ぶ") { flow.advanceToDecision() }
+            primaryButton(String(localized: "intervention.goal_reminder.action.continue", defaultValue: "どうするか選ぶ")) {
+                flow.advanceToDecision()
+            }
         }
     }
 
@@ -188,9 +225,9 @@ struct InterventionFlowView: View {
     private var reasonSelectionScreen: some View {
         stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: "INTENT")
-                titleText("何のために\n開きますか？")
-                Text("目的が明確なら、一呼吸を省いてすぐ進めます")
+                SmallLabel(text: String(localized: "intervention.intent.eyebrow", defaultValue: "INTENT"))
+                titleText(String(localized: "intervention.intent.title", defaultValue: "何のために\n開きますか？"))
+                Text(String(localized: "intervention.intent.description", defaultValue: "目的が明確なら、一呼吸を省いてすぐ進めます"))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(DesignTokens.secondaryText)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -229,8 +266,8 @@ struct InterventionFlowView: View {
     private var decisionScreen: some View {
         stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: "DECISION")
-                titleText("本当に今、\n必要ですか？")
+                SmallLabel(text: String(localized: "intervention.decision.eyebrow", defaultValue: "DECISION"))
+                titleText(String(localized: "intervention.decision.title", defaultValue: "本当に今、\n必要ですか？"))
                 if let reason = flow.selectedReason {
                     CardContainer {
                         HStack {
@@ -245,8 +282,12 @@ struct InterventionFlowView: View {
             }
         } action: {
             VStack(spacing: 10) {
-                primaryButton("開かない") { flow.chooseCancel() }
-                secondaryButton("必要な時間だけ開く") { flow.chooseOpenWithTime() }
+                primaryButton(String(localized: "intervention.decision.action.cancel", defaultValue: "開かない")) {
+                    flow.chooseCancel()
+                }
+                secondaryButton(String(localized: "intervention.decision.action.open", defaultValue: "必要な時間だけ開く")) {
+                    flow.chooseOpenWithTime()
+                }
             }
         }
     }
@@ -254,8 +295,8 @@ struct InterventionFlowView: View {
     private var durationSelectionScreen: some View {
         stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: "TIME")
-                titleText("何分だけ\n開きますか？")
+                SmallLabel(text: String(localized: "intervention.duration.eyebrow", defaultValue: "TIME"))
+                titleText(String(localized: "intervention.duration.title", defaultValue: "何分だけ\n開きますか？"))
                 if let reason = flow.selectedReason {
                     CardContainer {
                         HStack(spacing: 10) {
@@ -266,7 +307,12 @@ struct InterventionFlowView: View {
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundStyle(DesignTokens.primaryText)
                                 if reason.interventionStyle == .direct {
-                                    Text("目的が明確なため、一呼吸を省きました")
+                                    Text(
+                                        String(
+                                            localized: "intervention.duration.fast_path_note",
+                                            defaultValue: "目的が明確なため、一呼吸を省きました"
+                                        )
+                                    )
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundStyle(DesignTokens.secondaryText)
                                 }
@@ -274,7 +320,12 @@ struct InterventionFlowView: View {
                         }
                     }
                 }
-                Text("必要な用事が終わる時間だけ選びましょう")
+                Text(
+                    String(
+                        localized: "intervention.duration.guidance",
+                        defaultValue: "必要な用事が終わる時間だけ選びましょう"
+                    )
+                )
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(DesignTokens.secondaryText)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -306,18 +357,23 @@ struct InterventionFlowView: View {
                     }
                 }
 
-                Text("時間になったら通知でお知らせします")
+                Text(notificationMessage)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(DesignTokens.secondaryText)
             }
         } action: {
             VStack(spacing: 4) {
-                primaryButton("\(flow.selectedDuration.rawValue)分だけ開く") {
+                primaryButton(
+                    String(
+                        localized: "intervention.duration.action.open",
+                        defaultValue: "\(flow.selectedDuration.rawValue)分だけ開く"
+                    )
+                ) {
                     flow.confirmSelectedDuration()
                 }
 
                 if flow.selectedReason?.interventionStyle == .direct {
-                    Button("開かずに戻る") {
+                    Button(String(localized: "intervention.duration.action.cancel", defaultValue: "開かずに戻る")) {
                         flow.chooseCancel()
                     }
                     .font(.system(size: 15, weight: .semibold))
@@ -325,7 +381,12 @@ struct InterventionFlowView: View {
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .contentShape(Rectangle())
                     .buttonStyle(.plain)
-                    .accessibilityHint("SNSを開かずに達成画面へ進みます")
+                    .accessibilityHint(
+                        String(
+                            localized: "intervention.duration.action.cancel_hint",
+                            defaultValue: "SNSを開かずに達成画面へ進みます"
+                        )
+                    )
                 }
             }
         }
@@ -334,13 +395,23 @@ struct InterventionFlowView: View {
     private func openingScreen(fallbackMessage: String?) -> some View {
         stepScaffold {
             VStack(alignment: .center, spacing: 24) {
-                SmallLabel(text: "OPENING")
+                SmallLabel(text: String(localized: "intervention.opening.eyebrow", defaultValue: "OPENING"))
                 if let fallbackMessage {
                     titleText(fallbackMessage)
                 } else {
-                    titleText(target.displayName + "を開いています")
+                    titleText(
+                        String(
+                            localized: "intervention.opening.title",
+                            defaultValue: "\(target.displayName)を開いています"
+                        )
+                    )
                     if let reason = flow.selectedReason {
-                        Text("\(reason.displayTitle) ・ \(flow.selectedDuration.rawValue)分")
+                        Text(
+                            String(
+                                localized: "intervention.opening.summary",
+                                defaultValue: "\(reason.displayTitle) ・ \(flow.selectedDuration.rawValue)分"
+                            )
+                        )
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(DesignTokens.secondaryText)
                     }
@@ -348,7 +419,7 @@ struct InterventionFlowView: View {
                         .progressViewStyle(.linear)
                         .tint(DesignTokens.accent)
                         .frame(maxWidth: 220)
-                    Text("時間になったら通知でお知らせします")
+                    Text(notificationMessage)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(DesignTokens.secondaryText)
                 }
@@ -356,11 +427,25 @@ struct InterventionFlowView: View {
             .frame(maxWidth: .infinity)
         } action: {
             if fallbackMessage != nil {
-                primaryButton("閉じる") { onFinished() }
+                primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
+                    onFinished()
+                }
             } else {
                 EmptyView()
             }
         }
+    }
+
+    private var notificationMessage: String {
+        flow.notificationsAuthorized
+            ? String(
+                localized: "intervention.notification.enabled",
+                defaultValue: "時間になったら通知でお知らせします"
+            )
+            : String(
+                localized: "intervention.notification.disabled",
+                defaultValue: "通知がオフのため時間のお知らせは届きません"
+            )
     }
 
     // MARK: - 勝ち画面
@@ -379,7 +464,7 @@ struct InterventionFlowView: View {
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
 
-                Text("開かなかった\n自分の時間に戻る")
+                Text(String(localized: "intervention.success.title", defaultValue: "開かなかった\n自分の時間に戻る"))
                     .font(.system(size: 32, weight: .black))
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
@@ -387,14 +472,19 @@ struct InterventionFlowView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
 
-                Text("今日\(flow.todayAttemptDisplayCount)回目")
+                Text(
+                    String(
+                        localized: "intervention.success.daily_attempt",
+                        defaultValue: "今日\(flow.todayAttemptDisplayCount)回目"
+                    )
+                )
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DesignTokens.secondaryText)
 
                 if let goal = flow.goals.first {
                     CardContainer {
                         VStack(alignment: .leading, spacing: 8) {
-                            SmallLabel(text: "YOUR GOAL")
+                            SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
                             Text(goal.title)
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundStyle(DesignTokens.primaryText)
@@ -404,17 +494,31 @@ struct InterventionFlowView: View {
 
                 CardContainer {
                     HStack(spacing: 18) {
-                        metricColumn(label: "開かずに戻れた", value: todayCancelledCountText)
+                        metricColumn(
+                            label: String(
+                                localized: "intervention.success.metric.cancelled",
+                                defaultValue: "開かずに戻れた"
+                            ),
+                            value: todayCancelledCountText
+                        )
                         Rectangle()
                             .fill(DesignTokens.hairline)
                             .frame(width: 1, height: 54)
-                        metricColumn(label: "開こうとした", value: todayAttemptCountText)
+                        metricColumn(
+                            label: String(
+                                localized: "intervention.success.metric.attempted",
+                                defaultValue: "開こうとした"
+                            ),
+                            value: todayAttemptCountText
+                        )
                     }
                 }
             }
             .frame(maxWidth: .infinity)
         } action: {
-            primaryButton("閉じる") { onFinished() }
+            primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
+                onFinished()
+            }
         }
     }
 
@@ -424,7 +528,9 @@ struct InterventionFlowView: View {
                 titleText(message)
             }
         } action: {
-            primaryButton("閉じる") { onFinished() }
+            primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
+                onFinished()
+            }
         }
     }
 
@@ -433,11 +539,17 @@ struct InterventionFlowView: View {
     private var target: SNSAppCatalogItem { flow.target }
 
     private var todayCancelledCountText: String {
-        "\(flow.todayCancelledCountForDisplay)"
+        String(
+            localized: "intervention.success.cancelled_count",
+            defaultValue: "\(flow.todayCancelledCountForDisplay)"
+        )
     }
 
     private var todayAttemptCountText: String {
-        "\(flow.todayAttemptCountForDisplay)"
+        String(
+            localized: "intervention.success.attempt_count",
+            defaultValue: "\(flow.todayAttemptCountForDisplay)"
+        )
     }
 
     private func metricColumn(label: String, value: String) -> some View {
@@ -485,9 +597,15 @@ struct InterventionFlowView: View {
     private func dayTimeContextBanner(for context: DayTimeContext) -> some View {
         switch context {
         case .wake:
-            dayTimeContextBanner(title: "起きてすぐの数分", body: "その日の集中を決める時間")
+            dayTimeContextBanner(
+                title: String(localized: "intervention.day_context.morning.title", defaultValue: "起きてすぐの数分"),
+                body: String(localized: "intervention.day_context.morning.body", defaultValue: "その日の集中を決める時間")
+            )
         case .sleep:
-            dayTimeContextBanner(title: "眠る前の数分", body: "その日の睡眠の質を決める時間")
+            dayTimeContextBanner(
+                title: String(localized: "intervention.day_context.night.title", defaultValue: "眠る前の数分"),
+                body: String(localized: "intervention.day_context.night.body", defaultValue: "その日の睡眠の質を決める時間")
+            )
         case .normal:
             EmptyView()
         }

@@ -396,6 +396,52 @@ Claude Code側で6レンズ監査（ビジュアル/介入UX/オンボ/ペイウ
 - 指摘#3「永続化経路・破損データfallbackの統合テスト不在」→ **部分採用**。書き込み→注入→解決の統合テストと破損JSON→38 fallbackテストを追加。レンダリング/Dynamic Typeのスナップショットテストはハーネス未導入のため不採用（導入判断は別タスク）。
 - 採用2件の反映後の最終検証（Fable独立実行）: Core 158テスト0失敗・アプリ層 7テスト0失敗・generic Simulator向け `BUILD SUCCEEDED`。
 
+## 2026-07-18 — 7/17監査コアループ不具合 B1・B2・B3・B9・B11 修正
+
+- 作成・変更:
+  - `ios/DopaBreak/AppContainer.swift` / `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift`: 本体側の介入要求消費点で期限内の`temporarilyAllowed`を判定し、再介入要求を破棄。期限切れは既存`reshieldIfExpired()`を通してから通常フローへ進める。
+  - `ios/DopaBreak/InterventionFlowModel.swift` / `ios/DopaBreak/InterventionFlowView.swift`: URL起動完了の成功確認後にだけ`recordOpen`と通知予約を実行し、完了待ち中は画面を自動終了しない。理由・決定・時間選択系メソッドへstage再入ガードを追加し、通知予約前に認可状態を確認。
+  - `ios/DopaBreak/NotificationDelegate.swift` / `ios/DopaBreak/RootTabView.swift`: チェックイン保留をcatalogID＋書込時刻へ変更し、書込後のアプリ内通知でRootの再チェックを確実に起動。30分超過または未来時刻の保留は破棄。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`: `pendingMidSessionCheckInCatalogID`を時刻込みの単一Dataキー`pendingMidSessionCheckIn`へ置換。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/PendingInterventionPolicyTests.swift` / `SettingsStoreTests.swift` / `LocalDataResetterTests.swift`: 一時開放期限、チェックイン30分境界、永続化、全データ削除の回帰テストを追加・同期。
+- 採用した方針:
+  - AppIntentは従来どおりpendingキー書込だけとし、エンジン参照は本体プロセスの単一消費点に限定する。
+  - URLスキームなし／URL起動失敗は「ホーム画面から{アプリ名}を開いてください」を表示し、手動起動前提として記録と通知を1回だけ維持する。
+  - チェックインのレース対策は永続フラグを正本にし、`NotificationCenter`は書込後の再消費トリガーとしてのみ使う。
+- 却下・変更しなかった案:
+  - Intent側で`InterventionEngine`を読む案は単一ライター原則に反するため不採用。
+  - `InterventionFlowModel.start()`へ`temporarilyAllowed`をresumableとして足す案は、フル画面を一度提示して許可中状態をリセットし得るため不採用。
+  - B4〜B8・B10・B12〜B14、CVR施策、通知未認可時の新規UI文言、docs変更はスコープ外のため未変更。
+- Claude Code側の実装制約:
+  - `consumeInterventionRequest`の期限内ガードをIntentへ移さない。期限内はpending要求を消費して何も表示しない。
+  - URL起動成功時は`UIApplication.open`完了→`recordOpen`→通知予約→opening画面終了の順序を維持する。手動フォールバック分岐と二重記録させない。
+  - `PendingMidSessionCheckIn.validityInterval`は30分。SettingsStoreのcatalogID単独旧キーへ戻さず、書込後の`.pendingMidSessionCheckInDidChange`通知を外さない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 154テスト成功、失敗0。
+  - `cd ios && xcodegen generate`: 成功。
+  - iPhone 16 Pro Simulator向け`xcodebuild build`: `BUILD SUCCEEDED`。
+  - iPhone 16 Pro Simulatorの`DopaBreakTests`: 6テスト成功、失敗0（`TEST SUCCEEDED`）。
+
+## 2026-07-18 — バグ修正バッチ独立レビュー採用4件の是正
+
+- 作成・変更:
+  - `ios/DopaBreak/AppContainer.swift` / `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift`: 一時開放判定へ対象ルールIDを渡し、同一ルールの有効期限内だけ介入を抑止。自動化検収マークと`automationVerified`記録を抑止判定より前へ移動。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/PendingInterventionPolicyTests.swift`: ルール一致・不一致・期限切れ・ステップ違いの回帰テストを追加。
+  - `ios/DopaBreak/RootTabView.swift`: 介入fullScreenCover終了後にチェックイン→振り返りを再評価し、振り返りシート終了後にも保留チェックインを再評価。
+  - `ios/DopaBreak/InterventionFlowModel.swift`: 通知認可状態をフロー開始時にキャッシュし、アプリ起動完了ハンドラ内では認可済みの場合にcompletion-handler版`add`を即時発行。
+  - `ios/DopaBreak/InterventionFlowView.swift`: 通知未認可時は`通知がオフのため時間のお知らせは届きません`を時間選択・起動中の案内へ表示。
+- 採用した方針:
+  - 一時開放はグローバル状態ではなく`InterventionState.ruleId`と受信`catalogID`から解決したルールIDの一致で判定する。ルール解決に失敗した場合は介入を表示する。
+  - モーダル競合中に通知経由の再チェックが来ても、介入・振り返りのdismiss後に再評価して30分TTL内の表示機会を失わない。
+  - 通知予約直前の認可状態awaitを廃止し、対象アプリへのバックグラウンド遷移前に予約要求を通知センターへ渡す。
+- 却下・維持した方針:
+  - URLスキームなし／URL起動失敗時に`recordOpenAndScheduleNotifications`を維持する既存分岐は、オーナー裁定どおり変更していない。
+- Claude Code側の実装制約:
+  - `hasActiveTemporaryAllowance(at:for:)`からルール一致条件を外さない。検収マークと`automationVerified`は一時開放による早期returnより前に維持する。
+  - 通知予約メソッドへ`notificationSettings()`のawaitを戻さない。表示文言は`notificationsAuthorized`キャッシュと同期させる。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 157テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
 
 ## 2026-07-20 — 勝ち画面・サブコピー・「我慢」置換の確定（オーナー承認）
 
@@ -411,3 +457,287 @@ Claude Code側で6レンズ監査（ビジュアル/介入UX/オンボ/ペイウ
 - 採用したデザイン方針: 「勝ち」「意図した選択」「我慢」の旧語彙を廃止し、「今日も自分で選べた」「今日{N}回目」「開かずに戻れた」へ統一。Paywallは正本どおり、我慢を否定する説明と毎日の積み上げを1つのサブコピーで伝える。
 - 却下した案: 旧文言の併記、勝負フレームの再導入、対象画面以外のコピー変更は行わない。
 - Claude Code側の実装制約: `InterventionFlowView.swift` の既存未コミット変更を保持し、指定された2行以外は変更しない。旧文言のテストアサーションは存在しないため、テストコードは変更しない。
+
+## 2026-07-20 — 監査バグ修正バッチA（B4・B5・B6・B8・B10）
+
+- 作成・変更:
+  - `ios/DopaBreak/OnboardingFlow.swift` / `ios/DopaBreak/AppContainer.swift`: オンボで生成した目標UUIDを`@State`に保持し、再通過時は同一Goalの`updateGoal`へ分岐。
+  - `ios/DopaBreak/PostUseReflectionSheet.swift` / `ios/DopaBreak/RootTabView.swift`: 振り返り保存を`do/catch`化し、失敗時は既存の`model.alertMessage`へ正本文言を設定。
+  - `ios/DopaBreak/RootTabView.swift`: `NSCalendarDayChanged`受信時に`model.refresh()`を呼び出し。
+  - `ios/DopaBreak/TargetAppPickerSheet.swift` / `ios/DopaBreak/SettingsView.swift`: 対象アプリ上限時のpaywall提示をシート`onDismiss`後へ移し、100ms遅延を追加。
+  - `ios/WidgetsExtension/DopaBreakWidgets.swift`: 翌日0時エントリのみ今日の試行・成功カウントを0にしたsnapshotを使用。
+- 採用した方針:
+  - オンボの保存済みUUIDが見つからない場合は新規追加せず保存エラーにする。Free上限回避のための暗黙重複を作らない。
+  - 振り返りの成功経路は従来の完了コールバックを維持し、失敗時だけシートを残してアプリ共通エラー通知へ渡す。
+  - 日跨ぎ更新は既存scenePhase監視と同じRootTabViewへ置き、Home固有の状態管理を増やさない。
+  - ウィジェットの翌日エントリでは目標・短縮表示・テーマ・更新日時を維持し、当日カウント2項目だけをクリアする。timeline policyは変更しない。
+- 却下した案:
+  - 目標再通過時にタイトル一致で既存Goalを探す案は、同名目標を誤更新するため不採用。
+  - TargetAppPickerSheet内からpaywallを直接提示する案は、dismiss中のpresentation競合を残すため不採用。
+  - 日跨ぎでsnapshot全体を作り直す案は、目標・テーマ等の非カウント情報を失うため不採用。
+- Claude Code側の実装制約:
+  - `savedGoalID`の一致確認なしにオンボの再通過を`addGoal`へ戻さない。目標編集は既存`model.updateGoal`の経路を使う。
+  - `NSCalendarDayChanged`では`model.refresh()`を呼び、既存のscenePhase `.active`処理と別のカウントロジックを追加しない。
+  - paywallはTargetAppPickerSheetのdismiss完了後にだけ`paywallPlacement`を設定する。オンボから同シートを再利用する場合も同じdismiss後提示制約を守る。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 158テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+
+## 2026-07-20 — 監査修正バッチB（B7・B13・B14・C3後半）
+
+- 作成・変更:
+  - `ios/DopaBreak/PaywallView.swift`: 年額月割りを`Product.priceFormatStyle`で商品通貨表示。商品ロード中を購入・復元・あとでのBusy状態へ追加。CTAと法務文言の無料期間をStoreKit導出値へ接続。Stats用の`statsHistoryGate` paywall placementを追加。
+  - `ios/DopaBreak/StoreService.swift`: `introductoryOffer.period`から無料期間の表示文字列と期間文字列を同じ導出経路で保持。
+  - `ios/DopaBreak/StatsView.swift`: `model.entitlementGate.statsDays`を参照し、Freeは今日の記録だけを表示。週次表示は鍵付きの「記録を全期間さかのぼれる」導線からPaywallへ遷移。Proに全期間の開かずに戻れた回数を追加。
+  - `ios/DopaBreak/AppContainer.swift`: StatsServiceから全期間のcancelled件数をrefreshしてStatsViewへ公開。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/StatsService.swift` / `Storage/SQLiteLogStore.swift`: 日付範囲を持たないcancelled専用COUNT APIを追加。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/StatsServiceTests.swift`: 全期間カウントが日付に依存せずcancelledだけを数える回帰テストを追加。
+- 採用したデザイン方針:
+  - FreeのStatsは今日の割合と今日の件数に限定し、週次ブロックは実データを露出せず鍵アイコンと「記録を全期間さかのぼれる」ラベルでPro導線にする。
+  - Proの累計は回数だけを表示し、実測ソースのない時間換算・推定時間は表示しない。
+  - Paywallの価格・無料期間は商品情報を正とし、商品未ロード時だけ既存の日本語フォールバックを維持する。
+- 却下した案:
+  - `annualDiscountPercent`のような通貨を表示しない比率計算の変更は不要なため対象外。
+  - `EntitlementGate`自体を変更する案は、既存のFree=1日／Pro=無制限仕様をそのまま使うため不採用。
+  - 「取り戻した時間」の累計や「開かずに我慢」など旧文言の追加は、設計ログ制約と現行コピーに反するため不採用。
+- 新規・動的化した表示文言:
+  - 「今日の記録」
+  - 「記録を全期間さかのぼれる」
+  - 「これまでに開かずに戻れた」＋回数
+  - StoreKit導出の「{N}日間無料で始める」／「{N}日間の無料期間終了後」
+- Claude Code側の実装制約:
+  - StatsのFree/Pro判定は必ず`model.entitlementGate.statsDays`を使い、Gateの値をUI側で再定義しない。
+  - 全期間値は`Decision.cancelled`のCOUNTのみを使う。「回数×推定分」等の時間推測表示を追加しない。
+  - Paywallの未ロード時フォールバックは既存の「7日間」「月あたり4,980円」等を維持し、ロード済み商品では通貨ハードコードをしない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 159テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+
+## 2026-07-20 — 監査C2 Day14クランプを課金モーメント化
+
+- 作成・変更:
+  - `ios/DopaBreak/OnboardingFlow.swift`: 対象アプリ選択に正本のFree初回14日枠説明を追加。
+  - `ios/DopaBreak/LockSurfaceCoordinator.swift` / `AppContainer.swift`: Freeかつ対象2個以上だけにDay12通知を固定IDで一度だけ予約し、条件外では解除。実績あり/なしの本文は`docs/11_ui_copy.md` §15を転記。
+  - `ios/DopaBreak/NotificationDelegate.swift` / `RootTabView.swift` / `PaywallView.swift`: 通知タップを24時間TTLのApp Group保留フラグへ渡し、`day14_warning` placementのPaywallを表示。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/EntitlementGate.swift`: Day14通知対象判定と、試行最多・選択順タイブレークの純粋関数を追加。
+  - `ios/DopaBreak/AppContainer.swift` / `SettingsView.swift` / `SettingsStore.swift`: 直近14日のAttemptLogからクランプ対象を決め、実発生時だけ正本の設定補足を表示。
+  - `ios/DopaBreak/AppContainer.swift`: automationVerifiedを先に記録したまま、受信catalogIDをクランプ後のselectedCatalogIDsと照合し、対象外は介入を起動しない。
+- 採用したデザイン方針:
+  - 新規文言は創作せず、オンボは§4c、Day12通知とクランプ後補足は§15をそのまま使用。
+  - 通知タップは既存の中間チェックインと同じApp Group保留フローを踏襲し、既存モーダル終了後にPaywallを表示する。
+- 却下した案:
+  - クランプ対象を従来どおり選択順の先頭に固定する案は、実利用に基づく継続対象選択にならないため不採用。
+  - クランプ対象外のショートカットでも介入を起動し続ける案は、Free枠の実効性を失うため不採用。
+- Claude Code側の実装制約:
+  - 通知識別子は`dopabreak.day14warning`固定、繰り返しなし、毎回replaceする。Pro化・対象1個以下・14日経過後は必ず解除する。
+  - クランプのログ取得失敗は従来のprefixフォールバック。同数・試行ゼロは現在の選択順先頭を残す。
+  - ターゲット照合はautomationVerified記録より後ろへ移動しない。一時開放判定より前に行う。
+- 検証:
+  - Core 166テスト成功、失敗0。
+  - iPhone 16 Pro Simulator向け`xcodebuild build`成功。
+
+## 2026-07-20 — 監査バッチA/B/C採用8件の是正
+
+- 作成・変更:
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/EntitlementGate.swift`: 対象アプリのクランプを現在の上限件数まで試行回数降順で選定し、同数は選択順を維持。
+  - `ios/DopaBreak/AppContainer.swift` / `ios/DopaBreak/RootTabView.swift`: 介入要求を表示直前に現在選択中の対象アプリへ再照合。Day14保留通知もEntitlement・対象数・14日境界を再照合。
+  - `ios/DopaBreak/LockSurfaceCoordinator.swift`: Day14関連通知の配信済み解除、週次通知の朝通知+30分化、Day14通知時刻の遅延再予約計算を追加。
+  - `ios/DopaBreak/PaywallView.swift`: 年額/月額/Lifetimeの法務文言を`docs/11_ui_copy.md` §5へ同期し、未ロード時の年額月換算を415円へ修正。
+  - `ios/DopaBreak/OnboardingFlow.swift` / `ios/DopaBreak/DopaBreakApp.swift` / `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`: オンボ保存目標IDを永続化し、再開時は既存Goal更新として復元。完了・全データ削除で消去。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/EntitlementGateTests.swift` / `SettingsStoreTests.swift` / `ios/DopaBreakTests/MeasurementFoundationTests.swift`: クランプ、永続化、Day14境界の回帰テストを追加。既存のPaywallPlacement期待値も現行enumへ同期。
+- 採用した方針:
+  - UI表示前の対象照合をRootの表示状態へ分離し、無効な保留要求はfullScreenCoverへ渡さず破棄する。
+  - Day14保留Paywallは権利解決済みのFreeかつ対象2件以上かつ初回起動から14日未満の場合だけ表示する。
+  - 週次通知は朝通知時刻を基準に30分後へずらし、日跨ぎ時は翌曜日へ繰り上げる。
+- 却下した案:
+  - 指摘#4のfirstLaunchDate未設定ユーザーへの14日枠再付与は、未リリース前提とG1修正を尊重して変更しない。
+  - 既存のクランプ後フォールバックや通知識別子・非強制の介入フローは変更しない。
+- Claude Code側の実装制約:
+  - `targetAppTokensLimit`を上限の正本とし、Proは無制限、上限内の選択順は保持する。
+  - Day14通知は固定ID・繰り返しなしを維持し、候補時刻が過去の場合だけ`now+1時間`と境界12時間前から未来の早い方を使う。
+  - Paywall法務文言は商品価格・トライアル日数の動的表示と併存させ、Apple ID請求行を省略しない。
+  - オンボ再開時に保存目標が見つからない場合は暗黙の重複追加をせず、既存の保存エラー経路を使う。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 171テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+- 同Simulatorの`xcodebuild test`: 10テスト成功、失敗0。
+
+## 2026-07-20 — 監査R1 アクティベーションの崖の可視化
+
+- 作成・変更:
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/AutomationVerification.swift`: 選択済みIDと検証済みIDの差分を選択順で返す純粋関数を追加。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/AutomationVerificationTests.swift`: 対象0件・一部未検証・全件検証済みの3ケースを追加。
+  - `ios/DopaBreak/HomeView.swift` / `ios/DopaBreak/RootTabView.swift`: 未検証対象がある間だけ、既存`CardContainer`構成の最上部にR1状態バナーを表示し、`AutomationGuideView`をHomeからsheet提示。
+  - `ios/DopaBreak/OnboardingFlow.swift`: Ready画面にURLスキームを持つ先頭対象だけ「最初のテストをする」と正本説明を追加。完了ボタンは維持。
+  - `ios/DopaBreak/LockSurfaceCoordinator.swift` / `ios/DopaBreak/AppContainer.swift`: `dopabreak.d1activation`を初回起動24時間後へ予約し、認可済みの場合だけ登録。検証成立時はpending/deliveredの両方を即時解除。
+- 採用したデザイン方針:
+  - `docs/11_ui_copy.md` §16の見出し・本文・CTAをそのまま転記し、新しい説明文は追加しない。
+  - Homeバナーは写真や新しいカード種類を増やさず、既存の`CardContainer`・Dark Mono階層で設定状態だけを最上部に露出する。
+  - Ready画面のテストは任意操作として既存の完了導線を置き換えず、選択順先頭のアプリを開く既存テスト起動相当へ接続する。
+- 却下した案:
+  - 検証状態を新しい永続モデルや手動の「設定済み」トグルで持つ案は、Intent実発火を検証点とする既存`SettingsStore`の正本を重複させるため不採用。
+  - SafariのようにURLスキームを持たない対象へReadyテストCTAを出す案は、注記と手順を複雑化するため不採用。
+- Claude Code側の実装制約:
+  - 未検証判定はCoreの`AutomationVerification.unverifiedCatalogIDs`を使い、選択順を保持する。対象0件・全件検証済みではHomeバナーを描画しない。
+  - ReadyのテストCTAは`selectedTargets.first`のURLスキームがある場合だけ表示する。先頭がSafariの場合、後続対象へ自動で繰り上げない。
+  - D1通知は固定識別子・非反復・初回起動から`24 * 60 * 60`秒後。通知認可がなければ登録せず、検証が1件でも成立したらpending/deliveredを両方削除する。通知タップの特別ルーティングは追加しない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 174テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+
+## 2026-07-20 — 監査C5＋C4後半：トライアル防衛線と週次ペイウォール
+
+- 作成・変更:
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/RetentionNotificationPolicy.swift`: StoreKitに依存しない年額introductory trial判定、Day5/Month1/Month12の日付計算、週次ペイウォール間隔判定を純粋関数として追加。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/StatsService.swift`: 指定期間のattempts/cancelled同時集計を追加。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`: `onboardingCompletedAt`と`lastWeeklyPaywallShownAt`を追加し、データリセット対象へ含めた。
+  - `ios/DopaBreak/StoreService.swift`: 現在のverified entitlement Transactionから`offerType == .introductory`を読み、現行サブスク／年額トライアル情報を再スケジュールへ公開。entitlement更新revisionで、isProの真偽が変わらない更新もRootへ通知。
+  - `ios/DopaBreak/AppContainer.swift` / `ios/DopaBreak/LockSurfaceCoordinator.swift`: Day5、Month1、Month12を固定ID・非反復で登録し、実績値を登録時に焼き込み。再スケジュール時はpending/deliveredを先に削除し、条件外では登録しない。
+  - `ios/DopaBreak/RootTabView.swift` / `ios/DopaBreak/PaywallView.swift` / `ios/DopaBreak/DopaBreakApp.swift`: scenePhase activeのpending処理最下段へ週次placementを追加。オンボ未完了、オンボ後7日未満、介入・振り返り・チェックイン・他Paywall表示中は抑制し、表示時刻を保存。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/RetentionNotificationPolicyTests.swift` ほか: 判定、日付、週次間隔、設定永続化、集計のテストを追加。`ios/DopaBreakTests/MeasurementFoundationTests.swift`のplacement一覧を更新。
+- 採用したデザイン方針:
+  - 新規通知文言は創作せず、`docs/11_ui_copy.md` §17のDay5/Month1/Month12文言をそのまま転記。Paywallは既存`PaywallView`を`weekly` placementで再利用する。
+  - 週次提示は既存のRootTabViewの保留提示優先順位へ接続し、オンボ直後の課金導線と近接しないようオンボ完了日時を正本として7日待つ。
+  - Month1は`originalPurchaseDate`、Month12は現行年額Transactionの`purchaseDate`を基準にし、更新年にも更新前サマリーを再スケジュールできる形とした。
+- 却下した案:
+  - StoreKitのoffer情報がnilのときに商品IDや無料期間表示だけでDay5を推定する案は、誤発火を避ける要件に反するため不採用。
+  - 週次PaywallをRootの既存pending処理より前へ割り込ませる案は、介入・振り返り・チェックインとの競合を作るため不採用。
+  - 通知本文を起動時に動的解決する案は、固定通知の仕様とローカル通知制約に合わせて採用せず、再スケジュール時の最新値焼き込みとした。
+- Claude Code側の実装制約:
+  - 通知識別子は`dopabreak.trialday5`、`dopabreak.month1report`、`dopabreak.month12renewal`を固定し、毎回の再スケジュールでpending/deliveredを削除してから条件付き登録する。
+  - Day5は現在entitlementの年額商品かつintroductory offerのみ。課金後・失効後・offer情報不明時は登録しない。StoreKit更新revisionを経由してisPro不変の状態変化も再評価する。
+  - 週次Paywallの表示判定はCoreの`WeeklyPaywallPolicy`を使い、`lastWeeklyPaywallShownAt`は提示をキューへ入れる時点で記録する。placementは必ず`weekly`。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 182テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+  - `cd ios && xcodebuild test -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: 10テスト成功、失敗0。
+
+## 2026-07-20 — 監査C4前半：オンボ閉鎖後のリバーストライアル
+
+- 作成・変更:
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/ReverseTrialPolicy.swift`: `reverseTrialDays = 3`、有効期限、切り上げ残日数、期限切れ後の再提示条件をStoreKit/UI非依存の純粋関数として追加。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`: `reverseTrialStartedAt` と `reverseTrialEndPaywallShown` を追加し、開始日時の初回記録と全データ削除の対象へ接続。
+  - `ios/DopaBreak/AppContainer.swift`: 実購入の`storeService.isPro`とリバーストライアル有効状態を`entitlementGate`生成時だけ合成。統計・対象アプリ上限・テーマ等の既存Gate利用箇所へ反映。
+  - `ios/DopaBreak/PaywallView.swift` / `ios/DopaBreak/OnboardingFlow.swift`: `.onboardingPrepaywallSummary` の購入なし閉鎖だけを開始記録へ接続。購入成功・復元成功、設定/週次等の別placementは開始しない。`reverse_trial_end` placementを追加。
+  - `ios/DopaBreak/HomeView.swift`: §18確定文言の体験中バナーを追加し、残日数は切り上げ表示。
+  - `ios/DopaBreak/RootTabView.swift`: scenePhase active後の既存モーダル優先順位へ期限切れ再提示を追加し、Day14クランプ後に`reverse_trial_end`を1回だけ提示。既存のクランプ後補足を流用。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/ReverseTrialPolicyTests.swift` ほか / `ios/DopaBreakTests/MeasurementFoundationTests.swift`: 境界、永続化、リセット、Gate合成、placementのテストを追加。
+- 採用した方針:
+  - 新規表示文言は創作せず、Homeバナーと補足を`docs/11_ui_copy.md` §18からそのまま転記。
+  - Paywallは既存Viewを再利用し、開始フックはオンボの`onboarding_prepaywall_summary`に限定。実購入のStoreKit entitlementを変更せず、Gateの生成箇所でだけ一時Proを合成。
+  - 期限切れ時は`AppModel.refresh()`が既存の試行最多・現在上限件数のクランプを先に冪等実行する。Day14と同日に判定されても同じクランプ関数を使うため、選択順・試行数の既存タイブレークを変えない。
+- 相互作用の確認:
+  - Day14: 体験中はGateがProとなり対象アプリクランプ対象外。期限切れ後はFree Gateへ戻り、firstLaunchDate基準のDay14ロジックと既存クランプが再評価される。
+  - Day12通知: 体験中は`day14WarningSchedule()`のFree条件から外れ、scenePhase active後の`refreshLockSurfaces()`で通知を解除。期限切れ後はFree条件を再評価して再スケジュールされる。
+  - statsDays: `StatsView`が`model.entitlementGate.statsDays`を参照するため、体験中は全期間、終了後は今日のみへ戻る。
+  - モーダル競合: 介入・振り返り・途中チェックイン・Day14・週次Paywallの既存保留条件を満たさない間は`reverse_trial_end`をキューせず、同じ優先順位の再チェックへ持ち越す。
+- Claude Code側の制約:
+  - `reverseTrialStartedAt`は既存値を上書きしない。実購入成功時は開始日時を記録しない。全データ削除では開始日時と再提示フラグの両方を消去する。
+  - Home文言は`docs/11_ui_copy.md` §18と一致させ、残日数は開始直後3日、期限直前1日、期限ちょうどは非表示とする。
+  - 実購入判定は常に`StoreService.isPro`、機能開放判定は`AppModel.entitlementGate`を使い、両者を同一状態として永続化しない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 190テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+  - 同Simulatorの`xcodebuild test`: 11テスト成功、失敗0。
+
+## 2026-07-20 — バッチD/E/F独立レビュー7件の是正
+
+- 作成・変更:
+  - `ios/DopaBreak/RootTabView.swift` / `ios/DopaBreak/AppContainer.swift`: 子画面モーダル状態を`AppModel.isChildModalActive`で共有し、週次・Day14・リバーストライアル終了のルートPaywallを子画面表示中は保留。途中チェックイン終了後は振り返りを再評価。
+  - `ios/DopaBreak/PaywallView.swift`: Paywallの実表示`onAppear`を記録の単一地点とし、`lastAnyPaywallShownAt`、週次表示時刻、リバーストライアル終了表示済みフラグをここで更新。
+  - `ios/DopaBreak/HomeView.swift` / `ios/DopaBreak/StatsView.swift` / `ios/DopaBreak/GoalsView.swift` / `ios/DopaBreak/SettingsView.swift`: 各タブが自分のsheet/fullScreenCover/Picker/confirmationDialogの表示状態をAppModelへ反映。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`: 全Paywall共通の`lastAnyPaywallShownAt`を追加し、リセット対象へ含めた。
+  - `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/RetentionNotificationPolicy.swift` / `ios/DopaBreak/StoreService.swift` / `ios/DopaBreak/AppContainer.swift`: 週次Paywallの24時間クールダウンと、StoreKit 2 `RenewalInfo.willAutoRenew`がtrueのときだけDay5/Month12を登録する判定を追加。Month1は変更なし。
+  - `ios/DopaBreak/LockSurfaceCoordinator.swift`: 通知再スケジュールを直列化し、個別解除はD1識別子だけをpending/deliveredから削除。世代競合時も無効化対象以外を巻き込まない。
+  - `ios/DopaBreak/OnboardingFlow.swift`: 通知許可直後に再スケジュールを完了待ちし、オンボ完了前でもD1を登録。
+  - `ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/RetentionNotificationPolicyTests.swift` / `SettingsStoreTests.swift`: 週次24時間クールダウン、willAutoRenew true/false/nil分岐、設定保存を追加検証。
+- 採用したデザイン方針:
+  - ルート提示の判定は従来の優先順位を維持し、子画面が閉じたタイミングで同じ判定を再実行する。Paywall表示時刻はキュー投入時ではなく実表示時に確定する。
+  - Paywallの表示記録は各呼び出し元へ分散させず、`PaywallView.onAppear`へ集約する。表示競合で消えた場合はフラグを消費せず、次回activeで自然に再試行する。
+  - Day5/Month12は自動更新状態が取得できない場合も登録しない。解約済みユーザーへ更新前提の文言を出さず、既存登録は再スケジュール時の固定ID削除で解除する。
+- 却下した案:
+  - ルートの提示判定時に表示済みフラグを保存する案は、別モーダルに負けた未表示Paywallを消費してしまうため不採用。
+  - 個別通知解除で共通通知ID一覧を削除する案は、世代競合時に他の通知を巻き込むため不採用。
+  - RenewalInfo不明時に商品IDやofferTypeから更新を推定する案は、誤発火を避ける要件に反するため不採用。
+- Claude Code側の実装制約:
+  - 新しいPaywall提示経路は必ず`PaywallView`を使い、実表示記録を別の提示元へ追加しない。週次判定には`lastAnyPaywallShownAt`を渡す。
+  - `LockSurfaceCoordinator.cancelD1ActivationNotification()`は`dopabreak.d1activation`だけを対象にする。全件削除は全データ削除など明示的な全体操作だけで使う。
+  - Day5/Month12の登録条件は`RetentionNotificationPolicy.shouldScheduleRenewalNotification(willAutoRenew:)`を通す。Month1の登録条件へ同じガードを追加しない。
+- 検証:
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 192テスト成功、失敗0。
+  - `cd ios && xcodebuild build -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`: `BUILD SUCCEEDED`。
+
+## 2026-07-24 — メインアプリのString Catalog基盤（ja / ko / en）
+
+- 作成・変更:
+  - `ios/DopaBreak/Localizable.xcstrings`: 開発言語を`ja`とし、`en` / `ko`を全237キーに空値・`new`状態で登録。日本語は`translated`状態で、既存Swiftの表示文言をそのまま格納。
+  - `ios/project.yml` / 生成物`ios/DopaBreak/Info.plist`: `developmentLanguage: ja`、`useBaseInternationalization: false`、`CFBundleLocalizations`の`ja` / `ko` / `en`を追加。カタログはDopaBreakターゲットのResourcesへ登録される。
+  - `ios/DopaBreak/PaywallView.swift` / `OnboardingFlow.swift` / `HomeView.swift` / `SettingsView.swift`: 起動重要4画面のユーザー向け文字列を、画面・要素を表す安定キー付き`String(localized:defaultValue:)`へ移行。
+  - `.claude/specs/i18n-launch-inventory.md`: 作成した237キーの`key | ja source string | screen`完全表と、メインアプリに残る未移行ユーザー向けリテラル222箇所のファイル別台帳を追加。
+- 採用した方針:
+  - `docs/11_ui_copy.md`と現行Swiftの日本語を正本とし、句読点・空白・改行を変更しない機械抽出に限定。
+  - キーは`paywall.*`、`onboarding.*`、`home.*`、`settings.*`の`screen.element`形式とし、同一意味・同一表示の再利用だけ同じキーを使う。
+  - Swift補間はString Catalogの型付き書式（`%lld` / `%@` / `%lf`）として保持し、翻訳表でもプレースホルダー位置を監査できるようにした。
+  - 永続化・判定に使う日本語raw value（利用時間帯、頻度選択肢など）は変更せず、表示時だけローカライズ値へ変換して既存データ互換性を維持。
+- 却下した案:
+  - `en` / `ko`を機械翻訳または日本語で仮埋めする案は、レビュー済み翻訳表を後から投入する要件に反するため不採用。
+  - 日本語本文そのものをキーにする案は、コピー変更で翻訳マッピングが壊れるため不採用。
+  - `SWIFT_EMIT_LOC_STRINGS`でアプリ全体を自動抽出する案は、今回対象外の画面や数値だけのリテラルまで不安定な原文キーで混入するため不採用。
+  - Widget / Shield各拡張の文字列移行は今回のメインターゲット限定スコープ外とし、後続バッチへ延期。
+- Claude Code側の実装制約:
+  - 翻訳投入時は既存キーと`ja`値を変更せず、`en` / `ko`の空`new` string unitだけをレビュー済み値へ更新する。
+  - 改行を含む値と`%lld` / `%@` / `%lf`プレースホルダーの個数・順序を各言語で維持する。
+  - 今後のメインアプリ移行は`.claude/specs/i18n-launch-inventory.md`の残件台帳を起点にし、analytics key、product ID、URL scheme、識別子、ログ文言はローカライズ対象にしない。
+  - Widget / Shield拡張には今回のカタログを暗黙共有させず、各ターゲットのリソース構成を決める後続バッチで扱う。
+- 検証:
+  - `cd ios && xcodegen generate && xcodebuild -project DopaBreak.xcodeproj -scheme DopaBreak -destination 'generic/platform=iOS Simulator' -derivedDataPath .deriveddata CODE_SIGNING_ALLOWED=NO build`: `BUILD SUCCEEDED`。
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 192テスト成功、失敗0。
+  - カタログ整合性: 237 catalog keys = 237 source references = 237 compiler-emitted defaults、差分0。全`en` / `ko`値が空かつ`new`状態であることを確認。
+
+## 2026-07-24 — i18n batch 2（残存メイン画面 + Widget / Shield）
+
+- 作成・変更:
+  - `ios/DopaBreak/AppContainer.swift`、`AutomationGuideView.swift`、`GoalEditorSheet.swift`、`GoalsView.swift`、`InterventionFlowModel.swift`、`InterventionFlowView.swift`、`InterventionModeDisplay.swift`、`LockSurfaceCoordinator.swift`、`MidSessionCheckInSheet.swift`、`PostUseReflectionSheet.swift`、`RootTabView.swift`、`StartInterventionIntent.swift`、`StatsView.swift`、`StoreService.swift`、`TargetAppPickerSheet.swift`: 残存台帳222箇所を203個の安定キーへ移行。
+  - `ios/DopaBreak/Localizable.xcstrings`: 上記203キーを追加し、合計440キーへ更新。`ja`は現行表示を保持し、`ko` / `en`は空値・`new`状態のまま登録。
+  - `ios/WidgetsExtension/DopaBreakWidgets.swift` / `Localizable.xcstrings`: WidgetとLive Activityの20箇所を13キーへ移行し、拡張専用カタログを追加。
+  - `ios/ShieldConfigExtension/ShieldConfigurationExtension.swift` / `Localizable.xcstrings`: Shield表示4箇所を4キーへ移行し、拡張専用カタログを追加。
+  - `ios/project.yml` / 生成物`ios/WidgetsExtension/Info.plist` / `ios/ShieldConfigExtension/Info.plist`: 両拡張へ`ja` / `ko` / `en`を登録。
+- 採用した方針:
+  - 日本語の文言、句読点、空白、改行を変更せず、同一画面・同一意味の重複表示だけ同一キーへ集約。
+  - 数値や動的文字列もローカライズ対象にし、Swift補間を`%lld` / `%@` / `%%`へ対応させた。App Intentは型要件に合わせて安定キー付き`LocalizedStringResource`を使用。
+  - 拡張は本体Bundleへ依存させず、実際に表示文字列を持つWidgetとShield Configurationだけに専用String Catalogを置いた。
+- 却下・対象外:
+  - Shield ActionとMonitor拡張はユーザー向け文字列がないため、空のカタログやローカライズ設定を追加しない。
+  - analytics key、product ID、URL scheme、SF Symbol名、永続化キー、通知識別子、ログ専用文字列は移行しない。
+- Claude Code側の実装制約:
+  - 翻訳投入時は3つのカタログをターゲットBundle単位で更新し、既存`ja`値とキーを変更しない。
+  - `ko` / `en`へ値を入れる際は、`%lld` / `%@` / `%%`の個数と型を各キーの`ja`値と一致させる。
+  - 新しいWidgetまたはShield表示文言はメインアプリのカタログへ追加せず、各拡張の`Localizable.xcstrings`へ追加する。
+- 検証:
+  - `cd ios && xcodegen generate && xcodebuild -project DopaBreak.xcodeproj -scheme DopaBreak -destination 'generic/platform=iOS Simulator' -derivedDataPath .deriveddata CODE_SIGNING_ALLOWED=NO build`: `BUILD SUCCEEDED`。
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 192テスト成功、失敗0。
+  - 整合性: メイン203キー / 222参照、Widget 13キー / 20参照、Shield 4キー / 4参照。全キー参照・全カタログ収録・`ko` / `en`空`new`を確認。
+
+## 2026-07-24 — コミット前レビュー実バグ6件の最小是正
+
+- 作成・変更:
+  - `ios/DopaBreak/InterventionFlowModel.swift`: `startGeneration`で再startを世代管理し、旧呼吸タスクの取消・呼吸完了時の取消/世代/stageガード・通知権限結果の世代ガードを追加。時間終了/中間チェックイン通知は権限取得完了を待たず常にnotification centerへ登録する。
+  - `ios/DopaBreak/RootTabView.swift`: Day14通知タップの保留フラグをentitlement未解決時は保持し、解決済みかつ対象外の場合だけ削除する。
+  - `ios/DopaBreak/LockSurfaceCoordinator.swift`: 通常再予約ではpendingだけを置換し、delivered削除を廃止。Day14フォールバックを境界未満へ限定。D1取消から全体通知世代の更新を外し、処理中のD1再追加だけを識別子単位で防止する。
+  - `ios/DopaBreakTests/MeasurementFoundationTests.swift`: 呼吸中の再start後に旧タスクがstageを上書きしない回帰テストと、Day14境界30分前にフォールバックしない境界テストを追加。
+- 採用した方針:
+  - 既存の状態遷移ガードと通知構成を維持し、レビュー6件に必要な競合ガードと条件変更だけを追加する。画面構成・コピー・表示デザインは変更しない。
+  - 通知権限は表示文言の分岐だけに使い、予約可否は`UNUserNotificationCenter.add`へ委ねる。権限状態の3値化は不要な状態追加になるため採用しない。
+  - delivered通知の削除は全データ削除とD1検証成立などの明示操作だけに残す。通常refresh/rescheduleでは通知センター上の配信済み導線を保持する。
+- 却下した案:
+  - D1取消時に全体世代を更新して再予約を起動し直す案は、全pending削除後の取りこぼしを再発させ得るため不採用。D1固定識別子だけを無効化し、追加中の競合も追加直後に再確認する。
+  - Day14境界直前でも`now + 1時間`を登録する案は、対象外になった後の通知を生むため不採用。境界まで候補がなければ予約しない。
+- Claude Code側の実装制約:
+  - `InterventionFlowModel.start()`と呼吸完了の世代/stageガードを外さない。通知権限取得結果も同じ世代でのみ表示状態へ反映する。
+  - `LockSurfaceCoordinator.performNotificationReschedule()`へdelivered一括削除を戻さない。`cancelD1ActivationNotification()`で`notificationGeneration`を更新しない。
+  - Core層は純Foundationを維持し、StoreKit / FamilyControls / UIKitをimportしない。
+- 検証:
+  - 追加したアプリ層2テストは修正前に2件失敗、修正後に2件成功、失敗0。
+  - iPhone 16 Pro Simulatorの`DopaBreakTests`: 追加2件を含む13テスト成功、失敗0。
+  - `swift test --package-path ios/Packages/DopaBreakCore`: 192テスト成功、失敗0。
+  - `cd ios && xcodegen generate`後のgeneric iOS Simulator向け`xcodebuild`: `BUILD SUCCEEDED`。

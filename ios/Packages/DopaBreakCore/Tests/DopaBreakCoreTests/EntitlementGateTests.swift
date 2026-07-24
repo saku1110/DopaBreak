@@ -202,11 +202,117 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertEqual(gate.clampedTargetAppCatalogIDs(catalogIDs), catalogIDs)
     }
 
+    func testTargetAppClampKeepsTopThreeByAttemptsDuringInitialWindow() {
+        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
+        let gate = makeGate(tier: .free, now: firstLaunchDate, firstLaunchDate: firstLaunchDate)
+
+        XCTAssertEqual(
+            gate.clampedTargetAppCatalogIDs(
+                ["youtube", "instagram", "safari", "line"],
+                attemptCountsByCatalogID: [
+                    "youtube": 1,
+                    "instagram": 7,
+                    "safari": 3,
+                    "line": 7
+                ]
+            ),
+            ["instagram", "line", "safari"]
+        )
+    }
+
+    func testTargetAppClampKeepsTopOneByAttemptsAfterInitialWindow() {
+        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
+        let gate = makeGate(
+            tier: .free,
+            now: firstLaunchDate.addingTimeInterval(14 * 86_400),
+            firstLaunchDate: firstLaunchDate
+        )
+
+        XCTAssertEqual(
+            gate.clampedTargetAppCatalogIDs(
+                ["youtube", "instagram", "safari"],
+                attemptCountsByCatalogID: ["youtube": 1, "instagram": 5, "safari": 3]
+            ),
+            ["instagram"]
+        )
+    }
+
+    func testTargetAppClampWithAttemptsLeavesItemsWithinLimitUnchanged() {
+        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
+        let gate = makeGate(tier: .free, now: firstLaunchDate, firstLaunchDate: firstLaunchDate)
+        let catalogIDs = ["youtube", "instagram", "safari"]
+
+        XCTAssertEqual(
+            gate.clampedTargetAppCatalogIDs(
+                catalogIDs,
+                attemptCountsByCatalogID: ["youtube": 1, "instagram": 5, "safari": 3]
+            ),
+            catalogIDs
+        )
+    }
+
     func testTargetAppClampLeavesProItemsUnchanged() {
         let gate = makeGate(tier: .pro)
         let catalogIDs = ["youtube", "instagram", "safari", "line"]
 
         XCTAssertEqual(gate.clampedTargetAppCatalogIDs(catalogIDs), catalogIDs)
+    }
+
+    func testDay14WarningEligibilityRequiresFreeAndAtLeastTwoTargetsBeforeDay14() {
+        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
+        let dayTwelve = firstLaunchDate.addingTimeInterval(12 * 86_400)
+        let beforeDay14 = EntitlementGate(
+            isPro: false,
+            now: dayTwelve,
+            firstLaunchDate: firstLaunchDate
+        )
+
+        XCTAssertTrue(beforeDay14.shouldScheduleDay14Warning(targetCount: 2))
+        XCTAssertFalse(beforeDay14.shouldScheduleDay14Warning(targetCount: 1))
+        XCTAssertFalse(
+            EntitlementGate(
+                isPro: true,
+                now: dayTwelve,
+                firstLaunchDate: firstLaunchDate
+            ).shouldScheduleDay14Warning(targetCount: 2)
+        )
+        XCTAssertFalse(
+            EntitlementGate(
+                isPro: false,
+                now: firstLaunchDate.addingTimeInterval(14 * 86_400),
+                firstLaunchDate: firstLaunchDate
+            ).shouldScheduleDay14Warning(targetCount: 2)
+        )
+    }
+
+    func testPreferredTargetAppUsesMostAttempts() {
+        XCTAssertEqual(
+            EntitlementGate.preferredTargetAppCatalogID(
+                ["instagram", "youtube", "safari"],
+                attemptCountsByCatalogID: ["instagram": 2, "youtube": 5, "safari": 1]
+            ),
+            "youtube"
+        )
+    }
+
+    func testPreferredTargetAppUsesSelectionOrderForTies() {
+        XCTAssertEqual(
+            EntitlementGate.preferredTargetAppCatalogID(
+                ["instagram", "youtube", "safari"],
+                attemptCountsByCatalogID: ["instagram": 3, "youtube": 3, "safari": 1]
+            ),
+            "instagram"
+        )
+    }
+
+    func testPreferredTargetAppFallsBackToFirstWhenAllAttemptsAreZero() {
+        XCTAssertEqual(
+            EntitlementGate.preferredTargetAppCatalogID(
+                ["instagram", "youtube"],
+                attemptCountsByCatalogID: [:]
+            ),
+            "instagram"
+        )
     }
 
     func testFreeThemeGateAllowsOnlyE1() {

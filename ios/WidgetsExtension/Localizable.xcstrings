@@ -1,19 +1,294 @@
 {
   "sourceLanguage": "ja",
   "strings": {
-    "live_activity.goal.eyebrow": {"comment":"Screen: Live Activity","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"あなたの戻る先"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "live_activity.summary.attempted": {"comment":"Screen: Live Activity","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"開こうとした %lld回"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "live_activity.summary.cancelled": {"comment":"Screen: Live Activity","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"今日 開かずに戻れた %lld回"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "live_activity.today": {"comment":"Screen: Live Activity","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"今日"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.configuration.description": {"comment":"Screen: Widget Gallery","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"目標と今日の実績を表示します"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.configuration.name": {"comment":"Screen: Widget Gallery","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"DopaBreak"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.count.unit": {"comment":"Screen: Widget","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"回"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.count.value": {"comment":"Screen: Widget","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"%lld"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.count.with_unit": {"comment":"Screen: Widget","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"%lld回"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.goal.eyebrow": {"comment":"Screen: Widget","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"YOUR GOAL"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.goal.fallback": {"comment":"Screen: Widget","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"戻る先を設定"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.placeholder.goal": {"comment":"Screen: Widget Placeholder","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"あなたの戻る先"}},"ko":{"stringUnit":{"state":"new","value":""}}}},
-    "widget.summary.today_cancelled": {"comment":"Screen: Widget","extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"new","value":""}},"ja":{"stringUnit":{"state":"translated","value":"今日 開かずに戻れた"}},"ko":{"stringUnit":{"state":"new","value":""}}}}
+    "live_activity.goal.eyebrow": {
+      "comment": "Screen: Live Activity",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your goal"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたの目標"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "나의 목표"
+          }
+        }
+      }
+    },
+    "live_activity.summary.attempted": {
+      "comment": "Screen: Live Activity",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tried to open %lld×"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開こうとした %lld回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열려고 함 %lld회"
+          }
+        }
+      }
+    },
+    "live_activity.summary.cancelled": {
+      "comment": "Screen: Live Activity",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't open %lld× today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日 開かなかった %lld回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 열지 않음 %lld회"
+          }
+        }
+      }
+    },
+    "live_activity.today": {
+      "comment": "Screen: Live Activity",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘"
+          }
+        }
+      }
+    },
+    "widget.configuration.description": {
+      "comment": "Screen: Widget Gallery",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows your goal and today's progress"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標と今日の実績を表示します"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표와 오늘의 기록을 표시합니다"
+          }
+        }
+      }
+    },
+    "widget.configuration.name": {
+      "comment": "Screen: Widget Gallery",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak"
+          }
+        }
+      }
+    },
+    "widget.count.value": {
+      "comment": "Screen: Widget",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
+    "widget.count.with_unit": {
+      "comment": "Screen: Widget",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld×"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld회"
+          }
+        }
+      }
+    },
+    "widget.goal.eyebrow": {
+      "comment": "Screen: Widget",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YOUR GOAL"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YOUR GOAL"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "나의 목표"
+          }
+        }
+      }
+    },
+    "widget.goal.fallback": {
+      "comment": "Screen: Widget",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set your goal"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標を設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표 설정"
+          }
+        }
+      }
+    },
+    "widget.placeholder.goal": {
+      "comment": "Screen: Widget Placeholder",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your goal"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたの目標"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "나의 목표"
+          }
+        }
+      }
+    },
+    "widget.summary.today_cancelled": {
+      "comment": "Screen: Widget",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't open today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日 開かなかった"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 열지 않음"
+          }
+        }
+      }
+    }
   },
   "version": "1.0"
 }

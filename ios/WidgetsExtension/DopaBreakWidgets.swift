@@ -225,6 +225,11 @@ struct DopaBreakLiveActivity: Widget {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } compactLeading: {
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(lockThemeColor: palette.accent))
+                    .accessibilityHidden(true)
+            } compactTrailing: {
                 Text(
                     String(
                         localized: "widget.count.value",
@@ -233,9 +238,14 @@ struct DopaBreakLiveActivity: Widget {
                 )
                     .font(.caption.bold().monospacedDigit())
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-            } compactTrailing: {
-                Text(String(localized: "widget.count.unit", defaultValue: "回"))
-                    .font(.caption2.bold())
+                    .accessibilityLabel(
+                        Text(
+                            String(
+                                localized: "live_activity.summary.cancelled",
+                                defaultValue: "今日 開かなかった \(context.state.todayCancelledCount)回"
+                            )
+                        )
+                    )
             } minimal: {
                 Text(
                     String(
@@ -245,6 +255,14 @@ struct DopaBreakLiveActivity: Widget {
                 )
                     .font(.caption2.bold().monospacedDigit())
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
+                    .accessibilityLabel(
+                        Text(
+                            String(
+                                localized: "live_activity.summary.cancelled",
+                                defaultValue: "今日 開かなかった \(context.state.todayCancelledCount)回"
+                            )
+                        )
+                    )
             }
             .keylineTint(Color(lockThemeColor: palette.accent))
         }

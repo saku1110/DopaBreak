@@ -42,13 +42,6 @@ final class RetentionNotificationPolicyTests: XCTestCase {
             date(year: 2026, month: 7, day: 6, hour: 9)
         )
         XCTAssertEqual(
-            RetentionNotificationDateCalculator.month1Date(
-                from: purchaseDate,
-                calendar: calendar
-            ),
-            date(year: 2026, month: 7, day: 31, hour: 9)
-        )
-        XCTAssertEqual(
             RetentionNotificationDateCalculator.month12Date(
                 from: purchaseDate,
                 calendar: calendar
@@ -57,7 +50,7 @@ final class RetentionNotificationPolicyTests: XCTestCase {
         )
     }
 
-    func testInitialPurchaseDateIsPreferredForMonth1() {
+    func testInitialPurchaseDatePrefersOriginalPurchaseDate() {
         let originalDate = date(year: 2026, month: 6, day: 1)
         let renewalDate = date(year: 2027, month: 6, day: 1)
         let snapshot = SubscriptionEntitlementSnapshot(
@@ -68,6 +61,87 @@ final class RetentionNotificationPolicyTests: XCTestCase {
         )
 
         XCTAssertEqual(snapshot.initialPurchaseDate, originalDate)
+    }
+
+    func testNextMonthlyReportUsesFirstFutureCalendarAnniversary() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let purchaseDate = date(year: 2026, month: 1, day: 15, hour: 10)
+
+        XCTAssertEqual(
+            RetentionNotificationDateCalculator.nextMonthlyReportDate(
+                from: purchaseDate,
+                now: date(year: 2026, month: 2, day: 14, hour: 10),
+                calendar: calendar
+            ),
+            date(year: 2026, month: 2, day: 15, hour: 10)
+        )
+        XCTAssertEqual(
+            RetentionNotificationDateCalculator.nextMonthlyReportDate(
+                from: purchaseDate,
+                now: date(year: 2026, month: 2, day: 15, hour: 10),
+                calendar: calendar
+            ),
+            date(year: 2026, month: 3, day: 15, hour: 10)
+        )
+    }
+
+    func testNextMonthlyReportSkipsPastAnniversaries() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        XCTAssertEqual(
+            RetentionNotificationDateCalculator.nextMonthlyReportDate(
+                from: date(year: 2026, month: 1, day: 15, hour: 10),
+                now: date(year: 2026, month: 4, day: 20, hour: 10),
+                calendar: calendar
+            ),
+            date(year: 2026, month: 5, day: 15, hour: 10)
+        )
+    }
+
+    func testNextMonthlyReportClampsToMonthEndFromOriginalPurchaseDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let purchaseDate = date(year: 2027, month: 1, day: 31, hour: 10)
+
+        XCTAssertEqual(
+            RetentionNotificationDateCalculator.nextMonthlyReportDate(
+                from: purchaseDate,
+                now: purchaseDate,
+                calendar: calendar
+            ),
+            date(year: 2027, month: 2, day: 28, hour: 10)
+        )
+        XCTAssertEqual(
+            RetentionNotificationDateCalculator.nextMonthlyReportDate(
+                from: purchaseDate,
+                now: date(year: 2027, month: 2, day: 28, hour: 10),
+                calendar: calendar
+            ),
+            date(year: 2027, month: 3, day: 31, hour: 10)
+        )
+    }
+
+    func testNextMonthlyReportKeepsAnniversaryWhoseQuietHoursFireDateIsStillFuture() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let purchaseDate = date(year: 2026, month: 1, day: 15, hour: 23, minute: 30)
+        let deferredFireDate = date(year: 2026, month: 2, day: 16, hour: 9)
+
+        let anniversary = RetentionNotificationDateCalculator.nextMonthlyReportDate(
+            from: purchaseDate,
+            now: date(year: 2026, month: 2, day: 16, hour: 8, minute: 10),
+            calendar: calendar
+        )
+
+        XCTAssertEqual(anniversary, date(year: 2026, month: 2, day: 15, hour: 23, minute: 30))
+        XCTAssertEqual(
+            anniversary.map {
+                NotificationQuietHours.adjustedFireDate($0, calendar: calendar)
+            },
+            deferredFireDate
+        )
     }
 
     func testWeeklyPaywallRequiresResolvedFreeUserAndFirstWeekHasPassed() {
@@ -182,7 +256,8 @@ final class RetentionNotificationPolicyTests: XCTestCase {
         year: Int,
         month: Int,
         day: Int,
-        hour: Int = 0
+        hour: Int = 0,
+        minute: Int = 0
     ) -> Date {
         var components = DateComponents()
         components.calendar = Calendar(identifier: .gregorian)
@@ -191,6 +266,7 @@ final class RetentionNotificationPolicyTests: XCTestCase {
         components.month = month
         components.day = day
         components.hour = hour
+        components.minute = minute
         return components.date!
     }
 }

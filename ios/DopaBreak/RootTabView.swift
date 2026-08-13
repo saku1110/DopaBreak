@@ -19,6 +19,8 @@ struct RootTabView: View {
     @State private var pendingMidSessionCheckInTarget: SNSAppCatalogItem?
     @State private var pendingPaywallPlacement: PaywallPlacement?
     @State private var presentedInterventionCatalogID: String?
+    @State private var isLockScreenCheckPresented = false
+    @State private var interventionAwaitingLockDismiss = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -51,10 +53,9 @@ struct RootTabView: View {
                     Label(String(localized: "root_tab.settings", defaultValue: "設定"), systemImage: "gearshape")
                 }
         }
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            DopaTabBar(selection: $selectedTab)
-        }
+        // 自前のタブバーをやめ、システムのタブバーへ戻した。
+        // iOS 26 SDKでビルドするとLiquid Glassの素材・スクロール追従・選択インジケータが自動で載る。
+        // 選択色はアクセントで引き続きブランドを担保する。
         .tint(DesignTokens.accent)
         .alert(String(localized: "root_alert.error.title", defaultValue: "エラー"), isPresented: alertPresented) {
             Button(String(localized: "root_alert.action.close", defaultValue: "閉じる")) {
@@ -81,13 +82,18 @@ struct RootTabView: View {
             checkPendingPaywalls()
         }
         .onChange(of: model.storeService.entitlementRevision) { _, _ in
+            model.syncUsageWatchEntitlement()
             model.refresh()
             presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
             checkPendingPaywalls()
         }
         .onChange(of: model.isChildModalActive) { _, isActive in
             guard !isActive else { return }
+            checkPendingLockScreenCheck()
             checkPendingPaywalls()
+        }
+        .onChange(of: model.pendingLockScreenCheck) { _, _ in
+            checkPendingLockScreenCheck()
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             model.refresh()
@@ -95,15 +101,17 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .pendingMidSessionCheckInDidChange)) { _ in
             checkPendingMidSessionCheckIn()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .pendingDay14WarningDidChange)) { _ in
-            checkPendingDay14Warning()
+        .onReceive(NotificationCenter.default.publisher(for: .notificationDestinationDidChange)) { _ in
+            consumePendingNotificationDestination()
         }
         .onChange(of: model.pendingInterventionCatalogID) { _, catalogID in
             presentPendingInterventionIfValid(catalogID)
         }
         .fullScreenCover(isPresented: interventionPresented, onDismiss: {
+            consumePendingNotificationDestination()
             checkPendingMidSessionCheckIn()
             checkPendingReflection()
+            checkPendingLockScreenCheck()
             checkPendingPaywalls()
         }) {
             if let catalogID = presentedInterventionCatalogID,
@@ -122,6 +130,7 @@ struct RootTabView: View {
         }
         .sheet(item: $pendingReflection, onDismiss: {
             checkPendingMidSessionCheckIn()
+            checkPendingLockScreenCheck()
             checkPendingPaywalls()
         }) { reflection in
             if let engine = model.interventionEngine {
@@ -133,11 +142,25 @@ struct RootTabView: View {
         }
         .sheet(item: $pendingMidSessionCheckInTarget, onDismiss: {
             checkPendingReflection()
+            checkPendingLockScreenCheck()
             checkPendingPaywalls()
         }) { _ in
             MidSessionCheckInSheet(model: model)
         }
+        .fullScreenCover(isPresented: $isLockScreenCheckPresented, onDismiss: {
+            interventionAwaitingLockDismiss = false
+            consumePendingNotificationDestination()
+            presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
+            checkPendingMidSessionCheckIn()
+            checkPendingReflection()
+            checkPendingPaywalls()
+        }) {
+            LockScreenCheckSheet(model: model) {
+                isLockScreenCheckPresented = false
+            }
+        }
         .fullScreenCover(item: $pendingPaywallPlacement, onDismiss: {
+            consumePendingNotificationDestination()
             checkPendingPaywalls()
         }) { placement in
             PaywallView(
@@ -177,17 +200,79 @@ struct RootTabView: View {
 
     private func handleAppActive() {
         model.refresh(restartLiveActivity: true)
+        // 自動更新オフはiOS設定側で起きるためTransactionが流れない。
+        // 復帰のたびに取り直さないと、プロセスが生きている限り解約を検知できない（docs/18 §4）。
+        model.refreshEntitlementOnForeground()
+        consumePendingNotificationDestination()
         checkPendingIntervention()
         presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
         checkPendingMidSessionCheckIn()
         checkPendingReflection()
+        checkPendingLockScreenCheck()
         checkPendingPaywalls()
+    }
+
+    /// 通知タップの着地先を消費する（docs/18 §2f）。
+    /// 介入フローが最優先のため、出ている間は保存したまま据え置き、閉じたときに改めて消費する。
+    /// コールドスタート（通知タップでの起動）では delegate の書き込みが onAppear より後に届くため、
+    /// `.notificationDestinationDidChange` からも呼ぶ。
+    private func consumePendingNotificationDestination() {
+        guard let pending = settingsStore.pendingNotificationDestination else {
+            return
+        }
+        // オンボーディング途中で通知をタップすると誰も消費できないまま残る。
+        // 古くなったものはここで捨て、後日オンボーディングを終えた瞬間に飛ばされないようにする。
+        guard pending.isValid(at: Date()) else {
+            settingsStore.pendingNotificationDestination = nil
+            return
+        }
+        // 他の全画面提示が出ている間は据え置き、閉じたときのonDismissから改めて消費する。
+        // 先に消してしまうと、生きているcoverの下でシートを立てようとして着地先を落とす。
+        guard model.pendingInterventionCatalogID == nil,
+              presentedInterventionCatalogID == nil,
+              pendingPaywallPlacement == nil,
+              !isLockScreenCheckPresented else {
+            return
+        }
+
+        settingsStore.pendingNotificationDestination = nil
+        switch pending.destination {
+        case .stats:
+            selectedTab = .stats
+        case .planSettings:
+            // ペイウォールは自動提示しない。設定のプラン周りまで連れて行くところまで。
+            selectedTab = .settings
+            model.pendingPlanSettingsFocus = true
+        case .automationGuide:
+            selectedTab = .settings
+            model.pendingAutomationGuideRequest = true
+        }
+    }
+
+    /// オンボーディング後に最初の目標を追加したら、ロック画面での確認導線を出す。
+    /// Live Activityを有効にしている場合だけ、他のモーダルと競合しないタイミングで提示する。
+    private func checkPendingLockScreenCheck() {
+        guard settingsStore.onboardingCompleted,
+              settingsStore.liveActivityEnabled,
+              model.pendingLockScreenCheck,
+              !isLockScreenCheckPresented,
+              model.pendingInterventionCatalogID == nil,
+              presentedInterventionCatalogID == nil,
+              pendingMidSessionCheckInTarget == nil,
+              pendingReflection == nil,
+              pendingPaywallPlacement == nil,
+              !model.isChildModalActive else {
+            return
+        }
+
+        isLockScreenCheckPresented = true
     }
 
     private func checkPendingReflection() {
         guard model.pendingInterventionCatalogID == nil,
               pendingMidSessionCheckInTarget == nil,
-              pendingReflection == nil else {
+              pendingReflection == nil,
+              !isLockScreenCheckPresented else {
             return
         }
         guard let engine = model.interventionEngine else {
@@ -199,7 +284,8 @@ struct RootTabView: View {
     private func checkPendingMidSessionCheckIn() {
         guard model.pendingInterventionCatalogID == nil,
               pendingReflection == nil,
-              pendingMidSessionCheckInTarget == nil else {
+              pendingMidSessionCheckInTarget == nil,
+              !isLockScreenCheckPresented else {
             return
         }
         guard let pending = settingsStore.pendingMidSessionCheckIn else {
@@ -215,57 +301,7 @@ struct RootTabView: View {
         pendingMidSessionCheckInTarget = SNSAppCatalog.app(catalogID: pending.catalogID)
     }
 
-    private func checkPendingDay14Warning() {
-        guard model.pendingInterventionCatalogID == nil,
-              pendingMidSessionCheckInTarget == nil,
-              pendingReflection == nil,
-              pendingPaywallPlacement == nil,
-              !model.isChildModalActive else {
-            return
-        }
-        guard let pending = settingsStore.pendingDay14Warning else {
-            return
-        }
-
-        guard pending.isValid(at: Date()) else {
-            settingsStore.pendingDay14Warning = nil
-            return
-        }
-
-        guard model.storeService.hasResolvedEntitlement else {
-            return
-        }
-        guard model.shouldPresentDay14Warning else {
-            settingsStore.pendingDay14Warning = nil
-            return
-        }
-
-        settingsStore.pendingDay14Warning = nil
-        pendingPaywallPlacement = .day14Warning
-    }
-
-    private func checkPendingReverseTrialEndPaywall() {
-        guard settingsStore.onboardingCompleted,
-              model.storeService.hasResolvedEntitlement,
-              !model.storeService.isPro,
-              model.pendingInterventionCatalogID == nil,
-              presentedInterventionCatalogID == nil,
-              pendingMidSessionCheckInTarget == nil,
-              pendingReflection == nil,
-              pendingPaywallPlacement == nil,
-              !model.isChildModalActive,
-              model.shouldPresentReverseTrialEndPaywall else {
-            return
-        }
-
-        pendingPaywallPlacement = .reverseTrialEnd
-    }
-
     private func checkPendingPaywalls() {
-        // Day14 keeps the existing warning priority. Reverse-trial expiry is
-        // evaluated after it, and both remain deferred while another modal is up.
-        checkPendingDay14Warning()
-        checkPendingReverseTrialEndPaywall()
         checkPendingWeeklyPaywall()
     }
 
@@ -276,6 +312,7 @@ struct RootTabView: View {
               pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               pendingPaywallPlacement == nil,
+              !isLockScreenCheckPresented,
               !model.isChildModalActive,
               WeeklyPaywallPolicy.shouldPresent(
                   isPro: model.storeService.isPro,
@@ -293,6 +330,9 @@ struct RootTabView: View {
     }
 
     private func presentPendingInterventionIfValid(_ catalogID: String?) {
+        guard !interventionAwaitingLockDismiss else {
+            return
+        }
         guard let catalogID else {
             presentedInterventionCatalogID = nil
             return
@@ -305,50 +345,16 @@ struct RootTabView: View {
             presentedInterventionCatalogID = nil
             return
         }
+        // 対象アプリを開こうとした瞬間の一呼吸が最優先。掲出確認は畳んで譲る。
+        if isLockScreenCheckPresented {
+            interventionAwaitingLockDismiss = true
+            isLockScreenCheckPresented = false
+            return
+        }
         presentedInterventionCatalogID = catalogID
     }
 }
 
-private struct DopaTabBar: View {
-    @Binding var selection: AppTab
-
-    private let items: [(AppTab, String, String)] = [
-        (.home, String(localized: "root_tab.home", defaultValue: "ホーム"), "house.fill"),
-        (.goals, String(localized: "root_tab.goals", defaultValue: "目標"), "flag.fill"),
-        (.stats, String(localized: "root_tab.stats", defaultValue: "統計"), "chart.bar.fill"),
-        (.settings, String(localized: "root_tab.settings", defaultValue: "設定"), "slider.horizontal.3")
-    ]
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(items, id: \.0) { tab, label, symbol in
-                Button {
-                    selection = tab
-                } label: {
-                    VStack(spacing: 5) {
-                        Image(systemName: symbol)
-                            .font(.system(size: 16, weight: .bold))
-                        Text(label)
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    .foregroundStyle(selection == tab ? DesignTokens.accent : DesignTokens.secondaryText)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(selection == tab ? DesignTokens.accent.opacity(0.09) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selection == tab ? .isSelected : [])
-            }
-        }
-        .padding(6)
-        .background(DesignTokens.backgroundRaised)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(DesignTokens.hairline)
-                .frame(height: 1)
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
-        .background(DesignTokens.background)
-    }
-}
+// 旧 DopaTabBar（自前のタブバー）は削除した。
+// システムのタブバーはDynamic Type・VoiceOver・選択トレイト・Liquid Glass・
+// ホームインジケータとの間隔を標準どおりに扱うため、自前実装より一貫して正しく振る舞う。

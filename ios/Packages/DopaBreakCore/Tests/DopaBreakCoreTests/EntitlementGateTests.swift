@@ -45,8 +45,8 @@ final class EntitlementGateTests: XCTestCase {
 
     func testInitFromIsProMapsTier() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
-        XCTAssertEqual(EntitlementGate(isPro: false, now: now, firstLaunchDate: nil).tier, .free)
-        XCTAssertEqual(EntitlementGate(isPro: true, now: now, firstLaunchDate: nil).tier, .pro)
+        XCTAssertEqual(EntitlementGate(isPro: false, now: now).tier, .free)
+        XCTAssertEqual(EntitlementGate(isPro: true, now: now).tier, .pro)
     }
 
     func testFreeGateValues() {
@@ -123,66 +123,27 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertTrue(gate.canAddTargetTokens(currentCount: 50))
     }
 
-    func testFreeTargetTokenLimitAcrossInitialWindow() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
-
-        let dayZero = makeGate(
-            tier: .free,
-            now: firstLaunchDate,
-            firstLaunchDate: firstLaunchDate
-        )
-        let dayThirteenPointNine = makeGate(
-            tier: .free,
-            now: firstLaunchDate.addingTimeInterval(13.9 * 86_400),
-            firstLaunchDate: firstLaunchDate
-        )
-        let dayFourteen = makeGate(
-            tier: .free,
-            now: firstLaunchDate.addingTimeInterval(14 * 86_400),
-            firstLaunchDate: firstLaunchDate
-        )
-        let dayThirty = makeGate(
-            tier: .free,
-            now: firstLaunchDate.addingTimeInterval(30 * 86_400),
-            firstLaunchDate: firstLaunchDate
-        )
-        let missingFirstLaunchDate = makeGate(
-            tier: .free,
-            now: firstLaunchDate,
-            firstLaunchDate: nil
-        )
-
-        XCTAssertEqual(dayZero.targetAppTokensLimit, 3)
-        XCTAssertEqual(dayThirteenPointNine.targetAppTokensLimit, 3)
-        XCTAssertEqual(dayFourteen.targetAppTokensLimit, 1)
-        XCTAssertEqual(dayThirty.targetAppTokensLimit, 1)
-        XCTAssertEqual(missingFirstLaunchDate.targetAppTokensLimit, 1)
-        XCTAssertTrue(dayZero.canAddTargetTokens(currentCount: 2))
-        XCTAssertFalse(dayZero.canAddTargetTokens(currentCount: 3))
-    }
-
-    func testFutureFirstLaunchDateUsesInitialWindowLimit() {
-        let now = Date(timeIntervalSince1970: 1_750_000_000)
-        let futureFirstLaunchDate = now.addingTimeInterval(86_400)
-        let gate = makeGate(tier: .free, now: now, firstLaunchDate: futureFirstLaunchDate)
-
-        XCTAssertEqual(gate.targetAppTokensLimit, 3)
-    }
-
-    func testProTargetTokenLimitIsUnlimitedRegardlessOfInitialWindow() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
+    func testFreeTargetTokenLimitIsAlwaysOne() {
+        let referenceDate = Date(timeIntervalSince1970: 1_750_000_000)
         let dates = [
-            firstLaunchDate.addingTimeInterval(-86_400),
-            firstLaunchDate,
-            firstLaunchDate.addingTimeInterval(14 * 86_400),
-            firstLaunchDate.addingTimeInterval(30 * 86_400)
+            referenceDate.addingTimeInterval(-86_400),
+            referenceDate,
+            referenceDate.addingTimeInterval(30 * 86_400)
         ]
 
         for now in dates {
-            let gate = makeGate(tier: .pro, now: now, firstLaunchDate: firstLaunchDate)
-            XCTAssertNil(gate.targetAppTokensLimit)
-            XCTAssertTrue(gate.canAddTargetTokens(currentCount: 50))
+            let gate = makeGate(tier: .free, now: now)
+            XCTAssertEqual(gate.targetAppTokensLimit, 1)
+            XCTAssertTrue(gate.canAddTargetTokens(currentCount: 0))
+            XCTAssertFalse(gate.canAddTargetTokens(currentCount: 1))
         }
+    }
+
+    func testProTargetTokenLimitIsUnlimited() {
+        let gate = makeGate(tier: .pro)
+
+        XCTAssertNil(gate.targetAppTokensLimit)
+        XCTAssertTrue(gate.canAddTargetTokens(currentCount: 50))
     }
 
     func testTargetAppClampKeepsLeadingItemsWhenOverLimit() {
@@ -195,16 +156,14 @@ final class EntitlementGateTests: XCTestCase {
     }
 
     func testTargetAppClampLeavesItemsWithinLimitUnchanged() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
-        let gate = makeGate(tier: .free, now: firstLaunchDate, firstLaunchDate: firstLaunchDate)
-        let catalogIDs = ["youtube", "instagram", "safari"]
+        let gate = makeGate(tier: .free)
+        let catalogIDs = ["youtube"]
 
         XCTAssertEqual(gate.clampedTargetAppCatalogIDs(catalogIDs), catalogIDs)
     }
 
-    func testTargetAppClampKeepsTopThreeByAttemptsDuringInitialWindow() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
-        let gate = makeGate(tier: .free, now: firstLaunchDate, firstLaunchDate: firstLaunchDate)
+    func testTargetAppClampKeepsTopOneByAttempts() {
+        let gate = makeGate(tier: .free)
 
         XCTAssertEqual(
             gate.clampedTargetAppCatalogIDs(
@@ -216,31 +175,13 @@ final class EntitlementGateTests: XCTestCase {
                     "line": 7
                 ]
             ),
-            ["instagram", "line", "safari"]
-        )
-    }
-
-    func testTargetAppClampKeepsTopOneByAttemptsAfterInitialWindow() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
-        let gate = makeGate(
-            tier: .free,
-            now: firstLaunchDate.addingTimeInterval(14 * 86_400),
-            firstLaunchDate: firstLaunchDate
-        )
-
-        XCTAssertEqual(
-            gate.clampedTargetAppCatalogIDs(
-                ["youtube", "instagram", "safari"],
-                attemptCountsByCatalogID: ["youtube": 1, "instagram": 5, "safari": 3]
-            ),
             ["instagram"]
         )
     }
 
     func testTargetAppClampWithAttemptsLeavesItemsWithinLimitUnchanged() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
-        let gate = makeGate(tier: .free, now: firstLaunchDate, firstLaunchDate: firstLaunchDate)
-        let catalogIDs = ["youtube", "instagram", "safari"]
+        let gate = makeGate(tier: .free)
+        let catalogIDs = ["youtube"]
 
         XCTAssertEqual(
             gate.clampedTargetAppCatalogIDs(
@@ -256,33 +197,6 @@ final class EntitlementGateTests: XCTestCase {
         let catalogIDs = ["youtube", "instagram", "safari", "line"]
 
         XCTAssertEqual(gate.clampedTargetAppCatalogIDs(catalogIDs), catalogIDs)
-    }
-
-    func testDay14WarningEligibilityRequiresFreeAndAtLeastTwoTargetsBeforeDay14() {
-        let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
-        let dayTwelve = firstLaunchDate.addingTimeInterval(12 * 86_400)
-        let beforeDay14 = EntitlementGate(
-            isPro: false,
-            now: dayTwelve,
-            firstLaunchDate: firstLaunchDate
-        )
-
-        XCTAssertTrue(beforeDay14.shouldScheduleDay14Warning(targetCount: 2))
-        XCTAssertFalse(beforeDay14.shouldScheduleDay14Warning(targetCount: 1))
-        XCTAssertFalse(
-            EntitlementGate(
-                isPro: true,
-                now: dayTwelve,
-                firstLaunchDate: firstLaunchDate
-            ).shouldScheduleDay14Warning(targetCount: 2)
-        )
-        XCTAssertFalse(
-            EntitlementGate(
-                isPro: false,
-                now: firstLaunchDate.addingTimeInterval(14 * 86_400),
-                firstLaunchDate: firstLaunchDate
-            ).shouldScheduleDay14Warning(targetCount: 2)
-        )
     }
 
     func testPreferredTargetAppUsesMostAttempts() {
@@ -334,9 +248,8 @@ final class EntitlementGateTests: XCTestCase {
 
     private func makeGate(
         tier: EntitlementTier,
-        now: Date = Date(timeIntervalSince1970: 1_750_000_000),
-        firstLaunchDate: Date? = nil
+        now: Date = Date(timeIntervalSince1970: 1_750_000_000)
     ) -> EntitlementGate {
-        EntitlementGate(tier: tier, now: now, firstLaunchDate: firstLaunchDate)
+        EntitlementGate(tier: tier, now: now)
     }
 }

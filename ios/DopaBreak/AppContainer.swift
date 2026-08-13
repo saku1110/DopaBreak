@@ -46,6 +46,18 @@ struct DefaultContainerProvider: ContainerProviding {
     #endif
 }
 
+/// 目標をロック画面へ出せているかの状態。確認導線（LockScreenCheck）の分岐に使う。
+enum LockScreenGoalStatus: Equatable {
+    /// 掲出できている。
+    case visible
+    /// 端末側でライブアクティビティがオフになっている。
+    case systemDisabled
+    /// 出す目標がまだない。
+    case noGoal
+    /// 許可はあるのに掲出できなかった。
+    case failed
+}
+
 @MainActor
 @Observable
 final class AppModel {
@@ -53,6 +65,7 @@ final class AppModel {
     let ruleStore: RuleStore
     let targetStore: InterventionTargetStore
     let screenTime: ScreenTimeCenter
+    let usageWatch: UsageWatchController
     let shield: ShieldController
     let storeService: StoreService
     let funnelEventStore: FunnelEventStore
@@ -71,6 +84,14 @@ final class AppModel {
     private(set) var weekAttemptCount = 0
     private(set) var weekCancelledCount = 0
     private(set) var allTimeCancelledCount = 0
+    private(set) var allTimeAttemptCount = 0
+    private(set) var purchaseOrRestoreFailedAt: Date?
+    var purchaseOrRestoreFailedThisSession: Bool {
+        guard let purchaseOrRestoreFailedAt else {
+            return false
+        }
+        return now().timeIntervalSince(purchaseOrRestoreFailedAt) < 5 * 60
+    }
     var alertMessage: String?
 
     /// 開始待ちの介入起動要求（AppIntent / URLスキーム経由）。RootTabView がこれを監視して
@@ -79,6 +100,16 @@ final class AppModel {
 
     /// RootTabViewの自動提示と競合する、各タブ配下のsheet/fullScreenCover表示状態。
     var isChildModalActive = false
+
+    /// 通知タップ（D1/D3/D7）からオートメーション設定ガイドを開く要求。SettingsViewが消費する。
+    var pendingAutomationGuideRequest = false
+
+    /// プラン系通知のタップから設定のプラン欄まで送る要求（docs/18 §2f）。
+    /// プラン欄は設定の7セクション中5番目で初期表示に入らないため、タブを変えるだけでは着地しない。
+    var pendingPlanSettingsFocus = false
+
+    /// オンボーディング後にはじめて目標を追加したとき、ロック画面での確認導線を出す要求。
+    private(set) var pendingLockScreenCheck = false
 
     init(
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
@@ -103,16 +134,20 @@ final class AppModel {
         self.ruleStore = resolvedRuleStore
         self.targetStore = InterventionTargetStore(snapshotStore: snapshotStore)
         self.screenTime = ScreenTimeCenter()
+        let usageWatchStore = (try? UsageWatchStore())
+            ?? UsageWatchStore(userDefaults: .standard)
+        let usageWatchSelectionStore = (try? UsageWatchSelectionStore())
+            ?? UsageWatchSelectionStore(userDefaults: .standard)
+        self.usageWatch = UsageWatchController(
+            settingsStore: resolvedSettingsStore,
+            usageWatchStore: usageWatchStore,
+            selectionStore: usageWatchSelectionStore
+        )
         self.shield = ShieldController(ruleStore: resolvedRuleStore)
         self.storeService = StoreService(
             funnelEventStore: funnelEventStore,
-            now: now,
-            onProEntitlementActivated: {
-                guard resolvedSettingsStore.reverseTrialStartedAt != nil else {
-                    return
-                }
-                resolvedSettingsStore.reverseTrialEndPaywallShown = true
-            }
+            usageWatchStore: usageWatchStore,
+            now: now
         )
         let resolvedLogStore = try? SQLiteLogStore(containerProvider: containerProvider)
         self.logStore = resolvedLogStore
@@ -125,6 +160,22 @@ final class AppModel {
             self.interventionEngine = nil
         }
         self.alertMessage = nil
+        self.storeService.onPurchaseOrRestoreFailure = { [weak self] in
+            guard let self else { return }
+            self.purchaseOrRestoreFailedAt = self.now()
+        }
+        // 一回きりの通知は「予約が成立した事実」でマーカーを立てる。
+        // 予約前に立てると、通知未許可の端末でマーカーだけ残り二度と送れなくなる。
+        self.lockSurfaceCoordinator.onOneShotNotificationScheduled = { [weak resolvedSettingsStore] scheduled in
+            guard let resolvedSettingsStore else { return }
+            switch scheduled {
+            case .annualUpgradeOffer(let fireDate):
+                resolvedSettingsStore.annualUpgradeOfferNotificationFireDate = fireDate
+            case .cancelSave(let fireDate, let expirationDate):
+                resolvedSettingsStore.cancelSaveNotificationExpirationDate = expirationDate
+                resolvedSettingsStore.cancelSaveNotificationFireDate = fireDate
+            }
+        }
 
         // MVP: standardモードではシールドを適用しない（docs/12 §5）。
         // syncShield() 呼び出しは停止するが、ShieldController自体のコードは温存する。
@@ -134,6 +185,7 @@ final class AppModel {
         Task { [weak self] in
             guard let self else { return }
             await self.storeService.refreshEntitlement()
+            self.usageWatch.entitlementDidChange(isPro: self.storeService.isPro)
             self.refresh()
         }
 
@@ -149,17 +201,40 @@ final class AppModel {
         try? funnelEventStore.record(name: name, detail: detail, at: now())
     }
 
+    func reviewPromptRequestDateIfEligible(sessionBlocked: Bool) -> Date? {
+        guard let firstLaunchDate = settingsStore.firstLaunchDate,
+              let statsService,
+              let totalCancelledAllTime = try? statsService.cancelledAttemptsAllTime() else {
+            return nil
+        }
+
+        let requestDate = now()
+        guard ReviewPromptPolicy.shouldRequest(
+            totalCancelledAllTime: totalCancelledAllTime,
+            firstLaunchDate: firstLaunchDate,
+            now: requestDate,
+            pastEventDates: settingsStore.reviewPromptEventDates,
+            sessionBlocked: sessionBlocked
+        ) else {
+            return nil
+        }
+        return requestDate
+    }
+
+    func recordReviewPromptShown(at date: Date) {
+        settingsStore.reviewPromptEventDates = ReviewPromptPolicy.prunedEventDates(
+            settingsStore.reviewPromptEventDates + [date],
+            now: date
+        )
+        try? funnelEventStore.record(name: .reviewPromptShown, at: date)
+    }
+
     func recordAppOpenedIfNeeded() {
         let recorder = DailyAppOpenRecorder(
             settingsStore: settingsStore,
             funnelEventStore: funnelEventStore
         )
         try? recorder.recordIfNeeded(at: now())
-    }
-
-    @discardableResult
-    func startReverseTrialIfNeeded() -> Bool {
-        settingsStore.startReverseTrialIfNeeded(at: now())
     }
 
     func refresh(
@@ -179,6 +254,14 @@ final class AppModel {
         }
     }
 
+    /// ロック画面に出す表示名。短縮名があればそちらを使う。
+    var lockScreenDisplayTitles: [String] {
+        goals.map { goal in
+            let short = goal.lockScreenTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return short.flatMap { $0.isEmpty ? nil : $0 } ?? goal.title
+        }
+    }
+
     var lockSurfaceState: LockSurfaceState {
         var state = settingsStore.lockSurfaceState
         if !entitlementGate.lockThemeAllowed(state.theme) {
@@ -193,10 +276,7 @@ final class AppModel {
     ) {
         let state = lockSurfaceState
         let goalTitles = goals.map(\.title)
-        let displayTitles = goals.map { goal in
-            let short = goal.lockScreenTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return short.flatMap { $0.isEmpty ? nil : $0 } ?? goal.title
-        }
+        let displayTitles = lockScreenDisplayTitles
         let snapshot = WidgetSnapshot(
             primaryGoalTitle: goalTitles.first ?? "",
             displayTitle: displayTitles.first ?? "",
@@ -221,10 +301,10 @@ final class AppModel {
                 goals: goals,
                 state: state,
                 weeklySummary: weeklySummary,
-                day14Warning: day14WarningSchedule(),
                 retentionNotifications: retentionNotificationSchedules(),
                 firstLaunchDate: settingsStore.firstLaunchDate,
                 verifiedAutomationCatalogIDs: settingsStore.verifiedAutomationCatalogIDs,
+                totalInterventionAttempts: allTimeAttemptCount,
                 now: now()
             )
         }
@@ -244,44 +324,67 @@ final class AppModel {
         await lockSurfaceCoordinator.waitForNotificationReschedule()
     }
 
+    /// 端末の許可状態と実際の掲出状況から、いまロック画面に目標が出ているかを返す。
+    var lockScreenGoalStatus: LockScreenGoalStatus {
+        guard !goals.isEmpty else {
+            return .noGoal
+        }
+        guard lockSurfaceCoordinator.areActivitiesEnabled else {
+            return .systemDisabled
+        }
+        return lockSurfaceCoordinator.isLiveActivityRunning ? .visible : .failed
+    }
+
+    /// 確認導線から呼ぶ即時掲出。アプリ内トグルがオフなら戻したうえで再掲出する。
+    /// ユーザーがロック画面を見る前に出しておくことで、iOSの許可プロンプトを
+    /// 「目標が出ている状態」と一緒に見せられる。
+    func presentGoalOnLockScreen() async -> LockScreenGoalStatus {
+        guard !goals.isEmpty else {
+            return .noGoal
+        }
+        if !settingsStore.liveActivityEnabled {
+            settingsStore.liveActivityEnabled = true
+        }
+        guard lockSurfaceCoordinator.areActivitiesEnabled else {
+            return .systemDisabled
+        }
+        // すでに出ているものは更新で足りる。作り直すと、requestが失敗したときに
+        // 有効だった掲出まで失う。
+        await lockSurfaceCoordinator.refreshLiveActivity(
+            goals: goals,
+            state: lockSurfaceState,
+            todayCancelledCount: todayCancelledCount,
+            todayAttemptCount: todayAttemptCount,
+            restart: false
+        )
+        return lockScreenGoalStatus
+    }
+
+    var lockScreenCheckCompleted: Bool {
+        settingsStore.lockScreenCheckCompleted
+    }
+
+    func markLockScreenCheckCompleted() {
+        settingsStore.lockScreenCheckCompleted = true
+        pendingLockScreenCheck = false
+    }
+
+    func dismissPendingLockScreenCheck() {
+        pendingLockScreenCheck = false
+    }
+
     var entitlementGate: EntitlementGate {
         EntitlementGate(
-            isPro: storeService.isPro || reverseTrialActive,
-            now: now(),
-            firstLaunchDate: settingsStore.firstLaunchDate
-        )
-    }
-
-    var reverseTrialActive: Bool {
-        ReverseTrialPolicy.isActive(
-            startedAt: settingsStore.reverseTrialStartedAt,
-            now: now()
-        )
-    }
-
-    var reverseTrialRemainingDays: Int? {
-        ReverseTrialPolicy.remainingDays(
-            startedAt: settingsStore.reverseTrialStartedAt,
-            now: now()
-        )
-    }
-
-    var shouldPresentReverseTrialEndPaywall: Bool {
-        ReverseTrialPolicy.shouldPresentEndPaywall(
-            startedAt: settingsStore.reverseTrialStartedAt,
             isPro: storeService.isPro,
-            endPaywallShown: settingsStore.reverseTrialEndPaywallShown,
             now: now()
         )
     }
 
-    var shouldPresentDay14Warning: Bool {
-        let targetCount = (try? targetStore.selectedCatalogIDs().count) ?? 0
-        return entitlementGate.shouldScheduleDay14Warning(targetCount: targetCount)
-    }
-
-    var day14ClampNotice: String? {
-        guard let catalogID = settingsStore.day14ClampKeptCatalogID,
+    /// 対象アプリを上限まで縮小したときの補足。
+    /// 文言キー名は14日時限開放時代の名残だが、現在はPro失効・無料枠での縮小の説明として現役
+    /// （`clampSelectedTargetsToEntitlementLimit` が唯一の設定元・.claude/specs/design-decisions.md §733）。
+    var targetAppClampNotice: String? {
+        guard let catalogID = settingsStore.targetAppClampKeptCatalogID,
               let app = SNSAppCatalog.app(catalogID: catalogID) else {
             return nil
         }
@@ -297,11 +400,31 @@ final class AppModel {
         // 意図的に no-op。
     }
 
+    func syncUsageWatchEntitlement() {
+        usageWatch.entitlementDidChange(isPro: storeService.isPro)
+    }
+
+    /// フォアグラウンド復帰のたびに権利を取り直す。
+    /// iOS設定での自動更新オフは `Transaction` を流さないため、これがないと
+    /// `willAutoRenew == false` をプロセスが生きている間ずっと検知できず、
+    /// 解約セーブ通知（docs/18 §4）が一度も予約されないまま期限3日前を過ぎる。
+    /// 完了時の `entitlementRevision` 変化をRootTabViewが拾って再スケジュールする。
+    @discardableResult
+    func refreshEntitlementOnForeground() -> Task<Void, Never> {
+        Task { [weak self] in
+            guard let self else {
+                return
+            }
+            await self.storeService.refreshEntitlement()
+        }
+    }
+
     @discardableResult
     func deleteAllLocalData() -> Bool {
         // ルールを消す前に必ずManagedSettingsを解除し、削除済み選択を参照する
         // 孤立シールドが残らないようにする。
         shield.clearShield()
+        usageWatch.stopAndClearAllData()
         lockSurfaceCoordinator.cancelAllNotifications()
 
         do {
@@ -317,6 +440,7 @@ final class AppModel {
                 containerProvider: containerProvider
             ).deleteAllLocalData()
             pendingInterventionCatalogID = nil
+            pendingLockScreenCheck = false
             alertMessage = nil
             refresh(scheduleNotifications: false)
             return true
@@ -352,7 +476,7 @@ final class AppModel {
             return false
         }
         let now = Date()
-        return persistGoal(
+        let saved = persistGoal(
             Goal(
                 id: id,
                 title: title,
@@ -363,6 +487,11 @@ final class AppModel {
                 updatedAt: now
             )
         )
+        // オンボーディング中は専用ステップが確認導線を持つため、ここでは要求しない。
+        if saved, settingsStore.onboardingCompleted, !settingsStore.lockScreenCheckCompleted {
+            pendingLockScreenCheck = true
+        }
+        return saved
     }
 
     @discardableResult
@@ -377,6 +506,34 @@ final class AppModel {
         updated.category = category
         updated.lockScreenTitle = normalizedLockTitle(lockScreenTitle)
         return persistGoal(updated)
+    }
+
+    /// 目標の全件を一度に置き換える。オンボーディングの目標同期のように、
+    /// 削除・更新・追加をまとめて確定する経路で使う。途中失敗で既存の目標を落とさない。
+    ///
+    /// ロック画面確認の要求はここでは出さない。オンボーディングには専用の確認ステップがある。
+    @discardableResult
+    func replaceGoals(_ newGoals: [Goal]) -> Bool {
+        // 上限を超えて「増やす」操作だけを止める。
+        // すでに上限を超えている既存データ（Proから戻った利用者など）はそのまま保てるようにする
+        if let limit = entitlementGate.goalsLimit,
+           newGoals.count > goals.count,
+           newGoals.count > limit {
+            alertMessage = String(localized: "app.error.goal_pro_required", defaultValue: "目標の追加にはProが必要です")
+            return false
+        }
+
+        do {
+            try goalStore.replace(goals: newGoals)
+            refresh()
+            return true
+        } catch CoreError.validation(let message) {
+            alertMessage = message
+            return false
+        } catch {
+            alertMessage = String(localized: "app.error.goal_save", defaultValue: "目標を保存できませんでした")
+            return false
+        }
     }
 
     private func persistGoal(_ goal: Goal) -> Bool {
@@ -456,7 +613,7 @@ final class AppModel {
         if !settingsStore.isAutomationVerified(catalogID: catalogID) {
             settingsStore.markAutomationVerified(catalogID: catalogID)
             recordFunnelEvent(.automationVerified, detail: catalogID)
-            lockSurfaceCoordinator.cancelD1ActivationNotification()
+            lockSurfaceCoordinator.cancelActivationNotifications()
         }
         guard let selectedCatalogIDs = try? targetStore.selectedCatalogIDs(),
               selectedCatalogIDs.contains(catalogID) else {
@@ -475,7 +632,7 @@ final class AppModel {
 
     func setTargetCatalogIDs(_ catalogIDs: [String]) throws {
         try targetStore.setTargets(catalogIDs)
-        settingsStore.day14ClampKeptCatalogID = nil
+        settingsStore.targetAppClampKeptCatalogID = nil
         refreshLockSurfaces()
     }
 
@@ -514,8 +671,10 @@ final class AppModel {
 
         if let statsService {
             allTimeCancelledCount = try statsService.cancelledAttemptsAllTime()
+            allTimeAttemptCount = try statsService.attemptsAllTime()
         } else {
             allTimeCancelledCount = 0
+            allTimeAttemptCount = 0
         }
     }
 
@@ -549,6 +708,7 @@ final class AppModel {
         weekAttemptCount = 0
         weekCancelledCount = 0
         allTimeCancelledCount = 0
+        allTimeAttemptCount = 0
     }
 
     private func clampSelectedTargetsToEntitlementLimit() throws {
@@ -597,61 +757,7 @@ final class AppModel {
             return
         }
         try targetStore.setTargets(clampedCatalogIDs)
-        settingsStore.day14ClampKeptCatalogID = clampedCatalogIDs.first
-    }
-
-    private func day14WarningSchedule() -> Day14WarningSchedule? {
-        guard storeService.hasResolvedEntitlement else {
-            return nil
-        }
-        let selectedCatalogIDs = (try? targetStore.selectedCatalogIDs()) ?? []
-        let gate = entitlementGate
-        guard gate.shouldScheduleDay14Warning(targetCount: selectedCatalogIDs.count),
-              let firstLaunchDate = gate.firstLaunchDate else {
-            return nil
-        }
-
-        let calendar = Calendar.current
-        guard let day12 = calendar.date(byAdding: .day, value: 12, to: firstLaunchDate) else {
-            return nil
-        }
-
-        let morningTime = stateForDay14Warning
-        var components = calendar.dateComponents([.year, .month, .day], from: day12)
-        components.hour = morningTime.hour
-        components.minute = morningTime.minute
-        guard let morningDate = calendar.date(from: components),
-              let nominalFireDate = calendar.date(
-                  byAdding: .minute,
-                  value: morningTime.addThirtyMinutes ? 30 : 0,
-                  to: morningDate
-              ) else {
-            return nil
-        }
-        let currentDate = now()
-        let day14Boundary = firstLaunchDate.addingTimeInterval(14 * 86_400)
-        guard let fireDate = Day14WarningSchedule.nextFireDate(
-            nominalFireDate: nominalFireDate,
-            now: currentDate,
-            day14Boundary: day14Boundary
-        ) else {
-            return nil
-        }
-
-        let periodEnd = min(
-            currentDate,
-            day14Boundary
-        )
-        let cancelledCount: Int
-        if let statsService {
-            cancelledCount = (try? statsService.cancelledAttempts(
-                from: firstLaunchDate,
-                to: periodEnd
-            )) ?? 0
-        } else {
-            cancelledCount = 0
-        }
-        return Day14WarningSchedule(fireDate: fireDate, cancelledCount: cancelledCount)
+        settingsStore.targetAppClampKeptCatalogID = clampedCatalogIDs.first
     }
 
     private func retentionNotificationSchedules() -> RetentionNotificationSchedules {
@@ -670,8 +776,7 @@ final class AppModel {
            let fireDate = RetentionNotificationDateCalculator.trialDay5Date(
                from: trial.purchaseDate,
                calendar: calendar
-           ),
-           RetentionNotificationDateCalculator.isFuture(fireDate, relativeTo: currentDate) {
+           ) {
             trialDay5 = RetentionNotificationSchedule(
                 fireDate: fireDate,
                 cancelledCount: attemptSummary(from: trial.purchaseDate, to: currentDate).cancelled,
@@ -683,16 +788,32 @@ final class AppModel {
 
         let month1: RetentionNotificationSchedule?
         if let subscription = storeService.activeSubscriptionEntitlement,
-           let fireDate = RetentionNotificationDateCalculator.month1Date(
+           let fireDate = RetentionNotificationDateCalculator.nextMonthlyReportDate(
                from: subscription.initialPurchaseDate,
+               now: currentDate,
                calendar: calendar
-           ),
-           RetentionNotificationDateCalculator.isFuture(fireDate, relativeTo: currentDate) {
-            let summary = attemptSummary(from: subscription.initialPurchaseDate, to: currentDate)
+           ) {
+            let firstMonthlyReportDate = RetentionNotificationDateCalculator.nextMonthlyReportDate(
+                from: subscription.initialPurchaseDate,
+                now: subscription.initialPurchaseDate,
+                calendar: calendar
+            )
+            let trailingMonthStart = calendar.date(
+                byAdding: .month,
+                value: -1,
+                to: currentDate
+            ) ?? subscription.initialPurchaseDate
+            // Local notification bodies are fixed when scheduled, so without another app launch
+            // this trailing-month summary can represent an older window; that limitation is accepted.
+            let summary = attemptSummary(
+                from: max(subscription.initialPurchaseDate, trailingMonthStart),
+                to: currentDate
+            )
             month1 = RetentionNotificationSchedule(
                 fireDate: fireDate,
                 cancelledCount: summary.cancelled,
-                attemptCount: summary.attempts
+                attemptCount: summary.attempts,
+                isFirstMonthlyReport: fireDate == firstMonthlyReportDate
             )
         } else {
             month1 = nil
@@ -707,8 +828,7 @@ final class AppModel {
            let fireDate = RetentionNotificationDateCalculator.month12Date(
                from: subscription.purchaseDate,
                calendar: calendar
-           ),
-           RetentionNotificationDateCalculator.isFuture(fireDate, relativeTo: currentDate) {
+           ) {
             month12 = RetentionNotificationSchedule(
                 fireDate: fireDate,
                 cancelledCount: attemptSummary(from: subscription.purchaseDate, to: currentDate).cancelled,
@@ -718,10 +838,61 @@ final class AppModel {
             month12 = nil
         }
 
+        // 年額移行オファー（docs/18 §4）。月額を3ヶ月続けた人へ一生に1回だけ。
+        // プラン通知をオフにされた時点で予約は消えるため、まだ発火前のマーカーは戻す。
+        // 残すと「オフにした数十秒」だけで一生に1回の機会を失う。
+        if AnnualUpgradeOfferPolicy.shouldClearScheduledFireDate(
+            isEnabled: settingsStore.planNotificationsEnabled,
+            scheduledFireDate: settingsStore.annualUpgradeOfferNotificationFireDate,
+            now: currentDate
+        ) {
+            settingsStore.annualUpgradeOfferNotificationFireDate = nil
+        }
+        let annualUpgradeOffer: RetentionNotificationSchedule?
+        if let fireDate = AnnualUpgradeOfferPolicy.fireDate(
+            subscription: storeService.activeSubscriptionEntitlement,
+            isEnabled: settingsStore.planNotificationsEnabled,
+            scheduledFireDate: settingsStore.annualUpgradeOfferNotificationFireDate,
+            now: currentDate,
+            calendar: calendar
+        ) {
+            annualUpgradeOffer = RetentionNotificationSchedule(
+                fireDate: fireDate,
+                cancelledCount: allTimeCancelledCount,
+                attemptCount: 0
+            )
+        } else {
+            annualUpgradeOffer = nil
+        }
+
+        // 解約セーブ（docs/18 §4）。自動更新オフのまま期限3日前に1回だけ。
+        // 期限3日前を過ぎてから検知した場合は送らない（遅れて出す通知は作らない）。
+        let cancelSave: CancelSaveNotificationSchedule?
+        if let subscription = storeService.activeSubscriptionEntitlement,
+           let expirationDate = subscription.expirationDate,
+           let fireDate = CancelSaveNotificationPolicy.fireDate(
+               subscription: subscription,
+               isEnabled: settingsStore.planNotificationsEnabled,
+               sentExpirationDate: settingsStore.cancelSaveNotificationExpirationDate,
+               sentFireDate: settingsStore.cancelSaveNotificationFireDate,
+               now: currentDate,
+               calendar: calendar
+           ) {
+            cancelSave = CancelSaveNotificationSchedule(
+                fireDate: fireDate,
+                cancelledCount: allTimeCancelledCount,
+                expirationDate: expirationDate
+            )
+        } else {
+            cancelSave = nil
+        }
+
         return RetentionNotificationSchedules(
             trialDay5: trialDay5,
             month1: month1,
-            month12: month12
+            month12: month12,
+            annualUpgradeOffer: annualUpgradeOffer,
+            cancelSave: cancelSave
         )
     }
 
@@ -731,18 +902,6 @@ final class AppModel {
         }
         return (try? statsService.attemptSummary(from: start, to: end)) ??
             AttemptSummary(attempts: 0, cancelled: 0)
-    }
-
-    private var stateForDay14Warning: (hour: Int, minute: Int, addThirtyMinutes: Bool) {
-        let state = lockSurfaceState
-        if state.morningNotificationEnabled {
-            return (
-                state.morningNotificationTime.hour ?? 7,
-                state.morningNotificationTime.minute ?? 0,
-                true
-            )
-        }
-        return (9, 0, false)
     }
 
     private func normalizedLockTitle(_ value: String?) -> String? {

@@ -57,6 +57,10 @@ final class FunnelEventStoreTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
 
+    func testReviewPromptShownUsesSpecifiedAnalyticsName() {
+        XCTAssertEqual(FunnelEventName.reviewPromptShown.rawValue, "review_prompt_shown")
+    }
+
     func testMeasurementFoundationEventsPersistNamesAndDetails() throws {
         let store = try makeStore()
         let timestamp = Date(timeIntervalSince1970: 1_700_000_000)

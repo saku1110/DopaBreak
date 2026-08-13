@@ -87,6 +87,8 @@ final class InterventionFlowModel {
     private(set) var stage: InterventionFlowStage = .reasonSelection
     private(set) var breathRemainingSeconds: Int = 3
     private(set) var breathTotalSeconds: Int = 3
+    private(set) var breathPhase: Double = 0
+    private(set) var flarePhase: Double = 0
     private(set) var todayAttemptDisplayCount = 0
     private(set) var selectedReason: InterventionReason?
     private(set) var selectedDuration: InterventionDuration = .tenMinutes
@@ -97,6 +99,10 @@ final class InterventionFlowModel {
     private var startGeneration = 0
     private var ruleId: UUID?
     private var lastAttemptId: UUID?
+
+    private static let breathCycleDuration: TimeInterval = 3.5
+    private static let flareDuration: TimeInterval = 0.8
+    private static let breathFrameNanoseconds: UInt64 = 33_333_333
 
     var goals: [Goal] { model.goals }
     var todayCancelledCountForDisplay: Int { model.todayCancelledCount }
@@ -109,6 +115,16 @@ final class InterventionFlowModel {
         )
     }
 
+    func reviewPromptRequestDateIfEligible() -> Date? {
+        model.reviewPromptRequestDateIfEligible(
+            sessionBlocked: model.purchaseOrRestoreFailedThisSession
+        )
+    }
+
+    func recordReviewPromptShown(at date: Date) {
+        model.recordReviewPromptShown(at: date)
+    }
+
     init(target: SNSAppCatalogItem, model: AppModel, settingsStore: SettingsStore) {
         self.target = target
         self.model = model
@@ -116,10 +132,13 @@ final class InterventionFlowModel {
     }
 
     func start() {
+        model.usageWatch.recordIntervention(at: Date())
         breathTask?.cancel()
         breathTask = nil
         startGeneration += 1
         let generation = startGeneration
+        breathPhase = 0
+        flarePhase = 0
 
         Task { [weak self] in
             let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -173,25 +192,69 @@ final class InterventionFlowModel {
         let total = settingsStore.breathDurationSeconds
         breathTotalSeconds = total
         breathRemainingSeconds = total
+        breathPhase = 0
+        flarePhase = 0
         stage = .breathing
         let generation = startGeneration
 
         breathTask = Task { [weak self] in
-            var remaining = total
-            while remaining > 0 {
-                if Task.isCancelled { return }
-                self?.breathRemainingSeconds = remaining
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                remaining -= 1
+            let totalDuration = TimeInterval(total)
+            let flareStart = max(0, totalDuration - Self.flareDuration)
+            let startTime = ProcessInfo.processInfo.systemUptime
+
+            while true {
+                guard let self,
+                      !Task.isCancelled,
+                      generation == self.startGeneration,
+                      self.stage == .breathing else {
+                    return
+                }
+
+                let elapsed = min(
+                    ProcessInfo.processInfo.systemUptime - startTime,
+                    totalDuration
+                )
+                let basePhase = Self.breathPhase(at: elapsed)
+                self.breathRemainingSeconds = max(0, Int(ceil(totalDuration - elapsed)))
+
+                if elapsed >= flareStart {
+                    let linearFlare = (elapsed - flareStart) / Self.flareDuration
+                    let flare = Self.smoothstep(min(max(linearFlare / 0.9, 0), 1))
+                    self.flarePhase = flare
+                    self.breathPhase = basePhase + ((1 - basePhase) * flare)
+                } else {
+                    self.flarePhase = 0
+                    self.breathPhase = basePhase
+                }
+
+                if elapsed >= totalDuration {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: Self.breathFrameNanoseconds)
             }
+
             guard let self,
                   !Task.isCancelled,
                   generation == self.startGeneration,
                   self.stage == .breathing else {
                 return
             }
+            self.breathRemainingSeconds = 0
+            self.breathPhase = 1
+            self.flarePhase = 1
             self.stage = .usageSummary
         }
+    }
+
+    private static func breathPhase(at elapsed: TimeInterval) -> Double {
+        let cycleProgress = elapsed
+            .truncatingRemainder(dividingBy: breathCycleDuration)
+            / breathCycleDuration
+        return 0.5 - (0.5 * cos(cycleProgress * 2 * .pi))
+    }
+
+    private static func smoothstep(_ value: Double) -> Double {
+        value * value * (3 - (2 * value))
     }
 
     func advanceToGoalReminder() {

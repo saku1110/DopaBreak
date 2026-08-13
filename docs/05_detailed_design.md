@@ -95,7 +95,7 @@ Goal
 ```text
 SelfCheckSnapshot
 - id: UUID
-- usageBucket: String        // 1時間未満 / 1-2 / 2-4 / 4時間以上
+- usageBucket: String        // 1時間未満 / 1-2 / 2-4 / 4-6 / 6時間以上（旧データは 4時間以上 も保持）
 - aimlessScrollBucket: String
 - regretBucket: String
 - estimatedDailyMinutes: Int // 推計表から算出

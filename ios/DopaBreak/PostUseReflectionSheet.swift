@@ -16,8 +16,15 @@ struct PostUseReflectionSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 SmallLabel(text: String(localized: "reflection.eyebrow", defaultValue: "REFLECTION"))
+
+                CharacterView(
+                    satisfaction?.characterExpression ?? .doom,
+                    size: DesignTokens.CharacterSize.lead
+                )
+                    .frame(maxWidth: .infinity)
+                    .characterPop(trigger: satisfaction)
 
                 if let satisfaction {
                     happinessStep(satisfaction: satisfaction)
@@ -28,7 +35,7 @@ struct PostUseReflectionSheet: View {
                 Button(String(localized: "reflection.action.skip", defaultValue: "今回はスキップ")) {
                     skip()
                 }
-                .font(.system(size: 15, weight: .bold))
+                .dopaFont(15, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
@@ -45,20 +52,19 @@ struct PostUseReflectionSheet: View {
     private var satisfactionStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(String(localized: "reflection.satisfaction.title", defaultValue: "SNSを見て\nどうだった？"))
-                .font(.system(size: 34, weight: .black))
+                .dopaFont(34, weight: .black, tracking: -0.8)
                 .foregroundStyle(DesignTokens.primaryText)
-                .tracking(-0.8)
 
             Text(String(localized: "reflection.satisfaction.description", defaultValue: "必要な時間を使い終えました。次の選択のために記録します。"))
-                .font(.system(size: 14, weight: .medium))
+                .dopaFont(14, weight: .medium)
                 .foregroundStyle(DesignTokens.secondaryText)
 
             VStack(spacing: 10) {
-                choiceButton(PostUseSatisfaction.satisfied.displayTitle) { satisfaction = .satisfied }
-                choiceButton(PostUseSatisfaction.fun.displayTitle) { satisfaction = .fun }
-                choiceButton(PostUseSatisfaction.nothingGained.displayTitle) { satisfaction = .nothingGained }
-                choiceButton(PostUseSatisfaction.lostTime.displayTitle) { satisfaction = .lostTime }
-                choiceButton(PostUseSatisfaction.feltWorse.displayTitle) { satisfaction = .feltWorse }
+                satisfactionChoiceButton(.satisfied)
+                satisfactionChoiceButton(.fun)
+                satisfactionChoiceButton(.nothingGained)
+                satisfactionChoiceButton(.lostTime)
+                satisfactionChoiceButton(.feltWorse)
             }
         }
     }
@@ -68,16 +74,16 @@ struct PostUseReflectionSheet: View {
             CardContainer {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .black))
+                        .dopaFont(13, weight: .black)
                         .foregroundStyle(DesignTokens.accent)
                     Text(satisfaction.displayTitle)
-                        .font(.system(size: 15, weight: .bold))
+                        .dopaFont(15, weight: .bold)
                         .foregroundStyle(DesignTokens.primaryText)
                 }
             }
 
             Text(String(localized: "reflection.happiness.title", defaultValue: "幸福感や集中は\n増えた？"))
-                .font(.system(size: 32, weight: .black))
+                .dopaFont(32, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
 
             VStack(spacing: 10) {
@@ -94,11 +100,28 @@ struct PostUseReflectionSheet: View {
         }
     }
 
-    private func choiceButton(_ title: String, action: @escaping () -> Void) -> some View {
+    private func satisfactionChoiceButton(_ value: PostUseSatisfaction) -> some View {
+        choiceButton(value.displayTitle, expression: value.characterExpression) {
+            satisfaction = value
+        }
+    }
+
+    private func choiceButton(
+        _ title: String,
+        expression: CharacterExpression? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             HStack {
+                if let expression {
+                    CharacterView(
+                        expression,
+                        size: DesignTokens.CharacterSize.inline,
+                        animated: false
+                    )
+                }
                 Text(title)
-                    .font(.system(size: 17, weight: .bold))
+                    .dopaFont(17, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
                 Spacer()
             }
@@ -138,6 +161,15 @@ struct PostUseReflectionSheet: View {
 }
 
 extension PostUseSatisfaction {
+    var characterExpression: CharacterExpression {
+        switch self {
+        case .satisfied, .fun: return .awake
+        case .nothingGained: return .blank
+        case .lostTime: return .doom
+        case .feltWorse: return .worse
+        }
+    }
+
     var displayTitle: String {
         switch self {
         case .satisfied:

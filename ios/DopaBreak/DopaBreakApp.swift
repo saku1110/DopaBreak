@@ -14,6 +14,7 @@ struct DopaBreakApp: App {
         let notificationDelegate = NotificationDelegate(settingsStore: settingsStore)
         self.notificationDelegate = notificationDelegate
         UNUserNotificationCenter.current().delegate = notificationDelegate
+        DopaNavigationBar.apply()
     }
 
     var body: some Scene {

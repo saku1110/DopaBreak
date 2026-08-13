@@ -28,15 +28,31 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(store.morningNotificationEnabled)
         XCTAssertEqual(store.morningNotificationMinutes, 480)
         XCTAssertTrue(store.weeklyReportNotificationEnabled)
+        XCTAssertTrue(store.retentionSupportNotificationsEnabled)
+        XCTAssertTrue(store.planNotificationsEnabled)
         XCTAssertTrue(store.liveActivityEnabled)
+        XCTAssertEqual(store.reviewPromptEventDates, [])
+        XCTAssertFalse(store.lockScreenCheckCompleted)
         XCTAssertNil(store.lockThemeRawValue)
         XCTAssertEqual(store.lockTheme, .e1)
+        XCTAssertFalse(store.usageWatchEnabled)
+        XCTAssertEqual(store.usageWatchQuestionIntervalMinutes, 15)
+        XCTAssertFalse(store.usageWatchNightModeEnabled)
+        XCTAssertNil(store.pendingNotificationDestination)
+    }
+
+    func testLockScreenCheckCompletionPersists() {
+        store.lockScreenCheckCompleted = true
+
+        XCTAssertTrue(SettingsStore(userDefaults: defaults).lockScreenCheckCompleted)
     }
 
     func testLockSurfaceValuesPersistAndNormalizeMinutes() {
         store.morningNotificationEnabled = false
         store.morningNotificationMinutes = 1_500
         store.weeklyReportNotificationEnabled = false
+        store.retentionSupportNotificationsEnabled = false
+        store.planNotificationsEnabled = false
         store.liveActivityEnabled = false
         store.lockTheme = .yozora
 
@@ -44,6 +60,8 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(reloaded.morningNotificationEnabled)
         XCTAssertEqual(reloaded.morningNotificationMinutes, 60)
         XCTAssertFalse(reloaded.weeklyReportNotificationEnabled)
+        XCTAssertFalse(reloaded.retentionSupportNotificationsEnabled)
+        XCTAssertFalse(reloaded.planNotificationsEnabled)
         XCTAssertFalse(reloaded.liveActivityEnabled)
         XCTAssertEqual(reloaded.lockThemeRawValue, LockTheme.yozora.rawValue)
         XCTAssertEqual(reloaded.lockTheme, .yozora)
@@ -60,13 +78,110 @@ final class SettingsStoreTests: XCTestCase {
     func testLockSurfaceStateReflectsSettings() {
         store.morningNotificationMinutes = 7 * 60 + 35
         store.weeklyReportNotificationEnabled = false
+        store.retentionSupportNotificationsEnabled = false
+        store.planNotificationsEnabled = false
         store.lockTheme = .shinrin
 
         let state = store.lockSurfaceState
         XCTAssertEqual(state.morningNotificationTime.hour, 7)
         XCTAssertEqual(state.morningNotificationTime.minute, 35)
         XCTAssertFalse(state.weeklyReportEnabled)
+        XCTAssertFalse(state.retentionSupportNotificationsEnabled)
+        XCTAssertFalse(state.planNotificationsEnabled)
         XCTAssertEqual(state.theme, .shinrin)
+    }
+
+    func testReviewPromptEventDatesPersistAsTimestampArray() {
+        let dates = [
+            Date(timeIntervalSince1970: 1_700_000_000.25),
+            Date(timeIntervalSince1970: 1_710_000_000.5)
+        ]
+
+        store.reviewPromptEventDates = dates
+
+        XCTAssertEqual(SettingsStore(userDefaults: defaults).reviewPromptEventDates, dates)
+        XCTAssertEqual(
+            defaults.array(forKey: "reviewPromptEventDates") as? [Double],
+            dates.map(\.timeIntervalSince1970)
+        )
+    }
+
+    func testResetPreservesReviewEventsAndRestoresNewNotificationDefaults() {
+        let eventDate = Date(timeIntervalSince1970: 1_800_000_000)
+        store.reviewPromptEventDates = [eventDate]
+        store.retentionSupportNotificationsEnabled = false
+        store.planNotificationsEnabled = false
+        store.usageWatchEnabled = true
+        store.usageWatchQuestionIntervalMinutes = 60
+        store.usageWatchNightModeEnabled = true
+        store.pendingNotificationDestination = PendingNotificationDestination(
+            destination: .stats,
+            writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        store.resetToDefaults()
+
+        XCTAssertEqual(store.reviewPromptEventDates, [eventDate])
+        XCTAssertTrue(store.retentionSupportNotificationsEnabled)
+        XCTAssertTrue(store.planNotificationsEnabled)
+        XCTAssertFalse(store.usageWatchEnabled)
+        XCTAssertEqual(store.usageWatchQuestionIntervalMinutes, 15)
+        XCTAssertFalse(store.usageWatchNightModeEnabled)
+        XCTAssertNil(store.pendingNotificationDestination)
+        XCTAssertNotNil(defaults.object(forKey: "reviewPromptEventDates"))
+    }
+
+    func testOneShotNotificationMarkersPersistAndSurviveReset() {
+        let fireDate = Date(timeIntervalSince1970: 1_800_000_000)
+        let expirationDate = Date(timeIntervalSince1970: 1_800_600_000)
+        store.annualUpgradeOfferNotificationFireDate = fireDate
+        store.cancelSaveNotificationExpirationDate = expirationDate
+        store.cancelSaveNotificationFireDate = fireDate
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.annualUpgradeOfferNotificationFireDate, fireDate)
+        XCTAssertEqual(reloaded.cancelSaveNotificationExpirationDate, expirationDate)
+        XCTAssertEqual(reloaded.cancelSaveNotificationFireDate, fireDate)
+
+        // データ削除で「一生に1回」の通知が復活しないよう、マーカーはリセット対象外。
+        store.resetToDefaults()
+
+        XCTAssertEqual(store.annualUpgradeOfferNotificationFireDate, fireDate)
+        XCTAssertEqual(store.cancelSaveNotificationExpirationDate, expirationDate)
+        XCTAssertEqual(store.cancelSaveNotificationFireDate, fireDate)
+
+        store.annualUpgradeOfferNotificationFireDate = nil
+        store.cancelSaveNotificationExpirationDate = nil
+        store.cancelSaveNotificationFireDate = nil
+
+        XCTAssertNil(defaults.object(forKey: "annualUpgradeOfferNotificationFireDate"))
+        XCTAssertNil(defaults.object(forKey: "cancelSaveNotificationExpirationDate"))
+        XCTAssertNil(defaults.object(forKey: "cancelSaveNotificationFireDate"))
+    }
+
+    func testUsageWatchSettingsPersistAndRejectUnsupportedInterval() {
+        store.usageWatchEnabled = true
+        store.usageWatchQuestionIntervalMinutes = 60
+        store.usageWatchNightModeEnabled = true
+        store.pendingNotificationDestination = PendingNotificationDestination(
+            destination: .stats,
+            writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertTrue(reloaded.usageWatchEnabled)
+        XCTAssertEqual(reloaded.usageWatchQuestionIntervalMinutes, 60)
+        XCTAssertTrue(reloaded.usageWatchNightModeEnabled)
+        XCTAssertEqual(
+            reloaded.pendingNotificationDestination,
+            PendingNotificationDestination(
+                destination: .stats,
+                writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        )
+
+        reloaded.usageWatchQuestionIntervalMinutes = 10
+        XCTAssertEqual(store.usageWatchQuestionIntervalMinutes, 15)
     }
 
     func testPendingMidSessionCheckInRoundTripsAndClears() {
@@ -87,32 +202,16 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "pendingMidSessionCheckIn"))
     }
 
-    func testPendingDay14WarningRoundTripsAndExpiresAfter24Hours() {
-        let writtenAt = Date(timeIntervalSince1970: 1_800_000_000)
-        let pending = PendingDay14Warning(writtenAt: writtenAt)
-        store.pendingDay14Warning = pending
+    func testTargetAppClampKeptCatalogIDRoundTripsAndClears() {
+        store.targetAppClampKeptCatalogID = "instagram"
 
         let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertEqual(reloaded.pendingDay14Warning, pending)
-        XCTAssertTrue(pending.isValid(at: writtenAt.addingTimeInterval(24 * 60 * 60)))
-        XCTAssertFalse(pending.isValid(at: writtenAt.addingTimeInterval(24 * 60 * 60 + 1)))
+        XCTAssertEqual(reloaded.targetAppClampKeptCatalogID, "instagram")
 
-        reloaded.pendingDay14Warning = nil
+        reloaded.targetAppClampKeptCatalogID = nil
 
-        XCTAssertNil(store.pendingDay14Warning)
-        XCTAssertNil(defaults.object(forKey: "pendingDay14Warning"))
-    }
-
-    func testDay14ClampKeptCatalogIDRoundTripsAndClears() {
-        store.day14ClampKeptCatalogID = "instagram"
-
-        let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertEqual(reloaded.day14ClampKeptCatalogID, "instagram")
-
-        reloaded.day14ClampKeptCatalogID = nil
-
-        XCTAssertNil(store.day14ClampKeptCatalogID)
-        XCTAssertNil(defaults.object(forKey: "day14ClampKeptCatalogID"))
+        XCTAssertNil(store.targetAppClampKeptCatalogID)
+        XCTAssertNil(defaults.object(forKey: "targetAppClampKeptCatalogID"))
     }
 
     func testLastAppOpenedDateKeyRoundTripsAndClears() {
@@ -190,25 +289,75 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertNil(store.lastAnyPaywallShownAt)
     }
 
-    func testReverseTrialValuesRoundTripAndStartIsNotOverwritten() {
-        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
-
-        XCTAssertTrue(store.startReverseTrialIfNeeded(at: startedAt))
-        XCTAssertFalse(store.startReverseTrialIfNeeded(at: startedAt.addingTimeInterval(60)))
-        store.reverseTrialEndPaywallShown = true
+    func testPendingNotificationDestinationRoundTripsWithItsWriteTime() {
+        let writtenAt = Date(timeIntervalSince1970: 1_800_000_000)
+        store.pendingNotificationDestination = PendingNotificationDestination(
+            destination: .automationGuide,
+            writtenAt: writtenAt
+        )
 
         let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertEqual(reloaded.reverseTrialStartedAt, startedAt)
-        XCTAssertTrue(reloaded.reverseTrialEndPaywallShown)
+        XCTAssertEqual(
+            reloaded.pendingNotificationDestination,
+            PendingNotificationDestination(destination: .automationGuide, writtenAt: writtenAt)
+        )
+
+        reloaded.pendingNotificationDestination = nil
+
+        XCTAssertNil(store.pendingNotificationDestination)
+        XCTAssertNil(defaults.object(forKey: "pendingNotificationDestination"))
     }
 
-    func testResetToDefaultsClearsReverseTrialState() {
-        store.reverseTrialStartedAt = Date()
-        store.reverseTrialEndPaywallShown = true
+    /// オンボーディング途中でD1通知をタップすると本体が消費できないまま残るため、
+    /// 有効期限を持たせて後日オンボーディングを終えた瞬間に飛ばされないようにする。
+    func testPendingNotificationDestinationExpiresLikeTheMidSessionCheckIn() {
+        let writtenAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let pending = PendingNotificationDestination(
+            destination: .automationGuide,
+            writtenAt: writtenAt
+        )
+
+        XCTAssertTrue(pending.isValid(at: writtenAt))
+        XCTAssertTrue(
+            pending.isValid(at: writtenAt.addingTimeInterval(PendingNotificationDestination.validityInterval))
+        )
+        XCTAssertFalse(
+            pending.isValid(
+                at: writtenAt.addingTimeInterval(PendingNotificationDestination.validityInterval + 1)
+            )
+        )
+        // 端末時計が巻き戻ったときも実行しない。
+        XCTAssertFalse(pending.isValid(at: writtenAt.addingTimeInterval(-1)))
+    }
+
+    func testResetToDefaultsClearsPendingNotificationDestination() {
+        store.pendingNotificationDestination = PendingNotificationDestination(
+            destination: .planSettings,
+            writtenAt: Date()
+        )
 
         store.resetToDefaults()
 
-        XCTAssertNil(store.reverseTrialStartedAt)
-        XCTAssertFalse(store.reverseTrialEndPaywallShown)
+        XCTAssertNil(store.pendingNotificationDestination)
     }
+
+    /// `Key` から取り除いた旧キーは既存インストールに残り続けるため、削除対象に含める。
+    func testResetToDefaultsClearsKeysRemovedFromTheCurrentSchema() {
+        let legacyKeys = [
+            "day14ClampKeptCatalogID",
+            "pendingDay14Warning",
+            "reverseTrialStartedAt",
+            "reverseTrialEndPaywallShown"
+        ]
+        for key in legacyKeys {
+            defaults.set("stale", forKey: key)
+        }
+
+        store.resetToDefaults()
+
+        for key in legacyKeys {
+            XCTAssertNil(defaults.object(forKey: key), key)
+        }
+    }
+
 }

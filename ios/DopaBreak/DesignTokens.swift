@@ -27,44 +27,269 @@ enum DesignTokens {
     static let cardRadius: CGFloat = 16
     static let horizontalPadding: CGFloat = 20
     static let sectionSpacing: CGFloat = 16
+
+    /// キャラクターの役割別サイズ。画面ごとの微調整ではなく、情報階層で使い分ける。
+    enum CharacterSize {
+        static let hero: CGFloat = 200
+        static let lead: CGFloat = 152
+        static let header: CGFloat = 120
+        static let support: CGFloat = 88
+        static let inline: CGFloat = 44
+    }
+
+    /// タップ領域の最小辺。HIGの44×44ptを全操作要素の下限として使う。
+    static let minTapTarget: CGFloat = 44
 }
+
+// MARK: - モーション
+
+/// アニメーションの意味づけ。減衰比と応答時間はAppleの Designing Fluid Interfaces に合わせる。
+/// 既定は臨界減衰（オーバーシュートなし）。跳ねを足すのは、ジェスチャ自身が勢いを持っていたときだけ。
+enum DopaMotion {
+    /// タップ・トグル・状態切替。減衰比1.0相当でオーバーシュートしない。
+    static let control = Animation.smooth(duration: 0.3)
+    /// 位置の移動・画面内の入れ替え。Appleの move 用 damping 1.0 / response 0.4 に対応。
+    static let transition = Animation.smooth(duration: 0.4)
+    /// ドロワー・シート等、指の勢いを引き継ぐ動き。damping 0.8 / response 0.3 に対応。
+    static let momentum = Animation.snappy(duration: 0.3, extraBounce: 0.1)
+    /// 達成の瞬間だけ使う祝福モーション。ここ以外で跳ねさせない。
+    static let celebrate = Animation.bouncy(duration: 0.5, extraBounce: 0.15)
+}
+
+// MARK: - タイポグラフィ（Dynamic Type）
+
+extension Font.TextStyle {
+    /// 指定ptに最も近い標準テキストスタイル。
+    /// Dynamic Typeの拡大カーブをAppleの標準に合わせるための基準として使う。
+    static func nearest(toPointSize size: CGFloat) -> Font.TextStyle {
+        switch size {
+        case ..<11.5: return .caption2      // 11pt
+        case ..<12.5: return .caption       // 12pt
+        case ..<14.0: return .footnote      // 13pt
+        case ..<15.5: return .subheadline   // 15pt
+        case ..<16.5: return .callout       // 16pt
+        case ..<18.5: return .body          // 17pt
+        case ..<21.0: return .title3        // 20pt
+        case ..<25.0: return .title2        // 22pt
+        case ..<31.0: return .title         // 28pt
+        default: return .largeTitle         // 34pt
+        }
+    }
+}
+
+/// 実寸ptを保ったままDynamic Typeに追従させる書体モディファイア。
+///
+/// 既定の文字サイズ（Large）では `\.font(.system(size:weight:design:))` と完全に同じ見え方になる。
+/// ユーザーが文字サイズを変えたときだけ、最も近い標準テキストスタイルと同じ比率で拡縮する。
+/// tracking と lineSpacing も同じ比率で追従させる（固定ptのままだと拡大時に字間・行間だけ詰まって見えるため）。
+private struct DopaFontModifier: ViewModifier {
+    @ScaledMetric private var scaledSize: CGFloat
+    private let baseSize: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+    private let tracking: CGFloat
+    private let lineSpacing: CGFloat?
+
+    init(
+        size: CGFloat,
+        weight: Font.Weight,
+        design: Font.Design,
+        tracking: CGFloat,
+        lineSpacing: CGFloat?,
+        relativeTo textStyle: Font.TextStyle
+    ) {
+        _scaledSize = ScaledMetric(wrappedValue: size, relativeTo: textStyle)
+        self.baseSize = size
+        self.weight = weight
+        self.design = design
+        self.tracking = tracking
+        self.lineSpacing = lineSpacing
+    }
+
+    /// 拡大率。baseSizeが0になることはないが、割り算前に保険をかける。
+    private var scale: CGFloat {
+        guard baseSize > 0 else { return 1 }
+        return scaledSize / baseSize
+    }
+
+    func body(content: Content) -> some View {
+        // 未指定の字間・行間には触らない。触ると子や親が持つ値を0で上書きしてしまう。
+        content
+            .font(.system(size: scaledSize, weight: weight, design: design))
+            .modifier(OptionalTracking(value: tracking == 0 ? nil : tracking * scale))
+            .modifier(OptionalLineSpacing(value: lineSpacing.map { $0 * scale }))
+    }
+
+    private struct OptionalTracking: ViewModifier {
+        let value: CGFloat?
+
+        func body(content: Content) -> some View {
+            if let value {
+                content.tracking(value)
+            } else {
+                content
+            }
+        }
+    }
+
+    private struct OptionalLineSpacing: ViewModifier {
+        let value: CGFloat?
+
+        func body(content: Content) -> some View {
+            if let value {
+                content.lineSpacing(value)
+            } else {
+                content
+            }
+        }
+    }
+}
+
+extension View {
+    /// E1のディスプレイ階層をDynamic Typeへ載せる。
+    ///
+    /// - Parameters:
+    ///   - size: 既定文字サイズでの実寸pt。現行デザインの値をそのまま渡す。
+    ///   - tracking: 字間。大きい文字ほど負に、小さい文字ほど正に振るAppleの原則に従う。
+    ///   - lineSpacing: 行間。指定したときだけ適用する。
+    ///   - textStyle: 拡縮の基準。省略時はsizeから最も近い標準スタイルを選ぶ。
+    func dopaFont(
+        _ size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default,
+        tracking: CGFloat = 0,
+        lineSpacing: CGFloat? = nil,
+        relativeTo textStyle: Font.TextStyle? = nil
+    ) -> some View {
+        modifier(
+            DopaFontModifier(
+                size: size,
+                weight: weight,
+                design: design,
+                tracking: tracking,
+                lineSpacing: lineSpacing,
+                relativeTo: textStyle ?? .nearest(toPointSize: size)
+            )
+        )
+    }
+
+    /// 巨大なディスプレイ数値が最大文字サイズでレイアウトを壊さないための上限。
+    /// 本文は上限なしのまま、数字ヒーローにだけ使う。
+    func dopaDisplayClamp() -> some View {
+        dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+    }
+
+    /// 操作要素の当たり判定を44×44pt以上にそろえる。見た目の寸法は変えない。
+    func dopaHitTarget() -> some View {
+        frame(minWidth: DesignTokens.minTapTarget, minHeight: DesignTokens.minTapTarget)
+            .contentShape(Rectangle())
+    }
+}
+
+// MARK: - ナビゲーションバー
+
+enum DopaNavigationBar {
+    /// システムのナビゲーションバーを使いつつ、見出しの書体だけE1（ブラックウェイト＋詰め字間）にそろえる。
+    ///
+    /// 背景はシステム既定のままにする。ここを不透明色で塗るとiOS 26のスクロール端の素材効果が消えるため、
+    /// 上端では透明・スクロールで潜り込んだときだけ素材、という標準の挙動を保つ。
+    /// 書体は `UIFontMetrics` を通してDynamic Typeにも追従させる。
+    static func apply() {
+        let primary = UIColor(DesignTokens.primaryText)
+
+        let largeTitleAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: primary,
+            .font: UIFontMetrics(forTextStyle: .largeTitle)
+                .scaledFont(for: .systemFont(ofSize: 34, weight: .black)),
+            .kern: -0.7
+        ]
+        let inlineTitleAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: primary,
+            .font: UIFontMetrics(forTextStyle: .headline)
+                .scaledFont(for: .systemFont(ofSize: 17, weight: .bold))
+        ]
+
+        let scrollEdge = UINavigationBarAppearance()
+        scrollEdge.configureWithTransparentBackground()
+        scrollEdge.largeTitleTextAttributes = largeTitleAttributes
+        scrollEdge.titleTextAttributes = inlineTitleAttributes
+
+        let standard = UINavigationBarAppearance()
+        standard.configureWithDefaultBackground()
+        standard.largeTitleTextAttributes = largeTitleAttributes
+        standard.titleTextAttributes = inlineTitleAttributes
+
+        let proxy = UINavigationBar.appearance()
+        proxy.scrollEdgeAppearance = scrollEdge
+        proxy.standardAppearance = standard
+        proxy.compactAppearance = standard
+    }
+}
+
+// MARK: - ボタン
 
 struct PrimaryButtonStyle: ButtonStyle {
     var isEnabled: Bool = true
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(DesignTokens.background)
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .background(isEnabled ? DesignTokens.accent : DesignTokens.secondaryText.opacity(0.3))
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(Color.white.opacity(isEnabled ? 0.18 : 0))
-                    .frame(height: 1)
-                    .padding(.horizontal, 12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .opacity(configuration.isPressed ? 0.9 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        ScaledLabel(configuration: configuration, isEnabled: isEnabled)
+    }
+
+    /// `@ScaledMetric` は環境を読むため、ButtonStyle本体ではなく実Viewの中で解決させる。
+    private struct ScaledLabel: View {
+        let configuration: Configuration
+        let isEnabled: Bool
+        @ScaledMetric(relativeTo: .callout) private var minHeight: CGFloat = 56
+
+        var body: some View {
+            configuration.label
+                .dopaFont(16, weight: .bold)
+                .foregroundStyle(DesignTokens.background)
+                .frame(maxWidth: .infinity, minHeight: minHeight)
+                .background(isEnabled ? DesignTokens.accent : DesignTokens.secondaryText.opacity(0.3))
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(isEnabled ? 0.18 : 0))
+                        .frame(height: 1)
+                        .padding(.horizontal, 12)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .scaleEffect(configuration.isPressed ? 0.985 : 1)
+                .opacity(configuration.isPressed ? 0.9 : 1)
+                // 押下は即時・臨界減衰。離した瞬間に元へ戻る動きも同じばねで中断可能にする。
+                .animation(DopaMotion.control, value: configuration.isPressed)
+        }
     }
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 15, weight: .bold))
-            .foregroundStyle(DesignTokens.primaryText)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .background(configuration.isPressed ? DesignTokens.cardPressed : DesignTokens.backgroundRaised)
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(DesignTokens.strongHairline, lineWidth: 1)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        ScaledLabel(configuration: configuration)
+    }
+
+    private struct ScaledLabel: View {
+        let configuration: Configuration
+        @ScaledMetric(relativeTo: .subheadline) private var minHeight: CGFloat = 54
+
+        var body: some View {
+            configuration.label
+                .dopaFont(15, weight: .bold)
+                .foregroundStyle(DesignTokens.primaryText)
+                .frame(maxWidth: .infinity, minHeight: minHeight)
+                .background(configuration.isPressed ? DesignTokens.cardPressed : DesignTokens.backgroundRaised)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(DesignTokens.strongHairline, lineWidth: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .animation(DopaMotion.control, value: configuration.isPressed)
+        }
     }
 }
+
+// MARK: - コンテナ・部品
 
 struct CardContainer<Content: View>: View {
     let content: Content
@@ -91,9 +316,8 @@ struct SmallLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .dopaFont(11, weight: .bold, design: .monospaced, tracking: 1.5)
             .foregroundStyle(DesignTokens.secondaryText)
-            .tracking(1.5)
             .textCase(.none)
     }
 }
@@ -110,14 +334,15 @@ struct ScreenHeader: View {
                 Spacer()
                 if let trailingText {
                     Text(trailingText)
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .dopaFont(12, weight: .bold, design: .monospaced)
                         .foregroundStyle(DesignTokens.secondaryText)
                 }
             }
             Text(title)
-                .font(.system(size: 30, weight: .black))
+                .dopaFont(30, weight: .black, tracking: -0.7)
                 .foregroundStyle(DesignTokens.primaryText)
-                .tracking(-0.7)
+                // 見出しはVoiceOverでも見出しとして読み上げる。
+                .accessibilityAddTraits(.isHeader)
         }
     }
 }
@@ -130,8 +355,9 @@ struct SignalLabel: View {
             Capsule()
                 .fill(DesignTokens.accent)
                 .frame(width: 3, height: 18)
+                .accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 13, weight: .bold))
+                .dopaFont(13, weight: .bold)
                 .foregroundStyle(DesignTokens.accent)
         }
     }
@@ -145,51 +371,18 @@ struct MetricBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(value)
-                .font(.system(size: 30, weight: .black, design: .rounded))
+                .dopaFont(30, weight: .black, design: .rounded)
                 .monospacedDigit()
                 .foregroundStyle(accent ? DesignTokens.accent : DesignTokens.primaryText)
+                // 数値が入れ替わるときは桁単位で回す。
+                .contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 11, weight: .bold))
+                .dopaFont(11, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-struct MorningHorizon: View {
-    var height: CGFloat
-    var alignment: Alignment = .center
-    var bottomFade: CGFloat = 0.92
-
-    var body: some View {
-        horizonImage
-            .resizable()
-            .scaledToFill()
-            .frame(maxWidth: .infinity)
-            .frame(height: height, alignment: alignment)
-            .clipped()
-            .overlay {
-                LinearGradient(
-                    stops: [
-                        .init(color: DesignTokens.background.opacity(0.18), location: 0),
-                        .init(color: DesignTokens.background.opacity(0.26), location: 0.48),
-                        .init(color: DesignTokens.background.opacity(bottomFade), location: 1)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-            .accessibilityHidden(true)
-    }
-
-    private var horizonImage: Image {
-        guard
-            let url = Bundle.main.url(forResource: "morning-horizon", withExtension: "png"),
-            let image = UIImage(contentsOfFile: url.path)
-        else {
-            return Image(systemName: "photo")
-        }
-        return Image(uiImage: image)
+        // 「12回 / 開かずに戻れた」を2読み上げに割らず、1要素として読ませる。
+        .accessibilityElement(children: .combine)
     }
 }
 

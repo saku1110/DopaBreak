@@ -29,22 +29,26 @@ extension GoalCategory {
 }
 
 struct GoalEditorSheet: View {
+    /// 題名の文字数上限。入力した言葉がそのままロック画面へ出るため、
+    /// ロック面に収まる長さを入力側の上限に揃える（2026-08-08の入力一本化）。
+    private let titleLimit = OnboardingGoalList.titleLimit
+
     @Environment(\.dismiss) private var dismiss
 
     let model: AppModel
     let goal: Goal?
     @State private var title: String
     @State private var category: GoalCategory
-    @State private var lockScreenTitle: String
 
     private var isExisting: Bool { goal != nil }
 
     init(model: AppModel, goal: Goal?) {
         self.model = model
         self.goal = goal
-        _title = State(initialValue: goal?.title ?? "")
+        // 上限を超える既存データ（旧40字）は開いた時点で16字へ寄せる。
+        // 開いてすぐ保存できない行き止まりを作らないため。
+        _title = State(initialValue: goal.map { OnboardingGoalList.normalize($0.title) } ?? "")
         _category = State(initialValue: goal?.category ?? .other)
-        _lockScreenTitle = State(initialValue: goal?.lockScreenTitle ?? "")
     }
 
     var body: some View {
@@ -53,7 +57,6 @@ struct GoalEditorSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     inputBlock
                     categoryBlock
-                    lockScreenBlock
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
@@ -82,13 +85,17 @@ struct GoalEditorSheet: View {
         .preferredColorScheme(.dark)
     }
 
+    /// 目標の題名。入力した言葉はそのままロック画面へ出るため、上限はロック面に収まる16字。
     private var inputBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 SmallLabel(text: String(localized: "goal_editor.goal.label", defaultValue: "目標"))
                 Spacer()
-                counterText(count: title.count, limit: 40)
+                // 保存可否の判定と同じ数え方（前後の空白を除く）にそろえる
+                counterText(count: trimmedTitle.count, limit: titleLimit)
             }
+            // 変換中の未確定文字列をbindingへ書き戻すと日本語入力が壊れるため、
+            // ここでは切り詰めない。上限超過は赤いカウンタと保存の無効化で示す
             fieldContainer {
                 TextField(
                     String(localized: "goal_editor.goal.placeholder", defaultValue: "例 英語で商談できる自分になる"),
@@ -96,13 +103,8 @@ struct GoalEditorSheet: View {
                     axis: .vertical
                 )
                     .lineLimit(2...4)
-                    .font(.system(size: 20, weight: .bold))
+                    .dopaFont(20, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
-            }
-            .onChange(of: title) { _, newValue in
-                if newValue.count > 40 {
-                    title = String(newValue.prefix(40))
-                }
             }
         }
     }
@@ -122,29 +124,6 @@ struct GoalEditorSheet: View {
         }
     }
 
-    private var lockScreenBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                SmallLabel(text: String(localized: "goal_editor.lock_title.label", defaultValue: "ロック画面用の短い表示名"))
-                Spacer()
-                counterText(count: lockScreenTitle.count, limit: 16)
-            }
-            fieldContainer {
-                TextField(
-                    String(localized: "goal_editor.lock_title.placeholder", defaultValue: "ロック画面用の短い表示名"),
-                    text: $lockScreenTitle
-                )
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(DesignTokens.primaryText)
-            }
-            .onChange(of: lockScreenTitle) { _, newValue in
-                if newValue.count > 16 {
-                    lockScreenTitle = String(newValue.prefix(16))
-                }
-            }
-        }
-    }
-
     private var actionArea: some View {
         VStack(spacing: 10) {
             Button(String(localized: "goal_editor.action.save", defaultValue: "保存")) {
@@ -154,13 +133,13 @@ struct GoalEditorSheet: View {
                         goal,
                         title: title,
                         category: category,
-                        lockScreenTitle: lockScreenTitle
+                        lockScreenTitle: nil
                     )
                 } else {
                     saved = model.addGoal(
                         title: title,
                         category: category,
-                        lockScreenTitle: lockScreenTitle
+                        lockScreenTitle: nil
                     )
                 }
                 if saved {
@@ -177,7 +156,7 @@ struct GoalEditorSheet: View {
                     }
                 } label: {
                     Text(String(localized: "goal_editor.action.delete", defaultValue: "削除"))
-                        .font(.system(size: 16, weight: .semibold))
+                        .dopaFont(16, weight: .semibold)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .foregroundStyle(DesignTokens.danger)
@@ -189,13 +168,12 @@ struct GoalEditorSheet: View {
         .background(DesignTokens.background)
     }
 
+    private var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var isValid: Bool {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedLockTitle = lockScreenTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (1...40).contains(trimmedTitle.count) else {
-            return false
-        }
-        return trimmedLockTitle.isEmpty || trimmedLockTitle.count <= 16
+        (1...titleLimit).contains(trimmedTitle.count)
     }
 
     private func fieldContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -213,7 +191,7 @@ struct GoalEditorSheet: View {
 
     private func counterText(count: Int, limit: Int) -> some View {
         Text(String(localized: "goal_editor.character_count", defaultValue: "\(count)/\(limit)"))
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .dopaFont(12, weight: .medium, design: .monospaced)
             .foregroundStyle(count > limit ? DesignTokens.danger : DesignTokens.secondaryText)
     }
 

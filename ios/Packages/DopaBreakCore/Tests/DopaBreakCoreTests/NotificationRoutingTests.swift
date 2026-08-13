@@ -1,0 +1,86 @@
+import Foundation
+import XCTest
+@testable import DopaBreakCore
+
+final class NotificationRoutingTests: XCTestCase {
+    func testReportNotificationsLandOnStats() {
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.morning),
+            .stats
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.weekly),
+            .stats
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.month1Report),
+            .stats
+        )
+    }
+
+    func testUsageWatchNotificationsLandOnStats() {
+        XCTAssertEqual(
+            NotificationRouting.destination(
+                forIdentifier: "\(UsageWatchConstants.notificationIdentifierPrefix)step3"
+            ),
+            .stats
+        )
+    }
+
+    func testPlanNotificationsLandOnPlanSettings() {
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.trialDay5),
+            .planSettings
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.month12Renewal),
+            .planSettings
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(
+                forIdentifier: NotificationIdentifier.annualUpgradeOffer
+            ),
+            .planSettings
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.cancelSave),
+            .planSettings
+        )
+    }
+
+    func testActivationNotificationsLandOnAutomationGuide() {
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.d1Activation),
+            .automationGuide
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.d3Activation),
+            .automationGuide
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.d7Inactive),
+            .automationGuide
+        )
+    }
+
+    func testMidSessionAndUnknownIdentifiersHaveNoDestination() {
+        XCTAssertNil(
+            NotificationRouting.destination(
+                forIdentifier: "\(NotificationIdentifier.midSessionPrefix)instagram.\(UUID().uuidString)"
+            )
+        )
+        XCTAssertNil(NotificationRouting.destination(forIdentifier: "dopabreak.day14warning"))
+        XCTAssertNil(NotificationRouting.destination(forIdentifier: ""))
+    }
+
+    func testDestinationRawValuesSurviveUserDefaultsRoundTrip() {
+        for destination in NotificationDestination.allCases {
+            XCTAssertEqual(
+                NotificationDestination(rawValue: destination.rawValue),
+                destination
+            )
+        }
+        // Batch 2 が保存していた値との互換を保つ。
+        XCTAssertEqual(NotificationDestination(rawValue: "stats"), .stats)
+    }
+}

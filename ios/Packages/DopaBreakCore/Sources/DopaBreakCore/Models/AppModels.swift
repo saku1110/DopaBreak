@@ -424,6 +424,8 @@ public struct LockSurfaceState: Codable, Equatable, Sendable {
     public var morningNotificationEnabled: Bool
     public var morningNotificationTime: DateComponents
     public var weeklyReportEnabled: Bool
+    public var retentionSupportNotificationsEnabled: Bool
+    public var planNotificationsEnabled: Bool
     public var liveActivityEnabled: Bool
     public var liveActivityStartedAt: Date?
     public var theme: LockTheme
@@ -432,6 +434,8 @@ public struct LockSurfaceState: Codable, Equatable, Sendable {
         morningNotificationEnabled: Bool,
         morningNotificationTime: DateComponents,
         weeklyReportEnabled: Bool,
+        retentionSupportNotificationsEnabled: Bool = true,
+        planNotificationsEnabled: Bool = true,
         liveActivityEnabled: Bool,
         liveActivityStartedAt: Date?,
         theme: LockTheme
@@ -439,6 +443,8 @@ public struct LockSurfaceState: Codable, Equatable, Sendable {
         self.morningNotificationEnabled = morningNotificationEnabled
         self.morningNotificationTime = morningNotificationTime
         self.weeklyReportEnabled = weeklyReportEnabled
+        self.retentionSupportNotificationsEnabled = retentionSupportNotificationsEnabled
+        self.planNotificationsEnabled = planNotificationsEnabled
         self.liveActivityEnabled = liveActivityEnabled
         self.liveActivityStartedAt = liveActivityStartedAt
         self.theme = theme
@@ -517,12 +523,20 @@ public struct PendingMidSessionCheckIn: Codable, Equatable, Sendable {
     }
 }
 
-public struct PendingDay14Warning: Codable, Equatable, Sendable {
-    public static let validityInterval: TimeInterval = 24 * 60 * 60
+/// 通知タップの着地先の保留（docs/18 §2f）。
+///
+/// 書き込み時刻を持つのは、本体が消費しないまま残るケースがあるため。
+/// 通知許可はオンボーディング途中で取るので、そこで離脱した人がD1通知をタップすると
+/// `OnboardingFlow` が出ている＝`RootTabView` がいないため誰も消費できない。
+/// 有効期限を切らないと、数週間後にオンボーディングを終えた瞬間に設定画面へ飛ばされる。
+public struct PendingNotificationDestination: Codable, Equatable, Sendable {
+    public static let validityInterval: TimeInterval = 30 * 60
 
+    public let destination: NotificationDestination
     public let writtenAt: Date
 
-    public init(writtenAt: Date) {
+    public init(destination: NotificationDestination, writtenAt: Date) {
+        self.destination = destination
         self.writtenAt = writtenAt
     }
 

@@ -30,7 +30,7 @@ final class StoreService {
 
     private let funnelEventStore: FunnelEventStore
     private let now: () -> Date
-    private let onProEntitlementActivated: (() -> Void)?
+    private let usageWatchStore: UsageWatchStore?
 
     // Remote config can swap this between dopabreak.pro.annual and dopabreak.pro.annual.launch.
     var activeAnnualProductID: String {
@@ -67,18 +67,21 @@ final class StoreService {
     @ObservationIgnored
     private var updatesTask: Task<Void, Never>?
 
+    @ObservationIgnored
+    var onPurchaseOrRestoreFailure: (() -> Void)?
+
     init(
         activeAnnualProductID: String = ProProductID.annual.rawValue,
         funnelEventStore: FunnelEventStore = FunnelEventStore(snapshotStore: JSONSnapshotStore()),
-        now: @escaping () -> Date = { .now },
-        onProEntitlementActivated: (() -> Void)? = nil
+        usageWatchStore: UsageWatchStore? = nil,
+        now: @escaping () -> Date = { .now }
     ) {
         self.activeAnnualProductID = Self.annualProductIDs.contains(activeAnnualProductID)
             ? activeAnnualProductID
             : ProProductID.annual.rawValue
         self.funnelEventStore = funnelEventStore
+        self.usageWatchStore = usageWatchStore
         self.now = now
-        self.onProEntitlementActivated = onProEntitlementActivated
 
         updatesTask = listenForTransactions()
         Task {
@@ -139,10 +142,12 @@ final class StoreService {
                 return false
             @unknown default:
                 alertMessage = String(localized: "store.error.purchase", defaultValue: "購入を完了できませんでした")
+                onPurchaseOrRestoreFailure?()
                 return false
             }
         } catch {
             alertMessage = String(localized: "store.error.purchase", defaultValue: "購入を完了できませんでした")
+            onPurchaseOrRestoreFailure?()
             return false
         }
     }
@@ -177,16 +182,25 @@ final class StoreService {
             try await AppStore.sync()
             await refreshEntitlement()
             if !isPro {
-                alertMessage = String(
-                    localized: "store.status.no_restorable_purchase",
-                    defaultValue: "復元できる購入がありませんでした"
-                )
+                reportNoRestorablePurchase()
             }
             return isPro
         } catch {
             alertMessage = String(localized: "store.error.restore", defaultValue: "購入を復元できませんでした")
+            onPurchaseOrRestoreFailure?()
             return false
         }
+    }
+
+    /// 復元しても解放できるものが無かったとき。
+    /// アラートを出すだけでなく失敗として通知する。ユーザーにとっては「復元できなかった」体験であり、
+    /// 直後にレビュー依頼を出すと星1につながる（docs/18 §1・release-monetization-check B-1）。
+    func reportNoRestorablePurchase() {
+        alertMessage = String(
+            localized: "store.status.no_restorable_purchase",
+            defaultValue: "復元できる購入がありませんでした"
+        )
+        onPurchaseOrRestoreFailure?()
     }
 
     func refreshEntitlement() async {
@@ -227,7 +241,9 @@ final class StoreService {
         entitlementRevision &+= 1
         if isPro {
             hasPendingPurchase = false
-            onProEntitlementActivated?()
+        }
+        usageWatchStore?.updateConfiguration { configuration in
+            configuration.isPro = isPro
         }
         hasResolvedEntitlement = true
     }
@@ -264,6 +280,7 @@ final class StoreService {
                         localized: "store.error.verification",
                         defaultValue: "購入を確認できませんでした"
                     )
+                    self.onPurchaseOrRestoreFailure?()
                 }
             }
         }
@@ -286,18 +303,23 @@ final class StoreService {
         } else {
             offerType = nil
         }
+
+        var willAutoRenew: Bool?
+        var renewalDate: Date?
+        if let status = await transaction.subscriptionStatus,
+           case .verified(let renewalInfo) = status.renewalInfo {
+            willAutoRenew = renewalInfo.willAutoRenew
+            // 自動更新がオフのとき、renewalDateは「更新日」ではなく現在の期間の終了日を指す。
+            renewalDate = renewalInfo.renewalDate
+        }
+
         return SubscriptionEntitlementSnapshot(
             productID: transaction.productID,
             purchaseDate: transaction.purchaseDate,
             originalPurchaseDate: transaction.originalPurchaseDate,
             offerType: offerType,
-            willAutoRenew: await transaction.subscriptionStatus
-                .flatMap { status in
-                    guard case .verified(let renewalInfo) = status.renewalInfo else {
-                        return nil
-                    }
-                    return renewalInfo.willAutoRenew
-                }
+            willAutoRenew: willAutoRenew,
+            expirationDate: transaction.expirationDate ?? renewalDate
         )
     }
 

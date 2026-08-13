@@ -173,6 +173,20 @@ Family Controls distribution entitlement.
 - ~~各App ID（`.app` / `.shieldconfig` / `.shieldaction` / `.monitor` の4つ）で **Family Controls (Distribution)** capabilityを有効化~~ → ✅ 完了（＋App Groups も付与）
 - Xcode自動署名なら provisioning profile は次回ビルド時に自動再生成される
 
+## 4. App Review Notes — Picture in Picture tutorial
+
+Paste the following text into App Store Connect Review Notes. `UIBackgroundModes = audio` must remain enabled because it supports this user-visible Picture in Picture media-playback flow.
+
+```text
+DopaBreak uses Picture in Picture only for a silent, user-visible tutorial that helps the user configure a Shortcuts automation.
+
+To reproduce: open DopaBreak → Settings → Automation Guide → Open Shortcuts. The tutorial is shown inline before the user taps Open Shortcuts. For this specific transition, DopaBreak temporarily allows the system to start Picture in Picture automatically from the inline player so the user can keep following the tutorial while configuring Shortcuts. DopaBreak does not call startPictureInPicture() programmatically.
+
+The app declares the Audio, AirPlay, and Picture in Picture background mode only for this tutorial playback. Its AVAudioSession uses the playback category with moviePlayback mode and mixWithOthers, and the tutorial is muted, so other audio continues without interruption. Automatic Picture in Picture is disabled again when DopaBreak becomes active or when the guide closes. Any active Picture in Picture session is stopped on return to DopaBreak and when the guide closes; closing the guide also resets the player and deactivates the audio session.
+
+Apple documentation: https://developer.apple.com/documentation/avfoundation/configuring-your-app-for-media-playback
+```
+
 ## 出典（2026-07-02 WebSearch確認）
 - [Requesting the Family Controls entitlement — Apple Developer Documentation](https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement)
 - [申請フォーム](https://developer.apple.com/contact/request/family-controls-distribution)

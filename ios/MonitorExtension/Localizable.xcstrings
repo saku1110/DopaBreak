@@ -1,0 +1,94 @@
+{
+  "sourceLanguage": "ja",
+  "strings": {
+    "usage_watch.notification.action.mute_today": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Mute for today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日は止める" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘은 그만 알리기" } }
+      }
+    },
+    "usage_watch.notification.free_warning.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Did you find what you were looking for?" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "見ようとしていたものは見つかりましたか？" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "보려던 걸 찾았나요?" } }
+      }
+    },
+    "usage_watch.notification.free_warning.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "2 hours straight ⏰" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "連続で2時間になりました⏰" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "연속 2시간째예요 ⏰" } }
+      }
+    },
+    "usage_watch.notification.hourly.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "What did this hour leave you with? 💭" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "この1時間で何が残りましたか？💭" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 1시간 동안 뭐가 남았나요? 💭" } }
+      }
+    },
+    "usage_watch.notification.hourly.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Another hour just passed" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "また1時間たちました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "또 1시간이 지났어요" } }
+      }
+    },
+    "usage_watch.notification.q15.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Still scrolling?" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "SNSをまだ見ますか？" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "아직 더 볼 거예요?" } }
+      }
+    },
+    "usage_watch.notification.q15.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "15 minutes in" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "15分たちました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "15분 지났어요" } }
+      }
+    },
+    "usage_watch.notification.q30.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Got what you came for? 👀" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "SNSで満足感を得られましたか？👀" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "충분히 만족했나요? 👀" } }
+      }
+    },
+    "usage_watch.notification.q30.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "30 minutes in" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "30分たちました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "30분 지났어요" } }
+      }
+    },
+    "usage_watch.notification.q45.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "How many more minutes? ⏳" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あと何分で終わりにしますか？⏳" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "몇 분 뒤에 끝낼 건가요? ⏳" } }
+      }
+    },
+    "usage_watch.notification.q45.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "45 minutes in" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "45分たちました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "45분 지났어요" } }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -67,6 +67,16 @@ public final class SQLiteLogStore: @unchecked Sendable {
         return try countAttempts(from: start, to: end)
     }
 
+    /// 全期間の介入試行数。D7未活性フォールバックの「一度も介入が起きていない」判定に使う。
+    public func attemptCount() throws -> Int {
+        try attemptDatabase.perform { db in
+            let sql = "SELECT COUNT(*) FROM attempt_logs"
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            return try fetchCount(statement, db: db, sql: sql)
+        }
+    }
+
     public func cancelledAttemptCount() throws -> Int {
         try attemptDatabase.perform { db in
             let sql = "SELECT COUNT(*) FROM attempt_logs WHERE decision = ?"

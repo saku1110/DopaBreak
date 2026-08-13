@@ -9,6 +9,7 @@ public enum FunnelEventName: String, Codable, Equatable, Sendable {
     case prePaywallSkipped
     case trialOrPurchaseStarted
     case appOpened
+    case reviewPromptShown = "review_prompt_shown"
 }
 
 public struct FunnelEvent: Codable, Equatable, Sendable {

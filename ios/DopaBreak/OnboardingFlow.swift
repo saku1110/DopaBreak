@@ -17,6 +17,7 @@ enum OnboardingStep: Int, CaseIterable {
     case whyScience
     case permission
     case notificationGuide
+    case lockScreenCheck
     case prePaywallSummary
     case ready
 
@@ -46,6 +47,7 @@ enum OnboardingStep: Int, CaseIterable {
         case .whyScience: return "why_science"
         case .permission: return "permission"
         case .notificationGuide: return "notification_guide"
+        case .lockScreenCheck: return "lock_screen_check"
         case .prePaywallSummary: return "pre_paywall_summary"
         case .ready: return "ready"
         }
@@ -90,7 +92,7 @@ private struct TimeLedgerMotif: View {
                 SmallLabel(text: String(localized: "onboarding.welcome.ledger.eyebrow", defaultValue: "TODAY / 1,440 MINUTES"))
                 Spacer()
                 Text(String(format: "%02d:%02d", currentHour, currentMinute))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .dopaFont(12, weight: .bold, design: .monospaced)
                     .foregroundStyle(DesignTokens.primaryText)
                     .monospacedDigit()
             }
@@ -112,7 +114,7 @@ private struct TimeLedgerMotif: View {
                 Spacer()
                 Text("24")
             }
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .dopaFont(10, weight: .bold, design: .monospaced)
             .foregroundStyle(DesignTokens.tertiaryText)
 
             HStack(spacing: 9) {
@@ -120,7 +122,7 @@ private struct TimeLedgerMotif: View {
                     .fill(DesignTokens.accent)
                     .frame(width: 6, height: 6)
                 Text(String(localized: "onboarding.welcome.ledger.body", defaultValue: "今日という時間は、いまも減り続けている。"))
-                    .font(.system(size: 13, weight: .bold))
+                    .dopaFont(13, weight: .bold)
                     .foregroundStyle(DesignTokens.secondaryText)
             }
         }
@@ -150,13 +152,16 @@ struct OnboardingFlow: View {
     let onComplete: () -> Void
 
     private let snapshotStore = JSONSnapshotStore(containerProvider: DefaultContainerProvider())
-    private let usageOptions = ["1時間未満", "1〜2時間", "2〜4時間", "4時間以上"]
+    private let usageOptions = ["1時間未満", "1〜2時間", "2〜4時間", "4〜6時間", "6時間以上"]
     private let frequencyOptions = ["全くない", "数日", "半分以上", "ほとんど毎日"]
     private let goalPresets = [
         String(localized: "onboarding.goal.preset.reading", defaultValue: "読書を30分"),
         String(localized: "onboarding.goal.preset.workout", defaultValue: "筋トレを続ける"),
         String(localized: "onboarding.goal.preset.study", defaultValue: "資格の勉強"),
     ]
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.locale) private var locale
 
     @State private var step: OnboardingStep = .welcome
     @State private var direction: SlideDirection = .forward
@@ -167,35 +172,45 @@ struct OnboardingFlow: View {
     @State private var selectedCatalogIDs: [String] = []
     @State private var appSelectionMessage: String?
     @State private var heroGoal = ""
-    @State private var lockScreenTitle = ""
-    @State private var savedGoalID: UUID?
+    /// この画面で編集中の目標一覧。保存済みの目標も含め、ここが表示と保存の正本になる。
+    @State private var draftGoals: [OnboardingGoalDraft] = []
+    /// 差分の基準。入場時と保存直後の保存済み内容を持つ。
+    /// これが無いと、画面を開いている間に別経路で増えた目標まで消してしまう。
+    @State private var goalBaseline = OnboardingGoalBaseline()
     @State private var goalCategory: GoalCategory = .other
-    @State private var isLockScreenTitleExpanded = false
     @State private var selectedMode: InterventionMode = .standard
     @State private var showDeepFocusConfirmation = false
     @State private var notificationMessage: String?
     @State private var isRequestingNotifications = false
+    @State private var lockScreenCheckPhase: LockScreenCheckPhase = .starting
     @State private var paywallPlacement: PaywallPlacement?
     @State private var flowAlert: OnboardingAlert?
+    /// 着火演出の実行中フラグ。演出が終わるまで次へ・あとでを受け付けない。
+    @State private var isIgniting = false
+    /// 目標入力欄のフォーカス。着火の前にキーボードを下げ、炎が隠れないようにする。
+    @FocusState private var isGoalFieldFocused: Bool
+    /// 選択の触感トークン。画面と一緒に消えない位置で監視する
+    @State private var selectionFeedbackToken = 0
+    /// 完了画面の祝福演出を一度だけ走らせるフラグ
+    @State private var isReadyCelebrated = false
 
+    /// - Parameter initialStep: 開始ステップ。既定は`.welcome`で本番の挙動は変わらない。
+    ///   任意ステップの見た目を実機で確認するキャプチャハーネス用に開けている。
     init(
         model: AppModel,
         settingsStore: SettingsStore,
+        initialStep: OnboardingStep = .welcome,
         onComplete: @escaping () -> Void
     ) {
         self.model = model
         self.settingsStore = settingsStore
         self.onComplete = onComplete
+        _step = State(initialValue: initialStep)
 
-        let restoredGoalID = settingsStore.onboardingSavedGoalID.flatMap(UUID.init(uuidString:))
-        _savedGoalID = State(initialValue: restoredGoalID)
-
-        if let restoredGoalID,
-           let goal = model.goals.first(where: { $0.id == restoredGoalID }) {
-            _heroGoal = State(initialValue: goal.title)
-            _lockScreenTitle = State(initialValue: goal.lockScreenTitle ?? "")
-            _goalCategory = State(initialValue: goal.category)
-        }
+        // 保存済みの目標をそのままリストへ戻す。IDを持ったまま扱うため、
+        // 中断して入り直しても、次へで同じ目標がもう1件増えることはない。
+        _draftGoals = State(initialValue: OnboardingGoalList.restore(from: model.goals))
+        _goalBaseline = State(initialValue: OnboardingGoalBaseline(goals: model.goals))
     }
 
     var body: some View {
@@ -208,6 +223,10 @@ struct OnboardingFlow: View {
         }
         .safeAreaInset(edge: .bottom) {
             bottomBar
+        }
+        // 着火は画面最下端に貼りつける。安全領域の下（ホームバー側）まで使う
+        .overlay(alignment: .bottom) {
+            ignitionOverlay
         }
         .alert(item: $flowAlert) { alert in
             Alert(
@@ -224,10 +243,7 @@ struct OnboardingFlow: View {
             PaywallView(
                 storeService: model.storeService,
                 placement: placement,
-                settingsStore: settingsStore,
-                onDismissWithoutPurchase: {
-                    model.startReverseTrialIfNeeded()
-                }
+                settingsStore: settingsStore
             )
         }
         .alert(String(localized: "onboarding.mode.deep_focus.confirmation.title", defaultValue: "Deep Focusは強めの設定です"), isPresented: $showDeepFocusConfirmation) {
@@ -241,29 +257,47 @@ struct OnboardingFlow: View {
         } message: {
             Text(String(localized: "onboarding.mode.deep_focus.confirmation.message", defaultValue: "集中時間中は、簡単にはSNSを開けません。"))
         }
+        // 選択の触感は画面（`.id(step)`）と一緒に消えない位置へ置く。
+        // 回答と同時に次へ進むクイズでも、触感が失われないようにするため
+        .sensoryFeedback(.selection, trigger: selectionFeedbackToken)
+        .sensoryFeedback(.success, trigger: isReadyCelebrated)
         .preferredColorScheme(.dark)
     }
 
-    @ViewBuilder
     private var onboardingBackdrop: some View {
         DesignTokens.background.ignoresSafeArea()
-        if step == .welcome || step == .ready {
-            MorningHorizon(height: 470, alignment: .top, bottomFade: 0.98)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea(edges: .top)
+    }
+
+    /// 目標を決めた瞬間の着火。演出が終わってから次の画面へ進む。
+    @ViewBuilder
+    private var ignitionOverlay: some View {
+        if isIgniting {
+            GoalIgnitionFlame()
+                .ignoresSafeArea()
                 .transition(.opacity)
+                .task {
+                    do {
+                        try await Task.sleep(for: .seconds(GoalIgnitionFlame.duration))
+                    } catch {
+                        return
+                    }
+                    guard !Task.isCancelled else {
+                        return
+                    }
+                    finishIgnition()
+                }
         }
     }
 
     private var progressHeader: some View {
         VStack(spacing: 10) {
             HStack {
-                if step.previous != nil {
+                if previousStep(before: step) != nil {
                     Button {
                         goBack()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .bold))
+                            .dopaFont(17, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
                             .frame(width: 44, height: 44, alignment: .leading)
                     }
@@ -283,6 +317,8 @@ struct OnboardingFlow: View {
                     Rectangle()
                         .fill(DesignTokens.accent)
                         .frame(width: max(0, proxy.size.width * step.progress))
+                        // 幅がアニメーションせず飛んでいたため、遷移と同じ長さで伸ばす
+                        .animation(reduceMotion ? nil : DopaMotion.transition, value: step)
                 }
             }
             .frame(height: 2)
@@ -297,11 +333,15 @@ struct OnboardingFlow: View {
                 .id(step)
                 .transition(slideTransition)
         }
-        .animation(.easeInOut(duration: 0.24), value: step)
+        .animation(DopaMotion.transition, value: step)
     }
 
     private var slideTransition: AnyTransition {
-        .asymmetric(
+        // Reduce Motion時は画面全体の水平移動をやめ、フェードだけで入れ替える
+        guard !reduceMotion else {
+            return .opacity
+        }
+        return .asymmetric(
             insertion: .move(edge: direction.insertionEdge).combined(with: .opacity),
             removal: .move(edge: direction.removalEdge).combined(with: .opacity)
         )
@@ -334,6 +374,8 @@ struct OnboardingFlow: View {
             automationGuideContent
         case .notificationGuide:
             notificationGuideContent
+        case .lockScreenCheck:
+            lockScreenCheckContent
         case .prePaywallSummary:
             prePaywallSummaryContent
         case .ready:
@@ -366,11 +408,11 @@ struct OnboardingFlow: View {
     private var primaryAction: some View {
         switch step {
         case .welcome:
-            primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "はじめる")) { advance() }
+            primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "30秒でチェックする")) { advance() }
         case .selfCheck:
-            primaryButton(String(localized: "onboarding.action.next", defaultValue: "次へ"), enabled: usageBucket != nil) { advance() }
+            primaryButton(String(localized: "onboarding.action.next", defaultValue: "次に進む"), enabled: usageBucket != nil) { advance() }
         case .quizResult:
-            primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を、変える")) { advance() }
+            primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を取り戻す")) { advance() }
         case .chooseApps:
             primaryButton(
                 selectedCatalogIDs.isEmpty
@@ -380,28 +422,52 @@ struct OnboardingFlow: View {
                 persistSelectedAppsAndAdvance()
             }
         case .goalSetup:
-            primaryButton(String(localized: "onboarding.action.next", defaultValue: "次へ")) { saveGoalAndAdvance(skipped: false) }
+            primaryButton(
+                String(localized: "onboarding.goal.action", defaultValue: "この目標で進む"),
+                enabled: canLeaveGoalSetup
+            ) {
+                saveGoalAndAdvance(skipped: false)
+            }
         case .chooseMode:
             primaryButton(String(localized: "onboarding.mode.action", defaultValue: "この設定で進む")) { confirmModeIfNeeded() }
         case .preview:
-            primaryButton(String(localized: "onboarding.preview.action", defaultValue: "なるほど、続ける")) { advance() }
+            primaryButton(String(localized: "onboarding.preview.action", defaultValue: "この仕組みを使う")) { advance() }
         case .whyScience:
-            primaryButton(String(localized: "onboarding.action.continue", defaultValue: "続ける")) { advance() }
+            primaryButton(String(localized: "onboarding.science.action", defaultValue: "仕組みに任せる")) { advance() }
         case .permission:
             VStack(spacing: 10) {
                 primaryButton(String(localized: "onboarding.automation.action", defaultValue: "ショートカットを開く")) { openShortcutsAndAdvance() }
                 Text(String(localized: "onboarding.automation.action_note", defaultValue: "設定できたかどうかは 対象アプリを開いたときに自動で確認されます"))
-                    .font(.system(size: 13, weight: .medium))
+                    .dopaFont(13, weight: .medium, lineSpacing: 3)
                     .foregroundStyle(DesignTokens.secondaryText)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(3)
             }
         case .notificationGuide:
             primaryButton(String(localized: "onboarding.notification.action", defaultValue: "通知をオンにする"), enabled: !isRequestingNotifications) {
                 Task { await requestNotifications() }
             }
+        case .lockScreenCheck:
+            switch lockScreenCheckPhase {
+            case .blocked(.systemDisabled):
+                primaryButton(String(localized: "lock_check.action.settings", defaultValue: "設定を開く")) {
+                    LockScreenSettingsLink.open()
+                }
+            case .blocked(.failed):
+                primaryButton(String(localized: "lock_check.action.retry", defaultValue: "もう一度出す")) {
+                    Task {
+                        await LockScreenCheckAction.retry(
+                            model: model,
+                            phase: $lockScreenCheckPhase
+                        )
+                    }
+                }
+            case .starting, .waiting, .confirmed, .noGoal:
+                primaryButton(String(localized: "onboarding.action.next", defaultValue: "次に進む")) {
+                    completeLockScreenCheckAndAdvance()
+                }
+            }
         case .prePaywallSummary:
-            primaryButton(String(localized: "onboarding.action.continue", defaultValue: "続ける")) { paywallPlacement = .onboardingPrepaywallSummary }
+            primaryButton(String(localized: "onboarding.summary.action", defaultValue: "この時間を守る")) { paywallPlacement = .onboardingPrepaywallSummary }
         case .ready:
             primaryButton(String(localized: "onboarding.ready.action", defaultValue: "DopaBreakをはじめる")) { advance() }
         case .quizAimless, .quizRegret:
@@ -418,6 +484,10 @@ struct OnboardingFlow: View {
             secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
         case .notificationGuide:
             secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
+        case .lockScreenCheck:
+            if lockScreenCheckPhase.isBlocked {
+                secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
+            }
         case .prePaywallSummary:
             secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) {
                 model.recordFunnelEvent(.prePaywallSkipped, detail: step.identifier)
@@ -433,25 +503,31 @@ private extension OnboardingFlow {
     var welcomeContent: some View {
         screenScroll {
             centeredEyebrow(String(localized: "onboarding.welcome.eyebrow", defaultValue: "DOPABREAK"))
+                .onboardingStagger(0)
 
-            Spacer(minLength: 292)
+            // Spacerは幅を持たないため、overlayを重ねると中央基準が定まらず左へ寄る。
+            // キャラは自前で横幅いっぱいの中央へ置き、前後20ptで見出しと分離する。
+            CharacterView(.doom, size: DesignTokens.CharacterSize.lead)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .onboardingStagger(1)
 
             VStack(alignment: .center, spacing: 22) {
-                Text(String(localized: "onboarding.welcome.title", defaultValue: "人生の時間は\n二度と戻らない"))
-                    .font(.system(size: 44, weight: .black))
+                Text(String(localized: "onboarding.welcome.title", defaultValue: "人生の時間は 二度と戻らない"))
+                    .typesettingLanguage(locale.language)
+                    .dopaFont(44, weight: .black, tracking: -1, lineSpacing: 2)
                     .foregroundStyle(DesignTokens.primaryText)
-                    .lineSpacing(2)
-                    .tracking(-1)
                     .minimumScaleFactor(0.74)
                     .multilineTextAlignment(.center)
 
-                centeredLead(String(localized: "onboarding.welcome.lead", defaultValue: "そのスクロールが、いちばん高くついている。"))
+                centeredLead(String(localized: "onboarding.welcome.lead", defaultValue: "なんとなく開くだけで1日が終わる"))
 
-                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "開く前に、選び直す"))
-                    .font(.system(size: 17, weight: .bold))
+                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "開く前に選び直す"))
+                    .dopaFont(17, weight: .bold)
                     .foregroundStyle(DesignTokens.accent)
             }
             .frame(maxWidth: .infinity, alignment: .center)
+            .onboardingStagger(2)
         }
     }
 
@@ -459,42 +535,54 @@ private extension OnboardingFlow {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.self_check.eyebrow", defaultValue: "質問 1 / 3"))
-                centeredLead(String(localized: "onboarding.self_check.privacy_note", defaultValue: "回答は端末内にのみ保存されます。"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.self_check.title", defaultValue: "SNSを見ている時間は 1日どれくらいですか？"))
+                    .onboardingStagger(1)
+                centeredLead(String(localized: "onboarding.self_check.hint", defaultValue: "ざっくりでOKです"))
+                    .onboardingStagger(2)
+                singleSelectOptions(usageOptions, selection: $usageBucket)
+                    .onboardingStagger(3)
 
-                optionSection(title: String(localized: "onboarding.self_check.title", defaultValue: "SNSを見ている時間は\n1日どれくらいですか？")) {
-                    centeredLead(String(localized: "onboarding.self_check.hint", defaultValue: "ざっくりでOKです"))
-                    singleSelectOptions(usageOptions, selection: $usageBucket)
-                }
+                centeredLead(String(localized: "onboarding.self_check.privacy_note", defaultValue: "回答は端末内にのみ保存されます。"))
+                    .onboardingStagger(4)
             }
         }
     }
 
     var aimlessQuizContent: some View {
         screenScroll {
-            VStack(alignment: .leading, spacing: 26) {
+            VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.aimless.eyebrow", defaultValue: "質問 2 / 3"))
-                centeredLead(String(localized: "onboarding.aimless.lead", defaultValue: "この2週間、次のことはどれくらい当てはまりますか？"))
-                centeredTitle(String(localized: "onboarding.aimless.title", defaultValue: "気づけば、目的もなく\nスクロールしている"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.aimless.title", defaultValue: "気づけば目的もなく スクロールしている"))
+                    .onboardingStagger(1)
+                centeredLead(String(localized: "onboarding.aimless.lead", defaultValue: "この2週間でどれくらい当てはまりましたか？"))
+                    .onboardingStagger(2)
                 frequencyButtons(selection: aimlessScrollBucket) { option in
                     aimlessScrollBucket = option
                     advance()
                 }
+                .onboardingStagger(3)
             }
         }
     }
 
     var regretQuizContent: some View {
         screenScroll {
-            VStack(alignment: .leading, spacing: 26) {
+            VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.regret.eyebrow", defaultValue: "質問 3 / 3"))
-                centeredLead(String(localized: "onboarding.regret.lead", defaultValue: "SNSを閉じたあとの気持ちは"))
-                centeredTitle(String(localized: "onboarding.regret.title", defaultValue: "「時間を溶かした」と\n感じることがある"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.regret.title", defaultValue: "「時間を溶かした」と 感じることがある"))
+                    .onboardingStagger(1)
+                centeredLead(String(localized: "onboarding.regret.lead", defaultValue: "SNSを閉じたあと どれくらい当てはまりますか？"))
+                    .onboardingStagger(2)
                 frequencyButtons(selection: regretBucket) { option in
                     regretBucket = option
                     if persistSelfCheckSnapshot() {
                         advance()
                     }
                 }
+                .onboardingStagger(3)
             }
         }
     }
@@ -504,39 +592,69 @@ private extension OnboardingFlow {
         return screenScroll {
             VStack(alignment: .center, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.result.eyebrow", defaultValue: "推計結果 / YOUR RESULT"))
+                    .onboardingStagger(0)
                 centeredLead(String(localized: "onboarding.result.lead", defaultValue: "あなたの回答にもとづく推計では"))
+                    .onboardingStagger(1)
+
+                // 数値の提示が終わった直後、損失を受け止める表情へ切り替える。
+                CharacterSwapSequence(
+                    from: .doom,
+                    to: .worse,
+                    size: DesignTokens.CharacterSize.lead,
+                    delayNanoseconds: 1_350_000_000
+                )
+                .frame(maxWidth: .infinity)
 
                 VStack(alignment: .center, spacing: 16) {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(dailyTimeText(minutes: estimate.dailyMinutes))
-                            .font(.system(size: 70, weight: .black, design: .rounded))
+                        // 0から実数値へ数字を回す。単位は最終表示に固定し、桁幅を暴れさせない
+                        OnboardingCountUp(
+                            target: estimate.dailyMinutes,
+                            accessibilityText: dailyTimeText(minutes: estimate.dailyMinutes)
+                        ) { minutes in
+                            Text(
+                                countingDailyTimeText(
+                                    minutes: minutes,
+                                    finalMinutes: estimate.dailyMinutes
+                                )
+                            )
+                            .dopaFont(70, weight: .black, design: .rounded)
                             .monospacedDigit()
                             .foregroundStyle(DesignTokens.accent)
+                        }
                         Text(String(localized: "onboarding.result.per_day", defaultValue: "/ 日"))
-                            .font(.system(size: 20, weight: .black))
+                            .dopaFont(20, weight: .black)
                             .foregroundStyle(DesignTokens.primaryText)
                     }
 
-                    centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "が毎日、SNSに溶けています"))
+                    centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "が毎日SNSに溶けています"))
 
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text(String(localized: "onboarding.result.yearly.prefix", defaultValue: "1年に換算すると 約"))
-                            .font(.system(size: 18, weight: .bold))
+                            .dopaFont(18, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
-                        Text("\(estimate.yearlyDays)")
-                            .font(.system(size: 58, weight: .black, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(DesignTokens.accent)
+                        OnboardingCountUp(
+                            target: estimate.yearlyDays,
+                            accessibilityText: "\(estimate.yearlyDays)"
+                        ) { days in
+                            Text("\(days)")
+                                .dopaFont(58, weight: .black, design: .rounded)
+                                .monospacedDigit()
+                                .foregroundStyle(DesignTokens.accent)
+                        }
                         Text(String(localized: "onboarding.result.yearly.suffix", defaultValue: "日"))
-                            .font(.system(size: 28, weight: .black))
+                            .dopaFont(28, weight: .black)
                             .foregroundStyle(DesignTokens.primaryText)
                     }
                 }
+                .onboardingStagger(2)
 
                 centeredLead(String(localized: "onboarding.result.disclaimer", defaultValue: "※ご回答からの推計値です。医療診断ではありません。"))
                     .padding(.top, 8)
+                    .onboardingStagger(3)
 
-                centeredLead(String(localized: "onboarding.result.ten_years", defaultValue: "このままなら10年で 約\(estimate.yearlyDays * 10)日"))
+                centeredLead(String(localized: "onboarding.result.lifetime", defaultValue: "このままなら50年で 人生の約\(lifetimeYearsText(yearlyDays: estimate.yearlyDays))年"))
+                    .onboardingStagger(4)
             }
             .frame(maxWidth: .infinity, alignment: .center)
         }
@@ -545,13 +663,19 @@ private extension OnboardingFlow {
     var chooseAppsContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
+                centeredEyebrow(String(localized: "onboarding.apps.eyebrow", defaultValue: "TARGET APPS"))
+                    .onboardingStagger(0)
                 centeredTitle(String(localized: "onboarding.apps.title", defaultValue: "止めたいアプリを選ぶ"))
+                    .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.apps.lead", defaultValue: "いつでも変更できます。"))
-                centeredLead(String(localized: "onboarding.apps.free_limit_note", defaultValue: "はじめの14日は3つまで追加できます"))
+                    .onboardingStagger(2)
+                centeredLead(String(localized: "onboarding.apps.free_limit_note", defaultValue: "無料プランでは1つまで"))
+                    .onboardingStagger(3)
 
                 VStack(spacing: 10) {
-                    ForEach(SNSAppCatalog.all) { item in
+                    ForEach(Array(SNSAppCatalog.all.enumerated()), id: \.element.id) { index, item in
                         catalogAppButton(item)
+                            .onboardingStagger(4 + index)
                     }
                 }
 
@@ -564,19 +688,50 @@ private extension OnboardingFlow {
 
     var goalSetupContent: some View {
         screenScroll {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.goal.eyebrow", defaultValue: "あなたの目標 / GOAL"))
-                centeredTitle(String(localized: "onboarding.goal.title", defaultValue: "空いたこの時間で\n何をしますか？"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.goal.title", defaultValue: "空いたこの時間で 何をしますか？"))
+                    .onboardingStagger(1)
 
-                fieldContainer {
-                    TextField(String(localized: "onboarding.goal.placeholder", defaultValue: "例: 英語で話せるようになる"), text: $heroGoal, axis: .vertical)
-                        .lineLimit(1...3)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(DesignTokens.primaryText)
-                        .onChange(of: heroGoal) { _, value in
-                            trim($heroGoal, to: 40, value: value)
+                VStack(alignment: .leading, spacing: 8) {
+                    fieldContainer {
+                        HStack(spacing: 8) {
+                            // 変換中の未確定文字列をbindingへ書き戻すと日本語入力が壊れるため、
+                            // ここでは切り詰めない。上限は文字数表示と追加ボタンの有効・無効で示し、
+                            // 確定はcommit時の正規化で行う
+                            TextField(
+                                String(localized: "onboarding.goal.placeholder", defaultValue: "例: 英語で話せるようになる"),
+                                text: $heroGoal
+                            )
+                            .dopaFont(18, weight: .bold)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .focused($isGoalFieldFocused)
+                            .submitLabel(.done)
+                            .onSubmit {
+                                commitDraftGoal()
+                            }
+
+                            addGoalButton
                         }
+                    }
+
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(String(localized: "onboarding.goal.helper", defaultValue: "そのままロック画面に表示されます"))
+                            .dopaFont(13, weight: .medium)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                        Spacer(minLength: 8)
+                        Text(
+                            String(
+                                localized: "onboarding.goal.character_count",
+                                defaultValue: "\(typedGoalLength)/\(OnboardingGoalList.titleLimit)"
+                            )
+                        )
+                        .dopaFont(12, weight: .medium, design: .monospaced)
+                        .foregroundStyle(isTypedGoalOverLimit ? DesignTokens.danger : DesignTokens.secondaryText)
+                    }
                 }
+                .onboardingStagger(2)
 
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 96), spacing: 8)],
@@ -587,65 +742,36 @@ private extension OnboardingFlow {
                         goalPresetChip(preset)
                     }
                 }
+                .onboardingStagger(3)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isLockScreenTitleExpanded.toggle()
+                if !draftGoals.isEmpty {
+                    VStack(spacing: 8) {
+                        ForEach(draftGoals) { draft in
+                            draftGoalRow(draft)
                         }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(String(localized: "onboarding.goal.lock_screen_label", defaultValue: "ロック画面に出す短い言葉(任意)"))
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(DesignTokens.secondaryText)
-                                .multilineTextAlignment(.leading)
-                            Spacer(minLength: 8)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(DesignTokens.secondaryText)
-                                .rotationEffect(.degrees(isLockScreenTitleExpanded ? 90 : 0))
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                        .background(DesignTokens.card)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(DesignTokens.hairline, lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityValue(
-                        isLockScreenTitleExpanded
-                            ? String(localized: "onboarding.goal.lock_screen_expanded", defaultValue: "展開中")
-                            : String(localized: "onboarding.goal.lock_screen_collapsed", defaultValue: "折りたたみ中")
-                    )
-
-                    if isLockScreenTitleExpanded {
-                        fieldContainer {
-                            TextField(String(localized: "onboarding.goal.lock_screen_placeholder", defaultValue: "例: 英語で話す"), text: $lockScreenTitle)
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundStyle(DesignTokens.primaryText)
-                                .onChange(of: lockScreenTitle) { _, value in
-                                    trim($lockScreenTitle, to: 16, value: value)
-                                }
-                        }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    .onboardingStagger(4)
                 }
             }
+            // 着火中に足したり消したりされると、保存済みとリストがずれたまま次の画面へ進む
+            .disabled(isIgniting)
         }
     }
 
     var chooseModeContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
-                centeredTitle(String(localized: "onboarding.mode.title", defaultValue: "どのくらい強く\n止めますか？"))
+                centeredEyebrow(String(localized: "onboarding.mode.eyebrow", defaultValue: "STRENGTH"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.mode.title", defaultValue: "どのくらい強く 止めますか？"))
+                    .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.mode.lead", defaultValue: "生活に合う強さを選べます。"))
+                    .onboardingStagger(2)
 
                 VStack(spacing: 12) {
-                    ForEach(InterventionMode.allCases, id: \.self) { mode in
+                    ForEach(Array(InterventionMode.allCases.enumerated()), id: \.element) { index, mode in
                         modeButton(mode)
+                            .onboardingStagger(3 + index)
                     }
                 }
             }
@@ -656,10 +782,22 @@ private extension OnboardingFlow {
 private extension OnboardingFlow {
     var previewContent: some View {
         screenScroll {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.preview.eyebrow", defaultValue: "PREVIEW"))
-                centeredTitle(String(localized: "onboarding.preview.title", defaultValue: "SNSを開こうとすると、\nこうなります"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.preview.title", defaultValue: "SNSを開こうとすると こうなります"))
+                    .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.preview.lead", defaultValue: "目的を確かめて、必要なときだけ意図して開けるようにします。"))
+                    .onboardingStagger(2)
+
+                CharacterSwapSequence(
+                    from: .doom,
+                    to: .awake,
+                    size: DesignTokens.CharacterSize.header,
+                    delayNanoseconds: 700_000_000
+                )
+                .frame(maxWidth: .infinity)
+                .onboardingStagger(3)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
@@ -669,26 +807,31 @@ private extension OnboardingFlow {
                         numberedLine(String(localized: "onboarding.preview.step4", defaultValue: "4. 使った後の満足感を振り返る"))
                     }
                 }
+                .onboardingStagger(4)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 16) {
                         Text(String(localized: "onboarding.preview.card.title", defaultValue: "何のために開く？"))
-                            .font(.system(size: 24, weight: .bold))
+                            .dopaFont(24, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
                         previewChoice(String(localized: "onboarding.preview.card.cancel", defaultValue: "開かない"), highlighted: true)
                         previewChoice(String(localized: "onboarding.preview.card.continue", defaultValue: "理由を選んで続ける"), highlighted: false)
                     }
                 }
+                .onboardingStagger(5)
             }
         }
     }
 
     var whyScienceContent: some View {
         screenScroll {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.science.eyebrow", defaultValue: "WHY IT WORKS / 科学的背景"))
-                centeredTitle(String(localized: "onboarding.science.title", defaultValue: "意志の力では、\n勝てない"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.science.title", defaultValue: "意志の力では 勝てない"))
+                    .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.science.lead", defaultValue: "つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。"))
+                    .onboardingStagger(2)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 14) {
@@ -710,52 +853,61 @@ private extension OnboardingFlow {
                         )
                     }
                 }
+                .onboardingStagger(3)
 
                 centeredLead(
-                    String(localized: "onboarding.science.research", defaultValue: "開く前にワンクッション置く手法は、\n査読付き研究（PNAS, 2023）で\nSNS利用を平均57%減らすことが\n示されています。")
+                    String(localized: "onboarding.science.research", defaultValue: "開く前にワンクッション置く手法は、査読付き研究（PNAS, 2023）でSNS利用を平均57%減らすことが示されています。")
                 )
+                .onboardingStagger(4)
 
                 VStack(alignment: .leading, spacing: 8) {
                     bodyText(String(localized: "onboarding.science.disclaimer.study", defaultValue: "※他社アプリ(one sec)を対象とした研究です。"))
                     bodyText(String(localized: "onboarding.science.disclaimer.effect", defaultValue: "※本アプリの効果を保証するものではありません。"))
                     bodyText(String(localized: "onboarding.science.disclaimer.medical", defaultValue: "※医療・治療を目的としたアプリではありません。"))
                 }
+                .onboardingStagger(5)
             }
         }
     }
 
     var automationGuideContent: some View {
         screenScroll {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 24) {
+                centeredEyebrow(String(localized: "onboarding.automation.eyebrow", defaultValue: "SETUP"))
+                    .onboardingStagger(0)
                 centeredTitle(String(localized: "onboarding.automation.title", defaultValue: "自動で一呼吸を出す設定"))
+                    .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.automation.lead", defaultValue: "ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。設定は一度だけ・約2分です。"))
+                    .onboardingStagger(2)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
                         numberedLine(String(localized: "onboarding.automation.step1", defaultValue: "1. オートメーションを開く"))
                         numberedLine(String(localized: "onboarding.automation.step2", defaultValue: "2. ＋を押してAppを選ぶ"))
-                        numberedLine(String(localized: "onboarding.automation.step3", defaultValue: "3. 対象アプリを選び開かれたときを選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step3", defaultValue: "3. 対象アプリを選び「開かれたとき」を選ぶ"))
                         numberedLine(String(localized: "onboarding.automation.step4", defaultValue: "4. すぐに実行を選ぶ"))
-                        numberedLine(String(localized: "onboarding.automation.step5", defaultValue: "5. アクションでDopaBreakで一呼吸を選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step5", defaultValue: "5. アクションで「DopaBreakで一呼吸」を選ぶ"))
                     }
                 }
+                .onboardingStagger(3)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 10) {
                         SmallLabel(text: String(localized: "onboarding.automation.apps_label", defaultValue: "設定するアプリ"))
                         if selectedTargets.isEmpty {
                             Text(String(localized: "onboarding.automation.apps_empty", defaultValue: "先に止めるアプリを選んでください。"))
-                                .font(.system(size: 15, weight: .semibold))
+                                .dopaFont(15, weight: .semibold)
                                 .foregroundStyle(DesignTokens.secondaryText)
                         } else {
                             ForEach(selectedTargets) { target in
                                 Text(target.displayName)
-                                    .font(.system(size: 16, weight: .bold))
+                                    .dopaFont(16, weight: .bold)
                                     .foregroundStyle(DesignTokens.primaryText)
                             }
                         }
                     }
                 }
+                .onboardingStagger(4)
 
             }
         }
@@ -765,11 +917,20 @@ private extension OnboardingFlow {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.notification.eyebrow", defaultValue: "NOTIFICATION"))
-                centeredTitle(String(localized: "onboarding.notification.title", defaultValue: "ロック画面に、\n戻る先を"))
+                    .onboardingStagger(0)
+                centeredTitle(String(localized: "onboarding.notification.title", defaultValue: "ロック画面に 目標を"))
+                    .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.notification.lead", defaultValue: "朝の通知とLive Activityで、目標を毎日思い出します。"))
+                    .onboardingStagger(2)
 
                 ZStack(alignment: .bottom) {
-                    MorningHorizon(height: 300, alignment: .center, bottomFade: 0.78)
+                    DesignTokens.backgroundRaised
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 300)
+                        .overlay(alignment: .top) {
+                            CharacterView(.relief, size: DesignTokens.CharacterSize.support)
+                                .padding(.top, 16)
+                        }
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             SmallLabel(text: String(localized: "onboarding.notification.preview.app_name", defaultValue: "DOPABREAK"))
@@ -777,7 +938,7 @@ private extension OnboardingFlow {
                             SmallLabel(text: String(localized: "onboarding.notification.preview.now", defaultValue: "今"))
                         }
                         Text(notificationGoalText)
-                            .font(.system(size: 20, weight: .black))
+                            .dopaFont(20, weight: .black)
                             .foregroundStyle(DesignTokens.primaryText)
                             .lineLimit(2)
                         HStack(spacing: 6) {
@@ -785,10 +946,10 @@ private extension OnboardingFlow {
                                 .foregroundStyle(DesignTokens.secondaryText)
                             Text(String(localized: "onboarding.notification.preview.count", defaultValue: "\(model.todayCancelledCount)回"))
                                 .foregroundStyle(DesignTokens.accent)
-                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開かずに戻れた"))
+                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開かなかった"))
                                 .foregroundStyle(DesignTokens.secondaryText)
                         }
-                        .font(.system(size: 14, weight: .bold))
+                        .dopaFont(14, weight: .bold)
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -805,11 +966,19 @@ private extension OnboardingFlow {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(DesignTokens.hairline, lineWidth: 1)
                 }
+                .onboardingStagger(3)
 
                 if let notificationMessage {
                     messageCard(notificationMessage)
+                        .onboardingStagger(4)
                 }
             }
+        }
+    }
+
+    var lockScreenCheckContent: some View {
+        screenScroll {
+            LockScreenCheckContent(model: model, phase: $lockScreenCheckPhase)
         }
     }
 
@@ -817,8 +986,14 @@ private extension OnboardingFlow {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.summary.eyebrow", defaultValue: "あなた専用プラン / READY"))
+                    .onboardingStagger(0)
+                CharacterView(.awake, size: DesignTokens.CharacterSize.header)
+                    .frame(maxWidth: .infinity)
+                    .onboardingStagger(1)
                 centeredTitle(String(localized: "onboarding.summary.title", defaultValue: "準備が整いました"))
+                    .onboardingStagger(2)
                 centeredLead(String(localized: "onboarding.summary.lead", defaultValue: "この設定で、開く前の一呼吸が増えます。"))
+                    .onboardingStagger(3)
 
                 CardContainer {
                     VStack(spacing: 0) {
@@ -828,7 +1003,7 @@ private extension OnboardingFlow {
                         )
                         divider
                         summaryRow(
-                            label: String(localized: "onboarding.summary.goal", defaultValue: "戻る先"),
+                            label: String(localized: "onboarding.summary.goal", defaultValue: "目標"),
                             value: goalSummaryText.isEmpty
                                 ? String(localized: "onboarding.value.not_set", defaultValue: "未設定")
                                 : goalSummaryText
@@ -840,43 +1015,51 @@ private extension OnboardingFlow {
                         )
                     }
                 }
+                .onboardingStagger(4)
 
-                centeredLead(String(localized: "onboarding.summary.footer", defaultValue: "開く前に選べる状態を、今日から始めます。"))
+                centeredLead(String(localized: "onboarding.summary.footer", defaultValue: "今日から、開く前に選べるようになります。"))
+                    .onboardingStagger(5)
             }
         }
     }
 
     var readyContent: some View {
         screenScroll {
-            VStack(alignment: .center, spacing: 26) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 58, weight: .heavy))
-                    .foregroundStyle(DesignTokens.accent)
-                    .frame(width: 136, height: 96)
+            VStack(alignment: .center, spacing: 24) {
+                CharacterView(.relief, size: DesignTokens.CharacterSize.support)
+                    .frame(
+                        width: DesignTokens.CharacterSize.support * (17.0 / 12.0),
+                        height: DesignTokens.CharacterSize.support
+                    )
                     .background(DesignTokens.accent.opacity(0.09))
                     .overlay(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .stroke(DesignTokens.accent.opacity(0.42), lineWidth: 2)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    // 到達を祝うポップイン。Reduce Motion時は拡大せず出すだけにする
+                    .scaleEffect(readyCheckmarkScale)
+                    .opacity(isReadyCelebrated ? 1 : 0)
 
                 VStack(spacing: 12) {
                     titleText(String(localized: "onboarding.ready.title", defaultValue: "準備完了"))
                         .multilineTextAlignment(.center)
-                    bodyText(String(localized: "onboarding.ready.body", defaultValue: "今日から、開く前に選び直す。"))
+                    bodyText(String(localized: "onboarding.ready.body", defaultValue: "今日から 開く前に選び直す"))
                         .multilineTextAlignment(.center)
                 }
+                .onboardingStagger(0)
 
                 if !goalSummaryText.isEmpty {
                     CardContainer {
                         VStack(alignment: .leading, spacing: 10) {
                             SmallLabel(text: String(localized: "onboarding.ready.goal_label", defaultValue: "あなたの目標"))
                             Text(goalSummaryText)
-                                .font(.system(size: 20, weight: .black))
+                                .dopaFont(20, weight: .black)
                                 .foregroundStyle(DesignTokens.primaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
+                    .onboardingStagger(1)
                 }
 
                 if let firstTarget = selectedTargets.first,
@@ -889,16 +1072,27 @@ private extension OnboardingFlow {
                             .buttonStyle(SecondaryButtonStyle())
 
                             Text(String(localized: "onboarding.ready.test_body", defaultValue: "\(firstTarget.displayName)を開いて一呼吸が出れば成功です。"))
-                                .font(.system(size: 14, weight: .semibold))
+                                .dopaFont(14, weight: .semibold, lineSpacing: 4)
                                 .foregroundStyle(DesignTokens.secondaryText)
-                                .lineSpacing(4)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .onboardingStagger(2)
                 }
             }
             .frame(maxWidth: .infinity)
         }
+        .onAppear {
+            celebrateReadyIfNeeded()
+        }
+    }
+
+    /// 祝福前は少し縮めておき、到達時にバネで戻す
+    var readyCheckmarkScale: CGFloat {
+        if isReadyCelebrated {
+            return 1
+        }
+        return reduceMotion ? 1 : 0.62
     }
 }
 
@@ -918,17 +1112,17 @@ private extension OnboardingFlow {
 
     func titleText(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 34, weight: .black))
+            .typesettingLanguage(locale.language)
+            .dopaFont(34, weight: .black, lineSpacing: 5)
             .foregroundStyle(DesignTokens.primaryText)
-            .lineSpacing(5)
             .minimumScaleFactor(0.74)
     }
 
     func bodyText(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 16, weight: .semibold))
+            .typesettingLanguage(locale.language)
+            .dopaFont(16, weight: .semibold, lineSpacing: 5)
             .foregroundStyle(DesignTokens.secondaryText)
-            .lineSpacing(5)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -950,20 +1144,6 @@ private extension OnboardingFlow {
             .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    func optionSection<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(DesignTokens.primaryText)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, alignment: .center)
-            content()
-        }
-    }
-
     func singleSelectOptions(
         _ options: [String],
         selection: Binding<String?>
@@ -975,6 +1155,7 @@ private extension OnboardingFlow {
                     isSelected: selection.wrappedValue == option
                 ) {
                     selection.wrappedValue = option
+                    markSelectionFeedback()
                 }
             }
         }
@@ -987,6 +1168,7 @@ private extension OnboardingFlow {
         VStack(spacing: 10) {
             ForEach(frequencyOptions, id: \.self) { option in
                 optionButton(title: frequencyOptionTitle(option), isSelected: selection == option) {
+                    markSelectionFeedback()
                     action(option)
                 }
             }
@@ -1001,7 +1183,7 @@ private extension OnboardingFlow {
         Button(action: action) {
             HStack {
                 Text(title)
-                    .font(.system(size: 18, weight: .bold))
+                    .dopaFont(18, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
                 Spacer()
                 if isSelected {
@@ -1015,7 +1197,7 @@ private extension OnboardingFlow {
             .overlay(optionStroke(isSelected: isSelected))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPressStyle())
     }
 
     func optionStroke(isSelected: Bool) -> some View {
@@ -1031,8 +1213,10 @@ private extension OnboardingFlow {
             return String(localized: "onboarding.self_check.option.one_to_two_hours", defaultValue: "1〜2時間")
         case "2〜4時間":
             return String(localized: "onboarding.self_check.option.two_to_four_hours", defaultValue: "2〜4時間")
-        case "4時間以上":
-            return String(localized: "onboarding.self_check.option.four_plus_hours", defaultValue: "4時間以上")
+        case "4〜6時間":
+            return String(localized: "onboarding.self_check.option.four_to_six_hours", defaultValue: "4〜6時間")
+        case "6時間以上":
+            return String(localized: "onboarding.self_check.option.six_plus_hours", defaultValue: "6時間以上")
         default:
             return option
         }
@@ -1062,18 +1246,18 @@ private extension OnboardingFlow {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: item.symbolName)
-                    .font(.system(size: 16, weight: .black))
+                    .dopaFont(16, weight: .black)
                     .foregroundStyle(DesignTokens.primaryText)
                     .frame(width: 42, height: 42)
                     .background(DesignTokens.backgroundRaised)
                     .clipShape(Circle())
 
                 Text(item.displayName)
-                    .font(.system(size: 18, weight: .bold))
+                    .dopaFont(18, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
                 Spacer()
                 Image(systemName: isSelected ? "checkmark" : "plus")
-                    .font(.system(size: 16, weight: .bold))
+                    .dopaFont(16, weight: .bold)
                     .foregroundStyle(isSelected ? DesignTokens.accent : DesignTokens.secondaryText)
             }
             .padding(16)
@@ -1081,7 +1265,7 @@ private extension OnboardingFlow {
             .overlay(optionStroke(isSelected: isSelected))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPressStyle())
     }
 
     func modeButton(_ mode: InterventionMode) -> some View {
@@ -1091,7 +1275,7 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(mode.displayTitle)
-                        .font(.system(size: 20, weight: .black))
+                        .dopaFont(20, weight: .black)
                         .foregroundStyle(DesignTokens.primaryText)
                     Spacer()
                     if selectedMode == mode {
@@ -1100,7 +1284,7 @@ private extension OnboardingFlow {
                     }
                 }
                 Text(mode.detailText)
-                    .font(.system(size: 15, weight: .semibold))
+                    .dopaFont(15, weight: .semibold)
                     .foregroundStyle(DesignTokens.secondaryText)
             }
             .padding(18)
@@ -1109,7 +1293,7 @@ private extension OnboardingFlow {
             .overlay(optionStroke(isSelected: selectedMode == mode))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPressStyle())
     }
 
     func selectMode(_ mode: InterventionMode) {
@@ -1117,77 +1301,83 @@ private extension OnboardingFlow {
             paywallPlacement = .onboardingModeGate
             return
         }
+        guard selectedMode != mode else {
+            return
+        }
         selectedMode = mode
+        markSelectionFeedback()
+    }
+
+    /// 入力中の言葉をリストへ足すボタン。キーボードの確定（`onSubmit`）と同じ動作。
+    var addGoalButton: some View {
+        Button {
+            commitDraftGoal()
+        } label: {
+            Text(String(localized: "onboarding.goal.add", defaultValue: "追加"))
+                .dopaFont(15, weight: .bold)
+                .foregroundStyle(canAddTypedGoal ? DesignTokens.accent : DesignTokens.tertiaryText)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!canAddTypedGoal)
     }
 
     func goalPresetChip(_ preset: String) -> some View {
-        Button {
-            heroGoal = preset
+        // 選択の見た目はリストに入っているかどうかで決める。状態を二重に持たない
+        let isAdded = OnboardingGoalList.contains(preset, in: draftGoals)
+        return Button {
+            addDraftGoal(preset)
         } label: {
             Text(preset)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(heroGoal == preset ? DesignTokens.background : DesignTokens.primaryText)
+                .dopaFont(14, weight: .bold)
+                .foregroundStyle(isAdded ? DesignTokens.background : DesignTokens.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .padding(.horizontal, 10)
-                .background(heroGoal == preset ? DesignTokens.accent : DesignTokens.card)
+                .background(isAdded ? DesignTokens.accent : DesignTokens.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(heroGoal == preset ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
+                        .stroke(isAdded ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(heroGoal == preset ? .isSelected : [])
+        .buttonStyle(OnboardingPressStyle())
+        .accessibilityAddTraits(isAdded ? .isSelected : [])
     }
 
-    func goalInputBlock(
-        label: String,
-        placeholder: String,
-        text: Binding<String>,
-        limit: Int,
-        help: String? = nil
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                SmallLabel(text: label)
-                Spacer()
-                Text("\(text.wrappedValue.count)/\(limit)")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(DesignTokens.secondaryText)
-            }
-
-            fieldContainer {
-                TextField(placeholder, text: text, axis: .vertical)
-                    .lineLimit(1...3)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .onChange(of: text.wrappedValue) { _, value in
-                        trim(text, to: limit, value: value)
-                    }
-            }
-
-            if let help {
-                bodyText(help)
-            }
-        }
-    }
-
-    var categoryBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: String(localized: "onboarding.goal.category", defaultValue: "カテゴリ"))
-            fieldContainer {
-                Picker(String(localized: "onboarding.goal.category", defaultValue: "カテゴリ"), selection: $goalCategory) {
-                    ForEach(GoalCategory.allCases, id: \.self) { category in
-                        Text(category.japaneseLabel).tag(category)
-                    }
-                }
-                .pickerStyle(.menu)
+    func draftGoalRow(_ draft: OnboardingGoalDraft) -> some View {
+        HStack(spacing: 8) {
+            Text(draft.title)
+                .dopaFont(17, weight: .bold)
+                .foregroundStyle(DesignTokens.primaryText)
+                .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                removeDraftGoal(draft)
+            } label: {
+                Image(systemName: "xmark")
+                    .dopaFont(13, weight: .black)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "onboarding.goal.remove", defaultValue: "\(draft.title)を削除"))
         }
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .background(DesignTokens.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(DesignTokens.hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
+
 }
 
 private extension OnboardingFlow {
@@ -1221,7 +1411,7 @@ private extension OnboardingFlow {
 
     func textOnlyButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .font(.system(size: 15, weight: .semibold))
+            .dopaFont(15, weight: .semibold)
             .foregroundStyle(DesignTokens.secondaryText)
             .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
@@ -1231,22 +1421,21 @@ private extension OnboardingFlow {
     func messageCard(_ text: String) -> some View {
         CardContainer {
             Text(text)
-                .font(.system(size: 15, weight: .semibold))
+                .dopaFont(15, weight: .semibold, lineSpacing: 5)
                 .foregroundStyle(DesignTokens.secondaryText)
-                .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     func numberedLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 17, weight: .bold))
+            .dopaFont(17, weight: .bold)
             .foregroundStyle(DesignTokens.primaryText)
     }
 
     func previewChoice(_ text: String, highlighted: Bool) -> some View {
         Text(text)
-            .font(.system(size: 16, weight: .bold))
+            .dopaFont(16, weight: .bold)
             .foregroundStyle(highlighted ? DesignTokens.background : DesignTokens.primaryText)
             .frame(maxWidth: .infinity, minHeight: 46)
             .background(highlighted ? DesignTokens.accent : DesignTokens.backgroundRaised)
@@ -1256,10 +1445,10 @@ private extension OnboardingFlow {
     func principleLine(_ title: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 17, weight: .black))
+                .dopaFont(17, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
             Text(detail)
-                .font(.system(size: 15, weight: .semibold))
+                .dopaFont(15, weight: .semibold)
                 .foregroundStyle(DesignTokens.secondaryText)
         }
     }
@@ -1275,11 +1464,11 @@ private extension OnboardingFlow {
     func summaryRow(label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Text(label)
-                .font(.system(size: 15, weight: .bold))
+                .dopaFont(15, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(value)
-                .font(.system(size: 17, weight: .black))
+                .dopaFont(17, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -1303,9 +1492,11 @@ private extension OnboardingFlow {
     }
 
     var goalSummaryText: String {
-        let lockTitle = trimmed(lockScreenTitle)
-        let heroTitle = trimmed(heroGoal)
-        return lockTitle.isEmpty ? heroTitle : lockTitle
+        if let first = draftGoals.first {
+            return first.title
+        }
+        // まだ足していない入力途中の言葉も、まとめ画面では拾う
+        return OnboardingGoalList.normalize(heroGoal)
     }
 
     var notificationGoalText: String {
@@ -1328,29 +1519,90 @@ private extension OnboardingFlow {
 }
 
 private extension OnboardingFlow {
+    /// 選択操作の触感を1本のトークンへ集約する。
+    func markSelectionFeedback() {
+        selectionFeedbackToken += 1
+    }
+
+    /// カウントアップ中に単位が分→時間へ切り替わると桁幅が跳ねる。
+    /// 最終表示が時間なら、途中も時間のまま数字だけを回す。
+    func countingDailyTimeText(minutes: Int, finalMinutes: Int) -> String {
+        guard finalMinutes >= 60 else {
+            return dailyTimeText(minutes: minutes)
+        }
+        let hours = (Double(minutes) / 60.0 * 10).rounded() / 10
+        // 整数時間はdailyTimeTextと同じ表記に揃え、確定値と読み上げを一致させる
+        guard hours.rounded() != hours else {
+            return String(localized: "onboarding.result.duration.hours", defaultValue: "\(Int(hours))時間")
+        }
+        return String(localized: "onboarding.result.duration.decimal_hours", defaultValue: "\(hours)時間")
+    }
+
+    /// 完了画面の祝福。1画面につき一度だけ走らせる。
+    func celebrateReadyIfNeeded() {
+        guard !isReadyCelebrated else {
+            return
+        }
+        withAnimation(reduceMotion ? DopaMotion.control : DopaMotion.celebrate) {
+            isReadyCelebrated = true
+        }
+    }
+
     func advance() {
         let completedStep = step
         model.recordFunnelEvent(.onboardingStepCompleted, detail: completedStep.identifier)
 
-        guard let next = completedStep.next else {
+        guard let next = nextStep(after: completedStep) else {
             settingsStore.onboardingSavedGoalID = nil
             onComplete()
             return
         }
         direction = .forward
-        withAnimation {
+        withAnimation(DopaMotion.transition) {
             step = next
         }
     }
 
     func goBack() {
-        guard let previous = step.previous else {
+        guard let previous = previousStep(before: step) else {
             return
         }
         direction = .backward
-        withAnimation {
+        // 戻るなら着火は取り下げる。前の画面へ炎を持ち越さない
+        withAnimation(DopaMotion.transition) {
+            isIgniting = false
             step = previous
         }
+    }
+
+    /// 前提を満たさないステップは飛ばす。いまはロック画面確認のみ（目標がなければ出せない）。
+    func shouldSkip(_ candidate: OnboardingStep) -> Bool {
+        candidate == .lockScreenCheck && model.goals.isEmpty
+    }
+
+    func nextStep(after current: OnboardingStep) -> OnboardingStep? {
+        var candidate = current.next
+        while let step = candidate, shouldSkip(step) {
+            candidate = step.next
+        }
+        return candidate
+    }
+
+    func previousStep(before current: OnboardingStep) -> OnboardingStep? {
+        var candidate = current.previous
+        while let step = candidate, shouldSkip(step) {
+            candidate = step.previous
+        }
+        return candidate
+    }
+
+    func completeLockScreenCheckAndAdvance() {
+        // 実際にロック画面から戻ってきて掲出が続いていた場合だけ完了扱いにする。
+        // 見ないまま進んだ人には、あとで目標を追加したときにもう一度出す。
+        if lockScreenCheckPhase == .confirmed {
+            model.markLockScreenCheckCompleted()
+        }
+        advance()
     }
 
     func persistSelfCheckSnapshot() -> Bool {
@@ -1382,6 +1634,7 @@ private extension OnboardingFlow {
         appSelectionMessage = nil
         if selectedCatalogIDs.contains(item.catalogID) {
             selectedCatalogIDs.removeAll { $0 == item.catalogID }
+            markSelectionFeedback()
             return
         }
         guard model.entitlementGate.canAddTargetTokens(currentCount: selectedCatalogIDs.count) else {
@@ -1389,6 +1642,7 @@ private extension OnboardingFlow {
             return
         }
         selectedCatalogIDs.append(item.catalogID)
+        markSelectionFeedback()
     }
 
     func persistSelectedAppsAndAdvance() {
@@ -1407,51 +1661,162 @@ private extension OnboardingFlow {
         }
     }
 
+    /// 入力欄の文字数。上限の表示と判定で同じ値を使う。
+    var typedGoalLength: Int {
+        heroGoal.trimmingCharacters(in: .whitespacesAndNewlines).count
+    }
+
+    var isTypedGoalOverLimit: Bool {
+        typedGoalLength > OnboardingGoalList.titleLimit
+    }
+
+    /// 入力欄の言葉をそのまま足せるか。上限超過は足さずに直してもらう。
+    var canAddTypedGoal: Bool {
+        (1...OnboardingGoalList.titleLimit).contains(typedGoalLength)
+    }
+
+    /// 目標画面から先へ進める状態か。リストが空でも、入力途中の言葉があれば進める。
+    var canLeaveGoalSetup: Bool {
+        guard !isIgniting, !isTypedGoalOverLimit else {
+            return false
+        }
+        return !draftGoals.isEmpty || typedGoalLength > 0
+    }
+
+    /// 入力欄の言葉をリストへ移す。移せない状態（上限）ならfalseを返し、呼び出し側を止める。
+    @discardableResult
+    func commitDraftGoal() -> Bool {
+        guard !isIgniting else {
+            return false
+        }
+        let title = OnboardingGoalList.normalize(heroGoal)
+        guard !title.isEmpty else {
+            return true
+        }
+        guard !isTypedGoalOverLimit else {
+            return false
+        }
+        // すでに同じ言葉が入っている場合は足さず、入力欄だけ空ける
+        guard !OnboardingGoalList.contains(title, in: draftGoals) else {
+            heroGoal = ""
+            return true
+        }
+        guard addDraftGoal(title) else {
+            return false
+        }
+        heroGoal = ""
+        return true
+    }
+
+    /// リストへ1件足す。件数の上限に当たったらペイウォールを出し、falseを返す。
+    @discardableResult
+    func addDraftGoal(_ rawTitle: String) -> Bool {
+        guard !isIgniting else {
+            return false
+        }
+        guard !OnboardingGoalList.contains(rawTitle, in: draftGoals) else {
+            return true
+        }
+        guard model.entitlementGate.canAddGoal(currentCount: draftGoals.count) else {
+            paywallPlacement = .goalsLimit
+            return false
+        }
+        withAnimation(DopaMotion.control) {
+            draftGoals = OnboardingGoalList.appending(rawTitle, to: draftGoals)
+        }
+        markSelectionFeedback()
+        return true
+    }
+
+    func removeDraftGoal(_ draft: OnboardingGoalDraft) {
+        guard !isIgniting else {
+            return
+        }
+        withAnimation(DopaMotion.control) {
+            draftGoals.removeAll { $0.id == draft.id }
+        }
+        markSelectionFeedback()
+    }
+
     func saveGoalAndAdvance(skipped: Bool) {
+        // 着火中の再タップで二度進めない
+        guard !isIgniting else {
+            return
+        }
+        // 炎はキーボードの裏になるため、先に下げる
+        isGoalFieldFocused = false
         if skipped {
             advance()
             return
         }
-
-        let normalizedTitle = trimmed(heroGoal)
-        guard !normalizedTitle.isEmpty else {
+        // 入力途中の言葉は次へで拾う。書いたのに消えたと感じさせない
+        guard commitDraftGoal() else {
+            return
+        }
+        guard !draftGoals.isEmpty else {
             advance()
             return
         }
-
-        let saved: Bool
-        if let savedGoalID {
-            guard let savedGoal = model.goals.first(where: { $0.id == savedGoalID }) else {
-                flowAlert = OnboardingAlert(
-                    title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
-                    message: String(localized: "onboarding.error.save.message", defaultValue: "データを保存できませんでした")
-                )
-                return
-            }
-            saved = model.updateGoal(
-                savedGoal,
-                title: normalizedTitle,
-                category: goalCategory,
-                lockScreenTitle: lockScreenTitle
-            )
-        } else {
-            let newGoalID = UUID()
-            saved = model.addGoal(
-                title: normalizedTitle,
-                category: goalCategory,
-                lockScreenTitle: lockScreenTitle,
-                id: newGoalID
-            )
-            if saved {
-                self.savedGoalID = newGoalID
-                settingsStore.onboardingSavedGoalID = newGoalID.uuidString
-            }
+        guard persistDraftGoals() else {
+            return
         }
-        if !saved {
-            flowAlert = OnboardingAlert(
-                title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
-                message: model.alertMessage ?? String(localized: "onboarding.error.save.message", defaultValue: "データを保存できませんでした")
-            )
+        guard !reduceMotion else {
+            advance()
+            return
+        }
+        isIgniting = true
+    }
+
+    /// リストの内容を保存済みデータへ反映する。
+    ///
+    /// 削除・更新・追加を積み上げず、最終形を作って1回で書き込む。
+    /// 途中で失敗して既存の目標だけが消えた状態を残さないため。
+    func persistDraftGoals() -> Bool {
+        let plan = OnboardingGoalList.syncPlan(
+            drafts: draftGoals,
+            persisted: model.goals,
+            baseline: goalBaseline
+        )
+        guard !plan.isEmpty else {
+            // 触っていないなら書き込まない
+            return true
+        }
+
+        // カテゴリは新規ぶんにだけ使う。既存の目標のカテゴリは`merged`が保つ
+        let merged = OnboardingGoalList.merged(
+            plan: plan,
+            into: model.goals,
+            category: goalCategory,
+            now: Date()
+        )
+        guard model.replaceGoals(merged) else {
+            showGoalSaveError()
+            return false
+        }
+
+        // 保存済みを正としてリストと基準を組み直す。戻って入り直しても二重に足さない
+        draftGoals = OnboardingGoalList.restore(from: model.goals)
+        goalBaseline = OnboardingGoalBaseline(goals: model.goals)
+        return true
+    }
+
+    func showGoalSaveError() {
+        flowAlert = OnboardingAlert(
+            title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
+            message: model.alertMessage ?? String(localized: "onboarding.error.save.message", defaultValue: "データを保存できませんでした")
+        )
+    }
+
+    /// 着火の終わり。演出を畳んでから次の画面へ送る。
+    func finishIgnition() {
+        guard isIgniting else {
+            return
+        }
+        withAnimation(DopaMotion.control) {
+            isIgniting = false
+        }
+        // 演出中に戻られていた場合は進めない
+        guard step == .goalSetup else {
             return
         }
         advance()
@@ -1545,14 +1910,9 @@ private extension OnboardingFlow {
             : String(localized: "onboarding.result.duration.decimal_hours", defaultValue: "\(hours)時間")
     }
 
-    func trim(_ binding: Binding<String>, to limit: Int, value: String) {
-        guard value.count > limit else {
-            return
-        }
-        binding.wrappedValue = String(value.prefix(limit))
-    }
-
-    func trimmed(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// 人生換算の年数。LossEstimator側で切り捨て済みの値を文字列にしてから差し込み、
+    /// ローカライズ側の書式で丸め直されないようにする（%@で受ける）。
+    func lifetimeYearsText(yearlyDays: Int) -> String {
+        String(format: "%.1f", LossEstimator.lifetimeYears(fromYearlyDays: yearlyDays))
     }
 }

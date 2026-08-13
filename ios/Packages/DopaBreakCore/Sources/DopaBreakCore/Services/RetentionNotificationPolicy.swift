@@ -13,19 +13,23 @@ public struct SubscriptionEntitlementSnapshot: Equatable, Sendable {
     public let originalPurchaseDate: Date?
     public let offerType: OfferType?
     public let willAutoRenew: Bool?
+    /// 現在の請求期間の終了日。自動更新オフを検知したときの「期限3日前」通知の基準になる。
+    public let expirationDate: Date?
 
     public init(
         productID: String,
         purchaseDate: Date,
         originalPurchaseDate: Date? = nil,
         offerType: OfferType?,
-        willAutoRenew: Bool? = nil
+        willAutoRenew: Bool? = nil,
+        expirationDate: Date? = nil
     ) {
         self.productID = productID
         self.purchaseDate = purchaseDate
         self.originalPurchaseDate = originalPurchaseDate
         self.offerType = offerType
         self.willAutoRenew = willAutoRenew
+        self.expirationDate = expirationDate
     }
 
     public var initialPurchaseDate: Date {
@@ -41,6 +45,10 @@ public struct SubscriptionEntitlementSnapshot: Equatable, Sendable {
             productID == ProProductID.annualLaunch.rawValue
     }
 
+    public var isMonthly: Bool {
+        productID == ProProductID.monthly.rawValue
+    }
+
     public var isAnnualIntroductoryTrial: Bool {
         isSubscription && isAnnual && offerType == .introductory
     }
@@ -54,11 +62,41 @@ public enum RetentionNotificationDateCalculator {
         dateAfterDays(5, from: purchaseDate, calendar: calendar)
     }
 
-    public static func month1Date(
-        from purchaseDate: Date,
+    public static func nextMonthlyReportDate(
+        from initialPurchaseDate: Date,
+        now: Date,
         calendar: Calendar = .current
     ) -> Date? {
-        dateAfterDays(30, from: purchaseDate, calendar: calendar)
+        guard let purchaseMonthStart = monthStart(
+            for: initialPurchaseDate,
+            calendar: calendar
+        ),
+        let nowMonthStart = monthStart(for: now, calendar: calendar) else {
+            return nil
+        }
+
+        let elapsedMonths = calendar.dateComponents(
+            [.month],
+            from: purchaseMonthStart,
+            to: nowMonthStart
+        ).month ?? 0
+        var monthOffset = max(1, elapsedMonths)
+
+        while let anniversary = monthlyAnniversary(
+            from: initialPurchaseDate,
+            monthOffset: monthOffset,
+            calendar: calendar
+        ) {
+            if NotificationQuietHours.adjustedFireDate(
+                anniversary,
+                calendar: calendar
+            ) > now {
+                return anniversary
+            }
+            monthOffset += 1
+        }
+
+        return nil
     }
 
     public static func month12Date(
@@ -78,6 +116,47 @@ public enum RetentionNotificationDateCalculator {
         calendar: Calendar
     ) -> Date? {
         calendar.date(byAdding: .day, value: days, to: date)
+    }
+
+    private static func monthStart(
+        for date: Date,
+        calendar: Calendar
+    ) -> Date? {
+        var components = calendar.dateComponents([.era, .year, .month], from: date)
+        components.day = 1
+        components.hour = 12
+        return calendar.date(from: components)
+    }
+
+    private static func monthlyAnniversary(
+        from initialPurchaseDate: Date,
+        monthOffset: Int,
+        calendar: Calendar
+    ) -> Date? {
+        guard let initialMonthStart = monthStart(
+            for: initialPurchaseDate,
+            calendar: calendar
+        ),
+        let targetMonthStart = calendar.date(
+            byAdding: .month,
+            value: monthOffset,
+            to: initialMonthStart
+        ),
+        let validDays = calendar.range(of: .day, in: .month, for: targetMonthStart) else {
+            return nil
+        }
+
+        let original = calendar.dateComponents(
+            [.day, .hour, .minute, .second, .nanosecond],
+            from: initialPurchaseDate
+        )
+        var target = calendar.dateComponents([.era, .year, .month], from: targetMonthStart)
+        target.day = min(original.day ?? 1, validDays.count)
+        target.hour = original.hour
+        target.minute = original.minute
+        target.second = original.second
+        target.nanosecond = original.nanosecond
+        return calendar.date(from: target)
     }
 }
 

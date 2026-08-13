@@ -10,13 +10,12 @@ enum PaywallPlacement: String, CaseIterable, Identifiable {
     case settingsProStatusRow = "settings_pro_status_row"
     case settingsThemeGate = "settings_theme_gate"
     case settingsModeGate = "settings_mode_gate"
+    case settingsUsageWatchGate = "settings_usage_watch_gate"
     case onboardingPrepaywallSummary = "onboarding_prepaywall_summary"
     case onboardingModeGate = "onboarding_mode_gate"
     case onboardingTargetAppGate = "onboarding_target_app_gate"
     case statsHistoryGate = "stats_history_gate"
-    case day14Warning = "day14_warning"
     case weekly = "weekly"
-    case reverseTrialEnd = "reverse_trial_end"
 
     var id: String { rawValue }
 }
@@ -40,7 +39,6 @@ struct PaywallView: View {
     let placement: PaywallPlacement
     let yearlyDays: Int
     let settingsStore: SettingsStore
-    private let onDismissWithoutPurchase: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlan: PaywallPlan = .annual
@@ -54,13 +52,11 @@ struct PaywallView: View {
         snapshotStore: JSONSnapshotStore = JSONSnapshotStore(
             containerProvider: DefaultContainerProvider()
         ),
-        settingsStore: SettingsStore? = nil,
-        onDismissWithoutPurchase: (() -> Void)? = nil
+        settingsStore: SettingsStore? = nil
     ) {
         self.storeService = storeService
         self.placement = placement
         self.settingsStore = settingsStore ?? ((try? SettingsStore()) ?? SettingsStore(userDefaults: .standard))
-        self.onDismissWithoutPurchase = onDismissWithoutPurchase
         let snapshot = try? snapshotStore.read(
             SelfCheckSnapshot.self,
             from: .selfCheckSnapshot
@@ -87,7 +83,7 @@ struct PaywallView: View {
                 legalArea
             }
             .padding(.horizontal, 20)
-            .padding(.top, 18)
+            .padding(.top, 24)
             .padding(.bottom, 18)
         }
         .dopaScreenBackground()
@@ -102,8 +98,6 @@ struct PaywallView: View {
             settingsStore.lastAnyPaywallShownAt = shownAt
             if placement == .weekly {
                 settingsStore.lastWeeklyPaywallShownAt = shownAt
-            } else if placement == .reverseTrialEnd {
-                settingsStore.reverseTrialEndPaywallShown = true
             }
             storeService.recordPaywallShown(placement: placement.rawValue)
         }
@@ -124,7 +118,10 @@ struct PaywallView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            MorningHorizon(height: 112, alignment: .center, bottomFade: 0.72)
+            CharacterView(.awake, size: DesignTokens.CharacterSize.header)
+                .frame(maxWidth: .infinity)
+                .frame(height: DesignTokens.CharacterSize.header)
+                .background(DesignTokens.backgroundRaised)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -134,28 +131,26 @@ struct PaywallView: View {
                     SmallLabel(text: String(localized: "paywall.brand.pro", defaultValue: "DOPABREAK PRO"))
                         .padding(14)
                 }
+                .padding(.bottom, 4)
 
             VStack(alignment: .leading, spacing: 2) {
                 (Text(String(localized: "paywall.header.line1.prefix", defaultValue: "「あと5分だけ」が年")).foregroundStyle(DesignTokens.primaryText)
                     + Text("\(yearlyDays)").foregroundStyle(DesignTokens.accent)
                     + Text(String(localized: "paywall.header.line1.suffix", defaultValue: "日")).foregroundStyle(DesignTokens.primaryText))
-                    .font(.system(size: 30, weight: .black))
-                    .tracking(-1)
+                    .dopaFont(30, weight: .black, tracking: -1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
 
                 Text(String(localized: "paywall.header.line2", defaultValue: "開く前にブレーキ"))
-                    .font(.system(size: 30, weight: .black))
+                    .dopaFont(30, weight: .black, tracking: -1)
                     .foregroundStyle(DesignTokens.primaryText)
-                    .tracking(-1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
 
             Text(String(localized: "paywall.header.body", defaultValue: "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開かずに戻れた回数が毎日ホームに積み上がります。"))
-                .font(.system(size: 14, weight: .medium))
+                .dopaFont(14, weight: .medium, lineSpacing: 4)
                 .foregroundStyle(DesignTokens.secondaryText)
-                .lineSpacing(4)
         }
     }
 
@@ -163,9 +158,13 @@ struct PaywallView: View {
         VStack(spacing: 0) {
             PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_apps", defaultValue: "止めるアプリを何個でも追加できる"))
             divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.deep_focus", defaultValue: "Deep Focusで強めに止められる"))
+            divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.lock_theme", defaultValue: "ロック画面テーマを着せ替え"))
             divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.full_history", defaultValue: "記録を全期間さかのぼれる"))
+            divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.weekly_report", defaultValue: "毎週のふりかえりを詳しく見られる"))
             divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_goals", defaultValue: "目標を何個でも追加できる"))
         }
@@ -220,7 +219,7 @@ struct PaywallView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .disabled(isBusy)
             }
-            .font(.system(size: 14, weight: .semibold))
+            .dopaFont(14, weight: .semibold)
             .foregroundStyle(DesignTokens.secondaryText)
             .buttonStyle(.plain)
         }
@@ -244,17 +243,16 @@ struct PaywallView: View {
     private var legalArea: some View {
         VStack(spacing: 8) {
             Text(legalText)
-                .font(.system(size: 10, weight: .medium))
+                .dopaFont(10, weight: .medium, lineSpacing: 2)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .multilineTextAlignment(.center)
-                .lineSpacing(2)
                 .frame(maxWidth: .infinity)
 
             HStack(spacing: 18) {
                 Link(String(localized: "paywall.legal.terms", defaultValue: "利用規約"), destination: AppURLs.terms)
                 Link(String(localized: "paywall.legal.privacy", defaultValue: "プライバシー"), destination: AppURLs.privacy)
             }
-            .font(.system(size: 11, weight: .bold))
+            .dopaFont(11, weight: .bold)
             .foregroundStyle(DesignTokens.secondaryText)
             .frame(maxWidth: .infinity, alignment: .center)
         }
@@ -273,11 +271,11 @@ struct PaywallView: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     Text(planTitle(plan))
-                        .font(.system(size: 17, weight: .black))
+                        .dopaFont(17, weight: .black)
                         .foregroundStyle(DesignTokens.primaryText)
                     if plan == .annual {
                         Text(String(localized: "paywall.plan.annual.savings_badge", defaultValue: "一番人気・\(annualDiscountPercent)%お得"))
-                            .font(.system(size: 11, weight: .black))
+                            .dopaFont(11, weight: .black)
                             .foregroundStyle(DesignTokens.background)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -287,12 +285,12 @@ struct PaywallView: View {
                 }
 
                 Text(planPrice(plan))
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .dopaFont(24, weight: .black, design: .rounded)
                     .foregroundStyle(DesignTokens.primaryText)
 
                 if let detail = planDetail(plan) {
                     Text(detail)
-                        .font(.system(size: 12, weight: .semibold))
+                        .dopaFont(12, weight: .semibold)
                         .foregroundStyle(DesignTokens.secondaryText)
                 }
             }
@@ -437,9 +435,6 @@ struct PaywallView: View {
             return
         }
         didRecordDismissal = true
-        if placement == .onboardingPrepaywallSummary {
-            onDismissWithoutPurchase?()
-        }
     }
 
     private var alertPresented: Binding<Bool> {
@@ -460,12 +455,12 @@ private struct PaywallFeatureRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark")
-                .font(.system(size: 14, weight: .black))
+                .dopaFont(14, weight: .black)
                 .foregroundStyle(DesignTokens.accent)
                 .frame(width: 20, height: 20)
 
             Text(text)
-                .font(.system(size: 15, weight: .bold))
+                .dopaFont(15, weight: .bold)
                 .foregroundStyle(DesignTokens.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
 

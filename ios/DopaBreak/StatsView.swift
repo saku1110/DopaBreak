@@ -6,35 +6,33 @@ struct StatsView: View {
     @State private var paywallPlacement: PaywallPlacement?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
-                ScreenHeader(
-                    eyebrow: isStatsHistoryLocked
-                        ? String(localized: "stats.header.today.eyebrow", defaultValue: "STATS · 今日")
-                        : String(localized: "stats.header.week.eyebrow", defaultValue: "STATS · 今週"),
-                    title: isStatsHistoryLocked
-                        ? String(localized: "stats.header.today.title", defaultValue: "今日の記録")
-                        : String(localized: "stats.header.week.title", defaultValue: "今週の傾向")
-                )
-                    .padding(.top, 18)
-
-                if isStatsHistoryLocked {
-                    dailyRate
-                    dailySummary
-                    lockedWeeklySummary
-                } else {
-                    weeklyRate
-                    weeklySummary
-                    if model.weekAttemptCount > 0 {
-                        behaviorSignal
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
+                    if isStatsHistoryLocked {
+                        dailyRate
+                        dailySummary
+                        lockedWeeklySummary
+                    } else {
+                        weeklyRate
+                        weeklySummary
+                        if model.weekAttemptCount > 0 {
+                            behaviorSignal
+                        }
+                        allTimeSummary
                     }
-                    allTimeSummary
                 }
+                .padding(.horizontal, DesignTokens.horizontalPadding)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, DesignTokens.horizontalPadding)
-            .padding(.bottom, 24)
+            // 自前のScreenHeaderをやめ、システムの大見出しへ寄せた。
+            // スクロールでの縮小・素材効果・VoiceOverの見出し扱いが標準どおりになる。
+            .navigationTitle(navigationTitleText)
+            .navigationBarTitleDisplayMode(.large)
+            .dopaScreenBackground()
         }
-        .dopaScreenBackground()
+        .tint(DesignTokens.accent)
         .onAppear {
             model.refresh()
             model.isChildModalActive = isAnyChildModalPresented
@@ -55,6 +53,13 @@ struct StatsView: View {
         model.entitlementGate.statsDays == 1
     }
 
+    /// 旧ScreenHeaderのeyebrowが担っていた「今日／今週」の区別は見出し本文に含める。
+    private var navigationTitleText: String {
+        isStatsHistoryLocked
+            ? String(localized: "stats.header.today.title", defaultValue: "今日の記録")
+            : String(localized: "stats.header.week.title", defaultValue: "今週の傾向")
+    }
+
     private var dailyRate: some View {
         rateBlock(text: dailySuccessRateText)
     }
@@ -66,12 +71,13 @@ struct StatsView: View {
     private func rateBlock(text: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(text)
-                .font(.system(size: 68, weight: .black, design: .rounded))
+                .dopaFont(68, weight: .black, design: .rounded, tracking: -2)
                 .monospacedDigit()
                 .foregroundStyle(DesignTokens.primaryText)
-                .tracking(-2)
+                .contentTransition(.numericText())
+                .dopaDisplayClamp()
             Text(String(localized: "stats.rate.title", defaultValue: "開かずに戻れた割合"))
-                .font(.system(size: 14, weight: .bold))
+                .dopaFont(14, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
         }
     }
@@ -100,13 +106,12 @@ struct StatsView: View {
                 if attempts == 0 {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(String(localized: "stats.empty.title", defaultValue: "まだ記録がありません"))
-                            .font(.system(size: 20, weight: .bold))
+                            .dopaFont(20, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
 
                         Text(String(localized: "stats.empty.description", defaultValue: "開く前に選び直すたび、取り戻した記録がここに貯まります。"))
-                            .font(.system(size: 14, weight: .medium))
+                            .dopaFont(14, weight: .medium, lineSpacing: 4)
                             .foregroundStyle(DesignTokens.secondaryText)
-                            .lineSpacing(4)
                     }
                 } else {
                     HStack(spacing: 14) {
@@ -132,17 +137,17 @@ struct StatsView: View {
             CardContainer {
                 HStack(spacing: 12) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 15, weight: .bold))
+                        .dopaFont(15, weight: .bold)
                         .foregroundStyle(DesignTokens.accent)
 
                     Text(String(localized: "stats.paywall.full_history", defaultValue: "記録を全期間さかのぼれる"))
-                        .font(.system(size: 15, weight: .bold))
+                        .dopaFont(15, weight: .bold)
                         .foregroundStyle(DesignTokens.primaryText)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .bold))
+                        .dopaFont(13, weight: .bold)
                         .foregroundStyle(DesignTokens.secondaryText)
                 }
             }
@@ -184,7 +189,7 @@ struct StatsView: View {
     private func signalRow(label: String, value: CGFloat, color: Color) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 12, weight: .bold))
+                .dopaFont(12, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .frame(width: 52, alignment: .leading)
             GeometryReader { proxy in
@@ -200,7 +205,7 @@ struct StatsView: View {
                     defaultValue: "\(Int((value * 100).rounded()))%"
                 )
             )
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .dopaFont(12, weight: .bold, design: .monospaced)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .frame(width: 40, alignment: .trailing)
         }

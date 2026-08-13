@@ -19,13 +19,6 @@ struct GoalsView: View {
                         .onDelete(perform: deleteGoals)
                         .onMove(perform: model.moveGoal)
                     }
-                } header: {
-                    ScreenHeader(
-                        eyebrow: String(localized: "goals.header.eyebrow", defaultValue: "YOUR GOAL"),
-                        title: String(localized: "goals.header.title", defaultValue: "目標")
-                    )
-                        .textCase(.none)
-                        .padding(.top, 12)
                 }
 
                 Section {
@@ -36,6 +29,9 @@ struct GoalsView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            // 自前のScreenHeaderをやめ、システムの大見出しへ寄せた。
+            .navigationTitle(String(localized: "goals.header.title", defaultValue: "目標"))
+            .navigationBarTitleDisplayMode(.large)
             .dopaScreenBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -71,13 +67,12 @@ struct GoalsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 SmallLabel(text: String(localized: "goals.empty.label", defaultValue: "目標"))
                 Text(String(localized: "goals.empty.title", defaultValue: "戻りたい自分を決める"))
-                    .font(.system(size: 24, weight: .bold))
+                    .dopaFont(24, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
 
                 Text(String(localized: "goals.empty.description", defaultValue: "目標は、あなたを連れ戻す錨です。開く前に思い出せる言葉を置きましょう。"))
-                    .font(.system(size: 14, weight: .medium))
+                    .dopaFont(14, weight: .medium, lineSpacing: 3)
                     .foregroundStyle(DesignTokens.secondaryText)
-                    .lineSpacing(3)
             }
         }
         .listRowBackground(Color.clear)
@@ -95,22 +90,15 @@ struct GoalsView: View {
                         SmallLabel(text: goal.category.japaneseLabel)
                         Spacer()
                         Image(systemName: "pencil")
-                            .font(.system(size: 14, weight: .semibold))
+                            .dopaFont(14, weight: .semibold)
                             .foregroundStyle(DesignTokens.secondaryText)
                     }
 
                     Text(goal.title)
-                        .font(.system(size: 22, weight: .bold))
+                        .dopaFont(22, weight: .bold)
                         .foregroundStyle(DesignTokens.primaryText)
                         .lineLimit(3)
                         .minimumScaleFactor(0.84)
-
-                    if let lockTitle = goal.lockScreenTitle {
-                        Text(lockTitle)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(DesignTokens.secondaryText)
-                            .lineLimit(1)
-                    }
                 }
             }
         }

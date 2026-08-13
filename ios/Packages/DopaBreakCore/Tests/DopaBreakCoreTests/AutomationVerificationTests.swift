@@ -31,4 +31,34 @@ final class AutomationVerificationTests: XCTestCase {
             []
         )
     }
+
+    func testProgressCountsOnlyVerifiedSelectedTargets() {
+        XCTAssertEqual(
+            AutomationVerification.progress(
+                selectedCatalogIDs: ["instagram", "youtube", "safari"],
+                verifiedCatalogIDs: ["instagram", "threads"]
+            ),
+            AutomationVerification.Progress(verifiedCount: 1, totalCount: 3)
+        )
+    }
+
+    func testProgressDoesNotInflateDuplicatePersistedIDs() {
+        XCTAssertEqual(
+            AutomationVerification.progress(
+                selectedCatalogIDs: ["instagram", "instagram", "youtube"],
+                verifiedCatalogIDs: ["instagram", "instagram"]
+            ),
+            AutomationVerification.Progress(verifiedCount: 1, totalCount: 2)
+        )
+    }
+
+    func testProgressWithNoSelectedTargetsIsZeroOfZero() {
+        XCTAssertEqual(
+            AutomationVerification.progress(
+                selectedCatalogIDs: [],
+                verifiedCatalogIDs: ["instagram"]
+            ),
+            AutomationVerification.Progress(verifiedCount: 0, totalCount: 0)
+        )
+    }
 }

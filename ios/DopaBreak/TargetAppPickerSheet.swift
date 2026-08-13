@@ -2,7 +2,7 @@ import DopaBreakCore
 import SwiftUI
 
 /// 止めるアプリ（通常介入の対象）をカタログから複数選択するシート（doc12 §3 / doc11 §4c）。
-/// Freeは初回14日間3個、その後1個。上限到達後の追加でPaywallを表示する。
+/// Freeは1個まで。上限到達後の追加でPaywallを表示する。
 struct TargetAppPickerSheet: View {
     let model: AppModel
     let onPaywallNeeded: () -> Void
@@ -16,17 +16,16 @@ struct TargetAppPickerSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(String(localized: "target_app_picker.title", defaultValue: "止めるアプリを選ぶ"))
-                        .font(.system(size: 28, weight: .black))
+                        .dopaFont(28, weight: .black)
                         .foregroundStyle(DesignTokens.primaryText)
 
                     Text(String(localized: "target_app_picker.description", defaultValue: "開こうとした瞬間に一呼吸を出したいアプリを選びます。"))
-                        .font(.system(size: 15, weight: .semibold))
+                        .dopaFont(15, weight: .semibold, lineSpacing: 4)
                         .foregroundStyle(DesignTokens.secondaryText)
-                        .lineSpacing(4)
 
                     if let targetLimitDescription {
                         Text(targetLimitDescription)
-                            .font(.system(size: 13, weight: .semibold))
+                            .dopaFont(13, weight: .semibold)
                             .foregroundStyle(DesignTokens.secondaryText)
                     }
 
@@ -43,7 +42,7 @@ struct TargetAppPickerSheet: View {
 
                     if let errorMessage {
                         Text(errorMessage)
-                            .font(.system(size: 13, weight: .semibold))
+                            .dopaFont(13, weight: .semibold)
                             .foregroundStyle(DesignTokens.danger)
                     }
                 }
@@ -76,20 +75,20 @@ struct TargetAppPickerSheet: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: item.symbolName)
-                    .font(.system(size: 18, weight: .semibold))
+                    .dopaFont(18, weight: .semibold)
                     .foregroundStyle(DesignTokens.primaryText)
                     .frame(width: 32, height: 32)
                     .background(DesignTokens.backgroundRaised)
                     .clipShape(Circle())
 
                 Text(item.displayName)
-                    .font(.system(size: 17, weight: .bold))
+                    .dopaFont(17, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
 
                 Spacer()
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20, weight: .semibold))
+                    .dopaFont(20, weight: .semibold)
                     .foregroundStyle(isSelected ? DesignTokens.accent : DesignTokens.secondaryText)
             }
             .padding(.vertical, 12)
@@ -104,17 +103,10 @@ struct TargetAppPickerSheet: View {
     }
 
     private var targetLimitDescription: String? {
-        switch model.entitlementGate.targetAppTokensLimit {
-        case 3:
-            return String(
-                localized: "target_app_picker.limit.trial",
-                defaultValue: "はじめの14日は3つまで追加できます"
-            )
-        case 1:
-            return String(localized: "target_app_picker.limit.free", defaultValue: "無料プランでは1つまで")
-        default:
+        guard model.entitlementGate.targetAppTokensLimit == 1 else {
             return nil
         }
+        return String(localized: "target_app_picker.limit.free", defaultValue: "無料プランでは1つまで")
     }
 
     private func toggle(_ item: SNSAppCatalogItem) {

@@ -9,12 +9,11 @@ struct MidSessionCheckInSheet: View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(String(localized: "mid_session_check_in.title", defaultValue: "まだ見てる？"))
-                    .font(.system(size: 34, weight: .black))
+                    .dopaFont(34, weight: .black, tracking: -0.8)
                     .foregroundStyle(DesignTokens.primaryText)
-                    .tracking(-0.8)
 
                 Text(reminderText)
-                    .font(.system(size: 16, weight: .medium))
+                    .dopaFont(16, weight: .medium)
                     .foregroundStyle(DesignTokens.primaryText)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)

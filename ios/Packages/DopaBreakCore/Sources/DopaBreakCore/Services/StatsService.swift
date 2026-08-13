@@ -34,6 +34,11 @@ public struct StatsService: Sendable {
         try logStore.cancelledAttemptCount()
     }
 
+    /// 全期間の介入試行数。D7未活性フォールバックの発火条件（試行が一度もない）に使う。
+    public func attemptsAllTime() throws -> Int {
+        try logStore.attemptCount()
+    }
+
     /// 指定期間の「開かずに戻れた（cancelled）」件数。
     public func cancelledAttempts(from: Date, to: Date) throws -> Int {
         try logStore.fetchAttempts(from: from, to: to)

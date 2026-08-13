@@ -7,3 +7,12 @@ ios/**/*.xcuserstate
 
 # Codex委譲の作業用プロンプト・巨大な実行ログ（成果はコミット済み・再現不要）
 tmp/
+
+# ビルドキャッシュ（レビュー/シミュレータ用DerivedData）
+ios/.dd-*/
+
+# 作業成果物（巨大バイナリ・再生成可能。必要になったら個別に追跡する）
+output/screenshots/
+output/app-store-screenshots/
+video/
+creatives/

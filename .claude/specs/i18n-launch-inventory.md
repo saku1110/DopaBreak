@@ -2,7 +2,19 @@
 
 Generated: 2026-07-24
 
-Scope: main app target only (`ios/DopaBreak/*.swift`). Widget and shield extensions are intentionally deferred to a later batch.
+Updated: 2026-07-25 (added the lock-screen check screen: 23 keys)
+
+Updated: 2026-08-08 (goal-input redesign: removed 4 `onboarding.goal.lock_screen_*` keys, 2 `goal_editor.lock_title.*` keys, and orphaned `onboarding.goal.category` (dead-code cleanup); added `onboarding.goal.add` / `onboarding.goal.helper` / `onboarding.goal.remove` / `onboarding.goal.character_count` with ja/en/ko shipped in-catalog)
+
+Scope: main app target (`ios/DopaBreak/*.swift`) plus the user-facing strings in `WidgetsExtension` and `ShieldConfigExtension`.
+
+Completion status:
+
+- Main app: 222 source locations migrated to 203 stable keys; remaining user-facing hardcoded strings from this inventory: **0**
+- WidgetsExtension: 20 source locations migrated to 13 stable keys; remaining user-facing hardcoded strings: **0**
+- ShieldConfigExtension: 4 source locations migrated to 4 stable keys; remaining user-facing hardcoded strings: **0**
+- Catalog totals: main app 460 keys (463 − 7 retired + 4 added on 2026-08-08), WidgetsExtension 13 keys, ShieldConfigExtension 4 keys
+- `ja` preserves the exact source text. At batch 2 completion, `ko` / `en` were empty with `new` state; any later transcreation updates are tracked separately from this plumbing inventory.
 
 The source strings below are the exact Japanese values stored in `Localizable.xcstrings`. Swift interpolations appear in their String Catalog format-specifier form (for example `%lld`, `%@`, `%lf`). Literal line breaks are rendered as `\n` so their placement remains auditable.
 
@@ -13,7 +25,7 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | home.achievement.count_unit | 回 | Home |
 | home.achievement.empty_body | 最初の選択から、今日の記録が始まります | Home |
 | home.achievement.summary | 開こうとした%lld回のうち、%@で立ち止まれました | Home |
-| home.achievement.title | 今日、自分で選べた | Home |
+| home.achievement.title | 今日 自分で選べた | Home |
 | home.automation_status.action | 設定を確認 | Home |
 | home.automation_status.body | 対象アプリを開いたときに一呼吸が出れば設定完了です。 | Home |
 | home.automation_status.title_multiple | %lld個のアプリで一呼吸がまだ動いていません | Home |
@@ -27,21 +39,41 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | home.metric.attempted | 開こうとした | Home |
 | home.metric.cancelled | 開かずに戻れた | Home |
 | home.metric.count | %lld回 | Home |
-| home.reverse_trial.body | 期間が終わると無料プランに戻ります。購入は不要です。 | Home |
-| home.reverse_trial.title | Proのすべての機能を体験中 あと%lld日 | Home |
 | home.week.eyebrow | THIS WEEK | Home |
 | home.week.summary | 今週 %lld回、自分で選び直しました | Home |
+| lock_check.action.done | 完了 | Lock Screen Check |
+| lock_check.action.later | あとで | Lock Screen Check |
+| lock_check.action.retry | もう一度出す | Lock Screen Check |
+| lock_check.action.settings | 設定を開く | Lock Screen Check |
+| lock_check.eyebrow | LOCK SCREEN | Lock Screen Check |
+| lock_check.lead.blocked | 端末の設定でライブアクティビティをオンにすると出せます。 | Lock Screen Check |
+| lock_check.lead.confirmed | 開こうとするたび この言葉が先に目に入ります。 | Lock Screen Check |
+| lock_check.lead.failed | もう一度出すと表示できることがあります。 | Lock Screen Check |
+| lock_check.lead.no_goal | 目標を決めると ロック画面に出せます。 | Lock Screen Check |
+| lock_check.permission_note | はじめて出るときは「許可しますか」と聞かれます。「許可」を選ぶとロック画面に残ります。 | Lock Screen Check |
+| lock_check.preview.attempted | 開こうとした %lld回 | Lock Screen Check |
+| lock_check.preview.cancelled | 今日 開かなかった %lld回 | Lock Screen Check |
+| lock_check.preview.eyebrow | あなたの目標 | Lock Screen Check |
+| lock_check.preview.goal_fallback | あなたの目標 | Lock Screen Check |
+| lock_check.settings_path.label | 設定の場所 | Lock Screen Check |
+| lock_check.settings_path.value | 設定 > DopaBreak > ライブアクティビティ | Lock Screen Check |
+| lock_check.side_button.label | サイドボタンを押して確かめる | Lock Screen Check |
+| lock_check.status.visible | ロック画面に表示中 | Lock Screen Check |
+| lock_check.title.blocked | ロック画面の表示がオフ | Lock Screen Check |
+| lock_check.title.failed | いま出せませんでした | Lock Screen Check |
+| lock_check.title.no_goal | まず目標をひとつ | Lock Screen Check |
+| lock_check.title.ready | ロック画面に出しました | Lock Screen Check |
 | onboarding.action.close | 閉じる | Onboarding |
 | onboarding.action.continue | 続ける | Onboarding |
 | onboarding.action.later | あとで | Onboarding |
 | onboarding.action.next | 次へ | Onboarding |
 | onboarding.aimless.eyebrow | 質問 2 / 3 | Onboarding |
 | onboarding.aimless.lead | この2週間、次のことはどれくらい当てはまりますか？ | Onboarding |
-| onboarding.aimless.title | 気づけば、目的もなく\nスクロールしている | Onboarding |
+| onboarding.aimless.title | 気づけば目的もなく\nスクロールしている | Onboarding |
 | onboarding.apps.action.empty | アプリを選ぶ | Onboarding |
 | onboarding.apps.action.selected | この%lldつで始める | Onboarding |
 | onboarding.apps.empty_selection_message | まずは1つだけ選びましょう。\n\n一番無意識に開いてしまうSNSから始めるのがおすすめです。 | Onboarding |
-| onboarding.apps.free_limit_note | はじめの14日は3つまで追加できます | Onboarding |
+| onboarding.apps.free_limit_note | 無料プランでは1つまで | Onboarding |
 | onboarding.apps.lead | いつでも変更できます。 | Onboarding |
 | onboarding.apps.title | 止めたいアプリを選ぶ | Onboarding |
 | onboarding.automation.action | ショートカットを開く | Onboarding |
@@ -62,16 +94,15 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.frequency.option.never | 全くない | Onboarding |
 | onboarding.frequency.option.some_days | 数日 | Onboarding |
 | onboarding.goal.action.later | あとで設定する | Onboarding |
-| onboarding.goal.category | カテゴリ | Onboarding |
+| onboarding.goal.add | 追加 | Onboarding |
+| onboarding.goal.character_count | %lld/%lld | Onboarding |
 | onboarding.goal.eyebrow | あなたの目標 / GOAL | Onboarding |
-| onboarding.goal.lock_screen_collapsed | 折りたたみ中 | Onboarding |
-| onboarding.goal.lock_screen_expanded | 展開中 | Onboarding |
-| onboarding.goal.lock_screen_label | ロック画面に出す短い言葉(任意) | Onboarding |
-| onboarding.goal.lock_screen_placeholder | 例: 英語で話す | Onboarding |
+| onboarding.goal.helper | そのままロック画面に表示されます | Onboarding |
 | onboarding.goal.placeholder | 例: 英語で話せるようになる | Onboarding |
 | onboarding.goal.preset.reading | 読書を30分 | Onboarding |
 | onboarding.goal.preset.study | 資格の勉強 | Onboarding |
 | onboarding.goal.preset.workout | 筋トレを続ける | Onboarding |
+| onboarding.goal.remove | %@を削除 | Onboarding |
 | onboarding.goal.title | 空いたこの時間で\n何をしますか？ | Onboarding |
 | onboarding.mode.action | この設定で進む | Onboarding |
 | onboarding.mode.deep_focus.confirmation.message | 集中時間中は、簡単にはSNSを開けません。 | Onboarding |
@@ -111,16 +142,16 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.regret.eyebrow | 質問 3 / 3 | Onboarding |
 | onboarding.regret.lead | SNSを閉じたあとの気持ちは | Onboarding |
 | onboarding.regret.title | 「時間を溶かした」と\n感じることがある | Onboarding |
-| onboarding.result.action | この時間を、変える | Onboarding |
-| onboarding.result.daily_body | が毎日、SNSに溶けています | Onboarding |
+| onboarding.result.action | この時間を変える | Onboarding |
+| onboarding.result.daily_body | が毎日SNSに溶けています | Onboarding |
 | onboarding.result.disclaimer | ※ご回答からの推計値です。医療診断ではありません。 | Onboarding |
 | onboarding.result.duration.decimal_hours | %lf時間 | Onboarding |
 | onboarding.result.duration.hours | %lld時間 | Onboarding |
 | onboarding.result.duration.minutes | %lld分 | Onboarding |
 | onboarding.result.eyebrow | 推計結果 / YOUR RESULT | Onboarding |
 | onboarding.result.lead | あなたの回答にもとづく推計では | Onboarding |
+| onboarding.result.lifetime | このままなら50年で 人生の約%@年 | Onboarding |
 | onboarding.result.per_day | / 日 | Onboarding |
-| onboarding.result.ten_years | このままなら10年で 約%lld日 | Onboarding |
 | onboarding.result.yearly.prefix | 1年に換算すると 約 | Onboarding |
 | onboarding.result.yearly.suffix | 日 | Onboarding |
 | onboarding.science.disclaimer.effect | ※本アプリの効果を保証するものではありません。 | Onboarding |
@@ -140,9 +171,10 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.science.title | 意志の力では、\n勝てない | Onboarding |
 | onboarding.self_check.eyebrow | 質問 1 / 3 | Onboarding |
 | onboarding.self_check.hint | ざっくりでOKです | Onboarding |
-| onboarding.self_check.option.four_plus_hours | 4時間以上 | Onboarding |
+| onboarding.self_check.option.four_to_six_hours | 4〜6時間 | Onboarding |
 | onboarding.self_check.option.less_than_hour | 1時間未満 | Onboarding |
 | onboarding.self_check.option.one_to_two_hours | 1〜2時間 | Onboarding |
+| onboarding.self_check.option.six_plus_hours | 6時間以上 | Onboarding |
 | onboarding.self_check.option.two_to_four_hours | 2〜4時間 | Onboarding |
 | onboarding.self_check.privacy_note | 回答は端末内にのみ保存されます。 | Onboarding |
 | onboarding.self_check.title | SNSを見ている時間は\n1日どれくらいですか？ | Onboarding |
@@ -158,12 +190,12 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.value.not_set | 未設定 | Onboarding |
 | onboarding.welcome.action | はじめる | Onboarding |
 | onboarding.welcome.eyebrow | DOPABREAK | Onboarding |
-| onboarding.welcome.lead | そのスクロールが、いちばん高くついている。 | Onboarding |
+| onboarding.welcome.lead | なんとなく開くだけで1日が終わる | Onboarding |
 | onboarding.welcome.ledger.accessibility_label | 今日の24時間のうち、現在時刻までの経過を示しています | Onboarding |
 | onboarding.welcome.ledger.body | 今日という時間は、いまも減り続けている。 | Onboarding |
 | onboarding.welcome.ledger.elapsed_time | 過ぎた時間 | Onboarding |
 | onboarding.welcome.ledger.eyebrow | TODAY / 1,440 MINUTES | Onboarding |
-| onboarding.welcome.tagline | 開く前に、選び直す | Onboarding |
+| onboarding.welcome.tagline | 開く前に選び直す | Onboarding |
 | onboarding.welcome.title | 人生の時間は\n二度と戻らない | Onboarding |
 | paywall.action.close | 閉じる | Paywall |
 | paywall.action.later | あとで | Paywall |
@@ -219,6 +251,7 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | settings.error.product_load | 商品情報を読み込めませんでした | Settings |
 | settings.header.eyebrow | SETTINGS | Settings |
 | settings.header.title | 設定 | Settings |
+| settings.lock_screen.check | ロック画面で確かめる | Settings |
 | settings.lock_screen.live_activity | Live Activity | Settings |
 | settings.lock_screen.morning_notification | 朝の目標通知 | Settings |
 | settings.lock_screen.notification_time | 通知時刻 | Settings |
@@ -248,9 +281,9 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | settings.value.not_set | 未設定 | Settings |
 | settings.value.unavailable | — | Settings |
 
-## Remaining user-facing hardcoded strings
+## Migrated batch 2 source inventory (remaining: 0)
 
-The inventory below excludes the four migrated files and excludes non-user-facing identifiers, analytics values, URL schemes, SF Symbol names, storage keys, log text, and empty fallback strings. Purely numeric text and visible separators are included because they still appear in the UI and may need locale-aware formatting.
+The inventory below is retained as the historical source-location checklist used for batch 2. Every listed location has been migrated. It excludes non-user-facing identifiers, analytics values, URL schemes, SF Symbol names, storage keys, log text, and empty fallback strings.
 
 ### AppContainer.swift
 
@@ -415,9 +448,6 @@ The inventory below excludes the four migrated files and excludes non-user-facin
 | LockSurfaceCoordinator.swift:123 | `・` | Morning notification / goal separator |
 | LockSurfaceCoordinator.swift:145 | `今週のふりかえり` | Weekly notification / title |
 | LockSurfaceCoordinator.swift:146 | `開かずに戻れた \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回` | Weekly notification / body |
-| LockSurfaceCoordinator.swift:170 | `止めるアプリが あと2日で1つになります` | Day-14 warning notification / title |
-| LockSurfaceCoordinator.swift:172 | `この2週間で開かずに戻れた \(day14Warning.cancelledCount)回。14日が終わると、止めるアプリは1つになります。残す1つを選ぶか、Proでそのまま続けるかを選べます。` | Day-14 warning notification / body with count |
-| LockSurfaceCoordinator.swift:174 | `14日が終わると、止めるアプリは1つになります。残す1つを選ぶか、Proでそのまま続けるかを選べます。` | Day-14 warning notification / fallback body |
 | LockSurfaceCoordinator.swift:196 | `無料期間はあと2日です` | Trial day-5 notification / title |
 | LockSurfaceCoordinator.swift:198 | `ここまでに開かずに戻れた \(trialDay5.cancelledCount)回。7日目に年額プランへ切り替わります。解約はいつでもできます。` | Trial day-5 notification / body with count |
 | LockSurfaceCoordinator.swift:200 | `7日目に年額プランへ切り替わります。解約はいつでもできます。` | Trial day-5 notification / fallback body |
@@ -545,10 +575,10 @@ The inventory below excludes the four migrated files and excludes non-user-facin
 | TargetAppPickerSheet.swift:18 | `止めるアプリを選ぶ` | Target-app picker / title |
 | TargetAppPickerSheet.swift:22 | `開こうとした瞬間に一呼吸を出したいアプリを選びます。` | Target-app picker / description |
 | TargetAppPickerSheet.swift:58 | `閉じる` | Target-app picker / close action |
-| TargetAppPickerSheet.swift:109 | `はじめの14日は3つまで追加できます` | Target-app picker / trial limit |
+| TargetAppPickerSheet.swift:109 | `無料プランでは1つまで` | Target-app picker / trial limit |
 | TargetAppPickerSheet.swift:111 | `無料プランでは1つまで` | Target-app picker / free limit |
 | TargetAppPickerSheet.swift:142 | `保存できませんでした` | Target-app picker / save error |
 
-Files in `ios/DopaBreak` with no remaining user-facing hardcoded strings: `AppURLs.swift`, `DesignTokens.swift`, `DopaBreakApp.swift`, `NotificationDelegate.swift`, `ScreenTimeCenter.swift`, and `ShieldController.swift`.
+Files in `ios/DopaBreak` that were already clear before batch 2: `AppURLs.swift`, `DesignTokens.swift`, `DopaBreakApp.swift`, `NotificationDelegate.swift`, `ScreenTimeCenter.swift`, and `ShieldController.swift`.
 
-Deferred by scope: all widget and shield-extension sources outside `ios/DopaBreak/*.swift`.
+Extension completion: `ios/WidgetsExtension/DopaBreakWidgets.swift` uses `ios/WidgetsExtension/Localizable.xcstrings`; `ios/ShieldConfigExtension/ShieldConfigurationExtension.swift` uses `ios/ShieldConfigExtension/Localizable.xcstrings`. Shield Action and Monitor contain no user-facing strings, so no empty catalog was added for those targets.

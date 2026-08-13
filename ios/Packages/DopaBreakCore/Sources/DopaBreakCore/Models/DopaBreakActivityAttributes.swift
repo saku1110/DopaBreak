@@ -1,4 +1,6 @@
-#if canImport(ActivityKit)
+// ActivityKit はmacOSでもimportできるが、`ActivityAttributes` はmacOSでは利用不可。
+// canImport だけでは素通りするためOS条件を併記する。
+#if canImport(ActivityKit) && !os(macOS)
 import ActivityKit
 import Foundation
 

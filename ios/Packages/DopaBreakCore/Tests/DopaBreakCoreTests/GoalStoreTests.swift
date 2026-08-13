@@ -116,6 +116,114 @@ final class GoalStoreTests: XCTestCase {
         XCTAssertTrue(persistedJSON.allSatisfy { $0["goalType"] == nil })
     }
 
+    // MARK: - replace（まとめて置き換え）
+
+    func testReplaceAppliesDeletionUpdateAndInsertionInOnePass() throws {
+        let store = try makeStore()
+        let kept = sampleGoal(id: uuid(1), title: "Kept", createdAt: date(1), updatedAt: date(2))
+        let edited = sampleGoal(id: uuid(2), title: "Edited", category: .study, createdAt: date(3), updatedAt: date(4))
+        let removed = sampleGoal(id: uuid(3), title: "Removed")
+        try store.save(kept)
+        try store.save(edited)
+        try store.save(removed)
+
+        var replacement = try store.goals()
+        replacement.removeAll { $0.id == uuid(3) }
+        replacement[1].title = "Renamed"
+        replacement[1].lockScreenTitle = nil
+        replacement.append(sampleGoal(id: uuid(4), title: "Added", lockScreenTitle: nil))
+
+        try store.replace(goals: replacement)
+
+        let stored = try store.goals()
+        XCTAssertEqual(stored.map(\.id), [uuid(1), uuid(2), uuid(4)])
+        XCTAssertEqual(stored.map(\.title), ["Kept", "Renamed", "Added"])
+        // 書き換えた目標は作成日とカテゴリを保つ
+        XCTAssertEqual(stored[1].category, .study)
+        XCTAssertEqual(stored[1].createdAt, date(3))
+        XCTAssertNil(stored[1].lockScreenTitle)
+    }
+
+    /// 16字の目標（オンボーディングの入力上限）はそのまま通る。
+    func testReplaceAcceptsTitlesWithinTheStoreLimit() throws {
+        let store = try makeStore()
+        let sixteen = String(repeating: "あ", count: 16)
+
+        try store.replace(goals: [sampleGoal(id: uuid(1), title: sixteen, lockScreenTitle: nil)])
+
+        XCTAssertEqual(try store.goals().map(\.title), [sixteen])
+    }
+
+    /// 1件でも検証に落ちたら、何も書かずに元の状態を残す。
+    func testReplaceRejectsInvalidGoalsWithoutTouchingStoredData() throws {
+        let store = try makeStore()
+        try store.save(sampleGoal(id: uuid(1), title: "First"))
+        try store.save(sampleGoal(id: uuid(2), title: "Second"))
+        let before = try store.goals()
+
+        // 空タイトル
+        XCTAssertValidationError(
+            try store.replace(goals: [
+                sampleGoal(id: uuid(1), title: "Renamed"),
+                sampleGoal(id: uuid(2), title: "   ")
+            ])
+        )
+        XCTAssertEqual(try store.goals(), before, "検証に落ちたのに書き込まれている")
+
+        // 40字超
+        XCTAssertValidationError(
+            try store.replace(goals: [sampleGoal(id: uuid(1), title: String(repeating: "a", count: 41))])
+        )
+        XCTAssertEqual(try store.goals(), before)
+
+        // ロック表示名の16字超
+        XCTAssertValidationError(
+            try store.replace(goals: [
+                sampleGoal(id: uuid(1), title: "First", lockScreenTitle: String(repeating: "b", count: 17))
+            ])
+        )
+        XCTAssertEqual(try store.goals(), before)
+
+        // ID重複
+        XCTAssertValidationError(
+            try store.replace(goals: [
+                sampleGoal(id: uuid(1), title: "First"),
+                sampleGoal(id: uuid(1), title: "Duplicate")
+            ])
+        )
+        XCTAssertEqual(try store.goals(), before)
+    }
+
+    /// 全消し（空配列）も置き換えとして通す。
+    func testReplaceWithEmptyListClearsGoals() throws {
+        let store = try makeStore()
+        try store.save(sampleGoal(id: uuid(1), title: "First"))
+
+        try store.replace(goals: [])
+
+        XCTAssertTrue(try store.goals().isEmpty)
+    }
+
+    /// 中身が変わっていない目標の更新日時は動かさない。変わった目標だけ進める。
+    func testReplaceKeepsUpdatedAtForUnchangedGoals() throws {
+        let store = try makeStore()
+        try store.save(sampleGoal(id: uuid(1), title: "Kept", lockScreenTitle: nil))
+        try store.save(sampleGoal(id: uuid(2), title: "Edited", lockScreenTitle: nil))
+        let before = try store.goals()
+
+        // 保存日時はミリ秒までしか保たないため、同じミリ秒に収まると差が出ない。
+        // 進んだことを見るために、書き込みの間隔を明示的に空ける
+        Thread.sleep(forTimeInterval: 0.002)
+
+        var replacement = before
+        replacement[1].title = "Renamed"
+        try store.replace(goals: replacement)
+
+        let stored = try store.goals()
+        XCTAssertEqual(stored[0], before[0], "触っていない目標が書き換わっている")
+        XCTAssertGreaterThan(stored[1].updatedAt, before[1].updatedAt)
+    }
+
     func testEmptyTitleFailsValidation() throws {
         let store = try makeStore()
         XCTAssertValidationError(try store.save(sampleGoal(title: "   ")))

@@ -6,7 +6,7 @@ import XCTest
 @testable import DopaBreak
 
 final class MeasurementFoundationTests: XCTestCase {
-    func testOnboardingStepIdentifiersAreStableAndCoverAllFourteenSteps() {
+    func testOnboardingStepIdentifiersAreStableAndCoverAllFifteenSteps() {
         XCTAssertEqual(
             OnboardingStep.allCases.map(\.identifier),
             [
@@ -22,10 +22,96 @@ final class MeasurementFoundationTests: XCTestCase {
                 "why_science",
                 "permission",
                 "notification_guide",
+                "lock_screen_check",
                 "pre_paywall_summary",
                 "ready"
             ]
         )
+    }
+
+    func testLockScreenCheckPhaseNeedsReturnFromLockScreenBeforeConfirming() {
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .visible,
+                didReturnFromLockScreen: false,
+                current: .starting
+            ),
+            .waiting
+        )
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .visible,
+                didReturnFromLockScreen: true,
+                current: .waiting
+            ),
+            .confirmed
+        )
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .visible,
+                didReturnFromLockScreen: false,
+                current: .confirmed
+            ),
+            .confirmed
+        )
+    }
+
+    func testLockScreenCheckPhaseSeparatesSystemDenialFromRecoverableFailure() {
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .systemDisabled,
+                didReturnFromLockScreen: true,
+                current: .confirmed
+            ),
+            .blocked(.systemDisabled)
+        )
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .failed,
+                didReturnFromLockScreen: false,
+                current: .waiting
+            ),
+            .blocked(.failed)
+        )
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .noGoal,
+                didReturnFromLockScreen: false,
+                current: .starting
+            ),
+            .noGoal
+        )
+    }
+
+    func testLockScreenCheckRecoversFromBlockedOnceActivityIsUpAgain() {
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .visible,
+                didReturnFromLockScreen: false,
+                current: .blocked(.systemDisabled)
+            ),
+            .waiting
+        )
+        XCTAssertEqual(
+            LockScreenCheckContent.phase(
+                for: .visible,
+                didReturnFromLockScreen: true,
+                current: .blocked(.failed)
+            ),
+            .confirmed
+        )
+    }
+
+    func testLockScreenCheckPhaseIsPresentingOnlyWhileActivityIsUp() {
+        XCTAssertTrue(LockScreenCheckPhase.waiting.isPresenting)
+        XCTAssertTrue(LockScreenCheckPhase.confirmed.isPresenting)
+        XCTAssertFalse(LockScreenCheckPhase.starting.isPresenting)
+        XCTAssertFalse(LockScreenCheckPhase.blocked(.systemDisabled).isPresenting)
+        XCTAssertFalse(LockScreenCheckPhase.blocked(.failed).isPresenting)
+        XCTAssertFalse(LockScreenCheckPhase.noGoal.isPresenting)
+        XCTAssertTrue(LockScreenCheckPhase.blocked(.systemDisabled).isBlocked)
+        XCTAssertTrue(LockScreenCheckPhase.blocked(.failed).isBlocked)
+        XCTAssertFalse(LockScreenCheckPhase.waiting.isBlocked)
     }
 
     func testPaywallPlacementIdentifiersCoverAllPresentationSites() {
@@ -38,13 +124,12 @@ final class MeasurementFoundationTests: XCTestCase {
                 "settings_pro_status_row",
                 "settings_theme_gate",
                 "settings_mode_gate",
+                "settings_usage_watch_gate",
                 "onboarding_prepaywall_summary",
                 "onboarding_mode_gate",
                 "onboarding_target_app_gate",
                 "stats_history_gate",
-                "day14_warning",
-                "weekly",
-                "reverse_trial_end"
+                "weekly"
             ])
         )
     }
@@ -102,117 +187,90 @@ final class MeasurementFoundationTests: XCTestCase {
         )
     }
 
+    /// まとめ置き換えでも上限は守る。ただし、すでに上限を超えている既存データは保てる。
     @MainActor
-    func testAppModelEntitlementGateIncludesReverseTrialThenReturnsToFree() throws {
+    func testReplaceGoalsBlocksGrowthBeyondTheFreeLimitButKeepsExistingGoals() throws {
         let suiteName = "MeasurementFoundationTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
-        var currentDate = startedAt
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MeasurementFoundationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: containerURL) }
+
+        let currentDate = Date(timeIntervalSince1970: 1_800_000_000)
         let settingsStore = SettingsStore(userDefaults: defaults)
-        settingsStore.startReverseTrialIfNeeded(at: startedAt)
-        do {
-            var model: AppModel? = AppModel(
-                containerProvider: UnavailableContainer(),
-                settingsStore: settingsStore,
-                now: { currentDate }
+        let containerProvider = TemporaryContainer(url: containerURL)
+        try GoalStore(
+            snapshotStore: JSONSnapshotStore(containerProvider: containerProvider)
+        ).replace(goals: [
+            Goal(
+                id: UUID(),
+                title: "英語で話す",
+                lockScreenTitle: nil,
+                category: .other,
+                displayImagePath: nil,
+                createdAt: currentDate,
+                updatedAt: currentDate
+            ),
+            Goal(
+                id: UUID(),
+                title: "読書を30分",
+                lockScreenTitle: nil,
+                category: .other,
+                displayImagePath: nil,
+                createdAt: currentDate,
+                updatedAt: currentDate
             )
+        ])
+        let model = AppModel(
+            containerProvider: containerProvider,
+            settingsStore: settingsStore,
+            now: { currentDate }
+        )
 
-            XCTAssertEqual(model!.entitlementGate.tier, .pro)
-            XCTAssertNil(model!.entitlementGate.statsDays)
-            XCTAssertNil(model!.entitlementGate.targetAppTokensLimit)
+        XCTAssertEqual(model.entitlementGate.tier, .free)
+        XCTAssertEqual(model.goals.map(\.title), ["英語で話す", "読書を30分"])
 
-            currentDate = ReverseTrialPolicy.endDate(startedAt: startedAt)
-            model!.refresh(scheduleNotifications: false)
+        // 既存2件のまま書き換えるのは通す（上限超過でも失わせない）
+        var kept = model.goals
+        kept[0].title = "英語で話し切る"
+        XCTAssertTrue(model.replaceGoals(kept))
+        XCTAssertEqual(model.goals.map(\.title), ["英語で話し切る", "読書を30分"])
 
-            XCTAssertEqual(model!.entitlementGate.tier, .free)
-            XCTAssertEqual(model!.entitlementGate.statsDays, 1)
-            XCTAssertTrue(model!.shouldPresentReverseTrialEndPaywall)
-            model = nil
-        }
+        // 減らすのも通す
+        XCTAssertTrue(model.replaceGoals(Array(model.goals.prefix(1))))
+        XCTAssertEqual(model.goals.count, 1)
+
+        // 上限を超えて増やすのは止める
+        let extra = Goal(
+            id: UUID(),
+            title: "資格の勉強",
+            lockScreenTitle: nil,
+            category: .other,
+            displayImagePath: nil,
+            createdAt: currentDate,
+            updatedAt: currentDate
+        )
+        XCTAssertFalse(model.replaceGoals(model.goals + [extra]))
+        XCTAssertEqual(model.goals.count, 1)
     }
 
     func testPaywallResolvedYearlyDaysUsesSnapshotAndFallsBackToDefaultEstimate() {
         let snapshot = SelfCheckSnapshot(
             id: UUID(),
-            usageBucket: "4時間以上",
+            usageBucket: "6時間以上",
             aimlessScrollBucket: "ほとんど毎日",
             regretBucket: "半分以上",
-            estimatedDailyMinutes: 270,
-            estimatedYearlyDays: 68,
+            estimatedDailyMinutes: 390,
+            estimatedYearlyDays: 99,
             createdAt: Date()
         )
 
-        XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: snapshot), 68)
+        XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: snapshot), 99)
         XCTAssertEqual(PaywallView.resolvedYearlyDays(snapshot: nil), 38)
-    }
-
-    func testDay14WarningScheduleUsesNominalTimeUntilItHasPassed() {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let nominal = now.addingTimeInterval(6 * 60 * 60)
-        let boundary = now.addingTimeInterval(2 * 86_400)
-
-        XCTAssertEqual(
-            Day14WarningSchedule.nextFireDate(
-                nominalFireDate: nominal,
-                now: now,
-                day14Boundary: boundary
-            ),
-            nominal
-        )
-    }
-
-    func testDay14WarningScheduleUsesEarlierFutureFallbackAfterNominalTime() {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let nominal = now.addingTimeInterval(-60)
-        let boundary = now.addingTimeInterval(20 * 60 * 60)
-
-        XCTAssertEqual(
-            Day14WarningSchedule.nextFireDate(
-                nominalFireDate: nominal,
-                now: now,
-                day14Boundary: boundary
-            ),
-            now.addingTimeInterval(60 * 60)
-        )
-    }
-
-    func testDay14WarningScheduleDoesNotUsePastBoundaryFallback() {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let nominal = now.addingTimeInterval(-60)
-        let boundary = now.addingTimeInterval(6 * 60 * 60)
-
-        XCTAssertEqual(
-            Day14WarningSchedule.nextFireDate(
-                nominalFireDate: nominal,
-                now: now,
-                day14Boundary: boundary
-            ),
-            now.addingTimeInterval(60 * 60)
-        )
-        XCTAssertNil(
-            Day14WarningSchedule.nextFireDate(
-                nominalFireDate: nominal,
-                now: boundary,
-                day14Boundary: boundary
-            )
-        )
-    }
-
-    func testDay14WarningScheduleDoesNotFallbackAcrossDay14Boundary() {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let nominal = now.addingTimeInterval(-60)
-        let boundary = now.addingTimeInterval(30 * 60)
-
-        XCTAssertNil(
-            Day14WarningSchedule.nextFireDate(
-                nominalFireDate: nominal,
-                now: now,
-                day14Boundary: boundary
-            )
-        )
     }
 
     @MainActor
@@ -245,12 +303,57 @@ final class MeasurementFoundationTests: XCTestCase {
         flow.selectReason(.boredom)
         XCTAssertEqual(flow.stage, .breathing)
 
+        try await Task.sleep(nanoseconds: 2_500_000_000)
+        XCTAssertEqual(flow.stage, .breathing)
+        XCTAssertGreaterThan(flow.flarePhase, 0)
+
         flow.start()
         XCTAssertEqual(flow.stage, .reasonSelection)
 
-        try await Task.sleep(nanoseconds: 3_200_000_000)
+        try await Task.sleep(nanoseconds: 800_000_000)
         XCTAssertEqual(flow.stage, .reasonSelection)
+        XCTAssertEqual(flow.flarePhase, 0)
         XCTAssertEqual(try model.interventionEngine?.currentStep(), .intentSelection)
+    }
+
+    @MainActor
+    func testBreathingCompletesFinalFlareBeforeUsageSummary() async throws {
+        let suiteName = "MeasurementFoundationTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MeasurementFoundationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+
+        let settingsStore = SettingsStore(userDefaults: defaults)
+        settingsStore.breathDurationSeconds = 3
+        let model = AppModel(
+            containerProvider: FixedContainer(url: containerURL),
+            settingsStore: settingsStore
+        )
+        let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
+        let flow = InterventionFlowModel(
+            target: target,
+            model: model,
+            settingsStore: settingsStore
+        )
+        defer { flow.stop() }
+
+        flow.start()
+        flow.selectReason(.unconscious)
+
+        try await Task.sleep(nanoseconds: 2_500_000_000)
+        XCTAssertEqual(flow.stage, .breathing)
+        XCTAssertGreaterThan(flow.flarePhase, 0)
+
+        try await Task.sleep(nanoseconds: 800_000_000)
+        XCTAssertEqual(flow.stage, .usageSummary)
+        XCTAssertEqual(flow.breathRemainingSeconds, 0)
+        XCTAssertEqual(flow.breathPhase, 1)
+        XCTAssertEqual(flow.flarePhase, 1)
     }
 
     @MainActor
@@ -266,11 +369,11 @@ final class MeasurementFoundationTests: XCTestCase {
         try snapshotStore.write(
             SelfCheckSnapshot(
                 id: UUID(),
-                usageBucket: "4時間以上",
+                usageBucket: "6時間以上",
                 aimlessScrollBucket: "ほとんど毎日",
                 regretBucket: "半分以上",
-                estimatedDailyMinutes: 270,
-                estimatedYearlyDays: 68,
+                estimatedDailyMinutes: 390,
+                estimatedYearlyDays: 99,
                 createdAt: Date()
             ),
             to: .selfCheckSnapshot
@@ -284,7 +387,7 @@ final class MeasurementFoundationTests: XCTestCase {
             placement: .settingsThemeGate,
             snapshotStore: snapshotStore
         )
-        XCTAssertEqual(persistedView.yearlyDays, 68)
+        XCTAssertEqual(persistedView.yearlyDays, 99)
 
         try Data("not json".utf8).write(
             to: containerURL.appendingPathComponent("self_check_snapshot.json")
@@ -329,10 +432,87 @@ final class MeasurementFoundationTests: XCTestCase {
             ]
         )
     }
+
+    /// 目標を決めた瞬間の着火演出の時間曲線を固定する。
+    ///
+    /// 火は立ち上がったら落とさない。進捗が終端に達したあとも灯ったままにしておかないと、
+    /// 次の画面へ送る前（0.8秒）に炎が消えて演出が途切れる。
+    func testGoalIgnitionRisesMonotonicallyAndStaysLit() {
+        var previousOpacity = -1.0
+        var previousBreath = -1.0
+
+        for step in 0...200 {
+            let phase = GoalIgnitionPhase(progress: Double(step) / 200.0)
+            let context = "progress=\(phase.progress)"
+
+            XCTAssertGreaterThanOrEqual(phase.opacity, previousOpacity, "不透明度が戻った \(context)")
+            XCTAssertLessThanOrEqual(phase.opacity, 1, context)
+            XCTAssertGreaterThanOrEqual(phase.breathPhase, previousBreath, "火が縮んだ \(context)")
+            XCTAssertLessThanOrEqual(
+                phase.breathPhase,
+                GoalIgnitionPhase.peakBreath + 0.0001,
+                "介入画面のピークを侵す強度になった \(context)"
+            )
+            XCTAssertGreaterThanOrEqual(phase.flare, 0, context)
+            XCTAssertLessThanOrEqual(phase.flare, 1, context)
+
+            previousOpacity = phase.opacity
+            previousBreath = phase.breathPhase
+        }
+
+        // 終端は「灯りきって落ち着いた」状態
+        let settled = GoalIgnitionPhase(progress: 1)
+        XCTAssertEqual(settled.opacity, 1, accuracy: 0.0001)
+        XCTAssertEqual(settled.breathPhase, GoalIgnitionPhase.peakBreath, accuracy: 0.0001)
+        XCTAssertEqual(settled.flare, 0, accuracy: 0.0001)
+
+        // 範囲外の進捗でも壊れない
+        XCTAssertEqual(GoalIgnitionPhase(progress: -1).opacity, 0, accuracy: 0.0001)
+        XCTAssertEqual(GoalIgnitionPhase(progress: 2).breathPhase, GoalIgnitionPhase.peakBreath, accuracy: 0.0001)
+    }
+
+    /// 吹き上がりは一発だけ。立ち上がりきってから減衰し、二度は起きない。
+    func testGoalIgnitionFlarePeaksOnceThenDecays() {
+        func flare(atElapsed elapsed: TimeInterval) -> Double {
+            GoalIgnitionPhase(progress: elapsed / GoalIgnitionPhase.duration).flare
+        }
+
+        XCTAssertEqual(flare(atElapsed: 0), 0, accuracy: 0.0001)
+        XCTAssertEqual(flare(atElapsed: GoalIgnitionPhase.flareRise), 1, accuracy: 0.0001)
+        XCTAssertEqual(
+            flare(atElapsed: GoalIgnitionPhase.flareRise + GoalIgnitionPhase.flareFall),
+            0,
+            accuracy: 0.0001
+        )
+
+        // 立ち上がり区間は増え続ける
+        var previous = -1.0
+        for step in 0...50 {
+            let value = flare(atElapsed: GoalIgnitionPhase.flareRise * Double(step) / 50.0)
+            XCTAssertGreaterThanOrEqual(value, previous, "吹き上がりの途中で落ちた")
+            previous = value
+        }
+
+        // 減衰区間は戻らない
+        previous = 2.0
+        for step in 0...50 {
+            let elapsed = GoalIgnitionPhase.flareRise
+                + GoalIgnitionPhase.flareFall * Double(step) / 50.0
+            let value = flare(atElapsed: elapsed)
+            XCTAssertLessThanOrEqual(value, previous, "減衰の途中で吹き返した")
+            previous = value
+        }
+
+        // 減衰しきったあとは0のまま
+        XCTAssertEqual(flare(atElapsed: GoalIgnitionPhase.duration), 0, accuracy: 0.0001)
+    }
 }
 
-private struct UnavailableContainer: ContainerProviding {
+/// 実データを書ける一時コンテナ。テストごとに捨てる。
+private struct TemporaryContainer: ContainerProviding {
+    let url: URL
+
     func containerURL() throws -> URL {
-        throw NSError(domain: "MeasurementFoundationTests", code: 1)
+        url
     }
 }

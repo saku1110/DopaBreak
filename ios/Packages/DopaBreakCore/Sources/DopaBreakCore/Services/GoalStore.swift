@@ -35,6 +35,36 @@ public struct GoalStore: Sendable {
         try snapshotStore.write(goals, to: .goals)
     }
 
+    /// 目標の全件を一度に置き換える。
+    ///
+    /// 削除・更新・追加を`save`/`delete`で積み上げると、途中で失敗したときに
+    /// 半分だけ適用された状態が残る。まとめて確定したい経路（オンボーディングの目標同期）のために、
+    /// 全件を検証してから1回だけ書き込む。1件でも検証に落ちたら何も書かない。
+    ///
+    /// `createdAt`は既存の値を保つ。`updatedAt`は中身が変わった目標だけ進める。
+    public func replace(goals newGoals: [Goal]) throws {
+        let validated = try newGoals.map(validatedGoal)
+        guard Set(validated.map(\.id)).count == validated.count else {
+            throw CoreError.validation(message: "同じ目標が重複しています")
+        }
+
+        let existingByID = Dictionary(
+            try goals().map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let now = Date()
+        let normalized = validated.map { goal -> Goal in
+            guard let existing = existingByID[goal.id] else {
+                return inserting(goal, updatedAt: now)
+            }
+            // 中身が同じ目標のupdatedAtは動かさない
+            let unchanged = replacing(existing, with: goal, updatedAt: existing.updatedAt)
+            return unchanged == existing ? existing : replacing(existing, with: goal, updatedAt: now)
+        }
+
+        try snapshotStore.write(normalized, to: .goals)
+    }
+
     public func delete(id: UUID) throws {
         var goals = try goals()
         guard let index = goals.firstIndex(where: { $0.id == id }) else {

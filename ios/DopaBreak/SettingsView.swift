@@ -649,7 +649,7 @@ struct SettingsView: View {
                 defaultValue: "ディープフォーカスにすると、選んだアプリを完全に止められます。"
             )
         }
-        guard selectedMode == .deepFocus else {
+        guard selectedMode.usesShield else {
             return String(
                 localized: "settings.deep_focus.standard_notice",
                 defaultValue: "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると、選んだアプリが開けなくなります。"
@@ -661,6 +661,14 @@ struct SettingsView: View {
             return String(
                 localized: "settings.deep_focus.empty_targets_notice",
                 defaultValue: "完全ブロックの対象を選ぶと、そのアプリは開けなくなります。"
+            )
+        }
+        // 夜だけ強化は止まる時間帯が違う。ディープフォーカスと同じ説明を出すと、
+        // 昼も止まっていると読めてしまう。
+        if selectedMode == .nightOnly {
+            return String(
+                localized: "settings.night_only.description",
+                defaultValue: "選んだアプリは就寝から起床まで開けなくなります。昼は一呼吸の確認だけが出ます。"
             )
         }
         return String(
@@ -771,6 +779,9 @@ struct SettingsView: View {
             set: {
                 settingsStore.wakeTimeMinutes = minutes(from: $0)
                 model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
+                // 夜だけ強化の窓もここで決まる。いまブロックすべきかの再計算と
+                // 監視の張り直しを同時にやる `syncShield` を通す。
+                model.syncShield()
             }
         )
     }
@@ -781,6 +792,7 @@ struct SettingsView: View {
             set: {
                 settingsStore.bedTimeMinutes = minutes(from: $0)
                 model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
+                model.syncShield()
             }
         )
     }
@@ -887,13 +899,23 @@ struct SettingsView: View {
         )
     }
 
+    /// 保存してある「壁時計の分数」を、その時分そのものを指すDateへ戻す。
+    ///
+    /// 0時から分を足す形にすると、夏時間の切り替わる日（23時間・25時間の日）に
+    /// 表示が1時間ずれる。時分を直接指定して組み立てれば、日の長さに左右されない。
     private func dateForTime(minutes: Int?, defaultMinutes: Int) -> Date {
         let calendar = Calendar.current
         let normalized = normalizedMinutes(minutes ?? defaultMinutes)
-        let startOfDay = calendar.startOfDay(for: Date())
-        return calendar.date(byAdding: .minute, value: normalized, to: startOfDay) ?? Date()
+        let now = Date()
+        return calendar.date(
+            bySettingHour: normalized / 60,
+            minute: normalized % 60,
+            second: 0,
+            of: now
+        ) ?? now
     }
 
+    /// 表示側と対になる戻し。こちらも時分の成分だけを見る。
     private func minutes(from date: Date) -> Int {
         let components = Calendar.current.dateComponents([.hour, .minute], from: date)
         return ((components.hour ?? 0) * 60) + (components.minute ?? 0)
@@ -1503,7 +1525,8 @@ struct SettingsView: View {
 
     private func setSelectedMode(_ mode: InterventionMode) {
         // 解放判定は権利の確定を待たない。未確定でも上位の強さを勝手には開けない。
-        guard mode != .deepFocus || isDeepFocusUnlocked else {
+        // 夜だけ強化も同じ完全ブロックを使うため、ディープフォーカスと同じ扱いにする。
+        guard !mode.usesShield || isDeepFocusUnlocked else {
             paywallPlacement = .settingsModeGate
             selectedMode = storedMode
             return
@@ -1531,7 +1554,7 @@ struct SettingsView: View {
     /// 課金者のディープフォーカスを標準へ永久に書き換えてしまう。
     /// 未確定のあいだは現状の値をそのまま通す（`.claude/specs/entitlement-failsafe-fix.md`）。
     private func modeAllowedForCurrentEntitlement(_ mode: InterventionMode) -> InterventionMode {
-        guard mode == .deepFocus,
+        guard mode.usesShield,
               model.storeService.hasConfirmedEntitlement,
               !model.entitlementGate.strictModeAllowed else {
             return mode

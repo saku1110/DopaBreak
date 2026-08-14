@@ -1,21 +1,124 @@
 import DeviceActivity
 import DopaBreakCore
+import FamilyControls
 import Foundation
+import ManagedSettings
 import UserNotifications
 
 final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+    /// 夜だけ強化の分だけを置くストア。常時ブロック（"dopabreak.rules"）とは別にしてあるため、
+    /// ここから朝の解除を出してもディープフォーカスには当たらない。
+    private let nightShieldStore = ManagedSettingsStore(
+        named: .init(NightShieldConstants.shieldStoreName)
+    )
+    private let decoder = JSONDecoder()
+
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
 
-        guard activity.rawValue == UsageWatchConstants.activityName,
-              let store = try? UsageWatchStore() else {
+        switch activity.rawValue {
+        case UsageWatchConstants.activityName:
+            guard let store = try? UsageWatchStore() else {
+                return
+            }
+            store.resetDailyState()
+        case NightShieldConstants.activityName:
+            applyNightShield()
+        default:
             return
         }
-        store.resetDailyState()
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
+
+        guard activity.rawValue == NightShieldConstants.activityName else {
+            return
+        }
+        clearNightShieldIfOutsideWindow()
+    }
+
+    /// 起床時刻に夜間ぶんを剥がす。ただし、いま新しい窓の内にいるなら剥がさない。
+    ///
+    /// 就寝・起床を変えると、古いスケジュールぶんの終了が新しい窓の最中に届くことがある。
+    /// 控えが無いときは降格や全データ削除の後始末が走った後なので、そのまま解除でよい。
+    private func clearNightShieldIfOutsideWindow() {
+        if let snapshot = try? JSONSnapshotStore().read(
+            NightShieldSnapshot.self,
+            from: .nightShieldSnapshot
+        ),
+        NightWindowPolicy.isNight(
+            now: Date(),
+            snapshot: snapshot,
+            calendar: .autoupdatingCurrent
+        ) {
+            return
+        }
+        clearNightShield()
+    }
+
+    /// 就寝時刻に、アプリが書いた控えのぶんだけブロックする。
+    ///
+    /// 権利の判定もルールの読み取りもここではしない。控えが無い・読めないときは何もしない。
+    /// 拡張が独自に判断すると、Freeへ戻った端末で夜だけブロックが復活する。
+    ///
+    /// 控えに書かれた就寝・起床で「いま窓の内か」も確かめる。就寝時刻を変えた直後は、
+    /// 古いスケジュールぶんの開始が遅れて届くことがあり、時刻を見ずに従うと昼にブロックが出る。
+    private func applyNightShield() {
+        let snapshotStore = JSONSnapshotStore()
+        guard let snapshot = try? snapshotStore.read(
+            NightShieldSnapshot.self,
+            from: .nightShieldSnapshot
+        ) else {
+            return
+        }
+
+        guard NightWindowPolicy.isNight(
+            now: Date(),
+            snapshot: snapshot,
+            calendar: .autoupdatingCurrent
+        ) else {
+            return
+        }
+
+        var applicationTokens = Set<ApplicationToken>()
+        var categoryTokens = Set<ActivityCategoryToken>()
+        var webDomainTokens = Set<WebDomainToken>()
+
+        for selectionData in snapshot.selectionDataList {
+            guard let selection = try? decoder.decode(
+                FamilyActivitySelection.self,
+                from: selectionData
+            ) else {
+                continue
+            }
+            applicationTokens.formUnion(selection.applicationTokens)
+            categoryTokens.formUnion(selection.categoryTokens)
+            webDomainTokens.formUnion(selection.webDomainTokens)
+        }
+
+        guard !applicationTokens.isEmpty || !categoryTokens.isEmpty || !webDomainTokens.isEmpty else {
+            return
+        }
+
+        // 読んでからここへ来るまでに、アプリが降格の後始末で控えを消していることがある。
+        // 消えていれば「もう適用してはいけない」の合図なので、張らずに引き返す。
+        // それでも残る極小の競合窓は、次にアプリが前面へ来たときの `syncShield` が必ず剥がす。
+        guard snapshotStore.exists(.nightShieldSnapshot) else {
+            return
+        }
+
+        nightShieldStore.shield.applications = applicationTokens.isEmpty ? nil : applicationTokens
+        nightShieldStore.shield.applicationCategories = categoryTokens.isEmpty
+            ? nil
+            : .specific(categoryTokens)
+        nightShieldStore.shield.webDomains = webDomainTokens.isEmpty ? nil : webDomainTokens
+    }
+
+    private func clearNightShield() {
+        nightShieldStore.shield.applications = nil
+        nightShieldStore.shield.applicationCategories = nil
+        nightShieldStore.shield.webDomains = nil
     }
 
     override func eventDidReachThreshold(

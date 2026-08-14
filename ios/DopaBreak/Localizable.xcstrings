@@ -2324,19 +2324,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "*Based on an assumed %@ a day. Not a medical diagnosis."
+            "value": "*An estimate based on an assumed %@ a day."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "※1日約%@の想定にもとづく推計値です。医療診断ではありません。"
+            "value": "※1日約%@の想定にもとづく推計値です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "※하루 약 %@ 사용 가정에 기반한 추정치입니다. 의료 진단이 아닙니다."
+            "value": "※하루 약 %@ 사용 가정에 기반한 추정치입니다."
           }
         }
       }
@@ -4977,6 +4977,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "멈춤 강도"
+          }
+        }
+      }
+    },
+    "settings.night_only.description": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The apps you pick won't open from bedtime until you wake up. During the day you only get the pause check."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだアプリは就寝から起床まで開けなくなります。昼は一呼吸の確認だけが出ます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여기서 고른 앱은 취침 시각부터 기상 시각까지 열리지 않습니다. 낮에는 멈춤 확인만 표시됩니다."
           }
         }
       }
@@ -7820,19 +7844,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Adds a stronger check at night so you don't open social apps too often"
+            "value": "Blocks the apps completely from bedtime until you wake up"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "夜は確認を強くして開きすぎを防ぐ"
+            "value": "就寝から起床まで完全ブロックする"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "밤에는 확인을 강하게 해서 지나치게 자주 열지 않게 해줘요"
+            "value": "취침 시각부터 기상 시각까지 앱을 완전히 차단해요"
           }
         }
       }

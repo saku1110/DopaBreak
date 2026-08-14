@@ -3,26 +3,21 @@ import XCTest
 @testable import DopaBreakCore
 
 final class InterventionModeAvailabilityTests: XCTestCase {
-    /// 時間帯での切り替えが未実装のため、`nightOnly` は選ばせない（docs/12 §1）。
-    func testSelectableModesExcludeNightOnly() {
-        XCTAssertEqual(InterventionMode.selectable, [.standard, .deepFocus])
-        XCTAssertFalse(InterventionMode.selectable.contains(.nightOnly))
+    /// 夜だけ強化は時間帯での切り替えを実装した2026-08-14に解禁した（docs/12 §1）。
+    func testSelectableModesIncludeNightOnly() {
+        XCTAssertEqual(InterventionMode.selectable, [.standard, .deepFocus, .nightOnly])
     }
 
     func testIsSelectableMatchesTheSelectableList() {
         XCTAssertTrue(InterventionMode.standard.isSelectable)
         XCTAssertTrue(InterventionMode.deepFocus.isSelectable)
-        XCTAssertFalse(InterventionMode.nightOnly.isSelectable)
-    }
-
-    /// 永続化の境界でもう一度落とす。画面側の列挙漏れが保存まで通らないようにする。
-    func testPersistableMovesUnsupportedModesToStandard() {
-        XCTAssertEqual(InterventionMode.nightOnly.persistable, .standard)
+        XCTAssertTrue(InterventionMode.nightOnly.isSelectable)
     }
 
     func testPersistableKeepsSupportedModes() {
         XCTAssertEqual(InterventionMode.standard.persistable, .standard)
         XCTAssertEqual(InterventionMode.deepFocus.persistable, .deepFocus)
+        XCTAssertEqual(InterventionMode.nightOnly.persistable, .nightOnly)
     }
 
     /// 選べるモードは必ず保存できる。片方だけ足したときのずれを防ぐ。
@@ -32,8 +27,15 @@ final class InterventionModeAvailabilityTests: XCTestCase {
         }
     }
 
-    /// 未実装のモードが保存されても、完全ブロックの対象にはならない。
-    func testNightOnlyIsNeverShielded() {
+    /// 完全ブロックを使う強さはPro専用。画面側の解放判定はこの旗を見る。
+    func testUsesShieldMarksTheProOnlyModes() {
+        XCTAssertTrue(InterventionMode.deepFocus.usesShield)
+        XCTAssertTrue(InterventionMode.nightOnly.usesShield)
+        XCTAssertFalse(InterventionMode.standard.usesShield)
+    }
+
+    /// 夜だけ強化は夜の窓のなかだけ完全ブロックを出す。
+    func testNightOnlyIsShieldedOnlyInsideTheNightWindow() {
         let rule = TargetRule(
             id: UUID(),
             name: "night",
@@ -53,7 +55,18 @@ final class InterventionModeAvailabilityTests: XCTestCase {
                 rules: [rule],
                 isPro: true,
                 strictModeAllowed: true,
-                hasConfirmedEntitlement: true
+                hasConfirmedEntitlement: true,
+                isNightWindow: true
+            ),
+            .apply(rules: [rule])
+        )
+        XCTAssertEqual(
+            ShieldSyncPolicy.action(
+                rules: [rule],
+                isPro: true,
+                strictModeAllowed: true,
+                hasConfirmedEntitlement: true,
+                isNightWindow: false
             ),
             .clear
         )

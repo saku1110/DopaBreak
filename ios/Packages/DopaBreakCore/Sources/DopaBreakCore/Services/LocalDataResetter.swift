@@ -74,6 +74,9 @@ public struct LocalDataResetter {
         attempt { try snapshotStore.remove(.selfCheckSnapshot) }
         attempt { try snapshotStore.remove(.widgetSnapshot) }
         attempt { try snapshotStore.remove(.lockSurfaceState) }
+        // 夜だけ強化の控えを残すと、ルールを消したあとの夜境界で拡張が
+        // 消したはずの対象を再びブロックする。
+        attempt { try snapshotStore.remove(.nightShieldSnapshot) }
 
         settingsStore.resetToDefaults()
         successfulOperationCount += 1

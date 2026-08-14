@@ -67,6 +67,7 @@ final class AppModel {
     let screenTime: ScreenTimeCenter
     let usageWatch: UsageWatchController
     let shield: ShieldController
+    let nightShieldScheduler: NightShieldScheduler
     let storeService: StoreService
     let funnelEventStore: FunnelEventStore
     let interventionEngine: InterventionEngine?
@@ -146,7 +147,15 @@ final class AppModel {
             usageWatchStore: usageWatchStore,
             selectionStore: usageWatchSelectionStore
         )
-        self.shield = ShieldController(ruleStore: resolvedRuleStore)
+        let resolvedShield = ShieldController(ruleStore: resolvedRuleStore)
+        self.shield = resolvedShield
+        self.nightShieldScheduler = NightShieldScheduler(
+            ruleStore: resolvedRuleStore,
+            settingsStore: resolvedSettingsStore,
+            snapshotStore: snapshotStore,
+            clearNightShield: { resolvedShield.clearNightShield() },
+            now: now
+        )
         self.storeService = StoreService(
             funnelEventStore: funnelEventStore,
             settingsStore: resolvedSettingsStore,
@@ -407,14 +416,38 @@ final class AppModel {
         )
     }
 
-    /// 完全ブロック（Deep Focus）を現在の権利とルールへ合わせる（docs/12 §5）。
+    /// 完全ブロック（Deep Focus / 夜だけ強化）を現在の権利とルールへ合わせる（docs/12 §5）。
     ///
-    /// 適用条件は「権利が確定していて」「Proで」「ディープフォーカスのルールに対象がある」こと。
+    /// 適用条件は「権利が確定していて」「Proで」「対象を持つルールがある」こと。
+    /// 夜だけ強化はさらに、いまが就寝から起床までの窓に入っていることを条件にする。
     /// 権利が確定していない間は適用も解除もしない。判断は `ShieldSyncPolicy` にまとめてある。
+    ///
+    /// 夜境界そのものは拡張（`NightShieldScheduler` が張る監視）が動かすが、
+    /// コールバックの取りこぼしがあるため、ここでの再計算を復旧経路として残す。
+    ///
+    /// 順序は「監視と控えの後始末 → シールドの適用・解除」。逆にすると、Freeへ戻った人の
+    /// シールドを解除した直後に、まだ生きている監視と古い控えで拡張が張り直せてしまう。
+    /// プロセスをまたぐ完全な排他はできないため窓は残るが、解除を最後に置けば
+    /// この経路を通るたびに剥がれ、次にアプリが前面へ来たときには必ず解除される。
     func syncShield() {
-        shield.syncShield(
+        nightShieldScheduler.rebuild(
             entitlementGate: entitlementGate,
             hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
+        )
+        shield.syncShield(
+            entitlementGate: entitlementGate,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement,
+            isNightWindow: isNightWindow
+        )
+    }
+
+    /// いまが夜（就寝から起床まで）か。夜専用の時間帯は持たず、設定済みの就寝・起床をそのまま使う。
+    private var isNightWindow: Bool {
+        NightWindowPolicy.isNight(
+            now: now(),
+            bedTimeMinutes: settingsStore.bedTimeMinutes ?? NightShieldConstants.defaultBedTimeMinutes,
+            wakeTimeMinutes: settingsStore.wakeTimeMinutes ?? NightShieldConstants.defaultWakeTimeMinutes,
+            calendar: .autoupdatingCurrent
         )
     }
 
@@ -479,7 +512,11 @@ final class AppModel {
     @discardableResult
     func deleteAllLocalData() -> Bool {
         // ルールを消す前に必ずManagedSettingsを解除し、削除済み選択を参照する
-        // 孤立シールドが残らないようにする。
+        // 孤立シールドが残らないようにする。夜だけ強化は控えと監視も止める。
+        // 残すと、ルールを消したあとの夜境界で拡張が同じ対象を張り直す。
+        // 順序は「監視停止と控え削除 → 解除」。解除を先に置くと、消しきる前の境界で
+        // 拡張が張り直したぶんが残る。
+        nightShieldScheduler.stopAndClear()
         shield.clearShield()
         usageWatch.stopAndClearAllData()
         lockSurfaceCoordinator.cancelAllNotifications()

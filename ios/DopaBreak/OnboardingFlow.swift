@@ -67,6 +67,14 @@ private enum SlideDirection {
     }
 }
 
+private struct PagerHitTestingModifier: ViewModifier {
+    let allowsHitTesting: Bool
+
+    func body(content: Content) -> some View {
+        content.allowsHitTesting(allowsHitTesting)
+    }
+}
+
 private struct OnboardingAlert: Identifiable {
     let id = UUID()
     let title: String
@@ -229,7 +237,7 @@ struct OnboardingFlow: View {
         }
         .fullScreenCover(item: $paywallPlacement, onDismiss: {
             if step == .prePaywallSummary {
-                advance()
+                advance(from: .prePaywallSummary)
             }
         }) { placement in
             PaywallView(
@@ -308,13 +316,23 @@ struct OnboardingFlow: View {
     }
 
     private var slideTransition: AnyTransition {
+        let departingHitTesting = AnyTransition.modifier(
+            active: PagerHitTestingModifier(allowsHitTesting: false),
+            identity: PagerHitTestingModifier(allowsHitTesting: true)
+        )
+
         // Reduce Motion時は画面全体の水平移動をやめ、フェードだけで入れ替える
         guard !reduceMotion else {
-            return .opacity
+            return .asymmetric(
+                insertion: .opacity,
+                removal: .opacity.combined(with: departingHitTesting)
+            )
         }
         return .asymmetric(
             insertion: .move(edge: direction.insertionEdge).combined(with: .opacity),
-            removal: .move(edge: direction.removalEdge).combined(with: .opacity)
+            removal: .move(edge: direction.removalEdge)
+                .combined(with: .opacity)
+                .combined(with: departingHitTesting)
         )
     }
 
@@ -357,7 +375,7 @@ struct OnboardingFlow: View {
     @ViewBuilder
     private var bottomBar: some View {
         switch step {
-        case .quizAimless, .quizRegret:
+        case .selfCheck, .quizAimless, .quizRegret:
             EmptyView()
         default:
             actionArea
@@ -379,11 +397,9 @@ struct OnboardingFlow: View {
     private var primaryAction: some View {
         switch step {
         case .welcome:
-            primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "30秒でチェックする")) { advance() }
-        case .selfCheck:
-            primaryButton(String(localized: "onboarding.action.next", defaultValue: "次に進む"), enabled: usageBucket != nil) { advance() }
+            primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "30秒でチェックする")) { advance(from: .welcome) }
         case .quizResult:
-            primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を取り戻す")) { advance() }
+            primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を取り戻す")) { advance(from: .quizResult) }
         case .chooseApps:
             primaryButton(
                 selectedCatalogIDs.isEmpty
@@ -402,9 +418,9 @@ struct OnboardingFlow: View {
         case .chooseMode:
             primaryButton(String(localized: "onboarding.mode.action", defaultValue: "この設定で進む")) { confirmModeIfNeeded() }
         case .preview:
-            primaryButton(String(localized: "onboarding.preview.action", defaultValue: "この仕組みを使う")) { advance() }
+            primaryButton(String(localized: "onboarding.preview.action", defaultValue: "この仕組みを使う")) { advance(from: .preview) }
         case .whyScience:
-            primaryButton(String(localized: "onboarding.science.action", defaultValue: "仕組みに任せる")) { advance() }
+            primaryButton(String(localized: "onboarding.science.action", defaultValue: "仕組みに任せる")) { advance(from: .whyScience) }
         case .permission:
             VStack(spacing: 10) {
                 primaryButton(String(localized: "onboarding.automation.action", defaultValue: "ショートカットを開く")) { openShortcutsAndAdvance() }
@@ -440,8 +456,8 @@ struct OnboardingFlow: View {
         case .prePaywallSummary:
             primaryButton(String(localized: "onboarding.summary.action", defaultValue: "この時間を守る")) { paywallPlacement = .onboardingPrepaywallSummary }
         case .ready:
-            primaryButton(String(localized: "onboarding.ready.action", defaultValue: "DopaBreakをはじめる")) { advance() }
-        case .quizAimless, .quizRegret:
+            primaryButton(String(localized: "onboarding.ready.action", defaultValue: "DopaBreakをはじめる")) { advance(from: .ready) }
+        case .selfCheck, .quizAimless, .quizRegret:
             EmptyView()
         }
     }
@@ -452,17 +468,17 @@ struct OnboardingFlow: View {
         case .goalSetup:
             textOnlyButton(String(localized: "onboarding.goal.action.later", defaultValue: "あとで設定する")) { saveGoalAndAdvance(skipped: true) }
         case .permission:
-            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
+            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance(from: .permission) }
         case .notificationGuide:
-            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
+            secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance(from: .notificationGuide) }
         case .lockScreenCheck:
             if lockScreenCheckPhase.isBlocked {
-                secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance() }
+                secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) { advance(from: .lockScreenCheck) }
             }
         case .prePaywallSummary:
             secondaryButton(String(localized: "onboarding.action.later", defaultValue: "あとで")) {
                 model.recordFunnelEvent(.prePaywallSkipped, detail: step.identifier)
-                advance()
+                advance(from: .prePaywallSummary)
             }
         default:
             EmptyView()
@@ -511,7 +527,10 @@ private extension OnboardingFlow {
                     .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.self_check.hint", defaultValue: "ざっくりでOKです"))
                     .onboardingStagger(2)
-                singleSelectOptions(usageOptions, selection: $usageBucket)
+                singleSelectOptions(usageOptions, selection: usageBucket) { option in
+                    usageBucket = option
+                    advance(from: .selfCheck)
+                }
                     .onboardingStagger(3)
 
                 centeredLead(String(localized: "onboarding.self_check.privacy_note", defaultValue: "回答は端末内にのみ保存されます。"))
@@ -531,7 +550,7 @@ private extension OnboardingFlow {
                     .onboardingStagger(2)
                 frequencyButtons(selection: aimlessScrollBucket) { option in
                     aimlessScrollBucket = option
-                    advance()
+                    advance(from: .quizAimless)
                 }
                 .onboardingStagger(3)
             }
@@ -550,7 +569,7 @@ private extension OnboardingFlow {
                 frequencyButtons(selection: regretBucket) { option in
                     regretBucket = option
                     if persistSelfCheckSnapshot() {
-                        advance()
+                        advance(from: .quizRegret)
                     }
                 }
                 .onboardingStagger(3)
@@ -658,7 +677,7 @@ private extension OnboardingFlow {
                 centeredLead(
                     String(
                         localized: "onboarding.result.disclaimer",
-                        defaultValue: "※1日約\(dailyTimeText(minutes: estimate.dailyMinutes))の想定にもとづく推計値です。医療診断ではありません。"
+                        defaultValue: "※1日約\(dailyTimeText(minutes: estimate.dailyMinutes))の想定にもとづく推計値です。"
                     )
                 )
                     .padding(.top, 8)
@@ -1143,16 +1162,17 @@ private extension OnboardingFlow {
 
     func singleSelectOptions(
         _ options: [String],
-        selection: Binding<String?>
+        selection: String?,
+        action: @escaping (String) -> Void
     ) -> some View {
         VStack(spacing: 10) {
             ForEach(options, id: \.self) { option in
                 optionButton(
                     title: usageOptionTitle(option),
-                    isSelected: selection.wrappedValue == option
+                    isSelected: selection == option
                 ) {
-                    selection.wrappedValue = option
                     markSelectionFeedback()
+                    action(option)
                 }
             }
         }
@@ -1535,8 +1555,11 @@ private extension OnboardingFlow {
         }
     }
 
-    func advance() {
-        let completedStep = step
+    func advance(from expected: OnboardingStep) {
+        guard step == expected else {
+            return
+        }
+        let completedStep = expected
         model.recordFunnelEvent(.onboardingStepCompleted, detail: completedStep.identifier)
 
         guard let next = nextStep(after: completedStep) else {
@@ -1587,11 +1610,12 @@ private extension OnboardingFlow {
         if lockScreenCheckPhase == .confirmed {
             model.markLockScreenCheckCompleted()
         }
-        advance()
+        advance(from: .lockScreenCheck)
     }
 
     func persistSelfCheckSnapshot() -> Bool {
         guard let usageBucket, let aimlessScrollBucket, let regretBucket else {
+            showSaveError()
             return false
         }
 
@@ -1638,7 +1662,7 @@ private extension OnboardingFlow {
         do {
             try model.setTargetCatalogIDs(selectedCatalogIDs)
             appSelectionMessage = nil
-            advance()
+            advance(from: .chooseApps)
         } catch CoreError.validation(let message) {
             appSelectionMessage = message
         } catch {
@@ -1713,7 +1737,7 @@ private extension OnboardingFlow {
 
     func saveGoalAndAdvance(skipped: Bool) {
         if skipped {
-            advance()
+            advance(from: .goalSetup)
             return
         }
         // 入力途中の言葉は次へで拾う。書いたのに消えたと感じさせない
@@ -1721,13 +1745,13 @@ private extension OnboardingFlow {
             return
         }
         guard !draftGoals.isEmpty else {
-            advance()
+            advance(from: .goalSetup)
             return
         }
         guard persistDraftGoals() else {
             return
         }
-        advance()
+        advance(from: .goalSetup)
     }
 
     /// リストの内容を保存済みデータへ反映する。
@@ -1801,7 +1825,7 @@ private extension OnboardingFlow {
         }
 
         settingsStore.pendingInterventionMode = mode.rawValue
-        advance()
+        advance(from: .chooseMode)
     }
 
     func showModeSaveError() {
@@ -1814,8 +1838,10 @@ private extension OnboardingFlow {
         )
     }
 
+    /// 夜だけ強化もディープフォーカスと同じ完全ブロックを使うため、Pro専用の扱いは共通にする。
+    /// ここを `deepFocus` の直接比較のままにすると、夜だけ強化がFreeへ素通りする。
     func modeAllowedForCurrentEntitlement(_ mode: InterventionMode) -> InterventionMode {
-        if mode == .deepFocus, !model.entitlementGate.strictModeAllowed {
+        if mode.usesShield, !model.entitlementGate.strictModeAllowed {
             return .standard
         }
         return mode
@@ -1825,7 +1851,7 @@ private extension OnboardingFlow {
         if let url = URL(string: "shortcuts://") {
             UIApplication.shared.open(url)
         }
-        advance()
+        advance(from: .permission)
     }
 
     func testFirstAutomation(_ target: SNSAppCatalogItem) {
@@ -1849,7 +1875,7 @@ private extension OnboardingFlow {
                 .requestAuthorization(options: [.alert, .sound, .badge])
             if granted {
                 await model.rescheduleNotificationsAfterAuthorization()
-                advance()
+                advance(from: .notificationGuide)
             } else {
                 showNotificationFallback()
             }

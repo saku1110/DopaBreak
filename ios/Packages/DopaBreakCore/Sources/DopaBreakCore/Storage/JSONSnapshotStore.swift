@@ -9,6 +9,7 @@ public enum SnapshotFile: String, Codable, Equatable, Sendable, CaseIterable {
     case selfCheckSnapshot = "self_check_snapshot.json"
     case interventionTargets = "intervention_targets.json"
     case funnelEvents = "funnel_events.json"
+    case nightShieldSnapshot = "night_shield_snapshot.json"
 }
 
 public struct JSONSnapshotStore: Sendable {
@@ -20,6 +21,18 @@ public struct JSONSnapshotStore: Sendable {
 
     public func url(for file: SnapshotFile) throws -> URL {
         try containerProvider.containerURL().appendingPathComponent(file.rawValue)
+    }
+
+    /// ファイルが今この瞬間あるか。
+    ///
+    /// 読んでから適用するまでの間に消える場合があるため、適用の直前にもう一度これで確かめる。
+    /// 権利を落とした側は「監視停止→控え削除」の順で後始末をしていて、
+    /// 控えが消えていることは「もう適用してはいけない」の合図になる。
+    public func exists(_ file: SnapshotFile) -> Bool {
+        guard let fileURL = try? url(for: file) else {
+            return false
+        }
+        return FileManager.default.fileExists(atPath: fileURL.path)
     }
 
     public func read<Value: Decodable>(

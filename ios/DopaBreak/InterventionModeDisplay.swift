@@ -28,7 +28,7 @@ extension InterventionMode {
         case .nightOnly:
             return String(
                 localized: "intervention_mode.night_only.detail",
-                defaultValue: "夜は確認を強くして開きすぎを防ぐ"
+                defaultValue: "就寝から起床まで完全ブロックする"
             )
         }
     }

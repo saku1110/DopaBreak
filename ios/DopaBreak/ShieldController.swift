@@ -7,23 +7,35 @@ import ManagedSettings
 final class ShieldController {
     private let ruleStore: RuleStore
     private let managedSettingsStore = ManagedSettingsStore(named: .init("dopabreak.rules"))
+    /// 夜だけ強化の分は別ストアに置く。朝の解除でディープフォーカスまで外さないため、
+    /// また拡張が夜間分だけを触れるようにするため（`NightShieldConstants.shieldStoreName`）。
+    private let nightManagedSettingsStore = ManagedSettingsStore(
+        named: .init(NightShieldConstants.shieldStoreName)
+    )
     private let decoder = JSONDecoder()
 
     init(ruleStore: RuleStore) {
         self.ruleStore = ruleStore
     }
 
-    /// 完全ブロック（Deep Focus）を現在の権利とルールへ合わせる。
+    /// 完全ブロックを現在の権利とルールへ合わせる。
     ///
-    /// 適用対象は `deepFocus` かつ選択データを持つ有効なルールだけ（docs/12 §5）。
-    /// カタログ由来の通常介入ルールは選択データが空のため、ここでは触れない。
+    /// 適用対象は選択データを持つ有効なルールのうち、`deepFocus` と、夜の窓のなかの
+    /// `nightOnly`（docs/12 §5）。カタログ由来の通常介入ルールは選択データが空のため触れない。
+    ///
+    /// `isNightWindow` は呼び出し側が現在時刻から決めて渡す。拡張の夜境界コールバックは
+    /// 取りこぼしがあるため、アプリが前面に来るたびのこの同期が復旧経路になる。
     ///
     /// `hasConfirmedEntitlement` が偽のあいだは何もしない。取得に失敗しただけの課金者から
     /// 完全ブロックを剥がさないため（`ShieldSyncPolicy` の `preserve`）。
     ///
     /// 解除だけはルールの読み取りより先に済ませる。読み取りが失敗する端末で
     /// `return` すると、Freeへ戻った人の完全ブロックが二度と外れなくなるため。
-    func syncShield(entitlementGate: EntitlementGate, hasConfirmedEntitlement: Bool) {
+    func syncShield(
+        entitlementGate: EntitlementGate,
+        hasConfirmedEntitlement: Bool,
+        isNightWindow: Bool
+    ) {
         // ルールの取得も含めて `ShieldSyncPolicy` に判断させる。
         // 取得してから判断する形にすると、読み取りが失敗する端末で
         // Freeへ戻った人の解除が落ちる（判断の順序をここで持たない）。
@@ -31,7 +43,8 @@ final class ShieldController {
             rulesProvider: { try ruleStore.allRules() },
             isPro: entitlementGate.tier == .pro,
             strictModeAllowed: entitlementGate.strictModeAllowed,
-            hasConfirmedEntitlement: hasConfirmedEntitlement
+            hasConfirmedEntitlement: hasConfirmedEntitlement,
+            isNightWindow: isNightWindow
         ) {
         case .preserve:
             return
@@ -43,57 +56,72 @@ final class ShieldController {
     }
 
     private func applyShield(rules: [TargetRule], entitlementGate: EntitlementGate) {
-        var applicationTokens = Set<ApplicationToken>()
-        var categoryTokens = Set<ActivityCategoryToken>()
-        var webDomainTokens = Set<WebDomainToken>()
-        var didFailDecodingSelection = false
+        var dayTokens = ShieldTokens()
+        var nightTokens = ShieldTokens()
+        // 上限は2つのストアで分け合う。ルールの並び順のまま先頭から数えるところは変えない。
         var remainingTargetTokenLimit = entitlementGate.targetAppTokensLimit
 
         for rule in applicableRules(from: rules, entitlementGate: entitlementGate) {
+            let isNightRule = rule.mode == .nightOnly
+
             do {
                 let selection = try decoder.decode(
                     FamilyActivitySelection.self,
                     from: rule.activitySelectionData
                 )
 
-                appendTokens(
-                    selection.applicationTokens,
-                    to: &applicationTokens,
-                    remainingLimit: &remainingTargetTokenLimit
-                )
-                appendTokens(
-                    selection.categoryTokens,
-                    to: &categoryTokens,
-                    remainingLimit: &remainingTargetTokenLimit
-                )
-                appendTokens(
-                    selection.webDomainTokens,
-                    to: &webDomainTokens,
-                    remainingLimit: &remainingTargetTokenLimit
-                )
+                if isNightRule {
+                    nightTokens.append(selection, remainingLimit: &remainingTargetTokenLimit)
+                } else {
+                    dayTokens.append(selection, remainingLimit: &remainingTargetTokenLimit)
+                }
             } catch {
-                didFailDecodingSelection = true
+                if isNightRule {
+                    nightTokens.didFailDecodingSelection = true
+                } else {
+                    dayTokens.didFailDecodingSelection = true
+                }
                 continue
             }
         }
 
-        guard !applicationTokens.isEmpty || !categoryTokens.isEmpty || !webDomainTokens.isEmpty else {
-            if didFailDecodingSelection {
-                return
-            }
-            clearShield()
-            return
-        }
-
-        managedSettingsStore.shield.applications = applicationTokens.isEmpty ? nil : applicationTokens
-        managedSettingsStore.shield.applicationCategories = categoryTokens.isEmpty ? nil : .specific(categoryTokens)
-        managedSettingsStore.shield.webDomains = webDomainTokens.isEmpty ? nil : webDomainTokens
+        apply(dayTokens, to: managedSettingsStore)
+        apply(nightTokens, to: nightManagedSettingsStore)
     }
 
     func clearShield() {
-        managedSettingsStore.shield.applications = nil
-        managedSettingsStore.shield.applicationCategories = nil
-        managedSettingsStore.shield.webDomains = nil
+        clear(managedSettingsStore)
+        clear(nightManagedSettingsStore)
+    }
+
+    /// 夜間ぶんだけを剥がす。夜の監視を張れなかったときに、朝の解除を出す担い手が
+    /// いないままブロックを残さないための出口（`NightShieldScheduler`）。
+    func clearNightShield() {
+        clear(nightManagedSettingsStore)
+    }
+
+    /// 読み取れたぶんだけを反映する。1件でもデコードに失敗したときは解除しない。
+    /// 壊れたルールを理由に、いま効いているブロックを剥がさないため。
+    private func apply(_ tokens: ShieldTokens, to store: ManagedSettingsStore) {
+        guard !tokens.isEmpty else {
+            if tokens.didFailDecodingSelection {
+                return
+            }
+            clear(store)
+            return
+        }
+
+        store.shield.applications = tokens.applications.isEmpty ? nil : tokens.applications
+        store.shield.applicationCategories = tokens.categories.isEmpty
+            ? nil
+            : .specific(tokens.categories)
+        store.shield.webDomains = tokens.webDomains.isEmpty ? nil : tokens.webDomains
+    }
+
+    private func clear(_ store: ManagedSettingsStore) {
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
     }
 
     private func applicableRules(
@@ -105,8 +133,38 @@ final class ShieldController {
         }
         return Array(rules.prefix(limit))
     }
+}
 
-    private func appendTokens<Token: Hashable>(
+/// 1つのストアへ流し込むぶんのトークン。昼と夜で別々に数える。
+private struct ShieldTokens {
+    var applications = Set<ApplicationToken>()
+    var categories = Set<ActivityCategoryToken>()
+    var webDomains = Set<WebDomainToken>()
+    var didFailDecodingSelection = false
+
+    var isEmpty: Bool {
+        applications.isEmpty && categories.isEmpty && webDomains.isEmpty
+    }
+
+    mutating func append(_ selection: FamilyActivitySelection, remainingLimit: inout Int?) {
+        Self.appendTokens(
+            selection.applicationTokens,
+            to: &applications,
+            remainingLimit: &remainingLimit
+        )
+        Self.appendTokens(
+            selection.categoryTokens,
+            to: &categories,
+            remainingLimit: &remainingLimit
+        )
+        Self.appendTokens(
+            selection.webDomainTokens,
+            to: &webDomains,
+            remainingLimit: &remainingLimit
+        )
+    }
+
+    private static func appendTokens<Token: Hashable>(
         _ source: Set<Token>,
         to target: inout Set<Token>,
         remainingLimit: inout Int?

@@ -25,10 +25,16 @@ public struct RuleStore: Sendable {
         try allRules().filter(\.isEnabled)
     }
 
+    /// カタログのアプリに対応するルールを取り出す。無ければ作る。
+    ///
+    /// `modeForNewRule` は**新規作成時の初期値**であり、既存ルールには適用しない。
+    /// 介入フローや起動要求のたびにここを通るため、既定値で上書きすると
+    /// ユーザーが設定で選んだモード（ディープフォーカス等）が毎回 `.standard` へ落ちる。
+    /// モードを変えるのは `updateMode(id:mode:)` / `saveFamilyActivitySelection` の明示的な経路だけ。
     @discardableResult
     public func catalogTargetRule(
         for target: SNSAppCatalogItem,
-        mode: InterventionMode = .standard,
+        modeForNewRule: InterventionMode = .standard,
         defaultDurationMinutes: Int = 10
     ) throws -> TargetRule {
         let validatedName = try validatedRuleName(target.displayName)
@@ -37,7 +43,6 @@ public struct RuleStore: Sendable {
 
         if let index = rules.firstIndex(where: { $0.activitySelectionData.isEmpty && $0.name == validatedName }) {
             var rule = rules[index]
-            rule.mode = mode
             rule.defaultDurationMinutes = defaultDurationMinutes
             rule.isEnabled = true
             rule.updatedAt = timestamp
@@ -50,7 +55,7 @@ public struct RuleStore: Sendable {
             id: UUID(),
             name: validatedName,
             activitySelectionData: Data(),
-            mode: mode,
+            mode: modeForNewRule,
             schedule: nil,
             delaySeconds: 0,
             maxOpensPerDay: nil,

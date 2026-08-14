@@ -78,6 +78,8 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
                 targetSection
 
+                deepFocusSection
+
                 wakeSleepSection
 
                 usageWatchSection
@@ -126,7 +128,9 @@ struct SettingsView: View {
             isPresented: $isUsageWatchPickerPresented,
             selection: $usageWatchSelection
         )
-        .fullScreenCover(item: $paywallPlacement) { placement in
+        .fullScreenCover(item: $paywallPlacement, onDismiss: {
+            refreshSettingsState()
+        }) { placement in
             PaywallView(
                 storeService: model.storeService,
                 placement: placement,
@@ -586,9 +590,129 @@ struct SettingsView: View {
         .padding(.vertical, 14)
     }
 
-    // MVP: スクリーンタイム許可・完全ブロック（FamilyActivityPicker）・止める強さの行はUI非表示。
-    // 実装コードは温存（screenTimeRow / modePickerRow / ruleEnabledBinding / familyActivityPicker配線 等）。
-    // v1.1のdeepFocus/nightOnly再配線時に再利用する（docs/12 §5）。
+    /// 完全ブロック（Pro）。「止めるアプリ」＝通常の一呼吸の対象とは別物なので、区画も分ける（docs/12 §5）。
+    private var deepFocusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(
+                text: String(
+                    localized: "settings.deep_focus.section",
+                    defaultValue: "完全ブロック"
+                )
+            )
+
+            CardContainer {
+                VStack(spacing: 0) {
+                    if isDeepFocusUnlocked {
+                        modePickerRow
+
+                        divider
+                        screenTimeRow
+
+                        divider
+                        deepFocusTargetsRow
+                    } else {
+                        deepFocusLockedRow(
+                            label: String(localized: "settings.mode.label", defaultValue: "止める強さ")
+                        )
+
+                        divider
+                        deepFocusLockedRow(
+                            label: String(
+                                localized: "settings.deep_focus.targets.label",
+                                defaultValue: "完全ブロックの対象"
+                            )
+                        )
+                    }
+                }
+            }
+
+            Text(deepFocusFootnote)
+                .dopaFont(13, weight: .medium, lineSpacing: 3)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    /// Proかどうかだけで決める。権利が未確定でも上位機能を勝手に開けない。
+    /// （`isPro` は端末に控えたキャッシュから起動直後にも立つため、通信が切れた課金者は締め出さない）
+    private var isDeepFocusUnlocked: Bool {
+        model.entitlementGate.strictModeAllowed
+    }
+
+    /// 選んだ強さによって、いま何が起きるのかをその場に書く。
+    /// ディープフォーカス以外では対象を選んでもブロックされないため、黙って無効にしない。
+    private var deepFocusFootnote: String {
+        guard isDeepFocusUnlocked else {
+            return String(
+                localized: "settings.deep_focus.locked_notice",
+                defaultValue: "ディープフォーカスにすると、選んだアプリを完全に止められます。"
+            )
+        }
+        guard selectedMode == .deepFocus else {
+            return String(
+                localized: "settings.deep_focus.standard_notice",
+                defaultValue: "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると、選んだアプリが開けなくなります。"
+            )
+        }
+        // 強さだけ選んで対象が空だと、何も止まらないまま止まっているつもりになる。
+        // 効いていない状態を「効いています」と読める文言で覆わない。
+        guard primaryRule != nil else {
+            return String(
+                localized: "settings.deep_focus.empty_targets_notice",
+                defaultValue: "完全ブロックの対象を選ぶと、そのアプリは開けなくなります。"
+            )
+        }
+        return String(
+            localized: "settings.deep_focus.description",
+            defaultValue: "選んだアプリは開けなくなります。強さを標準へ戻すまで続きます。"
+        )
+    }
+
+    private var deepFocusTargetsRow: some View {
+        Button {
+            handleAppSelectionTap()
+        } label: {
+            settingsRow(
+                label: String(
+                    localized: "settings.deep_focus.targets.label",
+                    defaultValue: "完全ブロックの対象"
+                ),
+                value: appSelectionSummary,
+                disclosure: .navigate
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isRequestingAuthorization)
+    }
+
+    private func deepFocusLockedRow(label: String) -> some View {
+        Button {
+            paywallPlacement = .settingsModeGate
+        } label: {
+            HStack(spacing: 12) {
+                Text(label)
+                    .dopaFont(16, weight: .semibold)
+                    .foregroundStyle(DesignTokens.primaryText)
+
+                Spacer()
+
+                Label(
+                    String(localized: "settings.status.pro", defaultValue: "Pro"),
+                    systemImage: "lock.fill"
+                )
+                .dopaFont(13, weight: .bold)
+                .foregroundStyle(DesignTokens.secondaryText)
+
+                Image(systemName: "chevron.right")
+                    .dopaFont(13, weight: .semibold)
+                    .foregroundStyle(DesignTokens.tertiaryText)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+    }
 
     private var targetAppsSummary: String {
         let ids = (try? model.targetStore.selectedCatalogIDs()) ?? []
@@ -862,7 +986,10 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
 
-                    if model.storeService.hasResolvedEntitlement && !model.storeService.isPro {
+                    // 「Freeだから買い切りを勧める」はユーザーに見える判断のため、
+                    // 解決を試みただけの `hasResolvedEntitlement` ではなく確定済みで出し分ける。
+                    // 取得に失敗しただけの課金者に購入行を見せない。
+                    if model.storeService.hasConfirmedEntitlement && !model.storeService.isPro {
                         divider
 
                         Button {
@@ -1031,7 +1158,7 @@ struct SettingsView: View {
             Spacer()
 
             Picker(String(localized: "settings.mode.label", defaultValue: "止める強さ"), selection: modeBinding) {
-                ForEach(InterventionMode.allCases, id: \.self) { mode in
+                ForEach(InterventionMode.selectable, id: \.self) { mode in
                     Text(mode.displayTitle).tag(mode)
                 }
             }
@@ -1112,8 +1239,18 @@ struct SettingsView: View {
             .accessibilityHidden(true)
     }
 
+    /// 完全ブロックの対象を持つルール。
+    ///
+    /// 通常の一呼吸で使うカタログ由来のルールは選択データが空で、この画面の
+    /// 「完全ブロックの対象」とは別物。`rules.first` で拾うとカタログのルールを
+    /// 完全ブロックの選択で上書きしてしまうため、選択データの有無で見分ける。
     private var primaryRule: TargetRule? {
-        rules.first
+        rules.first { !$0.activitySelectionData.isEmpty }
+    }
+
+    /// 完全ブロック用のルール数。件数の上限判定はカタログのルールを数に入れない。
+    private var blockRuleCount: Int {
+        rules.filter { !$0.activitySelectionData.isEmpty }.count
     }
 
     private var appSelectionSummary: String {
@@ -1177,10 +1314,10 @@ struct SettingsView: View {
         model.screenTime.refresh()
         do {
             rules = try model.ruleStore.allRules()
-            selectedMode = modeAllowedForCurrentEntitlement(primaryRule?.mode ?? pendingMode)
+            selectedMode = storedMode
         } catch {
             rules = []
-            selectedMode = modeAllowedForCurrentEntitlement(pendingMode)
+            selectedMode = storedMode
             model.alertMessage = String(localized: "settings.error.data_load", defaultValue: "データを読み込めませんでした")
         }
     }
@@ -1287,12 +1424,13 @@ struct SettingsView: View {
         }
 
         do {
+            // 強さは「止める強さ」で決めた値をそのまま使う。ここで書き換えると、
+            // 対象を選び直しただけで強さが勝手に変わる。
+            let mode = modeAllowedForCurrentEntitlement(selectedMode)
             if let rule = primaryRule {
                 if isSelectionEmpty {
-                    settingsStore.pendingInterventionMode = modeAllowedForCurrentEntitlement(selectedMode).rawValue
                     try model.ruleStore.deleteRule(id: rule.id)
                 } else {
-                    let mode = modeAllowedForCurrentEntitlement(selectedMode)
                     let data = try JSONEncoder().encode(activitySelection)
                     try model.ruleStore.saveFamilyActivitySelection(
                         data,
@@ -1303,15 +1441,12 @@ struct SettingsView: View {
                     )
                 }
             } else if !isSelectionEmpty {
-                let mode = modeAllowedForCurrentEntitlement(pendingMode)
-                settingsStore.pendingInterventionMode = mode.rawValue
                 let data = try JSONEncoder().encode(activitySelection)
                 try model.ruleStore.saveFamilyActivitySelection(
                     data,
                     name: "SNS",
                     mode: mode
                 )
-                selectedMode = mode
             }
 
             refreshSettingsState()
@@ -1328,7 +1463,7 @@ struct SettingsView: View {
 
         if !isSelectionEmpty,
            primaryRule == nil,
-           !gate.canAddRule(currentCount: rules.count) {
+           !gate.canAddRule(currentCount: blockRuleCount) {
             return true
         }
 
@@ -1347,7 +1482,9 @@ struct SettingsView: View {
 
         do {
             if isEnabled {
-                if rule.mode == .deepFocus, !model.entitlementGate.strictModeAllowed {
+                if rule.mode == .deepFocus,
+                   model.storeService.hasConfirmedEntitlement,
+                   !model.entitlementGate.strictModeAllowed {
                     try model.ruleStore.updateMode(id: rule.id, mode: .standard)
                     selectedMode = .standard
                 }
@@ -1365,34 +1502,41 @@ struct SettingsView: View {
     }
 
     private func setSelectedMode(_ mode: InterventionMode) {
-        guard modeAllowedForCurrentEntitlement(mode) == mode else {
+        // 解放判定は権利の確定を待たない。未確定でも上位の強さを勝手には開けない。
+        guard mode != .deepFocus || isDeepFocusUnlocked else {
             paywallPlacement = .settingsModeGate
-            selectedMode = modeAllowedForCurrentEntitlement(primaryRule?.mode ?? pendingMode)
+            selectedMode = storedMode
+            return
+        }
+
+        // 通常介入のルールと完全ブロックのルールの両方へ届ける。届けたうえで同期する。
+        // 書き込めなかったときは選択も表示も進めない。保存だけ進めると、ルールは標準のままなのに
+        // 画面はディープフォーカスと表示され、止まらない理由が誰にも分からなくなる。
+        do {
+            try model.applyInterventionMode(mode)
+        } catch {
+            model.alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
+            selectedMode = storedMode
             return
         }
 
         selectedMode = mode
-
-        guard let rule = primaryRule else {
-            settingsStore.pendingInterventionMode = mode.rawValue
-            return
-        }
-
-        do {
-            try model.ruleStore.updateMode(id: rule.id, mode: mode)
-            refreshSettingsState()
-        } catch CoreError.validation(let message) {
-            model.alertMessage = message
-        } catch {
-            model.alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
-        }
+        settingsStore.pendingInterventionMode = mode.rawValue
+        refreshSettingsState()
     }
 
+    /// 保存・表示に使う強さへ丸める。降格するのは**Freeだと確定したとき**だけ。
+    ///
+    /// 権利を取り直せていない状態（通信断・StoreKit障害）で降格を書き込むと、
+    /// 課金者のディープフォーカスを標準へ永久に書き換えてしまう。
+    /// 未確定のあいだは現状の値をそのまま通す（`.claude/specs/entitlement-failsafe-fix.md`）。
     private func modeAllowedForCurrentEntitlement(_ mode: InterventionMode) -> InterventionMode {
-        if mode == .deepFocus, !model.entitlementGate.strictModeAllowed {
-            return .standard
+        guard mode == .deepFocus,
+              model.storeService.hasConfirmedEntitlement,
+              !model.entitlementGate.strictModeAllowed else {
+            return mode
         }
-        return mode
+        return .standard
     }
 
     private func currentActivitySelection() -> FamilyActivitySelection {
@@ -1426,12 +1570,14 @@ struct SettingsView: View {
             + selection.webDomainTokens.count
     }
 
-    private var pendingMode: InterventionMode {
-        guard let rawValue = settingsStore.pendingInterventionMode,
-              let mode = InterventionMode(rawValue: rawValue) else {
-            return .standard
+    /// いま保存されている「止める強さ」。画面上ひとつの設定として見せるため、
+    /// ルールごとの値ではなく保存済みの選択を正とし、無ければルールから拾う。
+    private var storedMode: InterventionMode {
+        if let rawValue = settingsStore.pendingInterventionMode,
+           let mode = InterventionMode(rawValue: rawValue) {
+            return modeAllowedForCurrentEntitlement(mode)
         }
-        return mode
+        return modeAllowedForCurrentEntitlement(primaryRule?.mode ?? .standard)
     }
 
     private var versionText: String {

@@ -13,19 +13,36 @@ final class ShieldController {
         self.ruleStore = ruleStore
     }
 
-    func syncShield(entitlementGate: EntitlementGate) {
-        let rules: [TargetRule]
-        do {
-            rules = try ruleStore.enabledRules()
-        } catch {
+    /// 完全ブロック（Deep Focus）を現在の権利とルールへ合わせる。
+    ///
+    /// 適用対象は `deepFocus` かつ選択データを持つ有効なルールだけ（docs/12 §5）。
+    /// カタログ由来の通常介入ルールは選択データが空のため、ここでは触れない。
+    ///
+    /// `hasConfirmedEntitlement` が偽のあいだは何もしない。取得に失敗しただけの課金者から
+    /// 完全ブロックを剥がさないため（`ShieldSyncPolicy` の `preserve`）。
+    ///
+    /// 解除だけはルールの読み取りより先に済ませる。読み取りが失敗する端末で
+    /// `return` すると、Freeへ戻った人の完全ブロックが二度と外れなくなるため。
+    func syncShield(entitlementGate: EntitlementGate, hasConfirmedEntitlement: Bool) {
+        // ルールの取得も含めて `ShieldSyncPolicy` に判断させる。
+        // 取得してから判断する形にすると、読み取りが失敗する端末で
+        // Freeへ戻った人の解除が落ちる（判断の順序をここで持たない）。
+        switch ShieldSyncPolicy.action(
+            rulesProvider: { try ruleStore.allRules() },
+            isPro: entitlementGate.tier == .pro,
+            strictModeAllowed: entitlementGate.strictModeAllowed,
+            hasConfirmedEntitlement: hasConfirmedEntitlement
+        ) {
+        case .preserve:
             return
-        }
-
-        guard !rules.isEmpty else {
+        case .clear:
             clearShield()
-            return
+        case .apply(let rules):
+            applyShield(rules: rules, entitlementGate: entitlementGate)
         }
+    }
 
+    private func applyShield(rules: [TargetRule], entitlementGate: EntitlementGate) {
         var applicationTokens = Set<ApplicationToken>()
         var categoryTokens = Set<ActivityCategoryToken>()
         var webDomainTokens = Set<WebDomainToken>()

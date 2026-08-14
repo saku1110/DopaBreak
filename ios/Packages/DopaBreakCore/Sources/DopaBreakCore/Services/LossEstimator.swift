@@ -29,8 +29,18 @@ public enum LossEstimator {
     /// 人生換算の前提年数。文中に明示して誇大表示を避ける（docs/07 §O-03r）。
     public static let lifetimeHorizonYears = 50
 
+    /// 3年換算の前提年数。
+    public static let threeYearHorizonYears = 3
+
     public static func yearlyDays(fromDailyMinutes dailyMinutes: Int) -> Int {
         Int((Double(dailyMinutes) * 365.0 / 1_440.0).rounded())
+    }
+
+    /// 年間損失日数を3年分に伸ばし、月単位へ換算する。
+    /// 実値より大きい数字を出さないため、四捨五入せず1桁小数へ切り捨てる（lifetimeYears と同方針）。
+    public static func threeYearMonths(fromYearlyDays yearlyDays: Int) -> Double {
+        let months = Double(yearlyDays) * Double(threeYearHorizonYears) / (365.0 / 12.0)
+        return (months * 10).rounded(.down) / 10
     }
 
     /// 年間損失日数を lifetimeHorizonYears 分に伸ばし、年単位へ換算する。

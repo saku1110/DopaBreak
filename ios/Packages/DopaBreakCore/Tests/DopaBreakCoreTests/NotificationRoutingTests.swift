@@ -3,6 +3,17 @@ import XCTest
 @testable import DopaBreakCore
 
 final class NotificationRoutingTests: XCTestCase {
+    func testFreeMonthlyIdentifiersAreStable() {
+        XCTAssertEqual(
+            NotificationIdentifier.freeMonthlyReports,
+            [
+                "dopabreak.freeMonthly1",
+                "dopabreak.freeMonthly2",
+                "dopabreak.freeMonthly3"
+            ]
+        )
+    }
+
     func testReportNotificationsLandOnStats() {
         XCTAssertEqual(
             NotificationRouting.destination(forIdentifier: NotificationIdentifier.morning),
@@ -14,6 +25,18 @@ final class NotificationRoutingTests: XCTestCase {
         )
         XCTAssertEqual(
             NotificationRouting.destination(forIdentifier: NotificationIdentifier.month1Report),
+            .stats
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.freeMonthly1),
+            .stats
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.freeMonthly2),
+            .stats
+        )
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.freeMonthly3),
             .stats
         )
     }

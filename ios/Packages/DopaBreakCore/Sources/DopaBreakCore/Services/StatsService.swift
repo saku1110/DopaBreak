@@ -101,12 +101,24 @@ public struct StatsService: Sendable {
         wastedRate(of: try answeredReflections(from: from, to: to))
     }
 
-    /// 直近 7 日（本日含む）の日次サマリー。日境界は注入 calendar で決める。
-    /// `days` は古い順（index 0 = 6 日前、index 6 = 本日）。
-    public func weeklySummary() throws -> WeeklySummary {
-        let today = calendar.startOfDay(for: now())
-        guard let weekStart = calendar.date(byAdding: .day, value: -6, to: today),
-              let weekEnd = calendar.date(byAdding: .day, value: 1, to: today) else {
+    /// 7 日窓の日次サマリー。日境界は注入 calendar で決める。
+    /// `days` は古い順（index 0 = 窓の初日、index 6 = 窓の最終日）。
+    ///
+    /// - Parameter weeksBack: さかのぼる週数。0 は直近 7 日（本日を最終日に含む）、
+    ///   1 はそのひとつ前の 7 日（13 日前〜7 日前）。窓は重ならない。
+    public func weeklySummary(weeksBack: Int = 0) throws -> WeeklySummary {
+        try weeklySummary(weeksBack: weeksBack, today: calendar.startOfDay(for: now()))
+    }
+
+    /// 起点の日を外から渡す内部経路。複数の窓を1回の呼び出しで作るときに、
+    /// 途中で日付が変わっても窓の関係が崩れないようにする。
+    private func weeklySummary(weeksBack: Int, today: Date) throws -> WeeklySummary {
+        guard weeksBack >= 0 else {
+            throw CoreError.validation(message: "週次サマリーの週指定が不正です")
+        }
+        guard let windowLastDay = calendar.date(byAdding: .day, value: -7 * weeksBack, to: today),
+              let weekStart = calendar.date(byAdding: .day, value: -6, to: windowLastDay),
+              let weekEnd = calendar.date(byAdding: .day, value: 1, to: windowLastDay) else {
             throw CoreError.validation(message: "週次サマリーの日付計算に失敗しました")
         }
         let attempts = try logStore.fetchAttempts(from: weekStart, to: weekEnd)
@@ -131,6 +143,18 @@ public struct StatsService: Sendable {
             cancelRate: cancelRate,
             answeredReflections: answered.count,
             wastedTimeRealizationRate: wastedRate(of: answered)
+        )
+    }
+
+    /// 週次詳細レポート（Pro）。直近 7 日と、そのひとつ前の 7 日を並べて返す。
+    /// 前週比の判断材料をここで完結させ、画面側では表示だけを行う。
+    /// 今週と前週で `now()` を別々に読むと、深夜 0 時をまたいだ瞬間に 2 つの窓が 1 日重なる。
+    /// 起点の日はここで一度だけ確定させ、両方の窓へ同じ値を渡す。
+    public func weeklyDetailReport() throws -> WeeklyDetailReport {
+        let today = calendar.startOfDay(for: now())
+        return WeeklyDetailReport(
+            current: try weeklySummary(weeksBack: 0, today: today),
+            previous: try weeklySummary(weeksBack: 1, today: today)
         )
     }
 
@@ -206,5 +230,42 @@ public struct WeeklySummary: Equatable, Sendable {
         self.cancelRate = cancelRate
         self.answeredReflections = answeredReflections
         self.wastedTimeRealizationRate = wastedTimeRealizationRate
+    }
+}
+
+/// 週次詳細レポート（Pro）。直近 7 日と、そのひとつ前の 7 日の対比。
+public struct WeeklyDetailReport: Equatable, Sendable {
+    /// 直近 7 日（本日を最終日に含む）。
+    public let current: WeeklySummary
+    /// そのひとつ前の 7 日（13 日前〜7 日前）。current と日付は重ならない。
+    public let previous: WeeklySummary
+
+    public init(current: WeeklySummary, previous: WeeklySummary) {
+        self.current = current
+        self.previous = previous
+    }
+
+    /// 前週に試行が 1 件も無いときは比較しない。
+    /// 分母 0 でつく 0 件と、実際に 0 件だった週を同じ「前週比」として見せないため。
+    public var isComparable: Bool {
+        previous.attempts > 0
+    }
+
+    /// 「開かなかった」件数の前週差。比較できないときは nil。
+    public var cancelledDelta: Int? {
+        guard isComparable else { return nil }
+        return current.cancelled - previous.cancelled
+    }
+
+    /// 日別バーの高さをそろえる基準。今週と前週を通した 1 日あたりの最大試行数。
+    /// 前週も含めるので、週をまたいでもバーの縮尺が変わらない。
+    public var peakDailyAttempts: Int {
+        let peaks = (current.days + previous.days).map(\.attempts)
+        return peaks.max() ?? 0
+    }
+
+    /// 今週も前週も記録が無い状態。画面では未記録の案内に切り替える。
+    public var isEmpty: Bool {
+        current.attempts == 0 && previous.attempts == 0
     }
 }

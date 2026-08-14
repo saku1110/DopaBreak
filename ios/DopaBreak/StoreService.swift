@@ -1,6 +1,7 @@
 import DopaBreakCore
 import Foundation
 import Observation
+import OSLog
 import StoreKit
 
 enum PaywallDismissalPolicy {
@@ -12,23 +13,27 @@ enum PaywallDismissalPolicy {
 @MainActor
 @Observable
 final class StoreService {
-    private enum StoreServiceError: LocalizedError {
-        case failedVerification
+    private final class EntitlementRefreshFlight {
+        var task: Task<Void, Never>!
+    }
 
-        var errorDescription: String? {
-            switch self {
-            case .failedVerification:
-                return String(localized: "store.error.verification", defaultValue: "購入を確認できませんでした")
-            }
-        }
+    private struct EntitlementRefreshSnapshot {
+        let resolution: EntitlementResolutionPolicy.Resolution
+        let subscriptionEntitlements: [SubscriptionEntitlementSnapshot]
     }
 
     private static let annualProductIDs = [
         ProProductID.annual.rawValue,
         ProProductID.annualLaunch.rawValue
     ]
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "DopaBreak",
+        category: "StoreService"
+    )
+    private static let maxRefreshRoundsPerFlight = 2
 
     private let funnelEventStore: FunnelEventStore
+    private let settingsStore: SettingsStore?
     private let now: () -> Date
     private let usageWatchStore: UsageWatchStore?
 
@@ -55,6 +60,11 @@ final class StoreService {
     private(set) var isEligibleForAnnualIntroOffer = false
     private(set) var isPro = false
     private(set) var hasResolvedEntitlement = false
+    /// StoreKitへの到達が裏付けられた状態でentitlementを解決できたか。
+    /// true になる条件: verified currentEntitlements がある、または空だった場合に
+    /// 非空の商品取得と、必要な降格確認まで成功したとき。商品取得の空配列・失敗や
+    /// unverifiedだけのときは false のまま前回状態を維持する。
+    private(set) var hasConfirmedEntitlement: Bool = false
     private(set) var activeSubscriptionEntitlement: SubscriptionEntitlementSnapshot?
     private(set) var annualTrialEntitlement: SubscriptionEntitlementSnapshot?
     private(set) var entitlementRevision = 0
@@ -68,20 +78,51 @@ final class StoreService {
     private var updatesTask: Task<Void, Never>?
 
     @ObservationIgnored
+    private var entitlementRefreshTask: EntitlementRefreshFlight?
+
+    @ObservationIgnored
+    private var entitlementRefreshGeneration = 0
+
+    @ObservationIgnored
+    private var entitlementRefreshRequest = 0
+
+    @ObservationIgnored
+    private var completedEntitlementRefreshRequest = 0
+
+    @ObservationIgnored
+    private var pendingRefreshRequested = false
+
+    @ObservationIgnored
+    private var reportedPassiveUnverifiedProductIDs = Set<String>()
+
+    @ObservationIgnored
     var onPurchaseOrRestoreFailure: (() -> Void)?
 
     init(
         activeAnnualProductID: String = ProProductID.annual.rawValue,
         funnelEventStore: FunnelEventStore = FunnelEventStore(snapshotStore: JSONSnapshotStore()),
+        settingsStore: SettingsStore? = nil,
         usageWatchStore: UsageWatchStore? = nil,
         now: @escaping () -> Date = { .now }
     ) {
+        let resolvedSettingsStore = settingsStore ?? (try? SettingsStore())
         self.activeAnnualProductID = Self.annualProductIDs.contains(activeAnnualProductID)
             ? activeAnnualProductID
             : ProProductID.annual.rawValue
         self.funnelEventStore = funnelEventStore
+        self.settingsStore = resolvedSettingsStore
         self.usageWatchStore = usageWatchStore
         self.now = now
+
+        // Cached Pro intentionally has no TTL. A failed StoreKit lookup is not evidence of Free,
+        // so access stays fail-open until StoreKit supplies affirmative downgrade evidence.
+        // entitlementCachedAt is retained for future telemetry only; it is not an expiry date.
+        if let cachedIsPro = resolvedSettingsStore?.entitlementCachedIsPro {
+            isPro = cachedIsPro
+            usageWatchStore?.updateConfiguration { configuration in
+                configuration.isPro = cachedIsPro
+            }
+        }
 
         updatesTask = listenForTransactions()
         Task {
@@ -91,6 +132,7 @@ final class StoreService {
 
     deinit {
         updatesTask?.cancel()
+        entitlementRefreshTask?.task.cancel()
     }
 
     func loadProducts() async {
@@ -128,12 +170,25 @@ final class StoreService {
             let result = try await product.purchase()
             switch result {
             case .success(let verification):
-                let transaction = try checkVerified(verification)
-                hasPendingPurchase = false
-                await transaction.finish()
-                await refreshEntitlement()
-                try? funnelEventStore.record(name: .trialOrPurchaseStarted, detail: transaction.productID, at: now())
-                return isPro
+                switch verification {
+                case .verified(let transaction):
+                    hasPendingPurchase = false
+                    await transaction.finish()
+                    await refreshEntitlement()
+                    try? funnelEventStore.record(
+                        name: .trialOrPurchaseStarted,
+                        detail: transaction.productID,
+                        at: now()
+                    )
+                    return isPro
+                case .unverified(let transaction, let error):
+                    reportUnverifiedTransaction(
+                        transaction,
+                        error: error,
+                        isUserInitiated: true
+                    )
+                    return false
+                }
             case .userCancelled:
                 return false
             case .pending:
@@ -181,11 +236,15 @@ final class StoreService {
         do {
             try await AppStore.sync()
             await refreshEntitlement()
-            if !isPro {
+            if hasConfirmedEntitlement, !isPro {
                 reportNoRestorablePurchase()
             }
             return isPro
         } catch {
+            await refreshEntitlement()
+            if isPro {
+                return true
+            }
             alertMessage = String(localized: "store.error.restore", defaultValue: "購入を復元できませんでした")
             onPurchaseOrRestoreFailure?()
             return false
@@ -204,20 +263,86 @@ final class StoreService {
     }
 
     func refreshEntitlement() async {
+        entitlementRefreshRequest &+= 1
+        let request = entitlementRefreshRequest
+        pendingRefreshRequested = true
+
+        while completedEntitlementRefreshRequest < request {
+            let flight = entitlementRefreshTask ?? startEntitlementRefreshFlight()
+            await flight.task.value
+        }
+    }
+
+    private func startEntitlementRefreshFlight() -> EntitlementRefreshFlight {
+        let flight = EntitlementRefreshFlight()
+        flight.task = Task { @MainActor [weak self, weak flight] in
+            guard let self, let flight else {
+                return
+            }
+
+            defer {
+                // Cleanup is tied to flight identity, never to a mutable generation number.
+                if self.entitlementRefreshTask === flight {
+                    self.entitlementRefreshTask = nil
+                }
+            }
+
+            await self.runEntitlementRefreshFlight()
+        }
+        entitlementRefreshTask = flight
+        return flight
+    }
+
+    private func runEntitlementRefreshFlight() async {
+        var remainingRounds = Self.maxRefreshRoundsPerFlight
+
+        while remainingRounds > 0, !Task.isCancelled {
+            pendingRefreshRequested = false
+            let coveredRequest = entitlementRefreshRequest
+
+            guard await performEntitlementRefresh() else {
+                return
+            }
+
+            completedEntitlementRefreshRequest = max(
+                completedEntitlementRefreshRequest,
+                coveredRequest
+            )
+            remainingRounds -= 1
+
+            guard pendingRefreshRequested else {
+                return
+            }
+        }
+    }
+
+    private func performEntitlementRefresh() async -> Bool {
+        entitlementRefreshGeneration &+= 1
+        let generation = entitlementRefreshGeneration
+        let previousIsPro = isPro
+        let snapshot = await resolveEntitlement(previousIsPro: previousIsPro)
+
+        guard !Task.isCancelled, generation == entitlementRefreshGeneration else {
+            return false
+        }
+        applyEntitlement(snapshot)
+        return true
+    }
+
+    private func resolveEntitlement(
+        previousIsPro: Bool
+    ) async -> EntitlementRefreshSnapshot {
         var entitledProductIDs = Set<String>()
         var subscriptionEntitlements: [SubscriptionEntitlementSnapshot] = []
-        let now = Date()
+        var encounteredUnverifiedEntitlement = false
 
         for await result in Transaction.currentEntitlements {
-            do {
-                let transaction = try checkVerified(result)
+            switch result {
+            case .verified(let transaction):
                 guard ProProductID.productKind(for: transaction.productID) != nil else {
                     continue
                 }
                 guard transaction.revocationDate == nil else {
-                    continue
-                }
-                if let expirationDate = transaction.expirationDate, expirationDate <= now {
                     continue
                 }
                 entitledProductIDs.insert(transaction.productID)
@@ -226,35 +351,212 @@ final class StoreService {
                         await subscriptionEntitlementSnapshot(from: transaction)
                     )
                 }
-            } catch {
-                continue
+            case .unverified(let transaction, let error):
+                guard ProProductID.productKind(for: transaction.productID) != nil else {
+                    continue
+                }
+                encounteredUnverifiedEntitlement = true
+                reportUnverifiedTransaction(
+                    transaction,
+                    error: error,
+                    isUserInitiated: false
+                )
             }
         }
 
-        isPro = !entitledProductIDs.isEmpty
-        activeSubscriptionEntitlement = subscriptionEntitlements.max { lhs, rhs in
-            lhs.purchaseDate < rhs.purchaseDate
+        let currentEntitlementEvidence: EntitlementResolutionPolicy.CurrentEntitlementEvidence
+        let storeReachability: EntitlementResolutionPolicy.StoreReachabilityEvidence
+        let proDowngradeConfirmation: EntitlementResolutionPolicy.ProDowngradeConfirmation
+
+        if !entitledProductIDs.isEmpty {
+            currentEntitlementEvidence = .verifiedEntitlement
+            storeReachability = .unavailable
+            proDowngradeConfirmation = .notConfirmed
+        } else {
+            currentEntitlementEvidence = .noVerifiedEntitlement
+            do {
+                let products = try await Product.products(for: ProProductID.allIDs)
+                storeReachability = EntitlementResolutionPolicy.storeReachability(
+                    loadedProductCount: products.count
+                )
+
+                if storeReachability == .productsAvailable, previousIsPro {
+                    proDowngradeConfirmation = await corroborateCachedProDowngrade(
+                        products: products
+                    )
+                } else {
+                    proDowngradeConfirmation = .notConfirmed
+                }
+
+                if products.isEmpty {
+                    Self.logger.error("Entitlement reachability check returned no products")
+                }
+            } catch {
+                Self.logger.error(
+                    "Entitlement reachability check failed: \(String(describing: error), privacy: .public)"
+                )
+                storeReachability = .unavailable
+                proDowngradeConfirmation = .notConfirmed
+            }
         }
-        annualTrialEntitlement = subscriptionEntitlements
-            .filter(\.isAnnualIntroductoryTrial)
-            .max { lhs, rhs in lhs.purchaseDate < rhs.purchaseDate }
+
+        return EntitlementRefreshSnapshot(
+            resolution: EntitlementResolutionPolicy.resolve(
+                previousIsPro: previousIsPro,
+                evidence: EntitlementResolutionPolicy.Evidence(
+                    currentEntitlements: currentEntitlementEvidence,
+                    storeReachability: storeReachability,
+                    encounteredUnverifiedEntitlement: encounteredUnverifiedEntitlement,
+                    proDowngradeConfirmation: proDowngradeConfirmation
+                )
+            ),
+            subscriptionEntitlements: subscriptionEntitlements
+        )
+    }
+
+    private func corroborateCachedProDowngrade(
+        products: [Product]
+    ) async -> EntitlementResolutionPolicy.ProDowngradeConfirmation {
+        let subscriptionGroupIDs = Set(
+            products.compactMap { $0.subscription?.subscriptionGroupID }
+        )
+
+        guard await subscriptionsConfirmNoEntitlement(
+            subscriptionGroupIDs: subscriptionGroupIDs
+        ) else {
+            return .notConfirmed
+        }
+
+        guard let lifetimeResult = await Transaction.latest(for: ProProductID.lifetimeID) else {
+            return .confirmedNoEntitlement
+        }
+
+        switch lifetimeResult {
+        case .verified(let transaction):
+            return transaction.revocationDate == nil ? .notConfirmed : .confirmedNoEntitlement
+        case .unverified(let transaction, let error):
+            reportUnverifiedTransaction(
+                transaction,
+                error: error,
+                isUserInitiated: false
+            )
+            return .notConfirmed
+        }
+    }
+
+    private func subscriptionsConfirmNoEntitlement(
+        subscriptionGroupIDs: Set<String>
+    ) async -> Bool {
+        if subscriptionGroupIDs.isEmpty {
+            // A partial catalog can omit every subscription product. Transaction.latest still
+            // provides the required independent check instead of preserving cached Pro forever.
+            return await latestSubscriptionTransactionsConfirmNoEntitlement()
+        }
+
+        for groupID in subscriptionGroupIDs {
+            let statuses: [Product.SubscriptionInfo.Status]
+            do {
+                statuses = try await Product.SubscriptionInfo.status(for: groupID)
+            } catch {
+                Self.logger.error(
+                    "Subscription status corroboration failed: \(String(describing: error), privacy: .public)"
+                )
+                return false
+            }
+
+            for status in statuses {
+                if status.state == .subscribed || status.state == .inGracePeriod {
+                    return false
+                }
+
+                let isKnownInactiveState = status.state == .expired
+                    || status.state == .revoked
+                    || status.state == .inBillingRetryPeriod
+                guard isKnownInactiveState else {
+                    return false
+                }
+
+                if case .unverified(let transaction, let error) = status.transaction {
+                    reportUnverifiedTransaction(
+                        transaction,
+                        error: error,
+                        isUserInitiated: false
+                    )
+                }
+            }
+        }
+
+        return true
+    }
+
+    private func latestSubscriptionTransactionsConfirmNoEntitlement() async -> Bool {
+        for productID in ProProductID.allSubscriptionIDs {
+            guard let result = await Transaction.latest(for: productID) else {
+                continue
+            }
+
+            switch result {
+            case .unverified(let transaction, let error):
+                reportUnverifiedTransaction(
+                    transaction,
+                    error: error,
+                    isUserInitiated: false
+                )
+                return false
+            case .verified(let transaction):
+                guard transaction.revocationDate == nil else {
+                    continue
+                }
+
+                if let status = await transaction.subscriptionStatus {
+                    if status.state == .subscribed || status.state == .inGracePeriod {
+                        return false
+                    }
+
+                    let isKnownInactiveState = status.state == .expired
+                        || status.state == .revoked
+                        || status.state == .inBillingRetryPeriod
+                    guard isKnownInactiveState else {
+                        return false
+                    }
+                    continue
+                }
+
+                guard let expirationDate = transaction.expirationDate,
+                      expirationDate <= now() else {
+                    return false
+                }
+            }
+        }
+
+        return true
+    }
+
+    private func applyEntitlement(_ snapshot: EntitlementRefreshSnapshot) {
+        let resolution = snapshot.resolution
+        isPro = resolution.isPro
+        hasConfirmedEntitlement = resolution.hasConfirmedEntitlement
+
+        if resolution.hasConfirmedEntitlement {
+            activeSubscriptionEntitlement = snapshot.subscriptionEntitlements.max { lhs, rhs in
+                lhs.purchaseDate < rhs.purchaseDate
+            }
+            annualTrialEntitlement = snapshot.subscriptionEntitlements
+                .filter(\.isAnnualIntroductoryTrial)
+                .max { lhs, rhs in lhs.purchaseDate < rhs.purchaseDate }
+            settingsStore?.entitlementCachedIsPro = resolution.isPro
+            // Telemetry timestamp only. Cached Pro remains fail-open without a time limit.
+            settingsStore?.entitlementCachedAt = now()
+            usageWatchStore?.updateConfiguration { configuration in
+                configuration.isPro = resolution.isPro
+            }
+        }
+
         entitlementRevision &+= 1
         if isPro {
             hasPendingPurchase = false
         }
-        usageWatchStore?.updateConfiguration { configuration in
-            configuration.isPro = isPro
-        }
         hasResolvedEntitlement = true
-    }
-
-    func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
-        switch result {
-        case .verified(let value):
-            return value
-        case .unverified:
-            throw StoreServiceError.failedVerification
-        }
     }
 
     var activeAnnualProduct: Product? {
@@ -271,19 +573,44 @@ final class StoreService {
                     return
                 }
 
-                do {
-                    let transaction = try self.checkVerified(result)
+                switch result {
+                case .verified(let transaction):
                     await transaction.finish()
                     await self.refreshEntitlement()
-                } catch {
-                    self.alertMessage = String(
-                        localized: "store.error.verification",
-                        defaultValue: "購入を確認できませんでした"
+                case .unverified(let transaction, let error):
+                    self.reportUnverifiedTransaction(
+                        transaction,
+                        error: error,
+                        isUserInitiated: false
                     )
-                    self.onPurchaseOrRestoreFailure?()
                 }
             }
         }
+    }
+
+    private func reportUnverifiedTransaction(
+        _ transaction: Transaction,
+        error: any Error,
+        isUserInitiated: Bool
+    ) {
+        Self.logger.error(
+            "Unverified StoreKit transaction for \(transaction.productID, privacy: .public): \(String(describing: error), privacy: .public)"
+        )
+
+        if isUserInitiated {
+            // A direct purchase attempt must always receive feedback, even if a passive StoreKit
+            // stream already reported the same product during this launch.
+            reportedPassiveUnverifiedProductIDs.insert(transaction.productID)
+        } else {
+            guard reportedPassiveUnverifiedProductIDs.insert(transaction.productID).inserted else {
+                return
+            }
+        }
+        alertMessage = String(
+            localized: "store.error.verification",
+            defaultValue: "購入を確認できませんでした"
+        )
+        onPurchaseOrRestoreFailure?()
     }
 
     private func refreshPaywallProducts() {

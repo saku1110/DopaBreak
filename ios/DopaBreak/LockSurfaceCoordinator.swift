@@ -18,6 +18,7 @@ final class LockSurfaceCoordinator {
     static let d7InactiveNotificationIdentifier = NotificationIdentifier.d7Inactive
     static let trialDay5NotificationIdentifier = NotificationIdentifier.trialDay5
     static let month1ReportNotificationIdentifier = NotificationIdentifier.month1Report
+    static let freeMonthlyReportNotificationIdentifiers = NotificationIdentifier.freeMonthlyReports
     static let month12RenewalNotificationIdentifier = NotificationIdentifier.month12Renewal
     static let annualUpgradeOfferNotificationIdentifier = NotificationIdentifier.annualUpgradeOffer
     static let cancelSaveNotificationIdentifier = NotificationIdentifier.cancelSave
@@ -50,6 +51,7 @@ final class LockSurfaceCoordinator {
         state: LockSurfaceState,
         weeklySummary: WeeklySummary?,
         retentionNotifications: RetentionNotificationSchedules,
+        hasConfirmedEntitlement: Bool,
         firstLaunchDate: Date?,
         verifiedAutomationCatalogIDs: [String],
         totalInterventionAttempts: Int,
@@ -71,6 +73,7 @@ final class LockSurfaceCoordinator {
                     state: state,
                     weeklySummary: weeklySummary,
                     retentionNotifications: retentionNotifications,
+                    hasConfirmedEntitlement: hasConfirmedEntitlement,
                     firstLaunchDate: firstLaunchDate,
                     verifiedAutomationCatalogIDs: verifiedAutomationCatalogIDs,
                     totalInterventionAttempts: totalInterventionAttempts,
@@ -115,13 +118,18 @@ final class LockSurfaceCoordinator {
         state: LockSurfaceState,
         weeklySummary: WeeklySummary?,
         retentionNotifications: RetentionNotificationSchedules,
+        hasConfirmedEntitlement: Bool,
         firstLaunchDate: Date?,
         verifiedAutomationCatalogIDs: [String],
         totalInterventionAttempts: Int,
         now: Date,
         generation: Int
     ) async {
-        let identifiers = allNotificationIdentifiers
+        let identifiers = Self.removableNotificationIdentifiers(
+            hasConfirmedEntitlement: hasConfirmedEntitlement,
+            planNotificationsEnabled: state.planNotificationsEnabled,
+            retentionSupportNotificationsEnabled: state.retentionSupportNotificationsEnabled
+        )
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
         notificationCenter.removePendingNotificationRequests(
             withIdentifiers: Self.legacyNotificationIdentifiers
@@ -147,7 +155,7 @@ final class LockSurfaceCoordinator {
             let content = UNMutableNotificationContent()
             content.title = String(
                 localized: "lock_surface.notification.morning.title",
-                defaultValue: "今日の目標"
+                defaultValue: "目標"
             )
             content.body = titles.joined(
                 separator: String(
@@ -205,7 +213,8 @@ final class LockSurfaceCoordinator {
             guard isNotificationRescheduleCurrent(generation: generation) else { return }
         }
 
-        if state.planNotificationsEnabled,
+        if hasConfirmedEntitlement,
+           state.planNotificationsEnabled,
            let trialDay5 = retentionNotifications.trialDay5,
            let fireDate = futureQuietHoursFireDate(
                for: trialDay5.fireDate,
@@ -239,7 +248,8 @@ final class LockSurfaceCoordinator {
             guard isNotificationRescheduleCurrent(generation: generation) else { return }
         }
 
-        if state.planNotificationsEnabled,
+        if hasConfirmedEntitlement,
+           state.planNotificationsEnabled,
            let month1 = retentionNotifications.month1,
            let fireDate = futureQuietHoursFireDate(
                for: month1.fireDate,
@@ -273,7 +283,50 @@ final class LockSurfaceCoordinator {
             guard isNotificationRescheduleCurrent(generation: generation) else { return }
         }
 
-        if state.planNotificationsEnabled,
+        if hasConfirmedEntitlement,
+           state.retentionSupportNotificationsEnabled {
+            for (identifier, freeMonthly) in zip(
+                Self.freeMonthlyReportNotificationIdentifiers,
+                retentionNotifications.freeMonthlyReports
+            ) {
+                guard let fireDate = futureQuietHoursFireDate(
+                    for: freeMonthly.fireDate,
+                    now: now,
+                    calendar: calendar
+                ) else {
+                    continue
+                }
+                let content = UNMutableNotificationContent()
+                content.title = String(
+                    localized: "lock_surface.notification.monthly.title",
+                    defaultValue: "今月のふりかえり"
+                )
+                switch freeMonthly.body {
+                case .counts(let cancelled, let attempts):
+                    content.body = String(
+                        localized: "lock_surface.notification.month1.body",
+                        defaultValue: "開かなかった \(cancelled)回 / 開こうとした \(attempts)回"
+                    )
+                case .fixed:
+                    content.body = String(
+                        localized: "lock_surface.notification.free_monthly.fixed_body",
+                        defaultValue: "この1ヶ月の記録がまとまりました"
+                    )
+                }
+                content.sound = .default
+                try? await notificationCenter.add(
+                    UNNotificationRequest(
+                        identifier: identifier,
+                        content: content,
+                        trigger: oneShotTrigger(for: fireDate)
+                    )
+                )
+                guard isNotificationRescheduleCurrent(generation: generation) else { return }
+            }
+        }
+
+        if hasConfirmedEntitlement,
+           state.planNotificationsEnabled,
            let month12 = retentionNotifications.month12,
            let fireDate = futureQuietHoursFireDate(
                for: month12.fireDate,
@@ -300,7 +353,8 @@ final class LockSurfaceCoordinator {
             guard isNotificationRescheduleCurrent(generation: generation) else { return }
         }
 
-        if state.planNotificationsEnabled,
+        if hasConfirmedEntitlement,
+           state.planNotificationsEnabled,
            let annualOffer = retentionNotifications.annualUpgradeOffer,
            let fireDate = futureQuietHoursFireDate(
                for: annualOffer.fireDate,
@@ -333,7 +387,8 @@ final class LockSurfaceCoordinator {
             }
         }
 
-        if state.planNotificationsEnabled,
+        if hasConfirmedEntitlement,
+           state.planNotificationsEnabled,
            let cancelSave = retentionNotifications.cancelSave,
            let fireDate = futureQuietHoursFireDate(
                for: cancelSave.fireDate,
@@ -478,19 +533,58 @@ final class LockSurfaceCoordinator {
         }
     }
 
+    private static let nonEntitlementNotificationIdentifiers = [
+        LockSurfaceCoordinator.morningNotificationIdentifier,
+        LockSurfaceCoordinator.weeklyNotificationIdentifier,
+        LockSurfaceCoordinator.d1ActivationNotificationIdentifier,
+        LockSurfaceCoordinator.d3ActivationNotificationIdentifier,
+        LockSurfaceCoordinator.d7InactiveNotificationIdentifier
+    ]
+
+    /// 「プラン通知」トグルで出し分ける通知。
+    private static let planNotificationIdentifiers = [
+        LockSurfaceCoordinator.trialDay5NotificationIdentifier,
+        LockSurfaceCoordinator.month1ReportNotificationIdentifier,
+        LockSurfaceCoordinator.month12RenewalNotificationIdentifier,
+        LockSurfaceCoordinator.annualUpgradeOfferNotificationIdentifier,
+        LockSurfaceCoordinator.cancelSaveNotificationIdentifier
+    ]
+
+    /// 「継続サポート」トグルで出し分ける通知。
+    private static let retentionSupportNotificationIdentifiers =
+        LockSurfaceCoordinator.freeMonthlyReportNotificationIdentifiers
+
+    private static let entitlementNotificationIdentifiers =
+        LockSurfaceCoordinator.planNotificationIdentifiers
+            + LockSurfaceCoordinator.retentionSupportNotificationIdentifiers
+
+    /// この再スケジュールで取り消す識別子。
+    ///
+    /// 権利が確定するまでは、権利に紐づく通知を消して無料向けに積み直すことはしない
+    /// （取得に失敗しただけの課金者の予約を消してしまうため）。
+    /// ただし**ユーザーが自分でオフにした通知の取り消しは確定を待たない**。
+    /// 待つと、オフラインのProがトグルをオフにしても既存の予約が届き続ける。
+    private static func removableNotificationIdentifiers(
+        hasConfirmedEntitlement: Bool,
+        planNotificationsEnabled: Bool,
+        retentionSupportNotificationsEnabled: Bool
+    ) -> [String] {
+        guard !hasConfirmedEntitlement else {
+            return nonEntitlementNotificationIdentifiers + entitlementNotificationIdentifiers
+        }
+
+        var identifiers = nonEntitlementNotificationIdentifiers
+        if !planNotificationsEnabled {
+            identifiers += planNotificationIdentifiers
+        }
+        if !retentionSupportNotificationsEnabled {
+            identifiers += retentionSupportNotificationIdentifiers
+        }
+        return identifiers
+    }
+
     private var allNotificationIdentifiers: [String] {
-        [
-            Self.morningNotificationIdentifier,
-            Self.weeklyNotificationIdentifier,
-            Self.d1ActivationNotificationIdentifier,
-            Self.d3ActivationNotificationIdentifier,
-            Self.d7InactiveNotificationIdentifier,
-            Self.trialDay5NotificationIdentifier,
-            Self.month1ReportNotificationIdentifier,
-            Self.month12RenewalNotificationIdentifier,
-            Self.annualUpgradeOfferNotificationIdentifier,
-            Self.cancelSaveNotificationIdentifier
-        ]
+        Self.nonEntitlementNotificationIdentifiers + Self.entitlementNotificationIdentifiers
     }
 
     private func isNotificationRescheduleCurrent(generation: Int) -> Bool {
@@ -647,6 +741,7 @@ struct RetentionNotificationSchedules {
     let trialDay5: RetentionNotificationSchedule?
     let month1: RetentionNotificationSchedule?
     let month12: RetentionNotificationSchedule?
+    let freeMonthlyReports: [FreeMonthlyReportNotificationSchedule]
     let annualUpgradeOffer: RetentionNotificationSchedule?
     let cancelSave: CancelSaveNotificationSchedule?
 
@@ -654,12 +749,14 @@ struct RetentionNotificationSchedules {
         trialDay5: RetentionNotificationSchedule?,
         month1: RetentionNotificationSchedule?,
         month12: RetentionNotificationSchedule?,
+        freeMonthlyReports: [FreeMonthlyReportNotificationSchedule] = [],
         annualUpgradeOffer: RetentionNotificationSchedule? = nil,
         cancelSave: CancelSaveNotificationSchedule? = nil
     ) {
         self.trialDay5 = trialDay5
         self.month1 = month1
         self.month12 = month12
+        self.freeMonthlyReports = freeMonthlyReports
         self.annualUpgradeOffer = annualUpgradeOffer
         self.cancelSave = cancelSave
     }

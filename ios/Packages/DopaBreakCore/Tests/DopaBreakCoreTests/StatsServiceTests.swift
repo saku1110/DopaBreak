@@ -173,7 +173,172 @@ final class StatsServiceTests: XCTestCase {
         XCTAssertTrue(summary.days.allSatisfy { $0.attempts == 0 && $0.cancelled == 0 })
     }
 
+    // MARK: - 週次詳細レポート（Pro）
+
+    func testWeeklySummaryWeeksBackReturnsPreviousNonOverlappingWindow() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 19, hour: 0), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 25, hour: 23, minute: 59, second: 59), decision: .opened))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 26, hour: 0), decision: .opened))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 12), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: calendarDate(year: 2026, month: 7, day: 2, hour: 12))
+
+        let previous = try stats.weeklySummary(weeksBack: 1)
+
+        XCTAssertEqual(previous.days.count, 7)
+        XCTAssertEqual(previous.days.first?.date, calendarDate(year: 2026, month: 6, day: 19, hour: 0))
+        XCTAssertEqual(previous.days.last?.date, calendarDate(year: 2026, month: 6, day: 25, hour: 0))
+        XCTAssertEqual(previous.attempts, 2)
+        XCTAssertEqual(previous.cancelled, 1)
+        XCTAssertEqual(previous.cancelRate, 0.5, accuracy: 0.0001)
+
+        // 直近7日は既定引数のまま変わらない。窓は1日も重ならない。
+        let current = try stats.weeklySummary()
+        XCTAssertEqual(current.days.first?.date, calendarDate(year: 2026, month: 6, day: 26, hour: 0))
+        XCTAssertEqual(current.attempts, 2)
+        XCTAssertEqual(current.cancelled, 1)
+    }
+
+    func testWeeklySummaryWeeksBackBeyondRecordedHistoryIsEmpty() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 26, hour: 0), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: calendarDate(year: 2026, month: 7, day: 2, hour: 12))
+
+        let summary = try stats.weeklySummary(weeksBack: 2)
+
+        XCTAssertEqual(summary.days.first?.date, calendarDate(year: 2026, month: 6, day: 12, hour: 0))
+        XCTAssertEqual(summary.days.last?.date, calendarDate(year: 2026, month: 6, day: 18, hour: 0))
+        XCTAssertEqual(summary.attempts, 0)
+        XCTAssertEqual(summary.cancelRate, 0)
+    }
+
+    func testWeeklySummaryRejectsNegativeWeeksBack() throws {
+        let log = try makeLogStore()
+        let stats = makeStats(log: log, now: calendarDate(year: 2026, month: 7, day: 2, hour: 12))
+
+        XCTAssertThrowsError(try stats.weeklySummary(weeksBack: -1))
+    }
+
+    func testWeeklySummaryWeeksBackRespectsInjectedTimeZoneDayBoundary() throws {
+        let log = try makeLogStore()
+        // JSTでは6/26 08:00（今週の初日）。UTC基準だと6/25で前週側に落ちる時刻。
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 25, hour: 23), decision: .cancelled))
+        // JSTでは6/25 23:00（前週の最終日）。
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 25, hour: 14), decision: .opened))
+
+        var tokyoCalendar = Calendar(identifier: .gregorian)
+        tokyoCalendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        // JSTでは7/2 12:00。
+        let nowDate = calendarDate(year: 2026, month: 7, day: 2, hour: 3)
+        let stats = StatsService(logStore: log, calendar: tokyoCalendar, now: { nowDate })
+
+        let current = try stats.weeklySummary(weeksBack: 0)
+        let previous = try stats.weeklySummary(weeksBack: 1)
+
+        // 6/26 00:00 JST = 6/25 15:00 UTC。
+        XCTAssertEqual(current.days.first?.date, calendarDate(year: 2026, month: 6, day: 25, hour: 15))
+        XCTAssertEqual(current.attempts, 1)
+        XCTAssertEqual(current.days[0].cancelled, 1)
+        // 6/25 00:00 JST = 6/24 15:00 UTC。
+        XCTAssertEqual(previous.days.last?.date, calendarDate(year: 2026, month: 6, day: 24, hour: 15))
+        XCTAssertEqual(previous.attempts, 1)
+        XCTAssertEqual(previous.cancelled, 0)
+    }
+
+    func testWeeklyDetailReportComparesCurrentAndPreviousWeek() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 30, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 30, hour: 10), decision: .cancelled))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 30, hour: 11), decision: .opened))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 8), decision: .cancelled))
+        try log.insert(attempt(id: 5, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 20, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 6, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 20, hour: 10), decision: .opened))
+
+        let stats = makeStats(log: log, now: calendarDate(year: 2026, month: 7, day: 2, hour: 12))
+
+        let report = try stats.weeklyDetailReport()
+
+        XCTAssertEqual(report.current.attempts, 4)
+        XCTAssertEqual(report.current.cancelled, 3)
+        XCTAssertEqual(report.previous.attempts, 2)
+        XCTAssertEqual(report.previous.cancelled, 1)
+        XCTAssertTrue(report.isComparable)
+        XCTAssertEqual(report.cancelledDelta, 2)
+        XCTAssertEqual(report.peakDailyAttempts, 3)
+        XCTAssertFalse(report.isEmpty)
+    }
+
+    func testWeeklyDetailReportWithoutPreviousWeekDataIsNotComparable() throws {
+        let log = try makeLogStore()
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 9), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: calendarDate(year: 2026, month: 7, day: 2, hour: 12))
+
+        let report = try stats.weeklyDetailReport()
+
+        XCTAssertFalse(report.isComparable)
+        XCTAssertNil(report.cancelledDelta)
+        XCTAssertFalse(report.isEmpty)
+        XCTAssertEqual(report.peakDailyAttempts, 1)
+    }
+
+    func testWeeklyDetailReportIsEmptyWhenNeitherWeekHasAttempts() throws {
+        let log = try makeLogStore()
+        let stats = makeStats(log: log, now: calendarDate(year: 2026, month: 7, day: 2, hour: 12))
+
+        let report = try stats.weeklyDetailReport()
+
+        XCTAssertTrue(report.isEmpty)
+        XCTAssertNil(report.cancelledDelta)
+        XCTAssertEqual(report.peakDailyAttempts, 0)
+        XCTAssertEqual(report.current.days.count, 7)
+        XCTAssertEqual(report.previous.days.count, 7)
+    }
+
+    /// 今週と前週で現在時刻を読み直すと、深夜0時をまたいだ瞬間に窓が1日重なる。
+    /// 起点の日を1度だけ確定させていれば、`now` が途中で進んでも窓の関係は崩れない。
+    func testWeeklyDetailReportAnchorsBothWindowsToOneDayAcrossMidnight() throws {
+        let log = try makeLogStore()
+        // 両方の窓の境目になる日。重複が起きると今週と前週の両方に数えられる。
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 6, day: 26, hour: 12), decision: .cancelled))
+
+        let clock = AdvancingClock([
+            calendarDate(year: 2026, month: 7, day: 2, hour: 23, minute: 59, second: 59),
+            calendarDate(year: 2026, month: 7, day: 3, hour: 0)
+        ])
+        let stats = StatsService(logStore: log, calendar: utcCalendar(), now: { clock.next() })
+
+        let report = try stats.weeklyDetailReport()
+
+        // 起点は7/2のまま。今週=6/26〜7/2、前週=6/19〜6/25。
+        XCTAssertEqual(report.current.days.first?.date, calendarDate(year: 2026, month: 6, day: 26, hour: 0))
+        XCTAssertEqual(report.current.days.last?.date, calendarDate(year: 2026, month: 7, day: 2, hour: 0))
+        XCTAssertEqual(report.previous.days.first?.date, calendarDate(year: 2026, month: 6, day: 19, hour: 0))
+        XCTAssertEqual(report.previous.days.last?.date, calendarDate(year: 2026, month: 6, day: 25, hour: 0))
+        // 6/26の1件はどちらか一方にしか出ない。
+        XCTAssertEqual(report.current.attempts, 1)
+        XCTAssertEqual(report.previous.attempts, 0)
+    }
+
     // MARK: - Helpers
+
+    /// 呼ばれるたびに次の時刻を返し、尽きたら最後の値を返し続けるテスト用の時計。
+    private final class AdvancingClock: @unchecked Sendable {
+        private let values: [Date]
+        private var index = 0
+
+        init(_ values: [Date]) {
+            precondition(!values.isEmpty)
+            self.values = values
+        }
+
+        func next() -> Date {
+            defer { index = min(index + 1, values.count - 1) }
+            return values[index]
+        }
+    }
 
     private func makeStats(log: SQLiteLogStore, now: Date) -> StatsService {
         StatsService(logStore: log, calendar: utcCalendar(), now: { now })

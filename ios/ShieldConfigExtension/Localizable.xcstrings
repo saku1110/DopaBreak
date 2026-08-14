@@ -8,19 +8,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Don't open"
+            "value": "Close"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かない"
+            "value": "閉じる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기"
+            "value": "닫기"
           }
         }
       }
@@ -32,19 +32,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What are you opening for?"
+            "value": "Time to stay off"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "なんのために開く？"
+            "value": "いまは開かない時間"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "무엇을 위해 열까요?"
+            "value": "지금은 열지 않는 시간"
           }
         }
       }
@@ -56,19 +56,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goal: %@"
+            "value": "Protecting %@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目標 %@"
+            "value": "守っている目標 %@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목표: %@"
+            "value": "지키는 목표 %@"
           }
         }
       }
@@ -80,19 +80,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take a breath"
+            "value": "Deep Focus on"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ひと呼吸"
+            "value": "ディープフォーカス中"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "잠깐 숨 고르기"
+            "value": "딥 포커스 중"
           }
         }
       }

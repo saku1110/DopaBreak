@@ -185,10 +185,6 @@ struct OnboardingFlow: View {
     @State private var lockScreenCheckPhase: LockScreenCheckPhase = .starting
     @State private var paywallPlacement: PaywallPlacement?
     @State private var flowAlert: OnboardingAlert?
-    /// 着火演出の実行中フラグ。演出が終わるまで次へ・あとでを受け付けない。
-    @State private var isIgniting = false
-    /// 目標入力欄のフォーカス。着火の前にキーボードを下げ、炎が隠れないようにする。
-    @FocusState private var isGoalFieldFocused: Bool
     /// 選択の触感トークン。画面と一緒に消えない位置で監視する
     @State private var selectionFeedbackToken = 0
     /// 完了画面の祝福演出を一度だけ走らせるフラグ
@@ -223,10 +219,6 @@ struct OnboardingFlow: View {
         }
         .safeAreaInset(edge: .bottom) {
             bottomBar
-        }
-        // 着火は画面最下端に貼りつける。安全領域の下（ホームバー側）まで使う
-        .overlay(alignment: .bottom) {
-            ignitionOverlay
         }
         .alert(item: $flowAlert) { alert in
             Alert(
@@ -266,27 +258,6 @@ struct OnboardingFlow: View {
 
     private var onboardingBackdrop: some View {
         DesignTokens.background.ignoresSafeArea()
-    }
-
-    /// 目標を決めた瞬間の着火。演出が終わってから次の画面へ進む。
-    @ViewBuilder
-    private var ignitionOverlay: some View {
-        if isIgniting {
-            GoalIgnitionFlame()
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .task {
-                    do {
-                        try await Task.sleep(for: .seconds(GoalIgnitionFlame.duration))
-                    } catch {
-                        return
-                    }
-                    guard !Task.isCancelled else {
-                        return
-                    }
-                    finishIgnition()
-                }
-        }
     }
 
     private var progressHeader: some View {
@@ -589,6 +560,14 @@ private extension OnboardingFlow {
 
     var quizResultContent: some View {
         let estimate = currentEstimate
+        let heroPrefix = String(localized: "onboarding.result.hero_yearly.prefix", defaultValue: "1年で 約")
+        let heroDays = "\(estimate.yearlyDays)"
+        let heroSuffix = String(localized: "onboarding.result.hero_yearly.suffix", defaultValue: "日")
+        let heroAccessibilityText = "\(heroPrefix) \(heroDays) \(heroSuffix)"
+        let threeYearPrefix = String(localized: "onboarding.result.three_year.prefix", defaultValue: "3年なら 約")
+        let threeYearMonths = threeYearMonthsText(yearlyDays: estimate.yearlyDays)
+        let threeYearSuffix = String(localized: "onboarding.result.three_year.suffix", defaultValue: "か月")
+        let threeYearAccessibilityText = "\(threeYearPrefix) \(threeYearMonths) \(threeYearSuffix)"
         return screenScroll {
             VStack(alignment: .center, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.result.eyebrow", defaultValue: "推計結果 / YOUR RESULT"))
@@ -607,49 +586,81 @@ private extension OnboardingFlow {
 
                 VStack(alignment: .center, spacing: 16) {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        // 0から実数値へ数字を回す。単位は最終表示に固定し、桁幅を暴れさせない
-                        OnboardingCountUp(
-                            target: estimate.dailyMinutes,
-                            accessibilityText: dailyTimeText(minutes: estimate.dailyMinutes)
-                        ) { minutes in
-                            Text(
-                                countingDailyTimeText(
-                                    minutes: minutes,
-                                    finalMinutes: estimate.dailyMinutes
-                                )
-                            )
-                            .dopaFont(70, weight: .black, design: .rounded)
-                            .monospacedDigit()
-                            .foregroundStyle(DesignTokens.accent)
-                        }
-                        Text(String(localized: "onboarding.result.per_day", defaultValue: "/ 日"))
-                            .dopaFont(20, weight: .black)
+                        Text(heroPrefix)
+                            .dopaFont(20, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
-                    }
-
-                    centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "が毎日SNSに溶けています"))
-
-                    HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(String(localized: "onboarding.result.yearly.prefix", defaultValue: "1年に換算すると 約"))
-                            .dopaFont(18, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
-                        OnboardingCountUp(
-                            target: estimate.yearlyDays,
-                            accessibilityText: "\(estimate.yearlyDays)"
-                        ) { days in
-                            Text("\(days)")
-                                .dopaFont(58, weight: .black, design: .rounded)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
+                        ZStack {
+                            // 最終値と同じ桁幅を先に確保し、0→38の途中で行全体を動かさない。
+                            Text(heroDays)
+                                .dopaFont(70, weight: .black, design: .rounded)
                                 .monospacedDigit()
                                 .foregroundStyle(DesignTokens.accent)
+                                .dopaDisplayClamp()
+                                .hidden()
+                                .accessibilityHidden(true)
+
+                            OnboardingCountUp(
+                                target: estimate.yearlyDays,
+                                accessibilityText: heroAccessibilityText
+                            ) { days in
+                                Text("\(days)")
+                                    .dopaFont(70, weight: .black, design: .rounded)
+                                    .monospacedDigit()
+                                    .foregroundStyle(DesignTokens.accent)
+                                    .dopaDisplayClamp()
+                            }
                         }
-                        Text(String(localized: "onboarding.result.yearly.suffix", defaultValue: "日"))
+                        .layoutPriority(1)
+                        Text(heroSuffix)
                             .dopaFont(28, weight: .black)
                             .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
                     }
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: heroAccessibilityText))
+
+                    centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "がSNSに溶けています"))
+
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
+                        Text(threeYearPrefix)
+                            .dopaFont(18, weight: .bold)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
+                        Text(threeYearMonths)
+                            .dopaFont(58, weight: .black, design: .rounded)
+                            .monospacedDigit()
+                            .foregroundStyle(DesignTokens.accent)
+                            .dopaDisplayClamp()
+                            .layoutPriority(1)
+                        Text(threeYearSuffix)
+                            .dopaFont(28, weight: .black)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
+                    }
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: threeYearAccessibilityText))
                 }
                 .onboardingStagger(2)
 
-                centeredLead(String(localized: "onboarding.result.disclaimer", defaultValue: "※ご回答からの推計値です。医療診断ではありません。"))
+                centeredLead(
+                    String(
+                        localized: "onboarding.result.disclaimer",
+                        defaultValue: "※1日約\(dailyTimeText(minutes: estimate.dailyMinutes))の想定にもとづく推計値です。医療診断ではありません。"
+                    )
+                )
                     .padding(.top, 8)
                     .onboardingStagger(3)
 
@@ -706,7 +717,6 @@ private extension OnboardingFlow {
                             )
                             .dopaFont(18, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
-                            .focused($isGoalFieldFocused)
                             .submitLabel(.done)
                             .onSubmit {
                                 commitDraftGoal()
@@ -753,8 +763,6 @@ private extension OnboardingFlow {
                     .onboardingStagger(4)
                 }
             }
-            // 着火中に足したり消したりされると、保存済みとリストがずれたまま次の画面へ進む
-            .disabled(isIgniting)
         }
     }
 
@@ -769,7 +777,7 @@ private extension OnboardingFlow {
                     .onboardingStagger(2)
 
                 VStack(spacing: 12) {
-                    ForEach(Array(InterventionMode.allCases.enumerated()), id: \.element) { index, mode in
+                    ForEach(Array(InterventionMode.selectable.enumerated()), id: \.element) { index, mode in
                         modeButton(mode)
                             .onboardingStagger(3 + index)
                     }
@@ -923,14 +931,10 @@ private extension OnboardingFlow {
                 centeredLead(String(localized: "onboarding.notification.lead", defaultValue: "朝の通知とLive Activityで、目標を毎日思い出します。"))
                     .onboardingStagger(2)
 
-                ZStack(alignment: .bottom) {
-                    DesignTokens.backgroundRaised
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 300)
-                        .overlay(alignment: .top) {
-                            CharacterView(.relief, size: DesignTokens.CharacterSize.support)
-                                .padding(.top, 16)
-                        }
+                VStack(spacing: 0) {
+                    CharacterView(.relief, size: DesignTokens.CharacterSize.header)
+                        .padding(.top, 16)
+                    Spacer(minLength: 12)
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             SmallLabel(text: String(localized: "onboarding.notification.preview.app_name", defaultValue: "DOPABREAK"))
@@ -961,6 +965,9 @@ private extension OnboardingFlow {
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .padding(16)
                 }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 300)
+                .background(DesignTokens.backgroundRaised)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -1026,17 +1033,7 @@ private extension OnboardingFlow {
     var readyContent: some View {
         screenScroll {
             VStack(alignment: .center, spacing: 24) {
-                CharacterView(.relief, size: DesignTokens.CharacterSize.support)
-                    .frame(
-                        width: DesignTokens.CharacterSize.support * (17.0 / 12.0),
-                        height: DesignTokens.CharacterSize.support
-                    )
-                    .background(DesignTokens.accent.opacity(0.09))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(DesignTokens.accent.opacity(0.42), lineWidth: 2)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                CharacterView(.relief, size: DesignTokens.CharacterSize.header)
                     // 到達を祝うポップイン。Reduce Motion時は拡大せず出すだけにする
                     .scaleEffect(readyCheckmarkScale)
                     .opacity(isReadyCelebrated ? 1 : 0)
@@ -1297,6 +1294,10 @@ private extension OnboardingFlow {
     }
 
     func selectMode(_ mode: InterventionMode) {
+        // 画面に出ていない未実装のモードは選ばせない（`InterventionMode.selectable`）。
+        guard mode.isSelectable else {
+            return
+        }
         guard modeAllowedForCurrentEntitlement(mode) == mode else {
             paywallPlacement = .onboardingModeGate
             return
@@ -1524,20 +1525,6 @@ private extension OnboardingFlow {
         selectionFeedbackToken += 1
     }
 
-    /// カウントアップ中に単位が分→時間へ切り替わると桁幅が跳ねる。
-    /// 最終表示が時間なら、途中も時間のまま数字だけを回す。
-    func countingDailyTimeText(minutes: Int, finalMinutes: Int) -> String {
-        guard finalMinutes >= 60 else {
-            return dailyTimeText(minutes: minutes)
-        }
-        let hours = (Double(minutes) / 60.0 * 10).rounded() / 10
-        // 整数時間はdailyTimeTextと同じ表記に揃え、確定値と読み上げを一致させる
-        guard hours.rounded() != hours else {
-            return String(localized: "onboarding.result.duration.hours", defaultValue: "\(Int(hours))時間")
-        }
-        return String(localized: "onboarding.result.duration.decimal_hours", defaultValue: "\(hours)時間")
-    }
-
     /// 完了画面の祝福。1画面につき一度だけ走らせる。
     func celebrateReadyIfNeeded() {
         guard !isReadyCelebrated else {
@@ -1568,9 +1555,7 @@ private extension OnboardingFlow {
             return
         }
         direction = .backward
-        // 戻るなら着火は取り下げる。前の画面へ炎を持ち越さない
         withAnimation(DopaMotion.transition) {
-            isIgniting = false
             step = previous
         }
     }
@@ -1677,18 +1662,12 @@ private extension OnboardingFlow {
 
     /// 目標画面から先へ進める状態か。リストが空でも、入力途中の言葉があれば進める。
     var canLeaveGoalSetup: Bool {
-        guard !isIgniting, !isTypedGoalOverLimit else {
-            return false
-        }
-        return !draftGoals.isEmpty || typedGoalLength > 0
+        !isTypedGoalOverLimit && (!draftGoals.isEmpty || typedGoalLength > 0)
     }
 
     /// 入力欄の言葉をリストへ移す。移せない状態（上限）ならfalseを返し、呼び出し側を止める。
     @discardableResult
     func commitDraftGoal() -> Bool {
-        guard !isIgniting else {
-            return false
-        }
         let title = OnboardingGoalList.normalize(heroGoal)
         guard !title.isEmpty else {
             return true
@@ -1711,9 +1690,6 @@ private extension OnboardingFlow {
     /// リストへ1件足す。件数の上限に当たったらペイウォールを出し、falseを返す。
     @discardableResult
     func addDraftGoal(_ rawTitle: String) -> Bool {
-        guard !isIgniting else {
-            return false
-        }
         guard !OnboardingGoalList.contains(rawTitle, in: draftGoals) else {
             return true
         }
@@ -1729,9 +1705,6 @@ private extension OnboardingFlow {
     }
 
     func removeDraftGoal(_ draft: OnboardingGoalDraft) {
-        guard !isIgniting else {
-            return
-        }
         withAnimation(DopaMotion.control) {
             draftGoals.removeAll { $0.id == draft.id }
         }
@@ -1739,12 +1712,6 @@ private extension OnboardingFlow {
     }
 
     func saveGoalAndAdvance(skipped: Bool) {
-        // 着火中の再タップで二度進めない
-        guard !isIgniting else {
-            return
-        }
-        // 炎はキーボードの裏になるため、先に下げる
-        isGoalFieldFocused = false
         if skipped {
             advance()
             return
@@ -1760,11 +1727,7 @@ private extension OnboardingFlow {
         guard persistDraftGoals() else {
             return
         }
-        guard !reduceMotion else {
-            advance()
-            return
-        }
-        isIgniting = true
+        advance()
     }
 
     /// リストの内容を保存済みデータへ反映する。
@@ -1807,20 +1770,6 @@ private extension OnboardingFlow {
         )
     }
 
-    /// 着火の終わり。演出を畳んでから次の画面へ送る。
-    func finishIgnition() {
-        guard isIgniting else {
-            return
-        }
-        withAnimation(DopaMotion.control) {
-            isIgniting = false
-        }
-        // 演出中に戻られていた場合は進めない
-        guard step == .goalSetup else {
-            return
-        }
-        advance()
-    }
 }
 
 private extension OnboardingFlow {
@@ -1837,10 +1786,32 @@ private extension OnboardingFlow {
     }
 
     func persistModeAndAdvance(_ mode: InterventionMode) {
-        let mode = modeAllowedForCurrentEntitlement(mode)
+        let mode = modeAllowedForCurrentEntitlement(mode).persistable
         selectedMode = mode
+
+        // 保存するだけではルールへ届かない。対象アプリはこの前の画面で確定しているため、
+        // ここでルールを作って選んだ強さを実際に反映する（ディープフォーカスなら完全ブロックも同期される）。
+        // ルールへ届かなかったときは選択も進めず、その場に留めてもう一度試させる。
+        // 「選んだのに効いていない」まま先へ進ませない。
+        do {
+            try model.applyInterventionMode(mode)
+        } catch {
+            showModeSaveError()
+            return
+        }
+
         settingsStore.pendingInterventionMode = mode.rawValue
         advance()
+    }
+
+    func showModeSaveError() {
+        flowAlert = OnboardingAlert(
+            title: String(localized: "onboarding.error.save.title", defaultValue: "保存できませんでした"),
+            message: String(
+                localized: "onboarding.mode.save_error.message",
+                defaultValue: "止める強さを保存できませんでした。もう一度お試しください。"
+            )
+        )
     }
 
     func modeAllowedForCurrentEntitlement(_ mode: InterventionMode) -> InterventionMode {
@@ -1908,6 +1879,11 @@ private extension OnboardingFlow {
         return hours.rounded() == hours
             ? String(localized: "onboarding.result.duration.hours", defaultValue: "\(Int(hours))時間")
             : String(localized: "onboarding.result.duration.decimal_hours", defaultValue: "\(hours)時間")
+    }
+
+    /// 3年換算の月数。LossEstimator側で切り捨て済みの値を1桁小数で固定表示する。
+    func threeYearMonthsText(yearlyDays: Int) -> String {
+        String(format: "%.1f", LossEstimator.threeYearMonths(fromYearlyDays: yearlyDays))
     }
 
     /// 人生換算の年数。LossEstimator側で切り捨て済みの値を文字列にしてから差し込み、

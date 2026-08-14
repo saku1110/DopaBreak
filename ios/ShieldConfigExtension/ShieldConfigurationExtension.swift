@@ -21,6 +21,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         makeConfiguration()
     }
 
+    /// この画面はディープフォーカス（完全ブロック）でしか出ない。
+    /// 通常の一呼吸はアプリ側の介入フローが担うため、ここでは
+    /// 「いま守っているもの」を見せて、開かない選択の価値を伝える（docs/12 §5）。
     private func makeConfiguration() -> ShieldConfiguration {
         do {
             let goalStore = GoalStore(snapshotStore: JSONSnapshotStore())
@@ -30,9 +33,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 let title = lockScreenTitle.isEmpty ? goal.title : lockScreenTitle
                 return String(
                     localized: "shield.subtitle.goal",
-                    defaultValue: "戻る先 \(title)"
+                    defaultValue: "守っている目標 \(title)"
                 )
-            } ?? String(localized: "shield.subtitle.fallback", defaultValue: "なんのために開く？")
+            } ?? String(localized: "shield.subtitle.fallback", defaultValue: "いまは開かない時間")
 
             return baseConfiguration(subtitle: subtitle)
         } catch {
@@ -45,7 +48,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             backgroundBlurStyle: .dark,
             backgroundColor: ShieldColors.inkBlack,
             title: ShieldConfiguration.Label(
-                text: String(localized: "shield.title", defaultValue: "ひと呼吸"),
+                text: String(localized: "shield.title", defaultValue: "ディープフォーカス中"),
                 color: ShieldColors.paper
             ),
             subtitle: subtitle.map {
@@ -55,7 +58,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 )
             },
             primaryButtonLabel: ShieldConfiguration.Label(
-                text: String(localized: "shield.action.close", defaultValue: "開かない"),
+                text: String(localized: "shield.action.close", defaultValue: "閉じる"),
                 color: ShieldColors.inkBlack
             ),
             primaryButtonBackgroundColor: ShieldColors.electricLime,

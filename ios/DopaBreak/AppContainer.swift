@@ -72,6 +72,7 @@ final class AppModel {
     let interventionEngine: InterventionEngine?
     private let logStore: SQLiteLogStore?
     private let settingsStore: SettingsStore
+    private let clampBackupStore: TargetClampBackupStore
     private let snapshotStore: JSONSnapshotStore
     private let statsService: StatsService?
     private let lockSurfaceCoordinator: LockSurfaceCoordinator
@@ -114,10 +115,12 @@ final class AppModel {
     init(
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
         settingsStore: SettingsStore? = nil,
+        clampBackupStore: TargetClampBackupStore? = nil,
         now: @escaping () -> Date = { Date() }
     ) {
         let resolvedSettingsStore = settingsStore ?? Self.makeSettingsStore()
         self.settingsStore = resolvedSettingsStore
+        self.clampBackupStore = clampBackupStore ?? Self.makeClampBackupStore()
         self.containerProvider = containerProvider
         self.now = now
         if resolvedSettingsStore.firstLaunchDate == nil {
@@ -146,6 +149,7 @@ final class AppModel {
         self.shield = ShieldController(ruleStore: resolvedRuleStore)
         self.storeService = StoreService(
             funnelEventStore: funnelEventStore,
+            settingsStore: resolvedSettingsStore,
             usageWatchStore: usageWatchStore,
             now: now
         )
@@ -177,9 +181,8 @@ final class AppModel {
             }
         }
 
-        // MVP: standardモードではシールドを適用しない（docs/12 §5）。
-        // syncShield() 呼び出しは停止するが、ShieldController自体のコードは温存する。
-
+        // 完全ブロックは refresh() の中で同期する。起動直後は権利が未確定のため
+        // ShieldSyncPolicy が「現状維持」を返し、確定後の refresh() で適用・解除が決まる。
         refresh()
 
         Task { [weak self] in
@@ -241,8 +244,14 @@ final class AppModel {
         restartLiveActivity: Bool = false,
         scheduleNotifications: Bool = true
     ) {
+        // 権利の確定・ルールの変更・起動と復帰のすべてがここを通る。
+        // 途中のデータ読み込みが失敗しても完全ブロックの同期だけは必ず走らせる。
+        // do-catchの中に置くと、目標や記録の読み取りに失敗した端末で
+        // Pro失効時の解除が丸ごとスキップされる。
+        defer { syncShield() }
+
         do {
-            try clampSelectedTargetsToEntitlementLimit()
+            try reconcileSelectedTargetsWithEntitlement()
             goals = try goalStore.goals()
             try refreshLogCounts()
             refreshLockSurfaces(
@@ -302,6 +311,10 @@ final class AppModel {
                 state: state,
                 weeklySummary: weeklySummary,
                 retentionNotifications: retentionNotificationSchedules(),
+                // 権利が確定するまでは、権利に紐づく通知を積み直させない。
+                // 取得に失敗しただけの課金者の予約を消し、無料向けの予約で置き換えてしまうため
+                // （ユーザーが自分でオフにした分の取り消しは確定を待たずに実行される）。
+                hasConfirmedEntitlement: storeService.hasConfirmedEntitlement,
                 firstLaunchDate: settingsStore.firstLaunchDate,
                 verifiedAutomationCatalogIDs: settingsStore.verifiedAutomationCatalogIDs,
                 totalInterventionAttempts: allTimeAttemptCount,
@@ -394,10 +407,54 @@ final class AppModel {
         )
     }
 
-    /// MVPではシールド同期を無効化（docs/12 §5）。ShieldControllerのコードは温存し、
-    /// v1.1でdeepFocus/nightOnly向けに再配線する。
+    /// 完全ブロック（Deep Focus）を現在の権利とルールへ合わせる（docs/12 §5）。
+    ///
+    /// 適用条件は「権利が確定していて」「Proで」「ディープフォーカスのルールに対象がある」こと。
+    /// 権利が確定していない間は適用も解除もしない。判断は `ShieldSyncPolicy` にまとめてある。
     func syncShield() {
-        // 意図的に no-op。
+        shield.syncShield(
+            entitlementGate: entitlementGate,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
+        )
+    }
+
+    /// 「止める強さ」で選んだモードを、選択済みの対象アプリのルールへ実際に届ける。
+    ///
+    /// ルールは介入フローの初回起動まで作られないため、選択だけを保存しても
+    /// モードが `.standard` のまま固定されてしまう。ここで先にルールを作り、
+    /// 既存のルールにはモードを上書きして、選んだ強さが必ず届くようにする。
+    ///
+    /// 1件でも書けなければ throw する。呼び出し側は成功したときだけ
+    /// 保存済みの選択（`pendingInterventionMode`）を進めること。
+    /// 保存だけ先に進めると、ルールは標準のままなのに画面はディープフォーカスと表示され、
+    /// 「Proにしたのに止まらない」状態が残る。
+    ///
+    /// 全ルールを同じ値へ揃えるだけの操作なので何度呼んでも同じ結果になる。
+    /// 途中で失敗しても、選択が進んでいなければ次の操作でそのまま揃え直せる。
+    func applyInterventionMode(_ mode: InterventionMode) throws {
+        // 画面の列挙漏れをここでも落とす。未実装のモードは保存させない。
+        let mode = mode.persistable
+        let catalogIDs = try targetStore.selectedCatalogIDs()
+
+        for catalogID in catalogIDs {
+            guard let target = SNSAppCatalog.app(catalogID: catalogID) else {
+                continue
+            }
+            let rule = try ruleStore.catalogTargetRule(for: target, modeForNewRule: mode)
+            if rule.mode != mode {
+                try ruleStore.updateMode(id: rule.id, mode: mode)
+            }
+        }
+
+        // 選択データを持つ完全ブロック用のルールも同じ強さへ揃える。
+        // 設定画面の「止める強さ」は画面上ひとつの設定として見えるため、
+        // ルールごとに食い違うと、切り替えたのにブロックが外れない状態になる。
+        for rule in try ruleStore.allRules()
+        where !rule.activitySelectionData.isEmpty && rule.mode != mode {
+            try ruleStore.updateMode(id: rule.id, mode: mode)
+        }
+
+        syncShield()
     }
 
     func syncUsageWatchEntitlement() {
@@ -439,6 +496,9 @@ final class AppModel {
                 interventionEngine: interventionEngine,
                 containerProvider: containerProvider
             ).deleteAllLocalData()
+            // 全削除のあとに縮小前の並びが蘇らないよう控えも捨てる
+            // （`SettingsStore.resettable` の外にあるキーのため、ここで明示的に消す）。
+            clampBackupStore.clear()
             pendingInterventionCatalogID = nil
             pendingLockScreenCheck = false
             alertMessage = nil
@@ -633,6 +693,8 @@ final class AppModel {
     func setTargetCatalogIDs(_ catalogIDs: [String]) throws {
         try targetStore.setTargets(catalogIDs)
         settingsStore.targetAppClampKeptCatalogID = nil
+        // 自分で選び直したのだから、縮小前の並びへ勝手に戻してはいけない。
+        clampBackupStore.clear()
         refreshLockSurfaces()
     }
 
@@ -711,11 +773,40 @@ final class AppModel {
         allTimeAttemptCount = 0
     }
 
-    private func clampSelectedTargetsToEntitlementLimit() throws {
-        guard storeService.hasResolvedEntitlement else {
-            return
-        }
+    /// 対象アプリの選択を、確定したEntitlementへ突き合わせる。
+    /// 無料枠への縮小と、Pro復帰時の復元の唯一の入口。
+    ///
+    /// 判断は `hasResolvedEntitlement`（＝解決を1度試した）ではなく
+    /// `hasConfirmedEntitlement`（＝StoreKitへ届いたうえで解決できた）で行う。
+    /// 取得に失敗しただけの課金者を無料扱いして選択を削ると、復元経路のない永久削除になる。
+    private func reconcileSelectedTargetsWithEntitlement() throws {
         let selectedCatalogIDs = try targetStore.selectedCatalogIDs()
+
+        switch TargetClampPolicy.reconciliation(
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement,
+            isPro: storeService.isPro,
+            selectedCatalogIDs: selectedCatalogIDs,
+            backup: clampBackupStore.backup
+        ) {
+        case .skip:
+            return
+        case .noAction:
+            clearClampNoticeIfNeeded()
+        case .discardBackup:
+            clampBackupStore.clear()
+            // 控えを捨てるのはPro確定時だけ。縮小の注記を残すと
+            // 「無料プランのため残しました」が課金者の画面に永久に居座る。
+            clearClampNoticeIfNeeded()
+        case .restore(let catalogIDs):
+            try targetStore.setTargets(catalogIDs)
+            clampBackupStore.clear()
+            clearClampNoticeIfNeeded()
+        case .clamp:
+            try clampSelectedTargetsToEntitlementLimit(selectedCatalogIDs: selectedCatalogIDs)
+        }
+    }
+
+    private func clampSelectedTargetsToEntitlementLimit(selectedCatalogIDs: [String]) throws {
         let fallbackCatalogIDs = entitlementGate.clampedTargetAppCatalogIDs(selectedCatalogIDs)
         let clampedCatalogIDs: [String]
         if let logStore,
@@ -756,12 +847,30 @@ final class AppModel {
         guard clampedCatalogIDs != selectedCatalogIDs else {
             return
         }
+        // 書き込みの前後で落ちても元の並びへ戻せるよう、開始と完了を分けて記録する。
+        // 開始時の控えには書き込み前の選択（＝直前の縮小結果）も残るため、
+        // 2回目の縮小が中断しても最初の並びが失われない。
+        clampBackupStore.beginClamp(
+            originalCatalogIDs: selectedCatalogIDs,
+            pendingCatalogIDs: clampedCatalogIDs
+        )
         try targetStore.setTargets(clampedCatalogIDs)
+        clampBackupStore.commitClamp(appliedCatalogIDs: clampedCatalogIDs)
         settingsStore.targetAppClampKeptCatalogID = clampedCatalogIDs.first
     }
 
+    /// 縮小の注記を消す。Pro確定の経路からのみ呼ぶ。
+    /// 書き込みを増やさないよう、残っているときだけ触る。
+    private func clearClampNoticeIfNeeded() {
+        guard settingsStore.targetAppClampKeptCatalogID != nil else {
+            return
+        }
+        settingsStore.targetAppClampKeptCatalogID = nil
+    }
+
     private func retentionNotificationSchedules() -> RetentionNotificationSchedules {
-        guard storeService.hasResolvedEntitlement else {
+        // 未確定のまま組み立てると、課金者を無料と誤認した予約（無料向け月次レポート等）を作る。
+        guard storeService.hasConfirmedEntitlement else {
             return .empty
         }
 
@@ -818,6 +927,36 @@ final class AppModel {
         } else {
             month1 = nil
         }
+
+        let freeMonthlySummary: AttemptSummary
+        if storeService.hasConfirmedEntitlement,
+           !storeService.isPro,
+           settingsStore.retentionSupportNotificationsEnabled,
+           let firstLaunchDate = settingsStore.firstLaunchDate {
+            let trailingMonthStart = calendar.date(
+                byAdding: .month,
+                value: -1,
+                to: currentDate
+            ) ?? firstLaunchDate
+            // Local notification bodies are fixed when scheduled, so without another app launch
+            // this trailing-month summary can represent an older window; that limitation is accepted.
+            freeMonthlySummary = attemptSummary(
+                from: max(firstLaunchDate, trailingMonthStart),
+                to: currentDate
+            )
+        } else {
+            freeMonthlySummary = AttemptSummary(attempts: 0, cancelled: 0)
+        }
+        let freeMonthlyReports = FreeMonthlyReportNotificationPolicy.schedules(
+            firstLaunchDate: settingsStore.firstLaunchDate,
+            hasResolvedEntitlement: storeService.hasConfirmedEntitlement,
+            isPro: storeService.isPro,
+            isEnabled: settingsStore.retentionSupportNotificationsEnabled,
+            cancelledCount: freeMonthlySummary.cancelled,
+            attemptCount: freeMonthlySummary.attempts,
+            now: currentDate,
+            calendar: calendar
+        )
 
         let month12: RetentionNotificationSchedule?
         if let subscription = storeService.activeSubscriptionEntitlement,
@@ -891,6 +1030,7 @@ final class AppModel {
             trialDay5: trialDay5,
             month1: month1,
             month12: month12,
+            freeMonthlyReports: freeMonthlyReports,
             annualUpgradeOffer: annualUpgradeOffer,
             cancelSave: cancelSave
         )
@@ -911,5 +1051,9 @@ final class AppModel {
 
     nonisolated private static func makeSettingsStore() -> SettingsStore {
         (try? SettingsStore()) ?? SettingsStore(userDefaults: .standard)
+    }
+
+    nonisolated private static func makeClampBackupStore() -> TargetClampBackupStore {
+        (try? TargetClampBackupStore()) ?? TargetClampBackupStore(userDefaults: .standard)
     }
 }

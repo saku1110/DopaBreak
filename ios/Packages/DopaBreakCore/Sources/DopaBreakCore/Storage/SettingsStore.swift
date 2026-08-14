@@ -28,6 +28,8 @@ public final class SettingsStore: @unchecked Sendable {
         static let annualUpgradeOfferNotificationFireDate = "annualUpgradeOfferNotificationFireDate"
         static let cancelSaveNotificationExpirationDate = "cancelSaveNotificationExpirationDate"
         static let cancelSaveNotificationFireDate = "cancelSaveNotificationFireDate"
+        static let entitlementCachedIsPro = "entitlementCachedIsPro"
+        static let entitlementCachedAt = "entitlementCachedAt"
         static let liveActivityEnabled = "liveActivityEnabled"
         static let lockScreenCheckCompleted = "lockScreenCheckCompleted"
         static let lockThemeRawValue = "lockThemeRawValue"
@@ -36,10 +38,11 @@ public final class SettingsStore: @unchecked Sendable {
         static let usageWatchNightModeEnabled = "usageWatchNightModeEnabled"
         static let pendingNotificationDestination = "pendingNotificationDestination"
 
-        // firstLaunchDate, reviewPromptEventDates and the one-shot notification markers
-        // (annualUpgradeOfferNotificationFireDate / cancelSaveNotification*) are intentionally
-        // excluded. They are entitlement/anti-abuse anchors rather than user-created content:
-        // clearing them would let a data reset re-send a "once ever" notification.
+        // firstLaunchDate, reviewPromptEventDates, the entitlement cache, and the one-shot
+        // notification markers (annualUpgradeOfferNotificationFireDate /
+        // cancelSaveNotification*) are intentionally excluded. They are entitlement/anti-abuse
+        // anchors rather than user-created content: clearing them would let a data reset revoke
+        // cached access or re-send a "once ever" notification.
         static let resettable = [
             onboardingCompleted,
             lastAppVersion,
@@ -270,6 +273,21 @@ public final class SettingsStore: @unchecked Sendable {
     public var cancelSaveNotificationFireDate: Date? {
         get { userDefaults.object(forKey: Key.cancelSaveNotificationFireDate) as? Date }
         set { setOptional(newValue, forKey: Key.cancelSaveNotificationFireDate) }
+    }
+
+    public var entitlementCachedIsPro: Bool? {
+        get {
+            guard userDefaults.object(forKey: Key.entitlementCachedIsPro) != nil else {
+                return nil
+            }
+            return userDefaults.bool(forKey: Key.entitlementCachedIsPro)
+        }
+        set { setOptional(newValue, forKey: Key.entitlementCachedIsPro) }
+    }
+
+    public var entitlementCachedAt: Date? {
+        get { userDefaults.object(forKey: Key.entitlementCachedAt) as? Date }
+        set { setOptional(newValue, forKey: Key.entitlementCachedAt) }
     }
 
     public var liveActivityEnabled: Bool {

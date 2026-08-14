@@ -20,6 +20,10 @@ public enum NotificationIdentifier {
     public static let d7Inactive = "dopabreak.d7inactive"
     public static let trialDay5 = "dopabreak.trialday5"
     public static let month1Report = "dopabreak.month1report"
+    public static let freeMonthly1 = "dopabreak.freeMonthly1"
+    public static let freeMonthly2 = "dopabreak.freeMonthly2"
+    public static let freeMonthly3 = "dopabreak.freeMonthly3"
+    public static let freeMonthlyReports = [freeMonthly1, freeMonthly2, freeMonthly3]
     public static let month12Renewal = "dopabreak.month12renewal"
     public static let annualUpgradeOffer = "dopabreak.annualoffer"
     public static let cancelSave = "dopabreak.cancelsave"
@@ -45,7 +49,10 @@ public enum NotificationRouting {
         switch identifier {
         case NotificationIdentifier.morning,
              NotificationIdentifier.weekly,
-             NotificationIdentifier.month1Report:
+             NotificationIdentifier.month1Report,
+             NotificationIdentifier.freeMonthly1,
+             NotificationIdentifier.freeMonthly2,
+             NotificationIdentifier.freeMonthly3:
             return .stats
         case NotificationIdentifier.trialDay5,
              NotificationIdentifier.month12Renewal,

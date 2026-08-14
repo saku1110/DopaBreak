@@ -1,5 +1,58 @@
 # 現在のタスク状況
 
+## 2026-08-14 — 介入呼吸ステージ「ドーパと一緒に呼吸」演出（🔄 実装中）
+
+- [x] /brainstorm（タイプB）: 炎の代替演出を検討 → A(キャラ呼吸同期)+C(ハプティクス)採用・B(呼吸円=one sec型)/D(リング)/E(粒子系=炎と同じ品質リスク)却下。議事録=`.claude/brainstorm/2026-08-14_介入呼吸演出_炎の代替.md`
+- [x] オーナー承認「OKそれでいこう」→ BUILD_SPEC作成=`design/BUILD_SPEC_BREATH_CHARACTER.md`（拡縮1.00〜1.06・blink→doom→relief・relief完了0.8秒前・cycleCount=round(total/3)・ドットはcycleCount>=2のみ・CoreHaptics呼吸同期・reduceMotion対応）
+- [x] Codex実装（BreathingCharacterView/BreathHapticsController/スナップショットハーネス/単体テスト5本新規）→ BUILD SUCCEEDED・MeasurementFoundationTests 14件0失敗
+- [x] Opus5独立レビュー: 仕様準拠は全項目合致・軽微4件（initのエンジン生成/再表示ハプティクスのデッドパス/最終ドット未点灯/タイムライン定数二重定義）→ 全採用でCodex差し戻し → 修正完了・テスト7件0失敗（境界テスト2本追加）
+- [x] シミュレータ実描画確認: 吸気(blink+glow)/呼気/relief(全ドット点灯)の3ステージをスクリーンショットで確認（テストランナーのハングが頻発 → シミュレータ再起動・別機種で回避。`-parallel-testing-enabled NO` 推奨）
+- [ ] 実機確認（ハプティクスの体感同期・relief transientの強さ・20回介入しても鬱陶しくないか）→ 不足なら中間表情の追加検討
+
+## 2026-08-14 — 炎表現の全削除（オーナー決定・✅ 実装完了・未コミット）
+
+- 経緯: 炎の根元が水平に切れる指摘 → 円弧＋グロー強化で丸い根元を実装・実機3ステージ確認 → オーナー「火の表現の質が悪いから火は全て削除しよう」で撤去に転換
+- [x] オーナー確認3点: 呼吸画面=キャラ（ドーパ）常時表示／着火演出=演出ごと削除／`flame.fill`アイコン=`wind`へ置換
+- [x] Codex削除実装: `Flame.metal`（Shaders/ごと）・`FlameBreathView.swift`・`FlameSnapshotCapture.swift`削除、介入フロー・オンボーディング・自動化ガイド・テスト4ファイル修正。呼吸タイマーは維持
+- [x] 検証: xcodegen成功・BUILD SUCCEEDED・Core 285テスト0失敗・`flame/ignition/着火/炎`残存grep 0件（Swift/Metalのみ対象）・Opus5独立レビュー（コード5観点問題なし）
+- [x] レビュー付随指摘の是正: ストアスクショ生成スクリプトの炎合成＋炎コピー3言語を差し替え（審査2.3リスク）・呼吸テストの保証回復・呼吸ティック30fps→250msへ・旧BUILD_SPEC 2本に廃止注記
+- 残: スクショ画像の再生成はASC提出前に実施（`/preflight`で確認）。呼吸画面のキャラ余白は実機で要目視（380pt枠に200ptキャラ）
+- 注: 炎ステージ機能構想（2026-08-07発案）は前提喪失により実装不可 → 再開はオーナー再判断。design-decisions.mdに記録済み
+
+## 2026-08-14 — 規則A監査「課金したのに有料機能が使えない」コード経路の徹底確認（✅ 監査完了・❌ リリース不可判定・修正はオーナー判断待ち）
+
+- [x] Opus5サブエージェント4体並列監査（インベントリ/購入伝播/フェイルセーフ/復元・ライフサイクル）→ Fableが全Critical指摘をコードで裏取り済み。Core 285テスト0失敗は確認済みだが、失敗経路の回帰テストは存在しない
+- 🔴 P0（課金者からProを剥奪する経路・4件連鎖）:
+  1. `StoreService.swift:206-249` 取得失敗/空＝無料確定。`catch { continue }`でunverified黙殺・キャッシュなし・失敗でも`hasResolvedEntitlement=true`
+  2. `StoreService.swift:220-222` 手動`expirationDate <= now`フィルタがBilling Grace Period中の課金者を即ロック
+  3. `AppContainer.swift:714-761` クランプが誤Free判定で発火し対象アプリを1個へ永続削除（復元経路なし）。ガード`hasResolvedEntitlement`は「試行完了」しか意味せず機能不全
+  4. `refreshEntitlement()`再入ガードなし。購入直後のscenePhase復帰との並行実行で`isPro`がfalseへ巻き戻る→クランプ発火
+- 🔴 P0（ペイウォール訴求と実体の不一致・審査2.3リスク）:
+  5. 「Deep Focus」行: `syncShield()`がno-op（`AppContainer.swift:399-401`）・モード切替UI非表示・介入のたび`.standard`上書き（`InterventionFlowModel.swift:168`→`RuleStore.swift:40`）。挙動差は自動化ガイド追記のみ
+  6. 「週次レポート詳細」行: `weeklyReportAllowed`参照0件・解放ロジック不在。週次通知は無料にも配信
+- 🟡 P1: 購入成功でもペイウォールが閉じない無言経路（`PaywallView.swift:404-416`）／unverified取引がfinishされず毎起動アラート／起動直後の一瞬Free表示（EntitlementTierにunknownなし・`StatsView.swift:53`等）／`.storekit`のgroupNumber逆転（月→年がダウングレード扱いの疑い・ASC実体要確認）／`dopabreak.pro.annual.launch`がペイウォールから到達不能
+- ✅ OK確認済み: Restore実装＋配置（スクロール不要位置）・トライアル判定・返金ロック・解約後期限まで利用可・リアクティブ伝播・`.pending`処理・購入の同期即時反映
+- [x] オーナー決定: ①全部修正（Codex sol＋Opus5並列。「sol fast」はモデル未対応エラーのため恒久ルールのsol/effort maxで実行） ②訴求2行は**C=両方本実装**（「ディープフォーカルはPro機能だろ」→経緯説明後にC選択）
+
+## 2026-08-14 — 監査指摘の全修正＋ペイウォール2行の実体化（✅ 実装・クロスレビュー・修正まで完了・未コミット・実機検証待ち）
+
+- 設計契約: `.claude/specs/entitlement-failsafe-fix.md`（フェイルセーフ）／`.claude/specs/deepfocus-weekly-implementation.md`（Deep Focus＋週次詳細）
+- **WS-A（Codex実装→Opus5レビュー11件→Codex修正）**: StoreService中核。`hasConfirmedEntitlement`新設（到達性の傍証=Product.products非空チェック付き）・App Groupキャッシュ永続化＋起動シード・Grace Period手動フィルタ削除・refresh単一フライト＋追走1回保証＋defer解放・キャッシュPro降格時のsubscriptionStatus/Transaction.latest裏取り・unverified抑制は受動経路のみ・restore失敗時refresh＋Pro優先返却・storekit groupNumber是正（annual=1）
+- **WS-B（Opus5実装→Codexレビュー5件→Opus5修正）**: クランプをTargetClampPolicy化（confirmed必須）・単一トランザクショナルバックアップ（original/applied/pending・クラッシュ復旧テスト付き）＋Pro復帰自動復元・通知IDの「confirmedゲートは追加のみ/オプトアウト削除は常時」分割・ペイウォール自動dismiss（initial:true）・RuleStoreモード上書きバグ修正（modeForNewRule化）
+- **WS-C（Opus5実装→Codexレビュー→Opus5修正）Deep Focus本実装**: ShieldSyncPolicy純関数（未confirmed=preserve/確定Free=無条件clear=ルール読取前・throw時も到達/確定Pro+deepFocus=apply）・AppContainer.syncShield再配線（refresh()のdefer=先行throwでも必ず同期）・SettingsView完全ブロックUI復活（Free=ロック行→settingsModeGate）・オンボchooseModeのルール到達（throws化・失敗時は遷移しない）・nightOnly封鎖（selectable=[standard,deepFocus]・persistableで.standardへ移行）・シールド文言3言語改訂・**降格は非破壊**（Free中は解除のみ・設定保持・再Proで復帰=2026-08-14 Fable裁定）
+- **WS-D（Opus5実装→Codexレビュー→Opus5修正）週次詳細レポート**: `weeklyReportAllowed`初消費。StatsViewにPro専用週次詳細カード（日別積みバー・前週比・a11y対応）・Free=ロックカード→statsHistoryGate流用・StatsService.weeklyDetailReport()（単一アンカーで深夜跨ぎ窓ズレ防止）・日付/タイムゾーン変更/scenePhase復帰で再読込・autoupdatingCurrent化
+- 検証（統合後・Fable実施）: **Core 356テスト0失敗・アプリ66テスト0失敗 TEST SUCCEEDED・BUILD SUCCEEDED・lint-display-copy exit 0**
+- [ ] 🔴 残（リリース前必須・規則A）: **実機検証**（サンドボックス購入→即時解放・復元・オフライン起動でPro維持・解約/返金・シールド実適用/解除=ManagedSettingsはシミュレータ不可・Deep Focus/週次詳細の実機確認）
+- [ ] オーナー確認事項: ASC側のサブスクグループランク（annual>monthly。ローカル.storekitは是正済み）・annual→annual.launchは同期間別レベルのため次回更新扱いになる点
+
+## 2026-08-13 — 法務ページGitHub Pages公開＋ブロッカー①解消（✅ 完了）
+
+- [x] オーナー決定「ドメインじゃなくGithubPagesでいい」→ dopabreak.appドメイン取得は撤回
+- [x] `saku1110/dopabreak-legal`（public）作成・Pages有効化: terms/privacy/support×ja/en/ko＋tokushoho-ja＋index=11ページ、全200確認。shapegap-legal/bestswipe-legalと同一パターン。価格は3言語とも記載（KR=₩9,900/₩49,000/₩149,000は同日の価格凍結決定=docs/15 §3.4に基づき追記。「未サインオフ」は旧情報だった）
+- [x] `AppURLs.swift` 言語別URL化（preferredLocalizationsでja/ko/en出し分け）＋`AppURLs.support`新設（ASC Support URL用）→ BUILD SUCCEEDED
+- [x] design-decisions.md記録済み。Codex独立レビュー実施
+- 残: ASCメタデータ入力時にPrivacy Policy URL / Support URLへこのPagesを設定する
+
 ## 2026-08-11 — リバーストライアル全廃（✅ 完了・未コミット）
 
 - [x] オーナー問い「Pro機能3日体験の意味」→ Fable×Codex sol 2ラウンド議論＋SOSA/one sec実物ペイウォール検証 → **オーナー決定: 決済不要のPro開放は廃止・Proの入口はStoreKit購入シート（7日intro offer/即購入）のみ**
@@ -32,7 +85,9 @@
   - Fable独立検証: **Core 273テスト0失敗を自ら再実行**・禁止2ファイルSHA一致・P1修正の実在確認（AppContainer:413/RootTabView:205）・新8キー×3言語完備
   - 副産物: `app.day14_clamp.notice`は**死にコピーではない**と判明（Pro失効クランプの説明として現役・キー名だけがレガシー）。Day14通知は復活していない（レガシー識別子は掃除専用）
 - [ ] **🔴 オーナー判断（docs/18 §4末）**: 月次レポートは「次の1回」しか予約されず、**アプリを開かなくなった購読者には以降届かない**。案A=反復トリガー追加（ただし本文は件数なしの固定文になる）／案B=現状維持＋利用時間ウォッチが代替になるか計測。判断が出るまでコード不変
-- [ ] 未着手（P3）: 休眠30日win-back・炎ステージ昇格通知（炎ステージ実装とセット）・Statsへの実測利用時間グラフ（DeviceActivityReport・表示専用）
+- [ ] 未着手（P3）: 休眠30日win-back・Statsへの実測利用時間グラフ（DeviceActivityReport・表示専用）
+  - 炎ステージ昇格通知は**バックログから削除**（オーナー「いらない」2026-08-13・並行セッション経由で共有）
+  - [x] 新規要件「無料ユーザー向け月次レポート通知」**実装完了・受け入れ済み（2026-08-13・課金導線バッチ担当セッション）**: FreeMonthlyReportNotificationPolicy（無料のみ・month1と排他・月周年ladder3本=直近1本実数/以降固定文/0件時は全て固定文・休眠者へ最大3通・QuietHours・継続サポートトグル・着地=Stats）。Codex実装→Opus5レビューACCEPT WITH FIXES→P2(0回/0回通知)修正→**Core 285テスト0失敗・BUILD SUCCEEDED**・新ポリシーカバレッジ100%。残=実機発火確認（規則B・他通知と同枠）・未コミット
 - [ ] **🔴 全Batch共通の残**: 実機発火確認（規則B: 設計＋実装＋実機の3点揃って初めて✅）・確定文言のdocs/11転記・利用時間ウォッチはシミュレータ検証不可のため実機必須
 
 ## 2026-08-10 — 実機レビューセッション是正（ガイド刷新＋キャラ統一＋ロック確認2ステップ）（✅ 実装完了・未コミット・実機再インストール待ち）
@@ -191,7 +246,8 @@
   - [x] **88訴求キーのトランスクリエーション適用完了（2026-07-25）**: Workflow（US/KR×transcreate→verify・디톡스0件）→journal再構成→書式検証ゲート176件適用（直訳上書き）→**BUILD SUCCEEDED**。US=Welcome"Your feed is engineered to never let go"/科学"slot machine in your pocket"/勝ち"Loop broken"、KR=Welcome"시간 순삭의 정체는 도파민 루프"/科学"의지력 문제가 아니라 설계 문제"/勝ち"브레이크 성공"。3市場で全く別のフック確認
   - [x] **オーナー最終チェック是正（2026-07-25）**: ①目標系空状態コピー却下→是正（空状態=詩でなくアフォーダンス原則・doc11 §19）②**「戻る」系語彙3言語全廃**（目標ラベル「戻る先」→「目標/Your goal/목표」・指標「開かずに戻れた」→「開かなかった/Didn't open/열지 않음」・28キー84値・doc11 §19b）③AI典型読点4件除去＋**句読点リンター新設**（scripts/lint-display-copy.py・doc11変更手順に組込）
   - [x] **457キー×3言語 全数監査完了（Workflow 14エージェント・94指摘）**: 適用71件（INTERCEPTED→PAUSE・韓国語助詞露出(을)를是正・EN plural variation 5キー・ブロックframing除去・EN"SNS"除去・ショートカット手順の引用符付け等）／stale16（本日の是正で解消済）／廃止語彙再導入2件は語彙統一形で手動適用／レポート=scratchpad/audit_apply_report.md。**最終: 廃止語彙残存ゼロ・linterグリーン・BUILD SUCCEEDED・192テスト0失敗**
-  - [ ] 🔴 韓国語ネイティブ最終確認（シート=output/audits/kr_native_review_sheet.md 114行＋docs/17追加分=サブタイトルv2・ストア説明文ko）
+  - [x] 🔶 韓国語ネイティブ最終確認【ASO分のみ完了 2026-08-14】: オーナー指示「ネイティブかはあなたが確認して」によりクロスモデル代替（humanizer-ko全ゲート exit 0＋Opus5独立レビュー＋Fable採否）で実施。成果=docs/16改訂（サブタイトルv2.1『숏폼·SNS 앱 열기 전 잠깐 멈추는 습관』23字・KW欄88/100拡張・ko説明文v2・3言語に規約実URL追記=3.1.2対応）。**残: アプリ内コピー分（kr_native_review_sheet.md 114行）は未実施**
+  - [ ] 🔶 ASA検索ポピュラリティ実査: API資格情報未設定を実測確認（2026-08-14）。広告未配信ではAPI取得不可の公算→**最短=オーナーがASA管理画面キーワード候補ツールでJP/KR/US目視**（詳細docs/16次アクション2）。未実証でもローンチ非ブロック
   - [x] **3市場ASO説明文＋サブタイトルv2完成（2026-07-25・sales-copywriting/global-marketing-psychology/seo-aso/humanizer-en・ko適用）**: 説明文ja/en/ko=docs/16に保存（折りたたみ前3行にフック＋差別化・サブスク条件明示・**EN/KOはhumanizer監査全ゲート通過 exit 0**）。サブタイトルv2=JP『禁止しないアプリ制限・開く前にひと呼吸』(19)／US『Doomscroll less. Not a blocker』(30)／KR『숏폼·SNS 열기 전 잠깐 멈추는 습관』(21)＋KW欄玉突き調整（重複排除・全字数検証済み）。アプリ内EN em dash 3件も是正。**オーナー承認事項=JPサブタイトル差し替え（doc02c確定値の変更）**・US/KRはASA実証前のためv1をPPO A/B候補として保持
 - [x] **韓国語ネイティブレビュー用パッケージ作成（docs/17）**: ASO＋Paywall韓国語＋直訳＋確認ポイント＋入手先。オーナーがネイティブに渡せる形
 - [ ] **B. 3ストアASO**: JP(02c確定)／US(`DopaBreak: Screen Time & Dopamine Detox`・02c)／KR新規(タイトル・サブ・KW=KO+EN(UK)索引・スクショ)
@@ -299,3 +355,24 @@
 - `Flame.metal` に `bluePalette` uniform追加（聖域の意図的解除。`bluePalette: 0` は現行とピクセル一致が条件）
 - [ ] **着手条件: 種火v2のCodexレビュー完了＋コミット後**（同一ファイル群へ未レビュー変更を重ねない）
 - [ ] 実装順: FlameStageEngine+テスト → シェーダ青パレット+回帰キャプチャ → ホーム炉+進行表 → 介入への適用 → 昇格演出・コピー・l10n → 全体検証
+
+## 2026-08-14 未コミット変更のクロスモデルレビュー＋是正（完了）
+- 対象: 無料月次レポート通知バッチ一式＋AppURLs法的ページ言語振り分け
+- 体制: 実装=Codex(gpt-5.6-sol max)／レビュー=Opus5サブエージェント／統合判断=Fable
+- 是正1（Codex指摘・修正済み）: AppURLsが`Bundle.main.preferredLocalizations`使用で未対応言語端末がja法的ページへ誘導されるバグ → `Locale.preferredLanguages`+言語サブタグ完全一致に修正（kok≠ko対策込み）。AppURLsTests 6本新規（TDD: RED→GREEN確認済み）
+- 是正2（Opus5指摘・修正済み）: 起動直後のエンタイトルメント未解決窓で全通知が削除→未復元のまま残るリスク → 削除リストを非エンタイトルメント系5IDに限定し、エンタイトルメント系8ID（trialDay5/month1/freeMonthly1-3/month12/annualOffer/cancelSave）は未解決時温存+スケジュールスキップ。初回修正の「全体早期リターン」はOpus5再指摘（設定トグル無効化の副作用）で棄却→スコープ限定版に差し替え
+- 是正3（Opus5指摘・修正済み）: freeMonthlySummaryのSQLite集計を`解決済み&&非Pro&&通知トグルON&&初回起動日あり`の分岐内へ（不要実行の排除）
+- 受容（オーナー判断 2026-08-14）: 他端末購入等でアプリ未起動のままPro化したユーザーへ予約済み無料向け通知が最長約3ヶ月届く件は受容（ローカル通知の構造的制約・着地先Statsで実害小）
+- 検証: Core 285テスト0失敗・アプリ67テスト0失敗（AppURLsTests 6本含む）・Opus5最終確認「Confirmed clean. No remaining findings.」（IDリスト分割の完全性・解決済みケースの挙動同一性・静的イニシャライザ非循環まで検証済み）
+- 未コミット（コミット承認待ち）
+
+## 2026-08-14 推計結果画面の再構成＋オンボ12/15キャラサイズ是正（完了・未コミット）
+- オーナー決定1: 質問回答（1日あたり時間）の見せ返しをやめ、換算値を主役に。ヒーロー=1年損失日数（カウントアップ維持）→3年換算（月表記・静的）→人生換算（既存50年表記維持）の3段エスカレート。1日想定値は免責行へ格下げ統合。正本: `.claude/specs/onboarding-result-restructure.md`
+- オーナー決定2: オンボ12（通知ガイド）・15（準備完了）のキャラを88→120ptへ。15は旧チェックマークバッジ由来の額縁装飾を削除し素置き統一（祝福ポップインは維持）。正本: `.claude/specs/onboarding-character-size-fix.md`
+- 体制: 実装=Codex(gpt-5.6-sol max)／レビュー=Opus5サブエージェント2巡／統合判断=Fable
+- [x] Codex実装（OnboardingFlow.swift / LossEstimator.swift+テスト / Localizable.xcstrings ja/en/ko 新規4キー・変更2キー）
+- [x] Opus5レビュー1巡目: 幅あふれ・桁数ジッター・VoiceOver分断の3件 → Codex修正済み
+- [x] Opus5レビュー2巡目: ①EN行のAX2+省略切れ→行全体をAX1上限化 ②12枚目キャラ120pt化でxxxL+時に通知カード衝突→ZStack固定300pt構造をVStack+minHeight:300へ変更（既存AX5パネルはみ出しも同時解消）→ Codex修正済み・Fable受け入れ確定
+- [x] design-decisions.md へ決定記録（Codexが追記済み）
+- 検証: swift test 356件0失敗 / xcodebuild BUILD SUCCEEDED / xcstrings 3言語充足 / 3年換算は全バケットで実値以下（切り捨て）をOpus5が数値検証
+- 備考: `onboarding.result.per_day`・`onboarding.result.yearly.prefix/suffix` は未参照キーとしてxcstringsに残置（実害なし）。免責の1日想定は既存フォーマッタ準拠で「2.5時間」表記（Fable判断で受容）

@@ -244,6 +244,40 @@ final class RuleStoreTests: XCTestCase {
         XCTAssertGreaterThan(second.updatedAt, first.updatedAt)
     }
 
+    /// 介入フローや起動要求は毎回 `catalogTargetRule(for:)` を通る。
+    /// ここで既定値の `.standard` を書き戻すと、設定で選んだディープフォーカスが
+    /// 開くたびに解除され、ペイウォールで売った機能が実体を失う（監査P0-B⑤）。
+    func testCatalogTargetRuleKeepsStoredModeOfExistingRule() throws {
+        let clock = TestClock()
+        let store = try makeStore(now: { clock.now() })
+        let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
+        let created = try store.catalogTargetRule(for: target)
+        try store.updateMode(id: created.id, mode: .deepFocus)
+        clock.advance()
+
+        let reused = try store.catalogTargetRule(for: target)
+
+        XCTAssertEqual(reused.id, created.id)
+        XCTAssertEqual(reused.mode, .deepFocus)
+        XCTAssertEqual(try store.rule(id: created.id)?.mode, .deepFocus)
+    }
+
+    /// 新規作成のときだけ初期モードを受け取る。既存ルールには適用しない。
+    func testCatalogTargetRuleAppliesModeOnlyWhenCreating() throws {
+        let clock = TestClock()
+        let store = try makeStore(now: { clock.now() })
+        let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "youtube"))
+
+        let created = try store.catalogTargetRule(for: target, modeForNewRule: .deepFocus)
+        XCTAssertEqual(created.mode, .deepFocus)
+
+        clock.advance()
+        let reused = try store.catalogTargetRule(for: target, modeForNewRule: .standard)
+
+        XCTAssertEqual(reused.id, created.id)
+        XCTAssertEqual(reused.mode, .deepFocus)
+    }
+
     private func makeStore(now: @escaping @Sendable () -> Date = { Date() }) throws -> RuleStore {
         RuleStore(
             snapshotStore: JSONSnapshotStore(containerProvider: FixedContainer(url: try makeTemporaryDirectory())),

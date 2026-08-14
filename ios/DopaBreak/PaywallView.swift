@@ -104,6 +104,16 @@ struct PaywallView: View {
         .onDisappear {
             recordDismissalWithoutPurchaseIfNeeded()
         }
+        // Proである事実だけを見て閉じる。purchase() の戻り値に頼ると、
+        // 保留購入の承認・Transaction.updates 経由の解放・別端末での購入など
+        // 「戻り値を受け取れない解放」でペイウォールが開いたまま残る。
+        // initial: true は、開いた時点ですでにProだった場合（購入の解放が
+        // 表示より先に届いた・キャッシュからPro復元された等）を拾うため。
+        // ペイウォールを開く導線はいずれも非Proのときだけなので、誤爆しない。
+        .onChange(of: storeService.isPro, initial: true) { _, isPro in
+            guard isPro else { return }
+            dismiss()
+        }
         .task {
             await storeService.loadProducts()
         }

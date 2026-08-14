@@ -51,6 +51,28 @@ final class LossEstimatorTests: XCTestCase {
         XCTAssertEqual(LossEstimator.yearlyDays(fromDailyMinutes: 150), 38)
     }
 
+    func testThreeYearMonthsCoversEveryUsageBucket() throws {
+        let expected: [(bucket: String, months: Double, text: String)] = [
+            ("1時間未満", 1.0, "1.0"),
+            ("1-2時間", 2.2, "2.2"),
+            ("2-4時間", 3.7, "3.7"),
+            ("4〜6時間", 7.4, "7.4"),
+            ("6時間以上", 9.7, "9.7"),
+            ("4時間以上", 6.7, "6.7")
+        ]
+
+        for row in expected {
+            let yearlyDays = try LossEstimator.estimate(usageBucket: row.bucket).yearlyDays
+            let months = LossEstimator.threeYearMonths(fromYearlyDays: yearlyDays)
+            XCTAssertEqual(months, row.months, accuracy: 0.0001, "bucket: \(row.bucket)")
+            XCTAssertEqual(String(format: "%.1f", months), row.text, "bucket: \(row.bucket)")
+        }
+    }
+
+    func testThreeYearHorizonMatchesOnboardingCopy() {
+        XCTAssertEqual(LossEstimator.threeYearHorizonYears, 3)
+    }
+
     func testLifetimeYearsCoversEveryUsageBucket() throws {
         let expected: [(bucket: String, years: Double, text: String)] = [
             ("1時間未満", 1.5, "1.5"),

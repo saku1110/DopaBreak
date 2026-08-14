@@ -316,7 +316,9 @@ struct RootTabView: View {
               !model.isChildModalActive,
               WeeklyPaywallPolicy.shouldPresent(
                   isPro: model.storeService.isPro,
-                  hasResolvedEntitlement: model.storeService.hasResolvedEntitlement,
+                  // 権利の取得に失敗しただけの課金者へ週次ペイウォールを出さない。
+                  // 判断は「解決を試した」ではなく「確定して解決できた」で行う。
+                  hasResolvedEntitlement: model.storeService.hasConfirmedEntitlement,
                   onboardingCompleted: settingsStore.onboardingCompleted,
                   onboardingCompletedAt: settingsStore.onboardingCompletedAt,
                   lastShownAt: settingsStore.lastWeeklyPaywallShownAt,

@@ -6,6 +6,12 @@ Updated: 2026-07-25 (added the lock-screen check screen: 23 keys)
 
 Updated: 2026-08-08 (goal-input redesign: removed 4 `onboarding.goal.lock_screen_*` keys, 2 `goal_editor.lock_title.*` keys, and orphaned `onboarding.goal.category` (dead-code cleanup); added `onboarding.goal.add` / `onboarding.goal.helper` / `onboarding.goal.remove` / `onboarding.goal.character_count` with ja/en/ko shipped in-catalog)
 
+Updated: 2026-08-15 (onboarding goal-input redesign: retired `onboarding.goal.placeholder` and the 3 `onboarding.goal.preset.*` keys; added `onboarding.goal.lead` / `onboarding.goal.multi_note` / 3 rotating `onboarding.goal.placeholder.*` keys / `onboarding.goal.field.accessibility` with ja/en/ko shipped in-catalog)
+
+Updated: 2026-08-15 (home fact-copy redesign: updated the 6 `home.first_day.*` / `home.achievement.*` / `home.week.summary` Japanese values to the live catalog and retired `home.metric.count` / `home.metric.cancelled` / `home.metric.attempted`)
+
+Updated: 2026-08-15 (welcome CTA transcreation: `onboarding.welcome.tagline` ja + `onboarding.welcome.action` ja/en/ko rewritten and new `onboarding.welcome.action_note` added in 3 languages; native review + humanizer-en/ko audits exit 0)
+
 Scope: main app target (`ios/DopaBreak/*.swift`) plus the user-facing strings in `WidgetsExtension` and `ShieldConfigExtension`.
 
 Completion status:
@@ -13,7 +19,7 @@ Completion status:
 - Main app: 222 source locations migrated to 203 stable keys; remaining user-facing hardcoded strings from this inventory: **0**
 - WidgetsExtension: 20 source locations migrated to 13 stable keys; remaining user-facing hardcoded strings: **0**
 - ShieldConfigExtension: 4 source locations migrated to 4 stable keys; remaining user-facing hardcoded strings: **0**
-- Catalog totals: main app 460 keys (463 − 7 retired + 4 added on 2026-08-08), WidgetsExtension 13 keys, ShieldConfigExtension 4 keys
+- Catalog totals (live JSON count on 2026-08-15): main app 553 keys, WidgetsExtension 12 keys, ShieldConfigExtension 4 keys
 - `ja` preserves the exact source text. At batch 2 completion, `ko` / `en` were empty with `new` state; any later transcreation updates are tracked separately from this plumbing inventory.
 
 The source strings below are the exact Japanese values stored in `Localizable.xcstrings`. Swift interpolations appear in their String Catalog format-specifier form (for example `%lld`, `%@`, `%lf`). Literal line breaks are rendered as `\n` so their placement remains auditable.
@@ -23,24 +29,21 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | key | ja source string | screen |
 |---|---|---|
 | home.achievement.count_unit | 回 | Home |
-| home.achievement.empty_body | 最初の選択から、今日の記録が始まります | Home |
-| home.achievement.summary | 開こうとした%lld回のうち、%@で立ち止まれました | Home |
-| home.achievement.title | 今日 自分で選べた | Home |
+| home.achievement.empty_body | 今日はまだ開こうとしていません | Home |
+| home.achievement.summary | 開こうとしたのは%lld回 | Home |
+| home.achievement.title | 今日 開かなかった | Home |
 | home.automation_status.action | 設定を確認 | Home |
 | home.automation_status.body | 対象アプリを開いたときに一呼吸が出れば設定完了です。 | Home |
 | home.automation_status.title_multiple | %lld個のアプリで一呼吸がまだ動いていません | Home |
 | home.automation_status.title_single | %@の一呼吸はまだ動いていません | Home |
-| home.first_day.body | 対象アプリを開こうとすると、ここに記録がつきます | Home |
-| home.first_day.title | 最初のひと呼吸から\n今日が始まる | Home |
-| home.goal.fallback | SNSの先ではなく、戻りたい先を決める | Home |
+| home.first_day.body | 開かなかった回数がここに残ります | Home |
+| home.first_day.title | 開こうとした瞬間に一呼吸が入ります | Home |
+| home.goal.fallback | タップして目標を追加 | Home |
 | home.goal.label | あなたの目標 | Home |
 | home.hero.today | TODAY ・ %@ | Home |
 | home.hero.week_count | %lld回 / 今週 | Home |
-| home.metric.attempted | 開こうとした | Home |
-| home.metric.cancelled | 開かずに戻れた | Home |
-| home.metric.count | %lld回 | Home |
 | home.week.eyebrow | THIS WEEK | Home |
-| home.week.summary | 今週 %lld回、自分で選び直しました | Home |
+| home.week.summary | 今週 開かなかったのは%lld回 | Home |
 | lock_check.action.done | 完了 | Lock Screen Check |
 | lock_check.action.later | あとで | Lock Screen Check |
 | lock_check.action.retry | もう一度出す | Lock Screen Check |
@@ -97,11 +100,13 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.goal.add | 追加 | Onboarding |
 | onboarding.goal.character_count | %lld/%lld | Onboarding |
 | onboarding.goal.eyebrow | あなたの目標 / GOAL | Onboarding |
+| onboarding.goal.field.accessibility | 目標を入力 | Onboarding |
 | onboarding.goal.helper | そのままロック画面に表示されます | Onboarding |
-| onboarding.goal.placeholder | 例: 英語で話せるようになる | Onboarding |
-| onboarding.goal.preset.reading | 読書を30分 | Onboarding |
-| onboarding.goal.preset.study | 資格の勉強 | Onboarding |
-| onboarding.goal.preset.workout | 筋トレを続ける | Onboarding |
+| onboarding.goal.lead | なりたい姿でも やることでもいい | Onboarding |
+| onboarding.goal.multi_note | 目標は複数追加できます。無料プランでは1つまで | Onboarding |
+| onboarding.goal.placeholder.action | 例: 資格の勉強を進める | Onboarding |
+| onboarding.goal.placeholder.aspiration | 例: 英語で話せるようになる | Onboarding |
+| onboarding.goal.placeholder.habit | 例: 寝る前に本を読む | Onboarding |
 | onboarding.goal.remove | %@を削除 | Onboarding |
 | onboarding.goal.title | 空いたこの時間で\n何をしますか？ | Onboarding |
 | onboarding.mode.action | この設定で進む | Onboarding |
@@ -188,7 +193,8 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.summary.title | 準備が整いました | Onboarding |
 | onboarding.summary.yearly_days | 年 約%lld日分 | Onboarding |
 | onboarding.value.not_set | 未設定 | Onboarding |
-| onboarding.welcome.action | はじめる | Onboarding |
+| onboarding.welcome.action | どれだけ溶けているか見る | Onboarding |
+| onboarding.welcome.action_note | 質問3つ・30秒 | Onboarding |
 | onboarding.welcome.eyebrow | DOPABREAK | Onboarding |
 | onboarding.welcome.lead | なんとなく開くだけで1日が終わる | Onboarding |
 | onboarding.welcome.ledger.accessibility_label | 今日の24時間のうち、現在時刻までの経過を示しています | Onboarding |

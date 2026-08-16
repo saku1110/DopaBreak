@@ -1,5 +1,59 @@
 # 現在のタスク状況
 
+## 2026-08-15 — オンボーディング1枚目の訴求是正（タグライン＋CTA・✅ 完了・未コミット）
+
+- 経緯: シミュレータ実機確認 → オーナー指摘①「開く前に選び直す」は何を選ぶか不明 ②「30秒でチェックする」は訴求から読み取れず離脱しそう ③「ドーパミン依存をチェック」は強すぎないか
+- [x] タグライン: 日本語版だけ見出し・リードとも問題提示で機構の説明が皆無だった（en/koはリードで説明済み）→ ja のみ「ブロックしない 開く直前のひと呼吸」へ（オーナー承認「Aでいいよ」）
+- [x] 「ドーパミン依存をチェック」は却下を進言し合意: ①結果画面は時間推計しか返さず約束と不一致 ②8/15の科学訴求裁定「ドーパミンは敵の説明に使う・効果や診断には使わない」を越える ③ラベリングによる反発
+- [x] CTA: 欠陥は3言語共通と判定し全言語transcreation。ja「どれだけ溶けているか見る」/ en "See the time you're losing" / ko「1년에 며칠 녹는지 보기」＋新規マイクロコピー `onboarding.welcome.action_note`
+- [x] ネイティブレビュー2件（en/ko・Opus5並列）→ en「時間」の語が画面上に無い問題・ko 進行形の英語カルク＋数量なしでは損失に読めない問題を反映
+- [x] humanizer-en / humanizer-ko exit 0・lint exit 0・defaultValue監査0件・BUILD SUCCEEDED・3言語シミュレータ実表示確認
+- [x] Opus5独立レビュー（Codex利用上限のためFable実装分）→ **指摘0件**。i18n台帳を553キーへ更新
+- 残: コミットはオーナー指示待ち
+- ⚠️ 依頼外の発見（判断は求めない・記録のみ）: ①英語ビルドでeyebrow 4キーが「Estimated result / YOUR RESULT」等の日英併記のまま ②クイズ選択肢がPHQ-9/GAD-7と同形式で診断ツールと受け取られうる ③ko結果画面「이 SNS에 녹고 있어요」の助詞分離が「このSNS」と誤読されうる ④ko科学画面「DopaBreak은」は助詞誤り（正: 는） ⑤未使用のTimeLedgerMotifが残存 ⑥カタログ内で「一呼吸」「ひと呼吸」が混在
+
+## 2026-08-15 — ホーム画面の事実コピー再設計（✅ 実装完了・未コミット）
+
+- 経緯: オーナー「SNSの先ではなく、戻りたい先を決める って文言がそもそもおかしい。ホーム画面の設計を提案して」→ 提案中に重大発見: **その文言は実表示ではなくコード内の古いdefaultValue**（実表示は「タップして目標を追加」）。カタログとdefaultValueの広範なズレが誤認の原因 → 「戻る」語彙の撤回含む改訂版提案 → オーナー承認「おｋ」
+- 決定: 文言は「事実・問い・行動」のみ・語彙は「開こうとした↔開かなかった」に統一・「戻る」は行動カウントに使わない（詳細= `.claude/specs/home-screen-fact-copy-redesign.md`）
+- [x] 実表示の棚卸し（カタログ照合）・8/14「最初のひと呼吸」未解決の確認・仕様書作成・design-decisions追記・カタログ正メモリ保存
+- [x] Codex実装完了: 文言6キー3言語・metricsCard削除・キャラdoomロジック・目標カード空状態accent表示・defaultValue同期29箇所→0（監査スクリプト scripts/audit-default-values.py 新設）→ BUILD SUCCEEDED・78テスト0失敗
+- [x] Opus5独立レビュー: Critical 0・Major 1・Minor 7。書式指定子の整合・削除キー参照ゼロ・Widget/Live Activity不影響・doom境界・日付切替は検証済みで問題なし
+- [x] Fable受け入れ判断: 6件採用（監査スクリプトの型不一致検出/LocalizedStringResource走査/unknown-target報告/DerivedData除外/i18n台帳更新/ko명사화解消3件）・1件対応不要（過去資料の言及）・1件オーナー後送（intervention.success.title「自分で選べた」= スコープ外のため無断変更しない）
+- [x] Codexへ指摘6件差し戻し → 全件適用確認（監査スクリプトは変異テストでspecifier-type検出を実証・LocalizedStringResource 12件を監査対象化・ko 3件解消・台帳552キーへ訂正）→ 再監査 calls=634 全指標0件・BUILD SUCCEEDED → **Fable受け入れ確定**
+- 残: コミットはオーナー指示待ち。オーナー判断待ち1件= intervention.success.title「開かなかった\n自分で選べた」の「自分で選べた」（解釈語ドクトリンを介入成功画面へ拡張するか）
+- 見送り: 目標カードの複数目標対応（オーナー確認済み）
+
+## 2026-08-15 — オンボーディング科学訴求のドーパミン機序追加（✅ 実装完了・未コミット）
+
+- オーナー依頼「科学的にドーパミン抑制に効果的など事実に基づいた訴求」→ 法令審査で「本アプリがドーパミン抑制に効果的」は不可（実証なし=景表法・身体機能標榜=薬機法系・科学的にも不正確）→ **ドーパミンは敵(SNS)の説明・効果はPNAS研究実績**の構成で実装
+- [x] whyScience画面へ2キー追加（`onboarding.science.dopamine`=変動報酬がドーパミン回路を刺激する設計・スロットマシン比喩／`onboarding.science.mechanism`=反射の入口にひと呼吸を差し込む機能事実）ja/en/ko・文言は一字一句指定どおり実装確認済み
+- [x] BUILD SUCCEEDED・lint-display-copy exit 0・plutil OK。既存のPNAS行・免責3行は不変
+- 根拠と禁止事項: design-decisions.md 2026-08-15
+
+## 2026-08-15 — 起動スプラッシュ設置（✅ 完了・未コミット）
+
+- [x] launch-square-v3.mp4 を Resources/launch-animation.mp4 として同梱・LaunchSplashView/Coordinator実装・UILaunchScreen背景色#0B0D0F
+- [x] Opus5独立レビュー → **High 1件: mp4に有効AAC音声トラック残存＝起動しただけでユーザーの音楽が停止**（isMutedではオーディオセッションの暗黙起動を防げない）→ Fableがffmpegで音声除去（アセット＋レンダー元v3も無音化。以後Remotion出力をアプリ同梱する際は `-an` 必須）
+- [x] 残指摘の是正（Codex）: VoiceOver時即スキップ／上限ガードを再生開始基準3.0+0.4秒に（初フレーム遅延で末尾relief切れ防止）／.backgroundのみで打ち切り／不要seek削除／クロスフェード統一／handleOpenURL契約・Coordinator再表示禁止・定数不変条件のテスト追加 → **テスト18件0失敗・BUILD SUCCEEDED**
+- [x] シミュレータで実コールドローンチを録画しオーナーへ提示（起動→アニメ→クロスフェード→オンボーディング正常）
+- 見送り: iPad複数ウィンドウ対応（iPhone向けのため実害なし）・deinitスレッド厳密化（実害なし）
+- 表示ポリシー: 既定=毎回のコールドローンチ（`LaunchSplashConfiguration`の単一定数で「初回のみ」へ切替可能）。実機で数日使って鬱陶しければ切替を検討
+- 実機確認項目: 実機での再生開始レイテンシ（0.8秒フェイルセーフに収まるか）・音楽再生中に起動して停止しないこと
+
+## 2026-08-15 — オンボーディング目標入力の再設計（✅ 実装完了・未コミット）
+
+- 経緯: オーナー「目標の選択肢必要か？誰も選択しない」→ プリセットチップ廃止を提案 → 「参考例は出さなくていいか？抽象でも具体でもいいよね」→ 押せない例（プレースホルダ3例ローテーション）＋リード一行で合意 → オーナー承認「OK。あとちゃんと目標複数追加できること書いてね」
+- 仕様: `.claude/specs/onboarding-goal-input-redesign.md`（design-decisions.mdにも記録済み）
+- [x] 現状調査: 「今日の目標」はソース削除済み（DerivedData残骸のみ）・プリセット3チップはOnboardingFlow.swiftに実在・無料プラン目標1つ/Pro無制限を確認
+- [x] 設計確定＋仕様書作成＋design-decisions.md追記
+- [x] Codex実装完了（チップ削除・リード＋複数追加注記・プレースホルダローテーション・goals.empty.description例文統一・ja/en/ko）→ BUILD SUCCEEDED・OnboardingMotionCapture含む70件＋Core 389件0失敗
+- [x] Fable差分確認: 仕様準拠・taskライフサイクル・IME保護・a11y・3言語キーすべて確認済み
+- [x] Opus5独立レビュー: Critical/Major 0件・Minor 9件 → 8件採用（ZStackベースライン整列/添字ガード/typesettingLanguage/minimumScaleFactor/VoiceOverヒント/プレースホルダ色secondaryText化/i18nインベントリ更新/GoalsView defaultValue同期）・1件却下（multi_noteの句点=説明文のため表示コピー規則の適用外。既存onboarding.apps.leadと同パターン）
+- [x] Codexへ指摘8件差し戻し → 全件適用確認（baseline整列/添字ガード/typesettingLanguage/minimumScaleFactor/VoiceOverヒント/secondaryText/i18nインベントリ462キー/GoalsView defaultValue同期）
+- [x] 修正後検証: BUILD SUCCEEDED・OnboardingMotionCapture＋非キャプチャ8suite 70件0失敗（iOS 18.3.1 sim。26.5はworkers materialize停止のため回避）→ **Fable受け入れ確定**
+- 残: コミットはオーナー指示待ち。実機での見た目確認（プレースホルダのクロスフェード・ベースライン）は次回実機セッションで
+
 ## 2026-08-14 — 介入呼吸ステージ「ドーパと一緒に呼吸」演出（🔄 実装中）
 
 - [x] /brainstorm（タイプB）: 炎の代替演出を検討 → A(キャラ呼吸同期)+C(ハプティクス)採用・B(呼吸円=one sec型)/D(リング)/E(粒子系=炎と同じ品質リスク)却下。議事録=`.claude/brainstorm/2026-08-14_介入呼吸演出_炎の代替.md`
@@ -7,7 +61,23 @@
 - [x] Codex実装（BreathingCharacterView/BreathHapticsController/スナップショットハーネス/単体テスト5本新規）→ BUILD SUCCEEDED・MeasurementFoundationTests 14件0失敗
 - [x] Opus5独立レビュー: 仕様準拠は全項目合致・軽微4件（initのエンジン生成/再表示ハプティクスのデッドパス/最終ドット未点灯/タイムライン定数二重定義）→ 全採用でCodex差し戻し → 修正完了・テスト7件0失敗（境界テスト2本追加）
 - [x] シミュレータ実描画確認: 吸気(blink+glow)/呼気/relief(全ドット点灯)の3ステージをスクリーンショットで確認（テストランナーのハングが頻発 → シミュレータ再起動・別機種で回避。`-parallel-testing-enabled NO` 推奨）
+- [x] オーナー問い「カウントの数字とかいらない? 科学的に」→ 文献調査で回答（注意ゲートモデル/Maister/one sec PNAS）。**その過程で呼吸ペースの設計不良を発見**（旧仕様は20〜24回/分＝安静時上限超・文言「ひと呼吸」との齟齬）→ 是正案A提示 → オーナー「Aで進めて」
+- [x] 1呼吸化の実装: cycleCount常に1・進捗ドット全廃・数字カウントは引き続き非表示。8秒設定で7.5回/分となり共鳴帯域(5.5〜6)に近づく
+- [x] Opus5レビュー（1呼吸化）: cycle算術/relief境界/ハプティクス導出は仕様どおり。8秒の連続ハプティクスもApple上限30秒に対し27%で余裕。**設計の穴1件を検出**=ドット全廃＋Reduce Motionのスケール停止が重なり有限性の手がかりが消える → 仕様§5を改訂し**不透明度呼吸(0.85↔1.00)で代替**、あわせて恒真アサート・壁時計計時・ハプティクス残骸を是正 → テスト7件0失敗
+- [x] 動画キャプチャで拡縮の視認性を確認 → **1.5%/秒で緩慢**（4秒で約12pt）。グロー同期など補強案をオーナーへ提示済み・回答待ち
+- [x] 撮影用の一時ハーネス削除・xcodegen再生成済み
+
+## 2026-08-14 — 起動アニメの覚醒顔が「怖い」問題（🔄 比較検討中）
+
+- オーナー指摘「目見開いてると顔怖い」→ 実測で欠陥2つを特定: ①**下三白眼**（瞳上の白目63px・下84pxで下が33%多い＝狂気/威圧の記号）②**瞳が眼球の16%**（白目支配＝恐怖/驚愕の記号・かわいい系は40〜60%）
+- 安堵表情への差し替えは**却下を進言**: ①「目が覚める」物語と矛盾（閉眼＝終わる/眠る）②安堵は呼吸をやり遂げた**報酬**であり起動時に無料配布すると価値が下がる（表情の経済）③アイコンタクトが消える
+- [x] 4バリアント比較画像を作成（V0現行/V1瞳修正/V2+上まぶた/V3+下まぶた弧）→ `video/launch-animation/out/eyes/`
+- [x] **オーナー決定「V2でおｋ」** = 瞳修正＋上まぶた。採用値: 左目 pupil 399/505/60/92・右目 619/503/59/91・上まぶたは既存まばたきアートを lidCoverage=0.13 で静的描画
+- V3却下の理由: 下弧が眼球から浮いて見え、**隈または作画ミスに誤読される**（疲れた脳キャラなので目の下の線は最も誤読されやすい）
+- [ ] **🔄 本採用実装＋再レンダー中**: バリアント切替の足場を畳んでV2を直接コード化・まばたき→覚醒の遷移をframe100〜117で目視確認・launch-portrait-v3.mp4 / launch-square-v3.mp4 を出力
+- 制約: 眉はA0ビットマップ焼き込みのため変更不可（キャラビットマップ単一の既存設計判断を維持）
 - [ ] 実機確認（ハプティクスの体感同期・relief transientの強さ・20回介入しても鬱陶しくないか）→ 不足なら中間表情の追加検討
+- ⚠️ 訴求の禁止事項: 3〜8秒はHRV変化には短く、機序は行動的（自動化の遮断）。**生理的鎮静効果を訴求文言・ASO・LPに使わない**
 
 ## 2026-08-14 — 炎表現の全削除（オーナー決定・✅ 実装完了・未コミット）
 
@@ -376,3 +446,34 @@
 - [x] design-decisions.md へ決定記録（Codexが追記済み）
 - 検証: swift test 356件0失敗 / xcodebuild BUILD SUCCEEDED / xcstrings 3言語充足 / 3年換算は全バケットで実値以下（切り捨て）をOpus5が数値検証
 - 備考: `onboarding.result.per_day`・`onboarding.result.yearly.prefix/suffix` は未参照キーとしてxcstringsに残置（実害なし）。免責の1日想定は既存フォーマッタ準拠で「2.5時間」表記（Fable判断で受容）
+
+## 2026-08-14 オンボ質問Q1の即進み統一（完了・未コミット）
+- オーナー決定: 質問3問のうちQ1だけ「選択→[次に進む]ボタン」だった不統一を解消。3問ともタップで即進むに統一（Q1で確認型を学習させた直後にQ2で予告なく飛ぶ順序が最も戸惑わせるため）。正本: `.claude/specs/onboarding-quiz-autoadvance.md`
+- 体制: 実装=Codex(gpt-5.6-sol max)／レビュー=Opus5サブエージェント／実機確認・統合判断=Fable
+- [x] Codex実装（selfCheckContent即進み化・bottomBar/primaryAithubから.selfCheck合流・singleSelectOptionsをfrequencyButtonsと同じクロージャ方式へ統一）
+- [x] Opus5レビューで**退行バグF1検出**: 遷移アニメ0.4秒中に離脱ビューがヒットテスト有効のまま残り、連打でQ2を飛ばしてQ3へ到達→persistSelfCheckSnapshot()のguardがfalseを返し無反応で前へ進めない袋小路（脱出は戻るボタンのみ）
+- [x] F1修正: `advance(from:)` へ変更しstep一致guardを追加（全呼び出し元更新）＋pagerの離脱ビューを`allowsHitTesting(false)`で二重防御＋回答欠損時も保存エラーを表示
+- [x] F2修正: docs/07 O-02のモックに残っていた到達不能な時間帯質問を削除
+- [x] **Fable実機検証（iPhone 16 Proシミュレータ）**: ①Q1にボタンなし ②タップで即Q2遷移 ③戻ると「2〜4時間」のチェック保持 ④同時2タップでQ2(03/15)に着地＝競合解消（修正前ならQ3へ飛ぶ）⑤推計結果画面の新表示（1年38日→3年3.7か月→人生5.2年・免責に1日2.5時間）を目視確認
+- 検証: swift test 356件0失敗 / xcodebuild BUILD SUCCEEDED
+- 未検証: docs/07 O-02b/O-02cのモック頻度選択肢が実装のfrequencyOptionsと不一致（今回と無関係の既存ドリフト・未対応）
+
+## 2026-08-14 推計結果画面の免責から医療否認を削除（完了・未コミット）
+- オーナー判断: 5枚目の免責「※1日約2.5時間の想定にもとづく推計値です。医療診断ではありません。」から**後半の医療否認のみ削除**。前半（推計根拠の明示＝景表法上の実質的な守り）は維持
+- 理由: 画面に出るのは時間の推計値であり健康状態の評価ではない。医療の否認は逆に医療の枠組みを持ち込み、損失回避の感情ピーク（docs/07 §O-03r）を削ぐ。アプリ全体の医療否認は10枚目 `onboarding.science.disclaimer.medical` が担うため重複でもある
+- 実装=Codex／検証=Fable（実機目視＋3言語照合）
+- [x] xcstrings 3言語更新（ja: ※1日約%@の想定にもとづく推計値です。／en: *An estimate based on an assumed %@ a day.（ja/koの推計値・추정치に対応する語が落ちるためAn estimateを補完）／ko: ※하루 약 %@ 사용 가정에 기반한 추정치입니다.）
+- [x] OnboardingFlow.swift の defaultValue 同期
+- [x] **FR-012改訂**（docs/04:26）: 「医療診断でない旨を必ず併記」→「推計値である旨と推計の根拠（1日あたり想定時間）を必ず明示」。医療・治療目的でない旨の表示は10枚目で担保
+- [x] design-decisions.md へ追記
+- 検証: xcodebuild BUILD SUCCEEDED / swift test 356件0失敗 / 10枚目の science.disclaimer.* は変更前後でハッシュ一致 / 実機で1行表示に収まることを目視確認
+
+## 2026-08-14 — 夜だけ強化（nightOnly）本実装（✅ 受け入れ確定・実機夜境界検証は未実施）
+
+- 体制: 設計=Fable（`.claude/specs/nightonly-implementation.md`）／実装=Opus5サブエージェント（Codexが前セッション終了時killで詰まりオーナー指示によりフォールバック）／レビュー=Codex（gpt-5.6-sol Fast・独立性維持）／受け入れ=Fable
+- [x] 設計決定: 夜の窓=既存の就寝→起床時刻を再利用（既定23:00→7:00・新規UIなし）／Pro専用（deepFocusと同じ`strictModeAllowed`）／夜間専用ストア`dopabreak.night`分離／DeviceActivitySchedule+MonitorExtension駆動＋アプリ前面時syncShieldフォールバック／降格は非破壊裁定を踏襲
+- [x] 実装: NightWindowPolicy（純関数）・ShieldSyncPolicyのisNightWindow対応・NightShieldSnapshot（AppGroup控え）・NightShieldScheduler・ShieldController二重ストア・MonitorExtension夜境界ハンドラ・設定/オンボの`usesShield`ゲート・3言語コピー同期
+- [x] Codexレビュー指摘5件（P1×2・P2×3）全修正: 降格順序を「監視停止→控え削除→解除」へ／rebuild順序是正＋start失敗時は夜間ストア解除／15分未満の窓は窓なし扱い／拡張はbed/wakeで窓内検算してから適用・解除／時刻PickerのDST安全化
+- [x] 検証: swift test 389件0失敗・xcodebuild BUILD SUCCEEDED（Opus5実行→Fableが報告確認・重大2件はコード裏取り済み）
+- 残: 実機での夜境界発火（就寝で適用・起床で解除・起床時刻変更直後の旧コールバック無害化）は release-monetization-check の実機検証項目。コード存在で✅を付けない
+- 注: SettingsView.setRuleEnabled に既存の破壊的降格（Free確定時にmode書き潰し）が残存（Codexレビュー外・Opus5発見）。非破壊裁定と食い違うが今回は未変更・オーナー判断待ち

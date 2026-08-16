@@ -3,10 +3,32 @@ import Observation
 import SwiftUI
 import UserNotifications
 
+enum DopaBreakOpenURLHandler {
+    static func handle(
+        _ url: URL,
+        consumeInterventionRequest: (String) -> Void
+    ) -> Bool {
+        guard url.scheme == "dopabreak", url.host == "intervene" else {
+            return false
+        }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let catalogID = components.queryItems?.first(where: { $0.name == "app" })?.value else {
+            return false
+        }
+        guard SNSAppCatalog.contains(catalogID: catalogID) else {
+            return false
+        }
+
+        consumeInterventionRequest(catalogID)
+        return true
+    }
+}
+
 @main
 struct DopaBreakApp: App {
     @State private var model = AppModel()
     @State private var onboarding = OnboardingCoordinator()
+    @StateObject private var launchSplash = LaunchSplashCoordinator()
     private let notificationDelegate: NotificationDelegate
 
     init() {
@@ -19,52 +41,51 @@ struct DopaBreakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AppLifecycleView(onAppActive: handleAppActive) {
-                Group {
-                    if onboarding.isCompleted {
-                        RootTabView(
-                            model: model,
-                            settingsStore: onboarding.settingsStore,
-                            onResetOnboarding: {
-                                onboarding.reset()
-                            }
-                        )
-                    } else {
-                        OnboardingFlow(
-                            model: model,
-                            settingsStore: onboarding.settingsStore,
-                            onComplete: {
-                                onboarding.complete()
-                                model.recordFunnelEvent(.onboardingCompleted)
-                                model.refresh()
-                            }
-                        )
+            LaunchSplashHost(coordinator: launchSplash) {
+                AppLifecycleView(onAppActive: handleAppActive) {
+                    Group {
+                        if onboarding.isCompleted {
+                            RootTabView(
+                                model: model,
+                                settingsStore: onboarding.settingsStore,
+                                onResetOnboarding: {
+                                    onboarding.reset()
+                                }
+                            )
+                        } else {
+                            OnboardingFlow(
+                                model: model,
+                                settingsStore: onboarding.settingsStore,
+                                onComplete: {
+                                    onboarding.complete()
+                                    model.recordFunnelEvent(.onboardingCompleted)
+                                    model.refresh()
+                                }
+                            )
+                        }
                     }
                 }
             }
             .preferredColorScheme(.dark)
             .onOpenURL { url in
-                handleOpenURL(url)
+                guard handleOpenURL(url) else {
+                    return
+                }
+                withAnimation(LaunchSplashConfiguration.crossfadeAnimation) {
+                    launchSplash.complete(.deepLink)
+                }
             }
         }
     }
 
     /// `dopabreak://intervene?app=<catalogID>` を受け付ける（doc12 §2 URLルーティング・フォールバック経路）。
-    private func handleOpenURL(_ url: URL) {
-        guard url.scheme == "dopabreak", url.host == "intervene" else {
-            return
+    private func handleOpenURL(_ url: URL) -> Bool {
+        DopaBreakOpenURLHandler.handle(url) { catalogID in
+            model.consumeInterventionRequest(
+                catalogID: catalogID,
+                settingsStore: onboarding.settingsStore
+            )
         }
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let catalogID = components.queryItems?.first(where: { $0.name == "app" })?.value else {
-            return
-        }
-        guard SNSAppCatalog.contains(catalogID: catalogID) else {
-            return
-        }
-        model.consumeInterventionRequest(
-            catalogID: catalogID,
-            settingsStore: onboarding.settingsStore
-        )
     }
 
     /// AppIntent（別プロセス実行）が SettingsStore 経由で残した起動要求を取り込む。

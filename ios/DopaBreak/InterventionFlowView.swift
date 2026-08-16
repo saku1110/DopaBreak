@@ -2,19 +2,12 @@ import DopaBreakCore
 import StoreKit
 import SwiftUI
 
-private enum BreathingVisualPhase: Equatable {
-    case character
-    case fadingCharacter
-    case flame
-}
-
 /// 一呼吸フロー全体（S-01〜S-05・doc12 §2 / doc11 §7）。
 /// AppIntent / URLスキーム経由で起動され、fullScreenCoverとして表示される。
 struct InterventionFlowView: View {
     let onFinished: () -> Void
 
     @State private var flow: InterventionFlowModel
-    @State private var breathingVisualPhase: BreathingVisualPhase = .character
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.requestReview) private var requestReview
 
@@ -131,7 +124,7 @@ struct InterventionFlowView: View {
     private var breathingScreen: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SmallLabel(text: String(localized: "intervention.breath.eyebrow", defaultValue: "INTERCEPTED"))
+                SmallLabel(text: String(localized: "intervention.breath.eyebrow", defaultValue: "PAUSE"))
                 Spacer()
                 SmallLabel(text: target.displayName.uppercased())
             }
@@ -141,12 +134,9 @@ struct InterventionFlowView: View {
             Spacer(minLength: 12)
 
             VStack(spacing: 12) {
-                breathingVisual
-                .frame(maxWidth: 380)
-                .frame(height: 380)
-                .task {
-                    await revealFlameAfterCharacter()
-                }
+                BreathingCharacterView(totalSeconds: flow.breathTotalSeconds)
+                    .frame(maxWidth: 380)
+                    .frame(height: 380)
 
                 VStack(spacing: 8) {
                     Text(String(localized: "intervention.breath.title", defaultValue: "ひと呼吸おきましょう"))
@@ -164,43 +154,6 @@ struct InterventionFlowView: View {
 
             Spacer(minLength: 16)
         }
-    }
-
-    @ViewBuilder
-    private var breathingVisual: some View {
-        switch breathingVisualPhase {
-        case .character, .fadingCharacter:
-            CharacterView(.doom, size: DesignTokens.CharacterSize.hero)
-                .opacity(breathingVisualPhase == .character ? 1 : 0)
-        case .flame:
-            FlameBreathView(
-                breathPhase: flow.breathPhase,
-                flare: flow.flarePhase,
-                animatesFlare: false
-            )
-        }
-    }
-
-    /// キャラが消え切るまで炎を生成せず、両者が同時に描かれないようにする。
-    @MainActor
-    private func revealFlameAfterCharacter() async {
-        breathingVisualPhase = .character
-        do {
-            try await Task.sleep(nanoseconds: 600_000_000)
-        } catch {
-            return
-        }
-        guard flow.stage == .breathing else { return }
-        withAnimation(DopaMotion.control) {
-            breathingVisualPhase = .fadingCharacter
-        }
-        do {
-            try await Task.sleep(nanoseconds: 300_000_000)
-        } catch {
-            return
-        }
-        guard flow.stage == .breathing else { return }
-        breathingVisualPhase = .flame
     }
 
     // MARK: - S-02 今日はもう N回目
@@ -257,7 +210,7 @@ struct InterventionFlowView: View {
                     )
                 } else {
                     SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
-                    titleText(String(localized: "intervention.goal_reminder.title", defaultValue: "戻りたい自分"))
+                    titleText(String(localized: "intervention.goal_reminder.title", defaultValue: "あなたの目標"))
                     CardContainer {
                         VStack(alignment: .leading, spacing: 14) {
                             ForEach(flow.goals, id: \.id) { goal in
@@ -293,7 +246,7 @@ struct InterventionFlowView: View {
             VStack(alignment: .leading, spacing: 20) {
                 SmallLabel(text: String(localized: "intervention.intent.eyebrow", defaultValue: "INTENT"))
                 titleText(String(localized: "intervention.intent.title", defaultValue: "何のために\n開きますか？"))
-                Text(String(localized: "intervention.intent.description", defaultValue: "目的が明確なら、一呼吸を省いてすぐ進めます"))
+                Text(String(localized: "intervention.intent.description", defaultValue: "目的が明確なら、ひと呼吸を省いてすぐ進めます"))
                     .dopaFont(14, weight: .medium)
                     .foregroundStyle(DesignTokens.secondaryText)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -340,7 +293,7 @@ struct InterventionFlowView: View {
                     delayNanoseconds: 650_000_000
                 )
                 .frame(maxWidth: .infinity)
-                titleText(String(localized: "intervention.decision.title", defaultValue: "本当に今、\n必要ですか？"))
+                titleText(String(localized: "intervention.decision.title", defaultValue: "本当に今\n必要ですか？"))
                 if let reason = flow.selectedReason {
                     CardContainer {
                         HStack {
@@ -383,7 +336,7 @@ struct InterventionFlowView: View {
                                     Text(
                                         String(
                                             localized: "intervention.duration.fast_path_note",
-                                            defaultValue: "目的が明確なため、一呼吸を省きました"
+                                            defaultValue: "目的が明確なため、ひと呼吸を省きました"
                                         )
                                     )
                                         .dopaFont(12, weight: .medium)
@@ -446,7 +399,7 @@ struct InterventionFlowView: View {
                 }
 
                 if flow.selectedReason?.interventionStyle == .direct {
-                    Button(String(localized: "intervention.duration.action.cancel", defaultValue: "開かずに戻る")) {
+                    Button(String(localized: "intervention.duration.action.cancel", defaultValue: "やっぱり開かない")) {
                         flow.chooseCancel()
                     }
                     .dopaFont(15, weight: .semibold)
@@ -540,7 +493,7 @@ struct InterventionFlowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .characterPop(.celebrate)
 
-                Text(String(localized: "intervention.success.title", defaultValue: "開かなかった\n自分の時間に戻る"))
+                Text(String(localized: "intervention.success.title", defaultValue: "開かなかった\n自分で選べた"))
                     .dopaFont(32, weight: .black, lineSpacing: 4)
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
@@ -572,7 +525,7 @@ struct InterventionFlowView: View {
                         metricColumn(
                             label: String(
                                 localized: "intervention.success.metric.cancelled",
-                                defaultValue: "開かずに戻れた"
+                                defaultValue: "開かなかった"
                             ),
                             value: todayCancelledCountText
                         )

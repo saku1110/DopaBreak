@@ -82,7 +82,7 @@ struct PostUseReflectionSheet: View {
                 }
             }
 
-            Text(String(localized: "reflection.happiness.title", defaultValue: "幸福感や集中は\n増えた？"))
+            Text(String(localized: "reflection.happiness.title", defaultValue: "幸福感や集中力は\n上がった？"))
                 .dopaFont(32, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
 

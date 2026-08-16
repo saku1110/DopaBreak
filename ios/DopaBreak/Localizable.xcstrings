@@ -32,19 +32,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When you reach to open a target app, today's record starts here"
+            "value": "You haven't tried to open yet today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを開こうとすると、ここに今日の記録がつきます"
+            "value": "今日はまだ開こうとしていません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "대상 앱을 열려고 하면 여기에 오늘의 기록이 남아요"
+            "value": "오늘은 아직 열려고 하지 않았어요"
           }
         }
       }
@@ -54,21 +54,33 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Of the %lld times you tried to open, you didn't open %@ of the time"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tried to open %lld time"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tried to open %lld times"
+                }
+              }
+            }
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとした%lld回のうち、%@は開きませんでした"
+            "value": "開こうとしたのは%lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 한 %lld회 중 %@는 열지 않고 돌아왔어요"
+            "value": "열려고 한 건 %lld회"
           }
         }
       }
@@ -80,19 +92,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Today, you chose for yourself"
+            "value": "Today, you didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 自分で選べた"
+            "value": "今日 開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘, 스스로 선택했어요"
+            "value": "오늘은 열지 않았어요"
           }
         }
       }
@@ -200,19 +212,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When you reach to open a target app, it's recorded here"
+            "value": "The times you didn't open are recorded here"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを開こうとすると、ここに記録がつきます"
+            "value": "開かなかった回数がここに残ります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "대상 앱을 열려고 하면 여기에 기록이 남아요"
+            "value": "열지 않은 횟수가 여기에 남아요"
           }
         }
       }
@@ -224,19 +236,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Today begins with\nyour first breath"
+            "value": "A breath appears when you try to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "最初のひと呼吸から\n今日が始まる"
+            "value": "開こうとした瞬間に一呼吸が入ります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "첫 호흡부터\n오늘이 시작돼요"
+            "value": "열려고 하면 숨 고르기가 떠요"
           }
         }
       }
@@ -349,90 +361,6 @@
         }
       }
     },
-    "home.metric.attempted": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tried to open"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開こうとした"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열려고 함"
-          }
-        }
-      }
-    },
-    "home.metric.cancelled": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Didn't open"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開かなかった"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열지 않음"
-          }
-        }
-      }
-    },
-    "home.metric.count": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld time"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld times"
-                }
-              }
-            }
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld回"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld회"
-          }
-        }
-      }
-    },
     "home.week.eyebrow": {
       "comment": "Screen: Home",
       "extractionState": "manual",
@@ -467,13 +395,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "This week, you chose again %lld time"
+                  "value": "Didn't open %lld time this week"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "This week, you chose again %lld times"
+                  "value": "Didn't open %lld times this week"
                 }
               }
             }
@@ -482,13 +410,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今週 %lld回、自分で選び直しました"
+            "value": "今週 開かなかったのは%lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이번 주 %lld회, 스스로 다시 선택했어요"
+            "value": "이번 주에 열지 않은 건 %lld회"
           }
         }
       }
@@ -1237,14 +1165,110 @@
         }
       }
     },
-    "onboarding.goal.placeholder": {
+    "onboarding.goal.field.accessibility": {
       "comment": "Screen: Onboarding",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "e.g. Become able to speak English"
+            "value": "Enter a goal"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標を入力"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표 입력"
+          }
+        }
+      }
+    },
+    "onboarding.goal.lead": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A big dream or a small habit. Either works."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "なりたい姿でも やることでもいい"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "되고 싶은 모습도 할 일도 좋아요"
+          }
+        }
+      }
+    },
+    "onboarding.goal.multi_note": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can add multiple goals. Up to 1 on the free plan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標は複数追加できます。無料プランでは1つまで"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표는 여러 개 추가할 수 있어요. 무료 플랜은 1개까지"
+          }
+        }
+      }
+    },
+    "onboarding.goal.placeholder.action": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. Pass my exam"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例: 資格の勉強を進める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "예: 자격증 공부하기"
+          }
+        }
+      }
+    },
+    "onboarding.goal.placeholder.aspiration": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. Learn English"
           }
         },
         "ja": {
@@ -1261,74 +1285,26 @@
         }
       }
     },
-    "onboarding.goal.preset.reading": {
+    "onboarding.goal.placeholder.habit": {
       "comment": "Screen: Onboarding",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read for 30 minutes"
+            "value": "e.g. Read every night"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "読書を30分"
+            "value": "例: 寝る前に本を読む"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "독서 30분"
-          }
-        }
-      }
-    },
-    "onboarding.goal.preset.study": {
-      "comment": "Screen: Onboarding",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Study for a certification"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "資格の勉強"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "자격증 공부"
-          }
-        }
-      }
-    },
-    "onboarding.goal.preset.workout": {
-      "comment": "Screen: Onboarding",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep up strength training"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "筋トレを続ける"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "근력 운동 이어가기"
+            "value": "예: 자기 전에 책 읽기"
           }
         }
       }
@@ -2605,6 +2581,30 @@
         }
       }
     },
+    "onboarding.science.dopamine": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Social apps run on unpredictable rewards, the same variable-reward design slot machines use. That loop keeps your dopamine circuit firing. Willpower alone can't stop a reflex."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SNSは次に何が出るかわからない報酬でドーパミンの回路を刺激し続けます。スロットマシンと同じ変動報酬という設計です。この反射は意志の力では止められません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SNS는 무엇이 나올지 모르는 보상으로 도파민 회로를 계속 자극해요. 슬롯머신과 같은 변동 보상 설계죠. 이 반사는 의지만으로 멈추기 어려워요."
+          }
+        }
+      }
+    },
     "onboarding.science.eyebrow": {
       "comment": "Screen: Onboarding",
       "extractionState": "manual",
@@ -2649,6 +2649,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "무심코 열게 되는 건 당신이 약해서가 아니에요. SNS는 무의식적인 실행을 노리도록 설계돼 있어요."
+          }
+        }
+      }
+    },
+    "onboarding.science.mechanism": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak steps in right where that reflex starts and adds one breath of space before the loop takes over."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreakはこの回路が自動で回り出す入口に割り込み、ひと呼吸ぶんの間を差し込みます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak은 반사가 시작되는 순간에 끼어들어 한 호흡만큼의 틈을 만들어요."
           }
         }
       }
@@ -3308,19 +3332,43 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take the 30-second check"
+            "value": "See the time you're losing"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "30秒でチェックする"
+            "value": "どれだけ溶けているか見る"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "30초 체크 시작하기"
+            "value": "1년에 며칠 녹는지 보기"
+          }
+        }
+      }
+    },
+    "onboarding.welcome.action_note": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 questions, 30 seconds"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "質問3つ・30秒"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "질문 3개 · 30초"
           }
         }
       }
@@ -3482,7 +3530,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開く前に選び直す"
+            "value": "ブロックしない 開く直前のひと呼吸"
           }
         },
         "ko": {
@@ -3506,7 +3554,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "人生の時間は 二度と戻らない"
+            "value": "人生の時間は\n二度と戻らない"
           }
         },
         "ko": {
@@ -6236,19 +6284,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The line you set here appears the moment you go to open a social app. e.g. Read for 30 minutes"
+            "value": "The line you set here appears the moment you go to open a social app. e.g. Learn English"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここで決めた一言が、開こうとした瞬間に表示されます。例：読書30分"
+            "value": "ここで決めた一言が、開こうとした瞬間に表示されます。例：英語で話せるようになる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기서 정한 한마디가 앱을 열려는 순간에 표시돼요. 예: 독서 30분"
+            "value": "여기서 정한 한마디가 앱을 열려는 순간에 표시돼요. 예: 영어로 말할 수 있게 되기"
           }
         }
       }

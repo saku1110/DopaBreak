@@ -174,7 +174,7 @@ UI_COPY = {
         "reasons": ["仕事で使う", "調べもの", "連絡を確認", "投稿する", "暇つぶし", "なんとなく"],
         "time_title": "何分だけ開きますか？",
         "breath": "ひと呼吸おきましょう",
-        "breath_sub": "炎に合わせて、ゆっくり呼吸",
+        "breath_sub": "ドーパと一緒にひと呼吸",
         "goal": "英語で話す",
         "goal_full": "英語で商談できる自分になる",
         "lock_summary": "今日 開かなかった 12回",
@@ -191,7 +191,7 @@ UI_COPY = {
         "reasons": ["For work", "Look something up", "Check messages", "Post something", "Killing time", "Just because"],
         "time_title": "How many minutes do you need?",
         "breath": "Take a breath first",
-        "breath_sub": "Breathe slowly with the flame",
+        "breath_sub": "Take a breath with Dopa",
         "goal": "Speak English",
         "goal_full": "Speak English confidently",
         "lock_summary": "12 times you didn’t open today",
@@ -208,7 +208,7 @@ UI_COPY = {
         "reasons": ["업무용", "찾아보기", "연락 확인", "게시물 올리기", "심심풀이", "그냥"],
         "time_title": "몇 분만 열까요?",
         "breath": "숨 한 번 고르고 가요",
-        "breath_sub": "불꽃을 따라 천천히 숨 쉬어요",
+        "breath_sub": "도파와 함께 한 호흡",
         "goal": "영어로 말하기",
         "goal_full": "영어로 자신 있게 말하기",
         "lock_summary": "오늘 열지 않음 12회",
@@ -368,17 +368,28 @@ def mock_breath(size: tuple[int, int], locale: str) -> Image.Image:
     s = w / 1320
     ui = UI_COPY[locale]
     image = Image.new("RGB", size, COLORS["background"])
-    flame_source = Image.open(ROOT / "output/screenshots/flame-r4/02-inhale-max-r4-final.png").convert("RGB")
-    flame_crop = flame_source.crop((0, round(flame_source.height * 0.28), flame_source.width, round(flame_source.height * 0.78)))
-    flame = contain(flame_crop, (round(w * 0.9), round(h * 0.48)))
+    character_source = Image.open(
+        ROOT / "ios/DopaBreak/Assets.xcassets/Character/doom.imageset/doom.png"
+    ).convert("RGBA")
+    character_side = round(w * (0.20 if w >= 1700 else 0.46))
+    character = character_source.copy()
+    character.thumbnail((character_side, character_side), Image.Resampling.LANCZOS)
     glow = Image.new("RGBA", size, (0, 0, 0, 0))
-    gx = (w - flame.width) // 2
-    gy = round(h * 0.35)
+    gx = (w - character.width) // 2
+    gy = (h - character.height) // 2
     glow_draw = ImageDraw.Draw(glow)
-    glow_draw.ellipse((w * 0.18, gy + flame.height * 0.2, w * 0.82, gy + flame.height * 0.95), fill=(*COLORS["lime"], 55))
+    glow_draw.ellipse(
+        (
+            gx + character.width * 0.08,
+            gy + character.height * 0.16,
+            gx + character.width * 0.92,
+            gy + character.height * 0.92,
+        ),
+        fill=(*COLORS["lime"], 55),
+    )
     glow = glow.filter(ImageFilter.GaussianBlur(round(110 * s)))
     image.paste(glow.convert("RGB"), (0, 0), glow.getchannel("A"))
-    image.paste(flame, (gx, gy))
+    image.paste(character, (gx, gy), character.getchannel("A"))
     draw = ImageDraw.Draw(image)
     draw_status(draw, size, locale)
     eyebrow = "PAUSE"

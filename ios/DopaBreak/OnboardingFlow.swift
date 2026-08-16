@@ -75,6 +75,49 @@ private struct PagerHitTestingModifier: ViewModifier {
     }
 }
 
+private struct RotatingGoalPlaceholder: View {
+    let placeholders: [String]
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.locale) private var locale
+    @State private var index = 0
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Text(placeholders.indices.contains(index) ? placeholders[index] : (placeholders.first ?? ""))
+                .typesettingLanguage(locale.language)
+                .id(index)
+                .transition(.opacity)
+                .minimumScaleFactor(0.85)
+        }
+        .dopaFont(18, weight: .bold)
+        .foregroundStyle(DesignTokens.secondaryText)
+        .lineLimit(1)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: index)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        // Viewに紐づくtaskなので、入力開始または画面離脱で自動キャンセルされる。
+        .task(id: reduceMotion) {
+            index = 0
+            guard !reduceMotion, placeholders.count > 1 else {
+                return
+            }
+
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(3.5))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else {
+                    return
+                }
+                index = (index + 1) % placeholders.count
+            }
+        }
+    }
+}
+
 private struct OnboardingAlert: Identifiable {
     let id = UUID()
     let title: String
@@ -162,11 +205,6 @@ struct OnboardingFlow: View {
     private let snapshotStore = JSONSnapshotStore(containerProvider: DefaultContainerProvider())
     private let usageOptions = ["1時間未満", "1〜2時間", "2〜4時間", "4〜6時間", "6時間以上"]
     private let frequencyOptions = ["全くない", "数日", "半分以上", "ほとんど毎日"]
-    private let goalPresets = [
-        String(localized: "onboarding.goal.preset.reading", defaultValue: "読書を30分"),
-        String(localized: "onboarding.goal.preset.workout", defaultValue: "筋トレを続ける"),
-        String(localized: "onboarding.goal.preset.study", defaultValue: "資格の勉強"),
-    ]
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.locale) private var locale
@@ -197,6 +235,14 @@ struct OnboardingFlow: View {
     @State private var selectionFeedbackToken = 0
     /// 完了画面の祝福演出を一度だけ走らせるフラグ
     @State private var isReadyCelebrated = false
+
+    private var goalPlaceholders: [String] {
+        [
+            String(localized: "onboarding.goal.placeholder.aspiration", defaultValue: "例: 英語で話せるようになる"),
+            String(localized: "onboarding.goal.placeholder.habit", defaultValue: "例: 寝る前に本を読む"),
+            String(localized: "onboarding.goal.placeholder.action", defaultValue: "例: 資格の勉強を進める"),
+        ]
+    }
 
     /// - Parameter initialStep: 開始ステップ。既定は`.welcome`で本番の挙動は変わらない。
     ///   任意ステップの見た目を実機で確認するキャプチャハーネス用に開けている。
@@ -397,7 +443,13 @@ struct OnboardingFlow: View {
     private var primaryAction: some View {
         switch step {
         case .welcome:
-            primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "30秒でチェックする")) { advance(from: .welcome) }
+            VStack(spacing: 10) {
+                primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "どれだけ溶けているか見る")) { advance(from: .welcome) }
+                Text(String(localized: "onboarding.welcome.action_note", defaultValue: "質問3つ・30秒"))
+                    .dopaFont(13, weight: .medium, lineSpacing: 3)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
         case .quizResult:
             primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を取り戻す")) { advance(from: .quizResult) }
         case .chooseApps:
@@ -500,7 +552,7 @@ private extension OnboardingFlow {
                 .onboardingStagger(1)
 
             VStack(alignment: .center, spacing: 22) {
-                Text(String(localized: "onboarding.welcome.title", defaultValue: "人生の時間は 二度と戻らない"))
+                Text(String(localized: "onboarding.welcome.title", defaultValue: "人生の時間は\n二度と戻らない"))
                     .typesettingLanguage(locale.language)
                     .dopaFont(44, weight: .black, tracking: -1, lineSpacing: 2)
                     .foregroundStyle(DesignTokens.primaryText)
@@ -509,7 +561,7 @@ private extension OnboardingFlow {
 
                 centeredLead(String(localized: "onboarding.welcome.lead", defaultValue: "なんとなく開くだけで1日が終わる"))
 
-                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "開く前に選び直す"))
+                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "ブロックしない 開く直前のひと呼吸"))
                     .dopaFont(17, weight: .bold)
                     .foregroundStyle(DesignTokens.accent)
             }
@@ -723,23 +775,37 @@ private extension OnboardingFlow {
                     .onboardingStagger(0)
                 centeredTitle(String(localized: "onboarding.goal.title", defaultValue: "空いたこの時間で 何をしますか？"))
                     .onboardingStagger(1)
+                centeredLead(String(localized: "onboarding.goal.lead", defaultValue: "なりたい姿でも やることでもいい"))
+                    .onboardingStagger(2)
+                centeredLead(String(localized: "onboarding.goal.multi_note", defaultValue: "目標は複数追加できます。無料プランでは1つまで"))
+                    .onboardingStagger(3)
 
                 VStack(alignment: .leading, spacing: 8) {
                     fieldContainer {
                         HStack(spacing: 8) {
-                            // 変換中の未確定文字列をbindingへ書き戻すと日本語入力が壊れるため、
-                            // ここでは切り詰めない。上限は文字数表示と追加ボタンの有効・無効で示し、
-                            // 確定はcommit時の正規化で行う
-                            TextField(
-                                String(localized: "onboarding.goal.placeholder", defaultValue: "例: 英語で話せるようになる"),
-                                text: $heroGoal
-                            )
-                            .dopaFont(18, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .submitLabel(.done)
-                            .onSubmit {
-                                commitDraftGoal()
+                            ZStack(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
+                                if heroGoal.isEmpty {
+                                    RotatingGoalPlaceholder(placeholders: goalPlaceholders)
+                                }
+
+                                // 変換中の未確定文字列をbindingへ書き戻すと日本語入力が壊れるため、
+                                // ここでは切り詰めない。上限は文字数表示と追加ボタンの有効・無効で示し、
+                                // 確定はcommit時の正規化で行う
+                                TextField("", text: $heroGoal)
+                                    .dopaFont(18, weight: .bold)
+                                    .foregroundStyle(DesignTokens.primaryText)
+                                    .submitLabel(.done)
+                                    .accessibilityLabel(
+                                        String(localized: "onboarding.goal.field.accessibility", defaultValue: "目標を入力")
+                                    )
+                                    .accessibilityHint(
+                                        String(localized: "onboarding.goal.placeholder.aspiration", defaultValue: "例: 英語で話せるようになる")
+                                    )
+                                    .onSubmit {
+                                        commitDraftGoal()
+                                    }
                             }
+                            .frame(maxWidth: .infinity)
 
                             addGoalButton
                         }
@@ -760,18 +826,7 @@ private extension OnboardingFlow {
                         .foregroundStyle(isTypedGoalOverLimit ? DesignTokens.danger : DesignTokens.secondaryText)
                     }
                 }
-                .onboardingStagger(2)
-
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 96), spacing: 8)],
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(goalPresets, id: \.self) { preset in
-                        goalPresetChip(preset)
-                    }
-                }
-                .onboardingStagger(3)
+                .onboardingStagger(4)
 
                 if !draftGoals.isEmpty {
                     VStack(spacing: 8) {
@@ -779,7 +834,7 @@ private extension OnboardingFlow {
                             draftGoalRow(draft)
                         }
                     }
-                    .onboardingStagger(4)
+                    .onboardingStagger(5)
                 }
             }
         }
@@ -860,6 +915,11 @@ private extension OnboardingFlow {
                 centeredLead(String(localized: "onboarding.science.lead", defaultValue: "つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。"))
                     .onboardingStagger(2)
 
+                centeredLead(
+                    String(localized: "onboarding.science.dopamine", defaultValue: "SNSは次に何が出るかわからない報酬でドーパミンの回路を刺激し続けます。スロットマシンと同じ変動報酬という設計です。この反射は意志の力では止められません。")
+                )
+                .onboardingStagger(3)
+
                 CardContainer {
                     VStack(alignment: .leading, spacing: 14) {
                         principleLine(
@@ -880,19 +940,24 @@ private extension OnboardingFlow {
                         )
                     }
                 }
-                .onboardingStagger(3)
+                .onboardingStagger(4)
+
+                centeredLead(
+                    String(localized: "onboarding.science.mechanism", defaultValue: "DopaBreakはこの回路が自動で回り出す入口に割り込み、ひと呼吸ぶんの間を差し込みます。")
+                )
+                .onboardingStagger(5)
 
                 centeredLead(
                     String(localized: "onboarding.science.research", defaultValue: "開く前にワンクッション置く手法は、査読付き研究（PNAS, 2023）でSNS利用を平均57%減らすことが示されています。")
                 )
-                .onboardingStagger(4)
+                .onboardingStagger(6)
 
                 VStack(alignment: .leading, spacing: 8) {
                     bodyText(String(localized: "onboarding.science.disclaimer.study", defaultValue: "※他社アプリ(one sec)を対象とした研究です。"))
                     bodyText(String(localized: "onboarding.science.disclaimer.effect", defaultValue: "※本アプリの効果を保証するものではありません。"))
                     bodyText(String(localized: "onboarding.science.disclaimer.medical", defaultValue: "※医療・治療を目的としたアプリではありません。"))
                 }
-                .onboardingStagger(5)
+                .onboardingStagger(7)
             }
         }
     }
@@ -1342,30 +1407,6 @@ private extension OnboardingFlow {
         }
         .buttonStyle(.plain)
         .disabled(!canAddTypedGoal)
-    }
-
-    func goalPresetChip(_ preset: String) -> some View {
-        // 選択の見た目はリストに入っているかどうかで決める。状態を二重に持たない
-        let isAdded = OnboardingGoalList.contains(preset, in: draftGoals)
-        return Button {
-            addDraftGoal(preset)
-        } label: {
-            Text(preset)
-                .dopaFont(14, weight: .bold)
-                .foregroundStyle(isAdded ? DesignTokens.background : DesignTokens.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .padding(.horizontal, 10)
-                .background(isAdded ? DesignTokens.accent : DesignTokens.card)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(isAdded ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(OnboardingPressStyle())
-        .accessibilityAddTraits(isAdded ? .isSelected : [])
     }
 
     func draftGoalRow(_ draft: OnboardingGoalDraft) -> some View {

@@ -51,14 +51,14 @@ struct DopaBreakHomeProvider: TimelineProvider {
     }
 
     private static let placeholderSnapshot = WidgetSnapshot(
-        primaryGoalTitle: String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先"),
-        displayTitle: String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先"),
+        primaryGoalTitle: String(localized: "widget.placeholder.goal", defaultValue: "あなたの目標"),
+        displayTitle: String(localized: "widget.placeholder.goal", defaultValue: "あなたの目標"),
         todayCancelledCount: 0,
         todayAttemptCount: 0,
         theme: .e1,
         updatedAt: Date(),
-        goalTitles: [String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先")],
-        displayTitles: [String(localized: "widget.placeholder.goal", defaultValue: "あなたの戻る先")]
+        goalTitles: [String(localized: "widget.placeholder.goal", defaultValue: "あなたの目標")],
+        displayTitles: [String(localized: "widget.placeholder.goal", defaultValue: "あなたの目標")]
     )
 }
 
@@ -100,7 +100,7 @@ struct DopaBreakHomeWidgetView: View {
                 .monospacedDigit()
                 .foregroundStyle(Color(lockThemeColor: palette.accent))
 
-            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かずに戻れた"))
+            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かなかった"))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
 
@@ -108,7 +108,7 @@ struct DopaBreakHomeWidgetView: View {
 
             Text(
                 displayTitles.first
-                    ?? String(localized: "widget.goal.fallback", defaultValue: "戻る先を設定")
+                    ?? String(localized: "widget.goal.fallback", defaultValue: "目標を設定")
             )
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.primaryText))
@@ -147,7 +147,7 @@ struct DopaBreakHomeWidgetView: View {
                     .font(.system(size: 32, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かずに戻れた"))
+                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かなかった"))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
                 Spacer(minLength: 0)
@@ -273,7 +273,7 @@ struct DopaBreakLiveActivity: Widget {
     ) -> some View {
         let palette = theme(for: state).palette
         return VStack(alignment: .leading, spacing: 10) {
-            Text(String(localized: "live_activity.goal.eyebrow", defaultValue: "あなたの戻る先"))
+            Text(String(localized: "live_activity.goal.eyebrow", defaultValue: "あなたの目標"))
                 .font(.system(size: 10, weight: .bold))
                 .textCase(.uppercase)
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
@@ -300,7 +300,7 @@ struct DopaBreakLiveActivity: Widget {
                 Text(
                     String(
                         localized: "live_activity.summary.cancelled",
-                        defaultValue: "今日 開かずに戻れた \(state.todayCancelledCount)回"
+                        defaultValue: "今日 開かなかった \(state.todayCancelledCount)回"
                     )
                 )
                     .foregroundStyle(Color(lockThemeColor: palette.accent))

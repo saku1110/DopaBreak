@@ -305,19 +305,18 @@ final class MeasurementFoundationTests: XCTestCase {
 
         try await Task.sleep(nanoseconds: 2_500_000_000)
         XCTAssertEqual(flow.stage, .breathing)
-        XCTAssertGreaterThan(flow.flarePhase, 0)
+        XCTAssertLessThan(flow.breathRemainingSeconds, flow.breathTotalSeconds)
 
         flow.start()
         XCTAssertEqual(flow.stage, .reasonSelection)
 
         try await Task.sleep(nanoseconds: 800_000_000)
         XCTAssertEqual(flow.stage, .reasonSelection)
-        XCTAssertEqual(flow.flarePhase, 0)
         XCTAssertEqual(try model.interventionEngine?.currentStep(), .intentSelection)
     }
 
     @MainActor
-    func testBreathingCompletesFinalFlareBeforeUsageSummary() async throws {
+    func testBreathingCompletesCountdownBeforeUsageSummary() async throws {
         let suiteName = "MeasurementFoundationTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
@@ -347,13 +346,10 @@ final class MeasurementFoundationTests: XCTestCase {
 
         try await Task.sleep(nanoseconds: 2_500_000_000)
         XCTAssertEqual(flow.stage, .breathing)
-        XCTAssertGreaterThan(flow.flarePhase, 0)
 
         try await Task.sleep(nanoseconds: 800_000_000)
         XCTAssertEqual(flow.stage, .usageSummary)
         XCTAssertEqual(flow.breathRemainingSeconds, 0)
-        XCTAssertEqual(flow.breathPhase, 1)
-        XCTAssertEqual(flow.flarePhase, 1)
     }
 
     @MainActor
@@ -433,79 +429,6 @@ final class MeasurementFoundationTests: XCTestCase {
         )
     }
 
-    /// 目標を決めた瞬間の着火演出の時間曲線を固定する。
-    ///
-    /// 火は立ち上がったら落とさない。進捗が終端に達したあとも灯ったままにしておかないと、
-    /// 次の画面へ送る前（0.8秒）に炎が消えて演出が途切れる。
-    func testGoalIgnitionRisesMonotonicallyAndStaysLit() {
-        var previousOpacity = -1.0
-        var previousBreath = -1.0
-
-        for step in 0...200 {
-            let phase = GoalIgnitionPhase(progress: Double(step) / 200.0)
-            let context = "progress=\(phase.progress)"
-
-            XCTAssertGreaterThanOrEqual(phase.opacity, previousOpacity, "不透明度が戻った \(context)")
-            XCTAssertLessThanOrEqual(phase.opacity, 1, context)
-            XCTAssertGreaterThanOrEqual(phase.breathPhase, previousBreath, "火が縮んだ \(context)")
-            XCTAssertLessThanOrEqual(
-                phase.breathPhase,
-                GoalIgnitionPhase.peakBreath + 0.0001,
-                "介入画面のピークを侵す強度になった \(context)"
-            )
-            XCTAssertGreaterThanOrEqual(phase.flare, 0, context)
-            XCTAssertLessThanOrEqual(phase.flare, 1, context)
-
-            previousOpacity = phase.opacity
-            previousBreath = phase.breathPhase
-        }
-
-        // 終端は「灯りきって落ち着いた」状態
-        let settled = GoalIgnitionPhase(progress: 1)
-        XCTAssertEqual(settled.opacity, 1, accuracy: 0.0001)
-        XCTAssertEqual(settled.breathPhase, GoalIgnitionPhase.peakBreath, accuracy: 0.0001)
-        XCTAssertEqual(settled.flare, 0, accuracy: 0.0001)
-
-        // 範囲外の進捗でも壊れない
-        XCTAssertEqual(GoalIgnitionPhase(progress: -1).opacity, 0, accuracy: 0.0001)
-        XCTAssertEqual(GoalIgnitionPhase(progress: 2).breathPhase, GoalIgnitionPhase.peakBreath, accuracy: 0.0001)
-    }
-
-    /// 吹き上がりは一発だけ。立ち上がりきってから減衰し、二度は起きない。
-    func testGoalIgnitionFlarePeaksOnceThenDecays() {
-        func flare(atElapsed elapsed: TimeInterval) -> Double {
-            GoalIgnitionPhase(progress: elapsed / GoalIgnitionPhase.duration).flare
-        }
-
-        XCTAssertEqual(flare(atElapsed: 0), 0, accuracy: 0.0001)
-        XCTAssertEqual(flare(atElapsed: GoalIgnitionPhase.flareRise), 1, accuracy: 0.0001)
-        XCTAssertEqual(
-            flare(atElapsed: GoalIgnitionPhase.flareRise + GoalIgnitionPhase.flareFall),
-            0,
-            accuracy: 0.0001
-        )
-
-        // 立ち上がり区間は増え続ける
-        var previous = -1.0
-        for step in 0...50 {
-            let value = flare(atElapsed: GoalIgnitionPhase.flareRise * Double(step) / 50.0)
-            XCTAssertGreaterThanOrEqual(value, previous, "吹き上がりの途中で落ちた")
-            previous = value
-        }
-
-        // 減衰区間は戻らない
-        previous = 2.0
-        for step in 0...50 {
-            let elapsed = GoalIgnitionPhase.flareRise
-                + GoalIgnitionPhase.flareFall * Double(step) / 50.0
-            let value = flare(atElapsed: elapsed)
-            XCTAssertLessThanOrEqual(value, previous, "減衰の途中で吹き返した")
-            previous = value
-        }
-
-        // 減衰しきったあとは0のまま
-        XCTAssertEqual(flare(atElapsed: GoalIgnitionPhase.duration), 0, accuracy: 0.0001)
-    }
 }
 
 /// 実データを書ける一時コンテナ。テストごとに捨てる。

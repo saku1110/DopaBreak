@@ -24,10 +24,8 @@ struct HomeView: View {
                 } else {
                     achievementSection
                         .padding(.top, 28)
-                    metricsCard
-                        .padding(.top, 26)
                     weekSignal
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                 }
             }
             .padding(.bottom, 28)
@@ -92,7 +90,7 @@ struct HomeView: View {
             .padding(.top, 18)
 
             CharacterView(
-                model.todayCancelledCount > 0 ? .awake : .doom,
+                model.todayAttemptCount > 0 && model.todayCancelledCount == 0 ? .doom : .awake,
                 size: DesignTokens.CharacterSize.header
             )
             .frame(maxWidth: .infinity)
@@ -123,8 +121,12 @@ struct HomeView: View {
                     }
 
                     Text(primaryGoalTitle)
-                        .dopaFont(22, weight: .black, tracking: -0.4)
-                        .foregroundStyle(DesignTokens.primaryText)
+                        .dopaFont(
+                            hasPrimaryGoal ? 22 : 20,
+                            weight: hasPrimaryGoal ? .black : .bold,
+                            tracking: hasPrimaryGoal ? -0.4 : 0
+                        )
+                        .foregroundStyle(hasPrimaryGoal ? DesignTokens.primaryText : DesignTokens.accent)
                         .lineLimit(3)
                         .minimumScaleFactor(0.8)
                 }
@@ -148,8 +150,12 @@ struct HomeView: View {
                 }
 
                 Text(primaryGoalTitle)
-                    .dopaFont(29, weight: .black, tracking: -0.7)
-                    .foregroundStyle(DesignTokens.primaryText)
+                    .dopaFont(
+                        hasPrimaryGoal ? 29 : 20,
+                        weight: hasPrimaryGoal ? .black : .bold,
+                        tracking: hasPrimaryGoal ? -0.7 : 0
+                    )
+                    .foregroundStyle(hasPrimaryGoal ? DesignTokens.primaryText : DesignTokens.accent)
                     .lineLimit(3)
                     .minimumScaleFactor(0.8)
             }
@@ -161,12 +167,12 @@ struct HomeView: View {
 
     private var firstDayEmptySection: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(String(localized: "home.first_day.title", defaultValue: "最初のひと呼吸から\n今日が始まる"))
+            Text(String(localized: "home.first_day.title", defaultValue: "開こうとした瞬間に一呼吸が入ります"))
                 .dopaFont(38, weight: .black, tracking: -0.8, lineSpacing: 5)
                 .foregroundStyle(DesignTokens.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(String(localized: "home.first_day.body", defaultValue: "対象アプリを開こうとすると、ここに記録がつきます"))
+            Text(String(localized: "home.first_day.body", defaultValue: "開かなかった回数がここに残ります"))
                 .dopaFont(15, weight: .semibold, lineSpacing: 4)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -194,41 +200,21 @@ struct HomeView: View {
             // 「12」「回」を別々に読ませない。
             .accessibilityElement(children: .combine)
 
-            Text(String(localized: "home.achievement.title", defaultValue: "今日 自分で選べた"))
+            Text(String(localized: "home.achievement.title", defaultValue: "今日 開かなかった"))
                 .dopaFont(24, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
 
             if model.todayAttemptCount == 0 {
-                Text(String(localized: "home.achievement.empty_body", defaultValue: "最初の選択から、今日の記録が始まります"))
+                Text(String(localized: "home.achievement.empty_body", defaultValue: "今日はまだ開こうとしていません"))
                     .dopaFont(14, weight: .semibold)
                     .foregroundStyle(DesignTokens.secondaryText)
             } else {
-                Text(String(localized: "home.achievement.summary", defaultValue: "開こうとした\(model.todayAttemptCount)回のうち、\(successRateText)で立ち止まれました"))
+                Text(String(localized: "home.achievement.summary", defaultValue: "開こうとしたのは\(model.todayAttemptCount)回"))
                     .dopaFont(14, weight: .semibold)
                     .foregroundStyle(DesignTokens.secondaryText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, DesignTokens.horizontalPadding)
-    }
-
-    private var metricsCard: some View {
-        CardContainer {
-            HStack(spacing: 18) {
-                homeMetric(
-                    value: String(localized: "home.metric.count", defaultValue: "\(model.todayCancelledCount)回"),
-                    label: String(localized: "home.metric.cancelled", defaultValue: "開かずに戻れた"),
-                    accent: true
-                )
-                Rectangle()
-                    .fill(DesignTokens.hairline)
-                    .frame(width: 1, height: 58)
-                homeMetric(
-                    value: String(localized: "home.metric.count", defaultValue: "\(model.todayAttemptCount)回"),
-                    label: String(localized: "home.metric.attempted", defaultValue: "開こうとした")
-                )
-            }
-        }
         .padding(.horizontal, DesignTokens.horizontalPadding)
     }
 
@@ -247,7 +233,7 @@ struct HomeView: View {
                 .frame(height: 5)
                 .animation(DopaMotion.transition, value: weekSuccessRate)
                 .accessibilityHidden(true)
-                Text(String(localized: "home.week.summary", defaultValue: "今週 \(model.weekCancelledCount)回、自分で選び直しました"))
+                Text(String(localized: "home.week.summary", defaultValue: "今週 開かなかったのは\(model.weekCancelledCount)回"))
                     .dopaFont(14, weight: .bold)
                     .foregroundStyle(DesignTokens.secondaryText)
             }
@@ -255,21 +241,12 @@ struct HomeView: View {
         .padding(.horizontal, DesignTokens.horizontalPadding)
     }
 
-    private func homeMetric(value: String, label: String, accent: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(value)
-                .dopaFont(30, weight: .black, design: .rounded)
-                .monospacedDigit()
-                .foregroundStyle(accent ? DesignTokens.accent : DesignTokens.primaryText)
-            Text(label)
-                .dopaFont(12, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var primaryGoalTitle: String {
+        model.goals.first?.title ?? String(localized: "home.goal.fallback", defaultValue: "タップして目標を追加")
     }
 
-    private var primaryGoalTitle: String {
-        model.goals.first?.title ?? String(localized: "home.goal.fallback", defaultValue: "SNSの先ではなく、戻りたい先を決める")
+    private var hasPrimaryGoal: Bool {
+        model.goals.first != nil
     }
 
     private var unverifiedAutomationCatalogIDs: [String] {
@@ -295,18 +272,9 @@ struct HomeView: View {
         model.todayAttemptCount == 0 && model.weekAttemptCount == 0
     }
 
-    private var successRate: CGFloat {
-        guard model.todayAttemptCount > 0 else { return 0 }
-        return min(1, CGFloat(model.todayCancelledCount) / CGFloat(model.todayAttemptCount))
-    }
-
     private var weekSuccessRate: CGFloat {
         guard model.weekAttemptCount > 0 else { return 0 }
         return min(1, CGFloat(model.weekCancelledCount) / CGFloat(model.weekAttemptCount))
-    }
-
-    private var successRateText: String {
-        "\(Int((successRate * 100).rounded()))%"
     }
 
     private var todayText: String {

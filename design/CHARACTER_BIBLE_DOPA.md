@@ -16,8 +16,9 @@
 | 上余白 | **13%** |
 | 左右余白 | 各 **7%** |
 | **縦横比（高さ÷幅）** | **0.83（横長）** ← 縦長化は禁止。2026-08-04に1.45へ振って失敗済み |
-| 脳の主要ピンク | `#F08484`（陰 `#D97B93`） |
-| 地色（四隅） | `#170713`〜`#200C17` の深いプラム |
+| 脳の主要ピンク | `#FD90AB`（彩度43%・陰 `#E0708F`） ← 2026-08-13に実測で訂正。**旧記載 `#F08484` は誤り** |
+| 地色（四隅） | `#010001` のほぼ純黒 ← 2026-08-13に実測で訂正。**旧記載「`#170713`〜`#200C17` の深いプラム」は誤り** |
+| 図と地のコントラスト比 | **9.7倍**（体 `#FD90AB` 対 四隅 `#010001`） |
 | スマホ画面のライム | `#CCF030` |
 
 ## 2. 生成方式（**text-to-image は禁止**・2026-08-04に実証）
@@ -34,7 +35,7 @@
 手順:
 
 1. 基準画像は `video/launch-animation/public/frame_c_awake.png`（スマホを下ろした状態・体の正本）
-2. プロンプトで「顔（目・眉・口・頬）以外はピクセル単位で不変」を明示し、輪郭・ロブ・しわ・斑点・色・紙質感・背景・手・スマホ・構図・位置を列挙して固定する
+2. プロンプトで「顔（目・眉・口・頬）以外はピクセル単位で不変」を明示し、輪郭・ロブ・しわ・斑点・色・**エナメル光沢**・背景・手・スマホ・構図・位置を列挙して固定する
 3. `verify_character.py`（比率）と `verify_swap.py`（顔以外の一致）の**両方**を通す
 4. `codex exec` は背景シェルで stdin を掴んで停止するため `< /dev/null` 必須。`export -f` は bash 専用（zshで直に書くと関数が渡らない）
 
@@ -53,13 +54,18 @@ LOCKED CHARACTER SPEC — reproduce EXACTLY, these never change:
   (a) ONE strong central vertical fissure dividing the two hemispheres, from the crown down to the brow;
   (b) short curved crease strokes inside the lobes, drawn in the outline colour;
   (c) sparse darker-pink oval pore spots scattered over the lobes.
-- Line work: bold, clean, EVEN-WEIGHT dark outline (#2A1420) around every shape. No thin tapering lines.
-- Colour: flat saturated pink #F08484 with darker #D97B93 cel shadow shapes. No airbrush gradients on the body.
+- Line work: a THIN dark outline (#2A1420) around the silhouette, sitting inside the highlight bands. Not a thick black line.
+- Colour: bright clean pink #FD90AB with #E0708F soft shadow. Never salmon, red or orange.
+- Surface: GLOSSY ENAMEL, like polished hard candy. Each lobe carries a WIDE, SOFT, AIRBRUSHED WHITE SPECULAR
+  HIGHLIGHT along its upper edge, fading smoothly into the body colour — broad glowing bands, never thin drawn lines.
+  Inside each lobe the shading is a smooth continuous gradient with no flat areas. Soft drop shadows where lobes
+  overlap, so every lobe looks raised. NO matte finish, NO flat cel fills, NO paper grain, NO thick black lines between lobes.
 - Eyes: two large round eyes with off-white eyeballs, set at a MODERATE spacing —
   neither touching nor pushed to the outer edges of the face. Big soft pink upper lids sit over them.
-- Rendering: classic 90s TV cartoon cel style, flat colours + simple shadow shapes,
-  with a subtle mottled paper grain over the whole image. NOT photoreal, NOT 3D render, NOT clay, NOT vector-flat.
-- Background: full-bleed deep plum #1C0A16, with a soft warm ambient halo glowing behind the head.
+- Rendering: glossy enamel cartoon. NOT photoreal, NOT clay, NOT vector-flat, NOT matte, NOT papery.
+- Background: full-bleed NEAR-BLACK #0A0208. Only a small tight warm amber glow sits directly behind the head,
+  fading out well before the edges. The four corners stay near-black — if the glow reaches the corners the
+  figure/ground contrast drops and the icon stops standing out on the home screen.
 - Hands (only when the pose calls for them): small white cartoon gloves.
 - Format: square 1024x1024. NO text, NO letters, NO numbers anywhere. NO baked rounded corners,
   NO border, NO outer drop shadow on the tile. Must read clearly at 60x60 pixels.
@@ -92,3 +98,20 @@ LOCKED CHARACTER SPEC — reproduce EXACTLY, these never change:
 - 「上下が潰れている」という**私の指摘は誤診**。縦長化（比0.83→1.45）したら卵・繭に見え、離した目が不気味になり不採用。**横長は欠陥ではなく脳本来の形で愛嬌の源**
 - 細かい降下粒子は60pxで消え、代償に目が小さくなるため禁止
 - スポンジボブ・GenKは**画風の参照のみ**。キャラクター自体は完全オリジナル（IP・審査対策）
+
+## 6. 2026-08-13 の訂正（同じ失敗を繰り返さないため）
+
+「キャラをもっと可愛く」の検討で全案が現行に負けた。原因は絵ではなく**この仕様書の記述が実物と違っていたこと**。
+仕様書の値をそのままプロンプトに入れた結果、次の劣化が起きた。
+
+| 誤っていた記載 | 実測値 | 起きた劣化 |
+|---|---|---|
+| 主要ピンク `#F08484` | `#FD90AB` | 体が赤に転び、輝度が24%低下。図と地のコントラストが9.7倍→7.2倍に落ち「現行の方が目立つ」と却下 |
+| 地色「深いプラム `#1C0A16`」 | ほぼ純黒 `#010001` | 四隅が明るくなり、さらにコントラストが低下 |
+| 「flat colours + paper grain のセル画」 | **エナメル光沢**（幅広の白ハイライト＋滑らかなグラデ＋ロブ間の落ち影） | プロンプトで `NO airbrush gradients` `NOT glossy` と艶を明示的に禁止してしまい、オーナーが評価していたツルツルが消えた |
+
+**結論: 現行アイコンを維持する（オーナー判断・2026-08-13）。** 差し替えは行わない。
+検討した全案は `creatives/app-icon/concepts/` の `cute/` `cute-tex/` `cute-exp/` `cute-cel/` `cute-cel2/` `gloss/` に残置。
+再生成の仕様と手順は各 `*_concepts.json` と `generate_*.sh`。
+
+**次にキャラ画像を作るときは、この仕様書の文言ではなく `AppIcon-1024.png` の実測に合わせること。**

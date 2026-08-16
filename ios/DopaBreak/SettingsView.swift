@@ -164,7 +164,7 @@ struct SettingsView: View {
             }
         }
         .confirmationDialog(
-            String(localized: "settings.delete_all.confirmation.title", defaultValue: "全データを削除しますか"),
+            String(localized: "settings.delete_all.confirmation.title", defaultValue: "全データを削除しますか？"),
             isPresented: $isDeleteAllDataConfirmationPresented,
             titleVisibility: .visible
         ) {

@@ -49,7 +49,7 @@ struct MidSessionCheckInSheet: View {
         }
         return String(
             localized: "mid_session_check_in.reminder.goal",
-            defaultValue: "戻る先　\(goal.title)"
+            defaultValue: "目標　\(goal.title)"
         )
     }
 }

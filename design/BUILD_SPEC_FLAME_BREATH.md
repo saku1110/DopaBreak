@@ -1,5 +1,7 @@
 # BUILD SPEC — 一呼吸「リアルな炎」呼吸アニメーション（Codex実装用）
 
+> **⚠️ 廃止（2026-08-14 オーナー決定）**: 炎表現は品質理由で全削除された（`Flame.metal`・`FlameBreathView` ごと削除）。呼吸画面はキャラ（ドーパ）常時表示に変更。本仕様は履歴として残す。詳細: `.claude/specs/design-decisions.md` 2026-08-14。
+
 作成: 2026-07-24 / オーケストレーター: Fable / 実装: Codex(gpt-5.6-sol, xhigh)
 対象アプリ: DopaBreak (iOS 17.0+, SwiftUI, @Observable)
 

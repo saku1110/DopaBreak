@@ -66,11 +66,11 @@ struct GoalsView: View {
         CardContainer {
             VStack(alignment: .leading, spacing: 18) {
                 SmallLabel(text: String(localized: "goals.empty.label", defaultValue: "目標"))
-                Text(String(localized: "goals.empty.title", defaultValue: "戻りたい自分を決める"))
+                Text(String(localized: "goals.empty.title", defaultValue: "目標を決める"))
                     .dopaFont(24, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
 
-                Text(String(localized: "goals.empty.description", defaultValue: "目標は、あなたを連れ戻す錨です。開く前に思い出せる言葉を置きましょう。"))
+                Text(String(localized: "goals.empty.description", defaultValue: "ここで決めた一言が、開こうとした瞬間に表示されます。例：英語で話せるようになる"))
                     .dopaFont(14, weight: .medium, lineSpacing: 3)
                     .foregroundStyle(DesignTokens.secondaryText)
             }

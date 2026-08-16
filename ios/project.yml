@@ -28,11 +28,14 @@ targets:
           - Resources/automation-tutorial-ja.mp4
           - Resources/automation-tutorial-en.mp4
           - Resources/automation-tutorial-ko.mp4
+          - Resources/launch-animation.mp4
       - path: DopaBreak/Resources/automation-tutorial-ja.mp4
         buildPhase: resources
       - path: DopaBreak/Resources/automation-tutorial-en.mp4
         buildPhase: resources
       - path: DopaBreak/Resources/automation-tutorial-ko.mp4
+        buildPhase: resources
+      - path: DopaBreak/Resources/launch-animation.mp4
         buildPhase: resources
     settings:
       base:
@@ -56,7 +59,8 @@ targets:
         # PiP継続するために必要。ガイドを閉じると再生を止め、隠れた常時再生には使わない。
         UIBackgroundModes:
           - audio
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         CFBundleURLTypes:
           - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
             CFBundleURLSchemes:

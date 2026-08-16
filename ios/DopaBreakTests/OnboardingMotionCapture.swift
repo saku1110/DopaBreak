@@ -9,8 +9,6 @@ import XCTest
 ///
 /// `axe`/`idb` が無い環境ではタップで画面を進められないため、`OnboardingFlow` を
 /// 任意の `initialStep` でテストホストの実ウィンドウへマウントし、一定時間保持する。
-/// Metalシェーダ（`.colorEffect`）はオフスクリーンで描画されないため、この方式が必要。
-///
 /// 保持中に外部から `xcrun simctl io <UDID> screenshot` / `recordVideo` で撮る。
 /// マーカー `ONB_STAGE_BEGIN <name>` を待ってから撮ること。時間ベースの待ちはドリフトする。
 final class OnboardingMotionCapture: XCTestCase {
@@ -79,21 +77,6 @@ final class OnboardingMotionCapture: XCTestCase {
             fflush(stdout)
         }
 
-        // 着火演出は「次へ」タップでしか発火しないため、ループ再生ホストで単体保持する
-        let ignitionHost = UIHostingController(rootView: IgnitionLoopHost())
-        window.rootViewController = ignitionHost
-        window.makeKeyAndVisible()
-        ignitionHost.view.setNeedsLayout()
-        ignitionHost.view.layoutIfNeeded()
-        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.5))
-        print("ONB_STAGE_BEGIN 06-ignition")
-        fflush(stdout)
-        let ignitionDeadline = Date().addingTimeInterval(Self.secondsPerStage)
-        while Date() < ignitionDeadline {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
-        }
-        print("ONB_STAGE_END 06-ignition")
-        fflush(stdout)
     }
 
     @MainActor
@@ -108,24 +91,5 @@ final class OnboardingMotionCapture: XCTestCase {
             }
         }
         return nil
-    }
-}
-
-/// 着火演出を繰り返し再生するキャプチャ専用ホスト。
-/// `GoalIgnitionFlame`は出現時に一度だけ走るため、1.6秒ごとに再マウントしてループさせる。
-private struct IgnitionLoopHost: View {
-    @State private var tick = 0
-    private let timer = Timer.publish(every: 1.6, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        ZStack {
-            DesignTokens.background.ignoresSafeArea()
-            GoalIgnitionFlame()
-                .ignoresSafeArea()
-                .id(tick)
-        }
-        .onReceive(timer) { _ in
-            tick += 1
-        }
     }
 }

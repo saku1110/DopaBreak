@@ -430,7 +430,7 @@ struct AutomationGuideView: View {
                     Text(
                         String(
                             localized: "automation_guide.grayscale.manual",
-                            defaultValue: "自動化しない場合: 設定→アクセシビリティ→ショートカット→カラーフィルタをオン。以後サイドボタンの3回押しで白黒とカラーを切り替えられます。"
+                            defaultValue: "自動化しない場合: 設定→アクセシビリティ→ショートカット→カラーフィルタをオン。以後サイドボタン（ホームボタンがある機種はホームボタン）を3回押すと、白黒とカラーを切り替えられます。"
                         )
                     )
                     .dopaFont(14, weight: .semibold, lineSpacing: 4)
@@ -1399,7 +1399,7 @@ private struct ShortcutsMockDiagram: View {
                     )
 
                     MockRow(
-                        symbol: "flame.fill",
+                        symbol: "wind",
                         title: String(
                             localized: "automation_guide.mock.start_breath",
                             defaultValue: "DopaBreakで一呼吸"
@@ -1469,7 +1469,7 @@ private struct ShortcutsMockDiagram: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "wind")
                         .dopaFont(13, weight: .bold)
                         .foregroundStyle(DesignTokens.accent)
 

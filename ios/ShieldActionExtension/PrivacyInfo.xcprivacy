@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	ShieldActionExtension のプライバシーマニフェスト。
+	宣言はリリースビルドのバイナリ実測に基づく（推測で足さない・使っていないものは書かない）。
+	  - NSUserDefaults: この拡張のバイナリは `initWithSuiteName:` だけを参照し、
+	    `standardUserDefaults` は含まない。読み書きは App Group
+	    (group.com.dopabreak.shared) の中だけで完結するため 1C8F.1 のみを宣言する。
+	  - systemUptime / mach_absolute_time・ファイル日時・空き容量・アクティブキーボードの
+	    各APIはこの拡張のバイナリに含まれないため宣言しない。
+	外部送信は行わない。ネットワークAPIも解析SDKもリンクしていないため
+	トラッキングなし・収集データなしで正しい。
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

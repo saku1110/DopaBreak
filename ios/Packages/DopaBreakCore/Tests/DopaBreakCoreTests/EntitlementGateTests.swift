@@ -53,7 +53,7 @@ final class EntitlementGateTests: XCTestCase {
         let gate = makeGate(tier: .free)
 
         XCTAssertTrue(gate.heroGoalAllowed)
-        XCTAssertEqual(gate.goalsLimit, 1)
+        XCTAssertNil(gate.goalsLimit)
         XCTAssertEqual(gate.targetRulesLimit, 1)
         XCTAssertEqual(gate.targetAppTokensLimit, 1)
         XCTAssertEqual(gate.statsDays, 1)
@@ -75,12 +75,13 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertTrue(gate.themesAllowed)
     }
 
+    /// 目標はFreeでも無制限（2026-08-17オーナー決定）。Proとの差はない
     func testFreeGoalLimitBoundaries() {
         let gate = makeGate(tier: .free)
 
         XCTAssertTrue(gate.canAddGoal(currentCount: 0))
-        XCTAssertFalse(gate.canAddGoal(currentCount: 1))
-        XCTAssertFalse(gate.canAddGoal(currentCount: 2))
+        XCTAssertTrue(gate.canAddGoal(currentCount: 1))
+        XCTAssertTrue(gate.canAddGoal(currentCount: 50))
     }
 
     func testProGoalLimitBoundaries() {

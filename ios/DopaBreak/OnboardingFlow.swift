@@ -10,6 +10,7 @@ enum OnboardingStep: Int, CaseIterable {
     case quizAimless
     case quizRegret
     case quizResult
+    case recovery
     case chooseApps
     case goalSetup
     case chooseMode
@@ -40,6 +41,7 @@ enum OnboardingStep: Int, CaseIterable {
         case .quizAimless: return "quiz_aimless"
         case .quizRegret: return "quiz_regret"
         case .quizResult: return "quiz_result"
+        case .recovery: return "recovery_estimate"
         case .chooseApps: return "choose_apps"
         case .goalSetup: return "goal_setup"
         case .chooseMode: return "choose_mode"
@@ -301,7 +303,7 @@ struct OnboardingFlow: View {
                 persistModeAndAdvance(.standard)
             }
         } message: {
-            Text(String(localized: "onboarding.mode.deep_focus.confirmation.message", defaultValue: "集中時間中は、簡単にはSNSを開けません。"))
+            Text(String(localized: "onboarding.mode.deep_focus.confirmation.message", defaultValue: "Deep Focus中は選んだアプリを開けません。時間はいつでも変えられます。"))
         }
         // 選択の触感は画面（`.id(step)`）と一緒に消えない位置へ置く。
         // 回答と同時に次へ進むクイズでも、触感が失われないようにするため
@@ -395,6 +397,8 @@ struct OnboardingFlow: View {
             regretQuizContent
         case .quizResult:
             quizResultContent
+        case .recovery:
+            recoveryContent
         case .chooseApps:
             chooseAppsContent
         case .goalSetup:
@@ -452,6 +456,8 @@ struct OnboardingFlow: View {
             }
         case .quizResult:
             primaryButton(String(localized: "onboarding.result.action", defaultValue: "この時間を取り戻す")) { advance(from: .quizResult) }
+        case .recovery:
+            primaryButton(String(localized: "onboarding.recovery.action", defaultValue: "取り戻す設定を始める")) { advance(from: .recovery) }
         case .chooseApps:
             primaryButton(
                 selectedCatalogIDs.isEmpty
@@ -742,6 +748,90 @@ private extension OnboardingFlow {
         }
     }
 
+    /// 損失の提示（`quizResultContent`）の直後に置く回復の一手。
+    /// 同じ推計から「半分にできたら戻る時間」だけを取り出して見せ、
+    /// 落ち込みで終わらせずに設定へ進む動機に変える。
+    var recoveryContent: some View {
+        let recoveredDays = recoveredYearlyDays
+        let heroPrefix = String(localized: "onboarding.recovery.hero_yearly.prefix", defaultValue: "1年で 約")
+        let heroDays = "\(recoveredDays)"
+        let heroSuffix = String(localized: "onboarding.recovery.hero_yearly.suffix", defaultValue: "日")
+        let heroAccessibilityText = "\(heroPrefix) \(heroDays) \(heroSuffix)"
+        return screenScroll {
+            VStack(alignment: .center, spacing: 24) {
+                centeredEyebrow(String(localized: "onboarding.recovery.eyebrow", defaultValue: "取り戻せる時間 / GOOD NEWS"))
+                    .onboardingStagger(0)
+                centeredLead(String(localized: "onboarding.recovery.lead", defaultValue: "開く回数を半分にできた場合の試算では"))
+                    .onboardingStagger(1)
+
+                // 損失側の doom→worse と対にする。数字が出そろった直後に目を覚ました表情へ替える。
+                CharacterSwapSequence(
+                    from: .doom,
+                    to: .awake,
+                    size: DesignTokens.CharacterSize.lead,
+                    delayNanoseconds: 1_350_000_000
+                )
+                .frame(maxWidth: .infinity)
+
+                VStack(alignment: .center, spacing: 16) {
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
+                        Text(heroPrefix)
+                            .dopaFont(20, weight: .bold)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
+                        ZStack {
+                            // 最終値と同じ桁幅を先に確保し、カウントアップ中に行全体を動かさない。
+                            Text(heroDays)
+                                .dopaFont(70, weight: .black, design: .rounded)
+                                .monospacedDigit()
+                                .foregroundStyle(DesignTokens.accent)
+                                .dopaDisplayClamp()
+                                .hidden()
+                                .accessibilityHidden(true)
+
+                            OnboardingCountUp(
+                                target: recoveredDays,
+                                accessibilityText: heroAccessibilityText
+                            ) { days in
+                                Text("\(days)")
+                                    .dopaFont(70, weight: .black, design: .rounded)
+                                    .monospacedDigit()
+                                    .foregroundStyle(DesignTokens.accent)
+                                    .dopaDisplayClamp()
+                            }
+                        }
+                        .layoutPriority(1)
+                        Text(heroSuffix)
+                            .dopaFont(28, weight: .black)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .allowsTightening(true)
+                    }
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: heroAccessibilityText))
+
+                    centeredLead(String(localized: "onboarding.recovery.daily_body", defaultValue: "が自分の時間に戻ります"))
+                }
+                .onboardingStagger(2)
+
+                centeredLead(
+                    String(
+                        localized: "onboarding.recovery.disclaimer",
+                        defaultValue: "※質問1の回答をもとに 開く回数が半分になった場合を計算した試算値です。"
+                    )
+                )
+                    .padding(.top, 8)
+                    .onboardingStagger(3)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+    }
+
     var chooseAppsContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
@@ -983,6 +1073,32 @@ private extension OnboardingFlow {
                 }
                 .onboardingStagger(3)
 
+                // つまずくのは3・4の選択肢だけなので、その2画面ぶんだけ模式図で見せる。
+                // 正解に色と「ここを選ぶ」を付け、選ばない側は減光して迷いを消す。
+                CardContainer {
+                    VStack(alignment: .leading, spacing: 14) {
+                        SmallLabel(text: String(localized: "onboarding.automation.mock.label", defaultValue: "選択画面のイメージ"))
+                        automationMockGroup(
+                            correct: String(localized: "onboarding.automation.mock.opened", defaultValue: "開かれたとき"),
+                            incorrect: String(localized: "onboarding.automation.mock.closed", defaultValue: "閉じられたとき")
+                        )
+                        automationMockGroup(
+                            correct: String(localized: "onboarding.automation.mock.run_immediately", defaultValue: "すぐに実行"),
+                            incorrect: String(localized: "onboarding.automation.mock.ask_before", defaultValue: "実行の前に尋ねる")
+                        )
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    Text(
+                        String(
+                            localized: "onboarding.automation.mock.accessibility_label",
+                            defaultValue: "「開かれたとき」と「すぐに実行」を選びます"
+                        )
+                    )
+                )
+                .onboardingStagger(4)
+
                 CardContainer {
                     VStack(alignment: .leading, spacing: 10) {
                         SmallLabel(text: String(localized: "onboarding.automation.apps_label", defaultValue: "設定するアプリ"))
@@ -999,8 +1115,15 @@ private extension OnboardingFlow {
                         }
                     }
                 }
-                .onboardingStagger(4)
+                .onboardingStagger(5)
 
+                centeredLead(
+                    String(
+                        localized: "onboarding.automation.privacy_note",
+                        defaultValue: "検知するのは選んだアプリを開いたことだけです。ほかの操作や画面の内容がDopaBreakに送られることはありません。"
+                    )
+                )
+                .onboardingStagger(6)
             }
         }
     }
@@ -1495,6 +1618,50 @@ private extension OnboardingFlow {
             .foregroundStyle(DesignTokens.primaryText)
     }
 
+    /// ショートカットの選択画面を模した2択の組。正解に枠と印を付け、もう一方を減光する。
+    /// OSのUIを寸法まで写すのではなく、どちらを押すかだけが伝わればよい模式図に留める。
+    func automationMockGroup(correct: String, incorrect: String) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                Text(correct)
+                    .dopaFont(16, weight: .bold)
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Text(String(localized: "onboarding.automation.mock.badge", defaultValue: "ここを選ぶ"))
+                    .dopaFont(11, weight: .black)
+                    .foregroundStyle(DesignTokens.background)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(DesignTokens.accent)
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DesignTokens.accent.opacity(0.12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(DesignTokens.accent, lineWidth: 2)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Text(incorrect)
+                .dopaFont(16, weight: .semibold)
+                .foregroundStyle(DesignTokens.secondaryText.opacity(0.55))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DesignTokens.backgroundRaised.opacity(0.6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(DesignTokens.hairline, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
     func previewChoice(_ text: String, highlighted: Bool) -> some View {
         Text(text)
             .dopaFont(16, weight: .bold)
@@ -1577,6 +1744,12 @@ private extension OnboardingFlow {
         let bucket = usageBucket ?? "2-4時間"
         return (try? LossEstimator.estimate(usageBucket: bucket)) ??
             LossEstimator.Estimate(dailyMinutes: 150, yearlyDays: 38)
+    }
+
+    /// 開く回数が半分になった場合に戻る日数。損失側と同じ推計から切り出す。
+    /// 最小の推計でも0日と出さないよう1日で下げ止める。
+    var recoveredYearlyDays: Int {
+        max(1, currentEstimate.yearlyDays / 2)
     }
 }
 
@@ -1752,15 +1925,12 @@ private extension OnboardingFlow {
         return true
     }
 
-    /// リストへ1件足す。件数の上限に当たったらペイウォールを出し、falseを返す。
+    /// リストへ1件足す。同じ言葉がすでにあれば足さずにtrueを返す。
+    /// 件数の上限は撤廃済み（2026-08-17オーナー決定）のため、ここでペイウォールは出さない。
     @discardableResult
     func addDraftGoal(_ rawTitle: String) -> Bool {
         guard !OnboardingGoalList.contains(rawTitle, in: draftGoals) else {
             return true
-        }
-        guard model.entitlementGate.canAddGoal(currentCount: draftGoals.count) else {
-            paywallPlacement = .goalsLimit
-            return false
         }
         withAnimation(DopaMotion.control) {
             draftGoals = OnboardingGoalList.appending(rawTitle, to: draftGoals)

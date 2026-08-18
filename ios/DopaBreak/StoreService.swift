@@ -10,6 +10,58 @@ enum PaywallDismissalPolicy {
     }
 }
 
+/// プランカードに出す導入オファー表記の組み立て。
+/// 通貨記号は必ずStoreKitの価格書式が決める（¥0 / $0 / ₩0）。日本語UIでも米国ストアの利用者はUSDで
+/// 請求されるため、記号をリテラルで書くと実際の請求通貨と食い違う。
+enum IntroOfferDisplayPolicy {
+    enum PlanCardStyle: Equatable {
+        /// 「7日間 ¥0」。期間とゼロ価格が揃った正常系。
+        case durationWithZeroPrice(duration: String, zeroPrice: String)
+        /// 「7日間無料」。ゼロ価格を組み立てられなかったときの退避。
+        case durationOnly(duration: String)
+        /// 「無料期間あり」。期間すら取れなかったときの退避。
+        case unspecified
+    }
+
+    static func planCardStyle(durationText: String?, zeroPriceText: String?) -> PlanCardStyle {
+        guard let duration = normalizedText(durationText) else {
+            return .unspecified
+        }
+        guard let zeroPrice = normalizedZeroPriceText(zeroPriceText) else {
+            return .durationOnly(duration: duration)
+        }
+        return .durationWithZeroPrice(duration: duration, zeroPrice: zeroPrice)
+    }
+
+    static func planCardText(durationText: String?, zeroPriceText: String?) -> String {
+        switch planCardStyle(durationText: durationText, zeroPriceText: zeroPriceText) {
+        case .unspecified:
+            return String(localized: "store.intro_offer.available", defaultValue: "無料期間あり")
+        case .durationOnly(let duration):
+            return String(localized: "store.intro_offer.free", defaultValue: "\(duration)無料")
+        case .durationWithZeroPrice(let duration, let zeroPrice):
+            return String(localized: "store.intro_offer.zero_price", defaultValue: "\(duration) \(zeroPrice)")
+        }
+    }
+
+    /// 書式化が崩れて記号だけ・空文字になった値は使わない。金額として読めるものだけ通す。
+    static func normalizedZeroPriceText(_ text: String?) -> String? {
+        guard let trimmed = normalizedText(text),
+              trimmed.rangeOfCharacter(from: .decimalDigits) != nil else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private static func normalizedText(_ text: String?) -> String? {
+        guard let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+}
+
 @MainActor
 @Observable
 final class StoreService {
@@ -651,7 +703,8 @@ final class StoreService {
     }
 
     private func updateAnnualIntroOfferInfo() async {
-        guard let subscription = activeAnnualProduct?.subscription,
+        guard let product = activeAnnualProduct,
+              let subscription = product.subscription,
               let introductoryOffer = subscription.introductoryOffer,
               introductoryOffer.paymentMode == .freeTrial else {
             annualIntroOfferText = nil
@@ -660,16 +713,23 @@ final class StoreService {
             return
         }
 
-        annualIntroOfferText = freeTrialText(for: introductoryOffer)
+        annualIntroOfferText = freeTrialText(for: introductoryOffer, product: product)
         annualIntroOfferDurationText = freeTrialDurationText(for: introductoryOffer)
         isEligibleForAnnualIntroOffer = await subscription.isEligibleForIntroOffer
     }
 
-    private func freeTrialText(for offer: Product.SubscriptionOffer) -> String {
-        guard let durationText = freeTrialDurationText(for: offer) else {
-            return String(localized: "store.intro_offer.available", defaultValue: "無料期間あり")
-        }
-        return String(localized: "store.intro_offer.free", defaultValue: "\(durationText)無料")
+    private func freeTrialText(for offer: Product.SubscriptionOffer, product: Product) -> String {
+        IntroOfferDisplayPolicy.planCardText(
+            durationText: freeTrialDurationText(for: offer),
+            zeroPriceText: zeroPriceText(for: product)
+        )
+    }
+
+    /// 通貨記号はStoreKitの価格書式に決めさせる。0はJPYでもUSDでも小数部なしで見せる。
+    private func zeroPriceText(for product: Product) -> String? {
+        IntroOfferDisplayPolicy.normalizedZeroPriceText(
+            product.priceFormatStyle.precision(.fractionLength(0)).format(0)
+        )
     }
 
     private func freeTrialDurationText(for offer: Product.SubscriptionOffer) -> String? {

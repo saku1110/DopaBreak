@@ -37,6 +37,12 @@ public final class SettingsStore: @unchecked Sendable {
         static let usageWatchQuestionIntervalMinutes = "usageWatchQuestionIntervalMinutes"
         static let usageWatchNightModeEnabled = "usageWatchNightModeEnabled"
         static let pendingNotificationDestination = "pendingNotificationDestination"
+        static let deepFocusSession = "deepFocusSession"
+        static let deepFocusScheduleEnabled = "deepFocusScheduleEnabled"
+        static let deepFocusScheduleWeekdays = "deepFocusScheduleWeekdays"
+        static let deepFocusScheduleStartMinutes = "deepFocusScheduleStartMinutes"
+        static let deepFocusScheduleEndMinutes = "deepFocusScheduleEndMinutes"
+        static let trialReminderLeadDays = "trialReminderLeadDays"
 
         // firstLaunchDate, reviewPromptEventDates, the entitlement cache, and the one-shot
         // notification markers (annualUpgradeOfferNotificationFireDate /
@@ -71,7 +77,13 @@ public final class SettingsStore: @unchecked Sendable {
             usageWatchEnabled,
             usageWatchQuestionIntervalMinutes,
             usageWatchNightModeEnabled,
-            pendingNotificationDestination
+            pendingNotificationDestination,
+            deepFocusSession,
+            deepFocusScheduleEnabled,
+            deepFocusScheduleWeekdays,
+            deepFocusScheduleStartMinutes,
+            deepFocusScheduleEndMinutes,
+            trialReminderLeadDays
         ]
 
         /// `Key` から取り除かれた旧キー。既存インストールには値が残り続けるため、
@@ -329,6 +341,22 @@ public final class SettingsStore: @unchecked Sendable {
         }
     }
 
+    /// 無料トライアル終了の何日前に知らせるか。ペイウォールで選び、終了前通知の予約日に使う。
+    /// 未保存でも `integer(forKey:)` が返す0を既定へ寄せるため、許容値以外は既定に丸める。
+    public var trialReminderLeadDays: Int {
+        get {
+            TrialReminderLeadDays.normalized(
+                userDefaults.integer(forKey: Key.trialReminderLeadDays)
+            )
+        }
+        set {
+            userDefaults.set(
+                TrialReminderLeadDays.normalized(newValue),
+                forKey: Key.trialReminderLeadDays
+            )
+        }
+    }
+
     public var usageWatchNightModeEnabled: Bool {
         get { userDefaults.bool(forKey: Key.usageWatchNightModeEnabled) }
         set { userDefaults.set(newValue, forKey: Key.usageWatchNightModeEnabled) }
@@ -349,6 +377,54 @@ public final class SettingsStore: @unchecked Sendable {
                 return
             }
             userDefaults.set(data, forKey: Key.pendingNotificationDestination)
+        }
+    }
+
+    /// 「いますぐ」で始めた完全ブロックの回。進行中でなければ `nil`。
+    ///
+    /// 終わった回はここに残さない（`DeepFocusScheduler` の同期で潰す）。
+    /// 残したままにすると、画面が「実行中」と出したまま実際は解除されている状態になる。
+    public var deepFocusSession: DeepFocusSession? {
+        get {
+            guard let data = userDefaults.data(forKey: Key.deepFocusSession) else {
+                return nil
+            }
+            return try? JSONDecoder().decode(DeepFocusSession.self, from: data)
+        }
+        set {
+            guard let newValue, let data = try? JSONEncoder().encode(newValue) else {
+                userDefaults.removeObject(forKey: Key.deepFocusSession)
+                return
+            }
+            userDefaults.set(data, forKey: Key.deepFocusSession)
+        }
+    }
+
+    /// 週に1本の完全ブロックの時間帯。曜日と時刻は個別のキーに置き、
+    /// 片方の保存だけ失敗しても残りが読めるようにする。
+    public var deepFocusSchedule: DeepFocusSchedule {
+        get {
+            let storedWeekdays = (userDefaults.array(forKey: Key.deepFocusScheduleWeekdays) ?? [])
+                .compactMap { ($0 as? NSNumber)?.intValue }
+            return DeepFocusSchedule(
+                isEnabled: userDefaults.bool(forKey: Key.deepFocusScheduleEnabled),
+                weekdays: storedWeekdays,
+                startMinutes: intOrDefault(
+                    forKey: Key.deepFocusScheduleStartMinutes,
+                    defaultValue: DeepFocusConstants.defaultScheduleStartMinutes
+                ),
+                endMinutes: intOrDefault(
+                    forKey: Key.deepFocusScheduleEndMinutes,
+                    defaultValue: DeepFocusConstants.defaultScheduleEndMinutes
+                )
+            )
+        }
+        set {
+            // 正規化は `DeepFocusSchedule` のイニシャライザが済ませている。ここでは書くだけ。
+            userDefaults.set(newValue.isEnabled, forKey: Key.deepFocusScheduleEnabled)
+            userDefaults.set(newValue.weekdays, forKey: Key.deepFocusScheduleWeekdays)
+            userDefaults.set(newValue.startMinutes, forKey: Key.deepFocusScheduleStartMinutes)
+            userDefaults.set(newValue.endMinutes, forKey: Key.deepFocusScheduleEndMinutes)
         }
     }
 
@@ -384,6 +460,15 @@ public final class SettingsStore: @unchecked Sendable {
             return defaultValue
         }
         return userDefaults.bool(forKey: key)
+    }
+
+    /// 未保存と「0を保存した」を区別する。`integer(forKey:)` は未保存でも0を返すため、
+    /// 0時ちょうどを設定した人の値が既定へ戻されてしまう。
+    private func intOrDefault(forKey key: String, defaultValue: Int) -> Int {
+        guard let stored = userDefaults.object(forKey: key) as? Int else {
+            return defaultValue
+        }
+        return stored
     }
 
     private static func normalizedMinutes(_ value: Int) -> Int {

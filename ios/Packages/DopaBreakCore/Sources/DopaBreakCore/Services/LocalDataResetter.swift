@@ -77,6 +77,9 @@ public struct LocalDataResetter {
         // 夜だけ強化の控えを残すと、ルールを消したあとの夜境界で拡張が
         // 消したはずの対象を再びブロックする。
         attempt { try snapshotStore.remove(.nightShieldSnapshot) }
+        // 完全ブロックの窓の控えも同じ理由で消す。残すと、ルールを消したあとの
+        // 窓の境界で拡張が同じ対象を張り直す。
+        attempt { try snapshotStore.remove(.deepFocusShieldSnapshot) }
 
         settingsStore.resetToDefaults()
         successfulOperationCount += 1

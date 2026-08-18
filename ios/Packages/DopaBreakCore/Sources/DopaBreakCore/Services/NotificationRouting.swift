@@ -28,6 +28,10 @@ public enum NotificationIdentifier {
     public static let annualUpgradeOffer = "dopabreak.annualoffer"
     public static let cancelSave = "dopabreak.cancelsave"
 
+    /// 「いますぐ」で始めた完全ブロックが終わったことだけを伝える通知。
+    /// ユーザーが自分で決めた終わりなので、深夜帯の繰り延べは当てない。
+    public static let deepFocusSessionEnd = "dopabreak.deepfocus.sessionend"
+
     /// 介入セッションの中間チェックイン通知の接頭辞（着地先ではなくシート提示を持つ）。
     public static let midSessionPrefix = "dopabreak.midsession."
 

@@ -56,7 +56,8 @@ final class InterventionModeAvailabilityTests: XCTestCase {
                 isPro: true,
                 strictModeAllowed: true,
                 hasConfirmedEntitlement: true,
-                isNightWindow: true
+                isNightWindow: true,
+                isDeepFocusWindowActive: true
             ),
             .apply(rules: [rule])
         )
@@ -66,7 +67,8 @@ final class InterventionModeAvailabilityTests: XCTestCase {
                 isPro: true,
                 strictModeAllowed: true,
                 hasConfirmedEntitlement: true,
-                isNightWindow: false
+                isNightWindow: false,
+                isDeepFocusWindowActive: true
             ),
             .clear
         )

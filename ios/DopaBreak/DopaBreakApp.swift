@@ -1,6 +1,8 @@
 import DopaBreakCore
 import Observation
+import StoreKit
 import SwiftUI
+import UIKit
 import UserNotifications
 
 enum DopaBreakOpenURLHandler {
@@ -26,9 +28,11 @@ enum DopaBreakOpenURLHandler {
 
 @main
 struct DopaBreakApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
     @State private var onboarding = OnboardingCoordinator()
     @StateObject private var launchSplash = LaunchSplashCoordinator()
+    @StateObject private var quickActions = QuickActionCenter.shared
     private let notificationDelegate: NotificationDelegate
 
     init() {
@@ -75,7 +79,114 @@ struct DopaBreakApp: App {
                     launchSplash.complete(.deepLink)
                 }
             }
+            // コールドスタートでは押下がViewの生成より先に届くため、ここでも拾う。
+            .task {
+                updateQuickActions()
+                consumePendingQuickAction()
+            }
+            .onChange(of: quickActions.pendingAction) { _, _ in
+                consumePendingQuickAction()
+            }
+            .onChange(of: onboarding.isCompleted) { _, _ in
+                updateQuickActions()
+            }
+            // 設定で対象アプリを全部外した直後に、着地先の無い介入枠を残さない。
+            .onChange(of: model.hasInterventionTargets) { _, _ in
+                updateQuickActions()
+            }
+            .onChange(of: model.storeService.isPro) { _, _ in
+                updateQuickActions()
+            }
+            .onChange(of: model.storeService.hasConfirmedEntitlement) { _, _ in
+                updateQuickActions()
+            }
+            .onChange(of: model.storeService.entitlementRevision) { _, _ in
+                updateQuickActions()
+            }
         }
+    }
+
+    /// 権利・オンボーディング状態・対象アプリの有無に合わせてクイックアクションを登録し直す。
+    /// 課金状態と対象アプリが変わるたびに通す唯一の入口。
+    private func updateQuickActions() {
+        quickActions.updateShortcutItems(
+            isOnboardingCompleted: onboarding.isCompleted,
+            hasInterventionTargets: model.hasInterventionTargets,
+            isPro: model.storeService.isPro,
+            hasConfirmedEntitlement: model.storeService.hasConfirmedEntitlement
+        )
+    }
+
+    /// ホーム画面クイックアクション（アイコン長押し）の押下を着地先へ送る。
+    ///
+    /// オンボーディング中でもサポート枠は押せるため、消費はRootTabViewではなくここに置く。
+    /// RootTabViewに置くと、オンボーディング中の押下を誰も拾えず無反応になる。
+    private func consumePendingQuickAction() {
+        guard let action = quickActions.consumePendingAction() else {
+            return
+        }
+        // 着地先へ即座に送るため起動演出は畳む。
+        withAnimation(LaunchSplashConfiguration.crossfadeAnimation) {
+            launchSplash.complete(.quickAction)
+        }
+
+        switch action {
+        case .intervene:
+            startInterventionFromQuickAction()
+        case .offer:
+            presentOfferCodeRedeemSheet()
+        case .support:
+            openFeedbackEmail()
+        }
+    }
+
+    /// コア機能の枠。選んである対象アプリの1つ目で介入フローを開く。
+    ///
+    /// 渡す先はオートメーション検収を進める `consumeInterventionRequest` ではない。
+    /// 長押しからの起動は対象アプリを開いた事実ではないため、検収済みマークを付けてはいけない。
+    /// 実際の提示はRootTabViewが `pendingInterventionCatalogID` の変化を見て行う。
+    /// 対象アプリが0件のときはそもそも枠を登録しない（`QuickActionPolicy.types`）。
+    /// ここのguardは、登録直後に対象が消えた場合の受け皿として残す。
+    private func startInterventionFromQuickAction() {
+        guard onboarding.isCompleted,
+              let catalogID = (try? model.targetStore.selectedCatalogIDs())?.first else {
+            return
+        }
+        model.requestStartIntervention(catalogID: catalogID)
+    }
+
+    /// 引き止めオファーの枠。Apple の Offer Code 引き換えシートだけを開く。
+    /// 外部リンク・別決済への誘導は審査3.1.1違反になるため実装しない。
+    private func presentOfferCodeRedeemSheet() {
+        guard QuickActionsConfiguration.offerSlotEnabled else {
+            return
+        }
+        let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let windowScene = windowScenes.first(where: { $0.activationState == .foregroundActive })
+            ?? windowScenes.first else {
+            return
+        }
+        Task {
+            do {
+                try await AppStore.presentOfferCodeRedeemSheet(in: windowScene)
+            } catch {
+                model.alertMessage = String(
+                    localized: "quick_action.offer.error.unavailable",
+                    defaultValue: "オファーの画面を開けませんでした"
+                )
+            }
+        }
+    }
+
+    /// サポートの枠。設定と同じ問い合わせ導線（mailto）へ送る。
+    private func openFeedbackEmail() {
+        let appShortVersion = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "1.0"
+        guard let url = AppURLs.feedbackEmail(appVersion: appShortVersion) else {
+            return
+        }
+        UIApplication.shared.open(url)
     }
 
     /// `dopabreak://intervene?app=<catalogID>` を受け付ける（doc12 §2 URLルーティング・フォールバック経路）。
@@ -96,6 +207,8 @@ struct DopaBreakApp: App {
     private func handleAppActive() {
         model.recordAppOpenedIfNeeded()
         consumePendingInterventionRequest()
+        updateQuickActions()
+        consumePendingQuickAction()
     }
 }
 

@@ -10,6 +10,7 @@ public enum SnapshotFile: String, Codable, Equatable, Sendable, CaseIterable {
     case interventionTargets = "intervention_targets.json"
     case funnelEvents = "funnel_events.json"
     case nightShieldSnapshot = "night_shield_snapshot.json"
+    case deepFocusShieldSnapshot = "deepfocus_shield_snapshot.json"
 }
 
 public struct JSONSnapshotStore: Sendable {

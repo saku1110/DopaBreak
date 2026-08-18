@@ -16,9 +16,14 @@ public enum ShieldSyncAction: Equatable, Sendable {
 
 /// 完全ブロック（Deep Focus / 夜だけ強化）の適用可否を決める純関数。
 ///
-/// どちらもPro専用。`deepFocus` は常時、`nightOnly` は就寝から起床までの窓のなかだけ通す。
-/// いまが夜かどうかの判定は `NightWindowPolicy` が持ち、ここへは結果だけを渡す。
+/// どちらもPro専用で、どちらも決めた窓のなかだけ通す。
+/// `deepFocus` の窓は「いますぐ」で始めた回と週1本の予定（`DeepFocusWindowPolicy`）、
+/// `nightOnly` の窓は就寝から起床まで（`NightWindowPolicy`）。
+/// どちらの判定も別の純関数が持ち、ここへは結果だけを渡す。
 /// 時計を読む処理をこの純関数へ入れないため、呼び出し側が毎回明示して渡す。
+///
+/// **`deepFocus` は 2026-08-17 に「常時」から「窓のなかだけ」へ変わった（オーナー決定④）。**
+/// 窓が閉じたのに解除が届かない状態は、閉じ込め事故として扱う。窓の外では必ず `clear` へ倒す。
 ///
 /// **降格は非破壊で行う（2026-08-14 Fable裁定・恒久）。**
 /// Freeへ戻った人には「シールドを解除する」だけで、ルールに保存された `deepFocus` は書き換えない。
@@ -35,23 +40,32 @@ public enum ShieldSyncPolicy {
         isPro: Bool,
         strictModeAllowed: Bool,
         hasConfirmedEntitlement: Bool,
-        isNightWindow: Bool
+        isNightWindow: Bool,
+        isDeepFocusWindowActive: Bool
     ) -> [TargetRule] {
         guard hasConfirmedEntitlement, isPro, strictModeAllowed else {
             return []
         }
         return rules.filter { rule in
             rule.isEnabled
-                && shieldsNow(mode: rule.mode, isNightWindow: isNightWindow)
+                && shieldsNow(
+                    mode: rule.mode,
+                    isNightWindow: isNightWindow,
+                    isDeepFocusWindowActive: isDeepFocusWindowActive
+                )
                 && !rule.activitySelectionData.isEmpty
         }
     }
 
-    /// いまこの強さがブロックを出すか。夜だけ強化は窓の外では何も出さない。
-    private static func shieldsNow(mode: InterventionMode, isNightWindow: Bool) -> Bool {
+    /// いまこの強さがブロックを出すか。どちらの強さも窓の外では何も出さない。
+    private static func shieldsNow(
+        mode: InterventionMode,
+        isNightWindow: Bool,
+        isDeepFocusWindowActive: Bool
+    ) -> Bool {
         switch mode {
         case .deepFocus:
-            return true
+            return isDeepFocusWindowActive
         case .nightOnly:
             return isNightWindow
         case .standard:
@@ -82,7 +96,8 @@ public enum ShieldSyncPolicy {
         isPro: Bool,
         strictModeAllowed: Bool,
         hasConfirmedEntitlement: Bool,
-        isNightWindow: Bool
+        isNightWindow: Bool,
+        isDeepFocusWindowActive: Bool
     ) -> ShieldSyncAction {
         guard hasConfirmedEntitlement else {
             return .preserve
@@ -93,7 +108,8 @@ public enum ShieldSyncPolicy {
             isPro: isPro,
             strictModeAllowed: strictModeAllowed,
             hasConfirmedEntitlement: hasConfirmedEntitlement,
-            isNightWindow: isNightWindow
+            isNightWindow: isNightWindow,
+            isDeepFocusWindowActive: isDeepFocusWindowActive
         )
         return targets.isEmpty ? .clear : .apply(rules: targets)
     }
@@ -108,7 +124,8 @@ public enum ShieldSyncPolicy {
         isPro: Bool,
         strictModeAllowed: Bool,
         hasConfirmedEntitlement: Bool,
-        isNightWindow: Bool
+        isNightWindow: Bool,
+        isDeepFocusWindowActive: Bool
     ) -> ShieldSyncAction {
         if requiresUnconditionalClear(
             isPro: isPro,
@@ -134,7 +151,8 @@ public enum ShieldSyncPolicy {
             isPro: isPro,
             strictModeAllowed: strictModeAllowed,
             hasConfirmedEntitlement: hasConfirmedEntitlement,
-            isNightWindow: isNightWindow
+            isNightWindow: isNightWindow,
+            isDeepFocusWindowActive: isDeepFocusWindowActive
         )
     }
 }

@@ -18,7 +18,7 @@ extension InterventionMode {
         case .deepFocus:
             return String(
                 localized: "intervention_mode.deep_focus.detail",
-                defaultValue: "作業中はSNSを開く前の確認を強くする"
+                defaultValue: "決めた時間は選んだアプリを完全ブロック"
             )
         case .standard:
             return String(

@@ -380,3 +380,39 @@
 - 実装体制の例外: **Codexが利用上限（8/20 13:22まで）**のためFableが実装し、独立性確保のためOpus5がレビュー（指摘0件）。
 - 検証: humanizer-en / humanizer-ko とも exit 0（最終文言で再実行）・lint-display-copy exit 0・audit-default-values mismatches=0（calls=635）・キー総数553・BUILD SUCCEEDED・ja/en/ko 3言語をシミュレータ実表示で1行に収まることを確認。
 - Claude Code向け制約: ボタン文言と`action_note`は対で扱う（片方だけ変えると「何を」「どれだけ時間がかかるか」の役割分担が崩れる）。結果画面の語彙（溶けています/lost to your feed/녹고 있어요）を変える場合はCTAも同時に見直すこと。
+
+## 2026-08-17 — ペイウォール機能6行・目標のFree無制限化・Deep Focus説明の実動作合わせ（WS-F / オーナー決定）
+
+- 承認の経緯（引用可能な記録・2026-08-17セッション）: 目標無料化はオーナー自身の発案「目標は無料で何個も追加できてよくないか？」→ Fableが賛成理由と影響を提示し「GO 4件」（①ペイウォール6行差し替え ②目標の無料無制限化 ③モード説明2キー修正 ④Deep Focus窓機能）として明示確認 → オーナー「OK進めて」で承認。設計書側の先行記載による昇格ではない。
+
+- 目標のFree制限を撤廃（オーナー決定・2026-08-17）: `EntitlementGate.goalsLimit` をFree/Proとも `nil` にし、`AppContainer.canAddGoal`・`addGoal` の権利ガード・`replaceGoals` の件数チェック・`GoalsView` の追加ボタン分岐・`OnboardingFlow.addDraftGoal` の権利ガードを除去した。目標データとUIそのものは変えていない（ゲートだけを外した）。理由: 目標は「開こうとした瞬間に何のために我慢するのか」を出す介入体験の中核で、1件に絞ると使い込むほど窮屈になり継続を毀損する。一方で件数はPro購入の押し出しとして弱く、課金の主軸（アプリ数・完全ブロック・記録の全期間）と競合しない。
+- 掲出箇所が消えたため `PaywallPlacement.goalsLimit`（rawValue `goals_limit`）を削除した。過去に記録済みの計測イベントは文字列としてそのまま残る（列挙からの復元経路はない）。
+- ペイウォール機能リストを確定6行・確定順へ差し替えた: `unlimited_apps` → `deep_focus` → `night_block`(新規) → `usage_watch`(新規) → `full_history` → `lock_theme`。`paywall.feature.unlimited_goals`・`paywall.feature.weekly_report` は行ごと廃止しキーも削除。ja/en/koは設計契約の確定値をそのまま入れており（en/koはhumanizer監査ゲート通過済み）、改変していない。`unlimited_apps` ja だけ「〜追加できる」→「〜追加」へ短縮し全6行を言い切りで統一した。
+- モード説明2キーを窓の意味論（WS-EのDeep Focus窓機能）へ合わせた: `intervention_mode.deep_focus.detail` = ja「決めた時間は選んだアプリを完全ブロック」/ en "Fully blocks your chosen apps during the times you set" / ko「정한 시간에는 고른 앱을 완전 차단」。`onboarding.mode.deep_focus.confirmation.message` = ja「Deep Focus中は選んだアプリを開けません。時間はいつでも変えられます。」で、en/koは直訳せずtranscreation（koはカタログの既存表記「딥 포커스」に揃えた）。旧文言の「作業中」「集中時間中」は実動作と一致していなかった。
+- 却下・制約: `app.error.goal_pro_required` はキーだけ残した（WS-Fのxcstrings変更範囲を `paywall.feature.*` / `intervention_mode.*` / `onboarding.mode.deep_focus.confirmation.message` に限定する取り決めのため）。参照は全て消えているので、掃除は別バッチで行う。`goalsLimit`・`canAddGoal` のAPIは無制限を返す形で残してある（呼び出し側の型と既存テストの構造を保つため）。ペイウォール6行のja/en/ko値とその並び順は確定値なので、後続の作業で言い換えない。
+- 検証: Core `swift test` 389件・失敗0。`xcodegen generate` → 署名なしgeneric iOS Simulator build `BUILD SUCCEEDED`。Simulator `1DCBD618-3BBB-4CB9-8E86-03F58AECD9E0` の `DopaBreakTests` 112件・失敗0（`TEST SUCCEEDED`）。`python3 scripts/lint-display-copy.py` exit 0（検出2件は本作業と無関係の既存 `onboarding.preview.step2/3`）。xcstringsのJSON解析OK・キー総数557。
+
+## 2026-08-17 — Opal競合分析3施策: 「取り戻せる時間」ステップ・ショートカット選択モック・トライアル通知の事前選択（オーナー承認「1,3,4進めていい」）
+
+- 経緯: オーナーがOpalのオンボーディング動画を提示→活かせる点6件を提案→「1,3,4進めていい」で3件のみ承認（回答エコー/名前入りサマリー/ブランド比喩回収は未承認・見送り）。無料トライアルは既存（年額の7日導入オファー・docs/15 §2）で、8/11廃止のリバーストライアルとは別物と確認済み。
+- 施策A: `OnboardingStep` に `recovery`（id `recovery_estimate`）を quizResult 直後へ新設し15→16ステップ化。損失側（1年で約◯日が溶ける）と対になるグッドニュース画面で、`max(1, yearlyDays / 2)` の**条件付き算術**（「開く回数を半分にできた場合」）のみを表示。効果の断定・保証表現は景表法対応で不使用。ヒーロー数値はquizResultと同じ作法（桁幅確保hidden・monospacedDigit・OnboardingCountUp・accessibilityLabel）、キャラはdoom→awakeで損失側のdoom→worseと対。
+- 施策B: `automationGuideContent` に「選択画面のイメージ」モックカードを追加。つまずき2箇所（「開かれたとき」vs「閉じられたとき」・「すぐに実行」vs「実行の前に尋ねる」）を正解=アクセントリング＋「ここを選ぶ」バッジ／誤答=減光で図解。OS UIのクローンではなくDesignTokensの模式図。モックは1要素にまとめた要旨accessibilityLabel付き。信頼コピー「検知するのは選んだアプリを開いたことだけです。〜」を追加（Opalの権限プライミングの翻案）。
+- 施策C: 固定Day5トライアル通知を選択制へ一般化。Core側 `TrialReminderLeadDays`（standard=2 / allowed=[2,3] / normalized丸め）＋ `trialReminderDate(from:leadDays:)`（fireDay=7-leadDays・1...6クランプ）。既存 `trialDay5Date` はleadDays=2の互換ラッパー。`SettingsStore.trialReminderLeadDays`（既定2・resettable）。PaywallViewは年額選択中かつ導入オファー対象時のみ planList と legalArea の間にカード表示（セグメント2日前/3日前・購入処理中はdisabled）。通知identifier（dopabreak.trialday5）と本文は不変（「7日目に年額プランへ切り替わります」は3日前でも事実として正）。
+- ko判断: モックのラベルは既存カタログ `onboarding.automation.step3/4` の確定表記（「'열림' 선택」「'즉시 실행' 선택」）に揃え「열림/닫힘」を採用（同一画面内の表記割れ回避を優先）。
+- 実装体制: **Codex利用上限（〜8/20 13:22）のため実装=Opus5サブエージェント／レビュー=Fable**（8/15前例と同じ独立性確保）。レビュー指摘0件で受け入れ。
+- Claude Code向け制約: recoveryの数値は条件付き試算のまま維持し「◯%減らせます」等の効果断定へ言い換えない。quizResultの語彙（溶けています系）を変える場合はrecoveryの対語彙（戻ります系）も同時に見直す。トライアル通知の許容値を増やす場合は `TrialReminderLeadDays.allowed` とペイウォールPickerのtagを対で更新する。
+- 検証: xcodegen成功・署名なしgeneric Simulator build `BUILD SUCCEEDED`・Core swift test 454件/失敗0・DopaBreakTests（UDID 1DCBD618・キャプチャ除外）130件/失敗0 `TEST SUCCEEDED`・audit-default-values 0（calls=678）・lint-display-copy exit 0・xcstrings新規20キー3言語translated・humanizer-en/ko両audit exit 0・`git diff --check` clean。
+- 残課題（未実装・依頼外）: OnboardingMotionCaptureへのrecoveryステージ追加（`("03b-recovery", .recovery, false)` で足りる）／購入後にリマインダー日を変える設定導線なし（購入前選択が主経路）／オンボ16ステップ化に伴うrecovery_estimate離脱率の計測観察。
+- 追記（2026-08-17・オーナー決定「OK維持で」）: ペイウォールの「無料期間が終わる前に通知でお知らせします」カードは**維持で確定**。オーナーから「CV逃す設計では」「離脱よりCVRが上回るのか」と2度問われ、①Blinkist A/B実測（トライアル開始+23%・トライアル継続+4%＝解約は増えず減少・苦情-55%）②自動更新の法定表示（3.1.1）とAppleの終了前メールにより「課金の恐怖」は元から画面と導線にあり、カードは安全弁のみ追加 ③Duolingo・Opalも常設という3点を提示して承認。判定指標はDL→トライアル開始率（SOSA中央値5.7%/目標8%）で観察。**このカードの存廃を再提案する場合はこの決定を先に示すこと**。
+
+## 2026-08-18 — ペイウォールのゼロ価格フレーミング「7日間無料」→「7日間 ¥0」（オーナー承認「OK入れよう」）
+
+- 経緯: オーナーがXのポスト（@kedytcom・「7 days free」→「7 days $0」の1語変更でCVR+35%と主張）を提示し `/brainstorm` で評価を依頼。**+35%は自己申告・n不明・メトリクス未公開（リプで請求され「Tomorrow」のまま）のため採用しない**が、①「無料」はセールス語として説得知識モデルの警戒フィルタに掛かる／「¥0」は数字＋通貨記号で価格スキーマとして処理される ②同一カード内の「¥4,980」と数字同士で対比が成立 ③コストほぼゼロ・完全可逆、の3点で期待値が正と判断し条件付き採用。効果の期待値は1桁%（未確認の推定）。議事録: `.claude/brainstorm/2026-08-18_paywall-zero-price-framing.md`
+- 🔴 **通貨記号のリテラル記述を恒久禁止**（本件で確立）: 「¥0」を文字列やxcstringsへ直書きすると、日本語UIでも米国ストアの利用者（USD課金）に¥0が出て実際の請求通貨と食い違う。景表法・審査3.1.1の両面でリスク。**必ず `Product.priceFormatStyle` に通貨を決めさせる**。シミュレータ実査で「$39.99の隣に¥0が並ぶ」状態が実際に再現可能と確認済み（ローカル.storekitはJPY定義だが実効環境はUSDだった）。
+- 実装: `ios/DopaBreak/StoreService.swift` に純粋enum `IntroOfferDisplayPolicy`（既存 `PaywallDismissalPolicy` と同じポリシー分離パターン）を新設。`zeroPriceText` は `product.priceFormatStyle.precision(.fractionLength(0)).format(0)`（precision指定なしだとUSDで "$0.00" になるため必須。現行SDKでそのまま通る）。`updateAnnualIntroOfferInfo` のguardで `activeAnnualProduct` を束縛し `freeTrialText(for:product:)` へ渡す。
+- 3段フォールバック: ①期間＋ゼロ価格が揃う→`store.intro_offer.zero_price`（正常系）②ゼロ価格がnil/空白/**数字を含まない**（書式崩れで記号だけになった場合）→既存 `store.intro_offer.free`（「7日間無料」）③期間も取れない→`store.intro_offer.available`（「無料期間あり」）。空文字や壊れた表示にはならない。
+- 新規キー `store.intro_offer.zero_price`（**位置指定子必須**・語順が言語で逆転するため）: ja `%1$@ %2$@`→「7日間 ¥0」／ en `%2$@ for %1$@`→「$0 for 7 days」／ ko `%1$@ %2$@`→「7일 ₩0」。%1$@=期間・%2$@=ゼロ価格。
+- Claude Code向け制約: **CTA `paywall.action.start_free`（「7日間無料で始める」）をゼロ価格化しない**（CTAに金額を入れないオーナー恒久指示・2026-07-28）。`paywall.legal.annual_intro`（自動更新の法定表示）・`paywall.plan.annual.intro_fallback`（商品未取得時の異常系のため通貨不明）・`paywall.trial_reminder.*`（散文）・`store.intro_offer.duration.*` も不変。`store.intro_offer.free` はフォールバックで現役のため削除しない。位置指定子を1つでも落とすと3言語のいずれかで表示が壊れる。
+- 検証: xcodegen成功・署名なしgeneric Simulator build `BUILD SUCCEEDED`・Core swift test 454件/失敗0・DopaBreakTests（UDID 1DCBD618・キャプチャ除外）**142件/失敗0**（新規 `IntroOfferDisplayTests` 15件含む）`TEST SUCCEEDED`・audit-default-values 0（calls=679）・lint-display-copy exit 0・`jq empty`と3言語translated・`git diff --check` clean。**実機表示（UDID DF6A380F）で「年間$39.99を一括請求・7日間 $0」を確認し、¥が混入しないことを実査**。Fableレビューで位置指定子の語順逆転を `String(format:)` により独立検証（en→"$0 for 7 days"）。指摘0件で受け入れ。
+- 実装体制: Codex利用上限（〜8/20 13:22）のため実装=Opus5サブエージェント／レビュー=Fable。
+- 効果測定: リリース前でトラフィックがゼロのためA/B検出不能。**理論で選んで置く変更**であり、リリース後はDL→トライアル開始率（SOSA中央値5.7%・目標8%）の方向監視のみ。下振れしたら1語戻す（二方向ドア）。

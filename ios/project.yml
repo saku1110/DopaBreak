@@ -54,6 +54,11 @@ targets:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
+        # 独自の暗号は一切持たない。CryptoKit/CommonCrypto/Security(Keychain)は未リンクで、
+        # URLSession等のネットワークAPIも使わない。暗号に触れるのはOS提供のもの
+        # （JSONSnapshotStoreのデータ保護・StoreKit・Safariで開く外部リンクのHTTPS）だけのため
+        # 輸出コンプライアンス上は exempt。審査ごとの申告ダイアログを出さないよう明示する。
+        ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
         # AVPictureInPictureControllerで、ユーザーが見ている設定動画をShortcuts上でも
         # PiP継続するために必要。ガイドを閉じると再生を止め、隠れた常時再生には使わない。

@@ -34,7 +34,66 @@ struct SettingsView: View {
     @State private var planNotificationsEnabled = true
     @State private var liveActivityEnabled = true
     @State private var selectedLockTheme: LockTheme = .e1
+    @State private var selectedSessionOption: DeepFocusSessionOption = .oneHour
+    @State private var deepFocusSchedule: DeepFocusSchedule = .disabled
+    /// 進行中の回。1秒ごとの再描画で残り時間を出し、0になった瞬間に同期へ回す。
+    @State private var deepFocusSession: DeepFocusSession?
+    @State private var deepFocusRemainingSeconds: TimeInterval?
+    /// いま予定の時間帯に入っているか。入っているあいだは解除の導線を出さない。
+    @State private var isScheduleWindowActive = false
     @Environment(\.openURL) private var openURL
+
+    /// 曜日チップの並び。月曜から日曜（`Calendar` の番号では2から始まり1で終わる）。
+    private static let weekdayOrder = [2, 3, 4, 5, 6, 7, 1]
+
+    private static let deepFocusTicker = Timer.publish(every: 1, on: .main, in: .common)
+        .autoconnect()
+
+    /// 「いますぐ」の4択。`durationMinutes` が `nil` なら「自分で戻すまで」。
+    enum DeepFocusSessionOption: Hashable, CaseIterable {
+        case thirtyMinutes
+        case oneHour
+        case twoHours
+        case untilStopped
+
+        var durationMinutes: Int? {
+            switch self {
+            case .thirtyMinutes:
+                return 30
+            case .oneHour:
+                return 60
+            case .twoHours:
+                return 120
+            case .untilStopped:
+                return nil
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .thirtyMinutes:
+                return String(
+                    localized: "settings.deep_focus.session.option.thirty_minutes",
+                    defaultValue: "30分"
+                )
+            case .oneHour:
+                return String(
+                    localized: "settings.deep_focus.session.option.one_hour",
+                    defaultValue: "1時間"
+                )
+            case .twoHours:
+                return String(
+                    localized: "settings.deep_focus.session.option.two_hours",
+                    defaultValue: "2時間"
+                )
+            case .untilStopped:
+                return String(
+                    localized: "settings.deep_focus.session.option.until_stopped",
+                    defaultValue: "戻すまで"
+                )
+            }
+        }
+    }
 
     /// プラン系通知のタップで送り込む先（docs/18 §2f）。
     private static let planSectionID = "settings.section.account"
@@ -610,6 +669,16 @@ struct SettingsView: View {
 
                         divider
                         deepFocusTargetsRow
+
+                        // 窓を持つのはディープフォーカスだけ。夜だけ強化は就寝・起床が窓になるため、
+                        // ここに出すと同じ設定が2か所にあるように見える。
+                        if selectedMode == .deepFocus {
+                            divider
+                            deepFocusSessionBlock
+
+                            divider
+                            deepFocusScheduleBlock
+                        }
                     } else {
                         deepFocusLockedRow(
                             label: String(localized: "settings.mode.label", defaultValue: "止める強さ")
@@ -634,6 +703,467 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - 完全ブロックの窓
+
+    /// 「いますぐ」で始める枠。実行中は残り時間と解除だけを出す。
+    private var deepFocusSessionBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 予定の時間帯に入っているあいだは、行そのものが「予定の時間帯」と名乗る。
+            // 見出しを重ねると、始める操作ができない枠に「いますぐ始める」が残って読みづらい。
+            if !isScheduleWindowActive {
+                Text(
+                    String(
+                        localized: "settings.deep_focus.session.label",
+                        defaultValue: "いますぐ始める"
+                    )
+                )
+                .dopaFont(16, weight: .semibold)
+                .foregroundStyle(DesignTokens.primaryText)
+            }
+
+            // 予定の時間帯に入っているあいだは「いま解除」を出さない。
+            // 押しても予定のぶんが残って開かないため、効かないボタンを見せることになる。
+            if isScheduleWindowActive {
+                scheduleWindowRow
+            } else if deepFocusSession != nil {
+                runningSessionRow
+            } else {
+                sessionOptionChips
+                startSessionButton
+            }
+        }
+        .padding(.vertical, 14)
+        .onReceive(Self.deepFocusTicker) { _ in
+            tickDeepFocusSession()
+        }
+    }
+
+    /// 予定の時間帯に入っているあいだの表示。いつまで続くかを時刻で示す。
+    private var scheduleWindowRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Text(
+                    String(
+                        localized: "settings.deep_focus.schedule.active.label",
+                        defaultValue: "予定の時間帯"
+                    )
+                )
+                .dopaFont(16, weight: .bold)
+                .foregroundStyle(DesignTokens.accent)
+
+                Spacer()
+
+                Text(scheduleWindowUntilText)
+                    .dopaFont(16, weight: .bold)
+                    .foregroundStyle(DesignTokens.accent)
+                    .monospacedDigit()
+            }
+
+            // 予定が終わったあとも続くぶんがあるなら、そのことを先に書いておく。
+            // 黙っていると、22時を過ぎても開かない理由が誰にも分からない。
+            if deepFocusSession != nil {
+                Text(
+                    String(
+                        localized: "settings.deep_focus.schedule.active.session_notice",
+                        defaultValue: "予定の時間帯が終わったあとも、いますぐ始めた分は続きます。"
+                    )
+                )
+                .dopaFont(13, weight: .medium, lineSpacing: 3)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// 予定の終わりの時刻。表記はOSの言語・24時間設定に任せる。
+    private var scheduleWindowUntilText: String {
+        String(
+            format: String(
+                localized: "settings.deep_focus.schedule.active.until",
+                defaultValue: "%@まで"
+            ),
+            Self.timeOfDayFormatter.string(
+                from: dateForTime(
+                    minutes: deepFocusSchedule.endMinutes,
+                    defaultMinutes: DeepFocusConstants.defaultScheduleEndMinutes
+                )
+            )
+        )
+    }
+
+    private static let timeOfDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("jm")
+        return formatter
+    }()
+
+    private var runningSessionRow: some View {
+        HStack(spacing: 12) {
+            Text(remainingSessionText)
+                .dopaFont(16, weight: .bold)
+                .foregroundStyle(DesignTokens.accent)
+                .monospacedDigit()
+
+            Spacer()
+
+            Button {
+                model.endDeepFocusSession()
+                refreshDeepFocusState()
+            } label: {
+                Text(
+                    String(
+                        localized: "settings.deep_focus.session.stop.action",
+                        defaultValue: "いま解除"
+                    )
+                )
+                .dopaFont(15, weight: .bold)
+                .foregroundStyle(DesignTokens.primaryText)
+                .padding(.horizontal, 16)
+                .frame(minHeight: DesignTokens.minTapTarget)
+                .background(DesignTokens.backgroundRaised)
+                .overlay(
+                    Capsule().stroke(DesignTokens.strongHairline, lineWidth: 1)
+                )
+                .clipShape(Capsule())
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// 残りの表示。「自分で戻すまで」は時間で終わらないので、そのまま状態を書く。
+    private var remainingSessionText: String {
+        guard let seconds = deepFocusRemainingSeconds else {
+            return String(
+                localized: "settings.deep_focus.session.open_ended.label",
+                defaultValue: "自分で戻すまで"
+            )
+        }
+        return String(
+            format: String(
+                localized: "settings.deep_focus.session.remaining",
+                defaultValue: "残り%@"
+            ),
+            Self.remainingFormatter.string(from: max(60, seconds.rounded(.up))) ?? ""
+        )
+    }
+
+    /// 単位はOSの言語設定に任せる。分より下は出さず、最後の1分は「1分」のまま見せる。
+    private static let remainingFormatter: DateComponentsFormatter = {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.hour, .minute]
+        formatter.unitsStyle = .abbreviated
+        formatter.zeroFormattingBehavior = .dropLeading
+        return formatter
+    }()
+
+    private var sessionOptionChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(DeepFocusSessionOption.allCases, id: \.self) { option in
+                    sessionOptionChip(option)
+                }
+            }
+        }
+    }
+
+    private func sessionOptionChip(_ option: DeepFocusSessionOption) -> some View {
+        let isSelected = selectedSessionOption == option
+
+        return Button {
+            selectedSessionOption = option
+        } label: {
+            Text(option.title)
+                .dopaFont(14, weight: .bold)
+                .foregroundStyle(isSelected ? DesignTokens.background : DesignTokens.primaryText)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 38)
+                .background(isSelected ? DesignTokens.accent : DesignTokens.backgroundRaised)
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
+                )
+                .clipShape(Capsule())
+                // チップの見た目は38ptのまま、当たり判定だけHIG下限の44ptへ広げる。
+                .frame(minHeight: DesignTokens.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    private var startSessionButton: some View {
+        Button {
+            model.startDeepFocusSession(durationMinutes: selectedSessionOption.durationMinutes)
+            refreshDeepFocusState()
+        } label: {
+            Text(
+                String(
+                    localized: "settings.deep_focus.session.start.action",
+                    defaultValue: "開始"
+                )
+            )
+            .dopaFont(16, weight: .bold)
+            .foregroundStyle(DesignTokens.background)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: DesignTokens.minTapTarget)
+            .background(DesignTokens.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(primaryRule == nil)
+        .opacity(primaryRule == nil ? 0.45 : 1)
+    }
+
+    /// 毎週の予定。曜日と時間帯を1本だけ持つ。
+    private var deepFocusScheduleBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: scheduleEnabledBinding) {
+                Text(
+                    String(
+                        localized: "settings.deep_focus.schedule.label",
+                        defaultValue: "毎週の予定"
+                    )
+                )
+                .dopaFont(16, weight: .semibold)
+                .foregroundStyle(DesignTokens.primaryText)
+            }
+            .tint(DesignTokens.accent)
+
+            if deepFocusSchedule.isEnabled {
+                weekdayChips
+
+                HStack(spacing: 12) {
+                    scheduleTimeField(
+                        label: String(
+                            localized: "settings.deep_focus.schedule.start.label",
+                            defaultValue: "開始"
+                        ),
+                        selection: scheduleStartBinding
+                    )
+
+                    scheduleTimeField(
+                        label: String(
+                            localized: "settings.deep_focus.schedule.end.label",
+                            defaultValue: "終了"
+                        ),
+                        selection: scheduleEndBinding
+                    )
+                }
+
+                if let scheduleNotice {
+                    Text(scheduleNotice)
+                        .dopaFont(13, weight: .medium, lineSpacing: 3)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var weekdayChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Self.weekdayOrder, id: \.self) { weekday in
+                    weekdayChip(weekday)
+                }
+            }
+        }
+    }
+
+    private func weekdayChip(_ weekday: Int) -> some View {
+        let isSelected = deepFocusSchedule.weekdays.contains(weekday)
+
+        return Button {
+            toggleWeekday(weekday)
+        } label: {
+            Text(Self.weekdaySymbol(weekday))
+                .dopaFont(14, weight: .bold)
+                .foregroundStyle(isSelected ? DesignTokens.background : DesignTokens.primaryText)
+                .frame(minWidth: 38, minHeight: 38)
+                .background(isSelected ? DesignTokens.accent : DesignTokens.backgroundRaised)
+                .overlay(
+                    Circle()
+                        .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
+                )
+                .clipShape(Circle())
+                .frame(minWidth: DesignTokens.minTapTarget, minHeight: DesignTokens.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Self.weekdayAccessibilityLabel(weekday))
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    /// 曜日名はOSの言語設定から取る。3言語ぶんを自前で持たない。
+    private static func weekdaySymbol(_ weekday: Int) -> String {
+        let symbols = Calendar.autoupdatingCurrent.veryShortWeekdaySymbols
+        guard symbols.indices.contains(weekday - 1) else {
+            return String(weekday)
+        }
+        return symbols[weekday - 1]
+    }
+
+    private static func weekdayAccessibilityLabel(_ weekday: Int) -> String {
+        let symbols = Calendar.autoupdatingCurrent.weekdaySymbols
+        guard symbols.indices.contains(weekday - 1) else {
+            return String(weekday)
+        }
+        return symbols[weekday - 1]
+    }
+
+    private func scheduleTimeField(label: String, selection: Binding<Date>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .dopaFont(13, weight: .semibold)
+                .foregroundStyle(DesignTokens.secondaryText)
+
+            DatePicker(label, selection: selection, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(DesignTokens.secondaryText)
+        }
+    }
+
+    /// 設定はしたのに効かない状態を黙って見せない。
+    private var scheduleNotice: String? {
+        if deepFocusSchedule.weekdays.isEmpty {
+            return String(
+                localized: "settings.deep_focus.schedule.no_weekday_notice",
+                defaultValue: "曜日を選ぶと、その曜日の決めた時間だけ止まります。"
+            )
+        }
+        guard DeepFocusWindowPolicy.hasWindow(
+            startMinutes: deepFocusSchedule.startMinutes,
+            endMinutes: deepFocusSchedule.endMinutes
+        ) else {
+            return String(
+                localized: "settings.deep_focus.schedule.too_short_notice",
+                defaultValue: "15分より短い時間帯は設定できません。開始と終了を離してください。"
+            )
+        }
+        return nil
+    }
+
+    private var scheduleEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { deepFocusSchedule.isEnabled },
+            set: { isEnabled in
+                // 曜日は自動で埋めない。オンにした瞬間に既定の時間帯（20:00-22:00）が
+                // そのまま効くと、20時台にオンにした人が時刻を直す前にブロックされる。
+                // 曜日を選ぶまでは何も起こらず、その1タップが「この設定でいい」の確認になる。
+                // 曜日が空のあいだは `scheduleNotice` が次にやることを出す。
+                applySchedule(
+                    DeepFocusSchedule(
+                        isEnabled: isEnabled,
+                        weekdays: deepFocusSchedule.weekdays,
+                        startMinutes: deepFocusSchedule.startMinutes,
+                        endMinutes: deepFocusSchedule.endMinutes
+                    )
+                )
+            }
+        )
+    }
+
+    private var scheduleStartBinding: Binding<Date> {
+        Binding(
+            get: {
+                dateForTime(
+                    minutes: deepFocusSchedule.startMinutes,
+                    defaultMinutes: DeepFocusConstants.defaultScheduleStartMinutes
+                )
+            },
+            set: { date in
+                applySchedule(
+                    DeepFocusSchedule(
+                        isEnabled: deepFocusSchedule.isEnabled,
+                        weekdays: deepFocusSchedule.weekdays,
+                        startMinutes: minutes(from: date),
+                        endMinutes: deepFocusSchedule.endMinutes
+                    )
+                )
+            }
+        )
+    }
+
+    private var scheduleEndBinding: Binding<Date> {
+        Binding(
+            get: {
+                dateForTime(
+                    minutes: deepFocusSchedule.endMinutes,
+                    defaultMinutes: DeepFocusConstants.defaultScheduleEndMinutes
+                )
+            },
+            set: { date in
+                applySchedule(
+                    DeepFocusSchedule(
+                        isEnabled: deepFocusSchedule.isEnabled,
+                        weekdays: deepFocusSchedule.weekdays,
+                        startMinutes: deepFocusSchedule.startMinutes,
+                        endMinutes: minutes(from: date)
+                    )
+                )
+            }
+        )
+    }
+
+    private func toggleWeekday(_ weekday: Int) {
+        var weekdays = Set(deepFocusSchedule.weekdays)
+        if weekdays.contains(weekday) {
+            weekdays.remove(weekday)
+        } else {
+            weekdays.insert(weekday)
+        }
+        applySchedule(
+            DeepFocusSchedule(
+                isEnabled: deepFocusSchedule.isEnabled,
+                weekdays: Array(weekdays),
+                startMinutes: deepFocusSchedule.startMinutes,
+                endMinutes: deepFocusSchedule.endMinutes
+            )
+        )
+    }
+
+    /// 保存してすぐ同期する。いま窓に入ったかどうかを、その場の表示にも反映する。
+    private func applySchedule(_ schedule: DeepFocusSchedule) {
+        model.updateDeepFocusSchedule(schedule)
+        refreshDeepFocusState()
+    }
+
+    private func refreshDeepFocusState() {
+        deepFocusSchedule = model.deepFocusSchedule
+        deepFocusSession = model.deepFocusSession
+        deepFocusRemainingSeconds = model.deepFocusSessionRemainingSeconds
+        isScheduleWindowActive = model.isDeepFocusScheduleWindowActive
+    }
+
+    /// 1秒ごとに残りを詰め、境界をまたいだ瞬間に同期まで通す。
+    ///
+    /// 拡張の境界コールバックを取りこぼしても、設定画面を開いたままの人はここで解除される。
+    /// 「終わったのに開けない」を残さないための、3つ目の逃げ道。
+    private func tickDeepFocusSession() {
+        // 予定の時間帯を出入りしたら、表示も同期もやり直す。
+        // 出入りで解除の導線の出し分けが変わるため、セッションが無くても見に行く。
+        if isScheduleWindowActive != model.isDeepFocusScheduleWindowActive {
+            model.syncShield()
+            refreshDeepFocusState()
+            return
+        }
+
+        guard deepFocusSession != nil else {
+            return
+        }
+        guard model.deepFocusSession != nil else {
+            model.syncShield()
+            refreshDeepFocusState()
+            return
+        }
+        deepFocusRemainingSeconds = model.deepFocusSessionRemainingSeconds
+    }
+
     /// Proかどうかだけで決める。権利が未確定でも上位機能を勝手に開けない。
     /// （`isPro` は端末に控えたキャッシュから起動直後にも立つため、通信が切れた課金者は締め出さない）
     private var isDeepFocusUnlocked: Bool {
@@ -646,13 +1176,13 @@ struct SettingsView: View {
         guard isDeepFocusUnlocked else {
             return String(
                 localized: "settings.deep_focus.locked_notice",
-                defaultValue: "ディープフォーカスにすると、選んだアプリを完全に止められます。"
+                defaultValue: "ディープフォーカスにすると決めた時間だけ選んだアプリを止められます。"
             )
         }
         guard selectedMode.usesShield else {
             return String(
                 localized: "settings.deep_focus.standard_notice",
-                defaultValue: "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると、選んだアプリが開けなくなります。"
+                defaultValue: "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
             )
         }
         // 強さだけ選んで対象が空だと、何も止まらないまま止まっているつもりになる。
@@ -660,7 +1190,7 @@ struct SettingsView: View {
         guard primaryRule != nil else {
             return String(
                 localized: "settings.deep_focus.empty_targets_notice",
-                defaultValue: "完全ブロックの対象を選ぶと、そのアプリは開けなくなります。"
+                defaultValue: "完全ブロックの対象を選ぶと、決めた時間だけそのアプリが開けなくなります。"
             )
         }
         // 夜だけ強化は止まる時間帯が違う。ディープフォーカスと同じ説明を出すと、
@@ -671,9 +1201,21 @@ struct SettingsView: View {
                 defaultValue: "選んだアプリは就寝から起床まで開けなくなります。昼は一呼吸の確認だけが出ます。"
             )
         }
+        // 窓を1つも持っていないディープフォーカスは、選んでいても何も止めない。
+        // 効いていない状態を「効いています」と読める文言で覆わない。
+        if !DeepFocusWindowPolicy.hasConfiguredWindow(
+            now: Date(),
+            session: deepFocusSession,
+            schedule: deepFocusSchedule
+        ) {
+            return String(
+                localized: "settings.deep_focus.no_window_notice",
+                defaultValue: "いまは何も止まっていません。時間を決めると選んだアプリが開けなくなります。"
+            )
+        }
         return String(
             localized: "settings.deep_focus.description",
-            defaultValue: "選んだアプリは開けなくなります。強さを標準へ戻すまで続きます。"
+            defaultValue: "選んだアプリは決めた時間だけ開けなくなります。いま始めるか毎週の予定を組むかを選べます。"
         )
     }
 
@@ -1331,6 +1873,7 @@ struct SettingsView: View {
         planNotificationsEnabled = settingsStore.planNotificationsEnabled
         liveActivityEnabled = settingsStore.liveActivityEnabled
         selectedLockTheme = model.lockSurfaceState.theme
+        refreshDeepFocusState()
         model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
 
         model.screenTime.refresh()

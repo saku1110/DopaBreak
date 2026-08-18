@@ -1,5 +1,67 @@
 # 現在のタスク状況
 
+## 2026-08-18 — ペイウォールのゼロ価格フレーミング（✅ 実装・レビュー完了・未コミット）
+
+- 発端: オーナーがXのポスト（「7 days free」→「7 days $0」でCVR+35%の主張）を提示 → `/brainstorm`（議題タイプC）で評価 → **オーナー承認「OK入れよう」**
+- 判定: +35%は自己申告・n不明・メトリクス未公開のため**採用しない**。ただしメカニズム（「無料」=セールス語で警戒フィルタ／「¥0」=価格スキーマで事実処理・隣の¥4,980と数字対比）は妥当で、コストゼロ・完全可逆のため期待値正（効果は1桁%の推定）
+- 🔴 **本件で確立した恒久制約**: 通貨記号をリテラルで書かない。`Product.priceFormatStyle` に決めさせる（日本語UIの米国ストア利用者にJPY記号が出る事故を防ぐ。シミュレータで再現確認済み）
+- 実装: `IntroOfferDisplayPolicy`（純粋enum・3段フォールバック）＋ `store.intro_offer.zero_price`（位置指定子・ja「7日間 ¥0」/ en「$0 for 7 days」/ ko「7일 ₩0」）
+- 不変: CTA「7日間無料で始める」（金額禁止の恒久指示）・法定表示・リマインダーカード・異常系fallback
+- 検証: build成功／Core 454件・アプリ142件（新規15件含む）失敗0／全監査exit 0／**実機で「年間$39.99を一括請求・7日間 $0」を確認（¥混入なし）**／Fableが語順逆転を独立検証
+- 詳細: `.claude/specs/design-decisions.md` 2026-08-18エントリ・議事録 `.claude/brainstorm/2026-08-18_paywall-zero-price-framing.md`
+- [ ] 効果測定はリリース後にDL→トライアル開始率の方向監視のみ（A/B検出はトラフィック不足で不能）
+
+## 2026-08-17 — Opal競合分析→オンボ・ペイウォール3施策（✅ 実装・レビュー完了・未コミット）
+
+- 発端: オーナーがOpalのオンボーディング動画（41フレーム分析）を提示 →「活かせる点」6件提案 → **オーナー承認「1,3,4進めていい」**（引用可能な記録・本セッション）
+- 前提確認済み: 無料トライアルは元から存在（年額¥4,980にStoreKit導入オファー7日無料・docs/15 §2確定）。2026-08-11に廃止したのはリバーストライアル（決済不要3日開放）で別物
+- ①損失投影の後段「取り戻せる時間」ステップ新設（quizResult直後・開く回数半分の条件付き試算＝景表法安全。損失側カウントアップ・生涯年数・脚注は実装済みと確認したため差分のみ）
+- ③ショートカット設定ガイドに選択画面モック（「開かれたとき」「すぐに実行」をハイライト）＋信頼コピー（検知は選んだアプリを開いたことだけ）
+- ④トライアル終了リマインダーのユーザー選択制（2日前/3日前・既存の固定Day5通知を一般化・ペイウォールに選択UI・SettingsStore永続化）
+- 体制: **実装=Opus5サブエージェント（Codex利用上限〜8/20 13:22のためフォールバック）／レビュー=Fable**（8/15前例と同じモデル独立性）
+- 見送り（未承認）: 回答エコー＋分析演出（項番2）・名前入り価値サマリー（項番5）・ブランド比喩回収（項番6）・リファラルラダー・有償トライアル延長
+- ✅ 完了（Fableレビュー指摘0件・詳細はdesign-decisions 2026-08-17末尾エントリ）: オンボ15→16ステップ化・新規xcstrings 20キー（ja/en/ko）・Core 454テスト0失敗・アプリ130テスト0失敗・全監査exit 0
+- [ ] 残課題: OnboardingMotionCaptureへrecoveryステージ追加／recovery_estimate離脱率の計測観察／「検知するのは〜」の語感（検知がやや技術寄り・差し替えはオーナー判断）
+
+## 2026-08-17 — ペイウォール6行改稿＋目標無料化＋Deep Focus窓機能（🔄 レビュー指摘修正中・未コミット）
+
+- 発端: オーナー「ペイウォールの有料機能の文章が魅力的に感じない」→ sales-copywriting/onboarding-optimizationスキル経由で改稿 → 議論で確定した**オーナー決定（GO 4件・「OK進めて」）**: ①6行差し替え ②目標のFree無制限化 ③モード説明2キー実動作合わせ ④Deep Focus窓機能（いますぐ30分/1h/2h/戻すまで=デフォルト1h＋週次スケジュール1本=曜日+時間帯・時間切れ自動解除・スケジュール1本上限=ルールビルダー化回避）
+- 6行確定コピー（en/ko humanizer監査ゲート通過済み・改変禁止）: 止めるアプリを何個でも追加／選んだアプリを完全にブロック／就寝中は自動で完全ブロック／使いすぎたら15分ごとに声かけ／記録と週次レポートを全期間／ロック画面テーマを着せ替え
+- 戦略裁定（Fable・オーナー合意）: 完全ブロックのコモディティ性は課金力を損なわない（差別化=集客の仕事/課金理由=確信の仕事）。ペイウォール本人実数パーソナライズ（「今週 夜にn回」）をbacklogへ
+- **Codex利用上限（〜8/20 13:22）→ 実装・レビューともOpus5代替体制**（モデル独立性低下を記録。復帰後の任意スポット再レビュー可）
+- WS-F（①②③）: ✅ 統合済み。goalsLimit全撤廃・PaywallPlacement.goalsLimit削除・xcstrings 6行差し替え（キー553→557）・docs/15機能境界表・design-decisionsに承認経緯（オーナー発案→GO4件→「OK進めて」）記録済み
+- WS-E（④）: ✅ 実装統合済み（DeepFocusWindowPolicy 42テスト・専用ストア"dopabreak.deepfocus"・旧"dopabreak.rules"掃除・時間切れ解除三重保証＋フェイルオープン）→ 独立Opus5敵対レビューで**P1×1**（移行が新規ユーザーにも発火し無自覚の無期限ブロック）**P2×3・P3系**検出 → ✅ 採用6件修正・統合済み: **P1-1=移行処理ごと削除**（未リリースのため。窓はユーザー操作からのみ生成の不変条件をテストで固定）／P2-1=予定窓中は「予定の時間帯 %@まで」行に差し替え／P2-2=per-activity分割・全滅時のみフォールバック＋嘘の終了通知取消／P3-2=standard降格でセッション畳む（予定は温存）／P3-3=初回トグルONの曜日自動全選択を廃止／P3-6=DeepFocusSchedulerTests 19本新設（順序規律・失敗3形・通知予約/取消）
+- 統合検証（修正後・Fable実施）: **Core 446テスト0失敗・アプリ131テスト0失敗 TEST SUCCEEDED・lint exit 0**（アプリ側+19はDeepFocusSchedulerTests新設分）
+- [ ] 🔴 実機検証に追加（規則A・monetization-check.mdへ転記要）: Deep Focus時間切れ解除／指定曜日のみ発火／翌週再発火／跨日窓の翌朝解除。**週次DeviceActivity（weekday成分repeats）が不発なら日次1本＋拡張側曜日照合へ切替**（レビューP2-3）
+- [ ] 別バッチ掃除: `app.error.goal_pro_required` 死にキー
+
+## 2026-08-16 — リリース可否監査＋ASC課金カタログ構築（🔄 進行中）
+
+- 経緯: オーナー「もうリリースできる？」→ 規則A（release-monetization-check）で監査 → **証跡ファイル自体が不存在**だったため新規作成 = `.claude/release-check/monetization-check.md`。**総合❌（実機検証ゼロ）**
+- [x] **backlogの「ASCアプリレコード未作成」は古い記録と判明**。レコードは既存（`6794221254` / com.dopabreak.app / SKU dopabreak-ios）。未作成だったのは**商品カタログ**の方（グループ0件・IAP 0件）
+- [x] オーナーが `asc web auth login` 実行済み（Apple ID toshiki.sakuraya@syn-tech.dev / Team 128460348）
+- [x] **課金カタログ4商品を構築**: Group `22313084` DopaBreak Pro（jaローカライズ）／annual `6802039504` ¥4,980・₩49,000・$39.99／annual.launch `6802039512` ¥3,980・₩39,000・$49.99／monthly `6802039024` ¥980・₩9,900・$9.99／lifetime IAP `6802039793` ¥14,800。7日無料トライアルを年額2本に付与
+- [x] **2026-08-14監査のP1「.storekit groupNumber逆転（ASC実体要確認）」を解消**: ASCは**level 1が最上位**。当初 monthly=1 で作られ月→年がダウングレード扱いになる状態だった → 正本 `ios/DopaBreak/DopaBreak.storekit` に合わせ annual=1 / launch=2 / monthly=3 へ是正
+- [x] `scripts/asc-setup-dopabreak.sh` を実際に通った手順へ全面改訂（冪等・3回連続実行で副作用なしを確認）。**判明したAPIの癖**: テリトリーは3文字ID必須（"Korea"はambiguous）／ロケールは `ja`（`ja-JP`は非対応）／ローカライズはversionスコープのコマンド必須（`setup`のlocalizationフラグはv1非推奨で失敗）／末尾のheredoc重複行も除去
+- [x] 署名前提の実査: Bundle ID 5件すべて登録済み・**FAMILY_CONTROLS_DISTRIBUTION は4ターゲットで有効**（Widgetsのみ APP_GROUPS のみ＝正）・配布証明書 IOS_DISTRIBUTION 有効（2027-02-06まで）・サンドボックステスター1件（JPN）存在
+- [x] **全4商品を READY_TO_SUBMIT にした**（＝サンドボックス購入テストの前提が整った。商品がこの状態でないとsandboxに出ない）
+  - シミュレータでオンボーディング15ステップをaxeで実走 → ペイウォールを撮影（`output/asc-review-screenshots/paywall-ja.png`）→ サブスク3本＋IAPへ添付（全て delivery COMPLETE）
+  - **最後の1件はIAPの提供地域(availability)**。サブスクは `--territories` で同時に張られるが、**IAPだけは価格スケジュールと別リソース**で別途 `asc iap pricing availability set` が要る
+  - ハマりどころ: `asc iap versions images` は審査用スクショではなく**プロモ画像**の枠。ペイウォール画像を入れると `IMAGE_INCORRECT_DIMENSIONS` で必ず失敗（640x920/1242x2208/1280x1920/1920x2880 全て拒否を実測）。正しい口は `asc iap review-screenshots create`
+- [ ] 🔴 ビルド未アップロード（count=0・`asc status` の唯一のブロッカー）
+- ⚠️ 依頼外の発見（判断は求めない・記録のみ）: ①ペイウォールを最下部までスクロールすると見出し「「あと5分だけ」が年11日」が**ステータスバーと重なる**（白文字が時刻・Dynamic Islandに衝突。iOS 26のscroll edge effectが効いていない） ②シミュレータのローカル`.storekit`はUSD建てのため日本語UIに`$3.33/月`と出る（本番はASC側の¥が出るので実害なし・テスト時の見え方の話）
+- [ ] DopaBreak用のプロビジョニングプロファイルは未作成（Xcode自動署名で生成可・capability側は揃っている）
+- [ ] ASCのアプリメタデータはほぼ空（ja ロケールのみ・キーワード/説明/スクショ未登録）。docs/16に3言語の確定ドラフトあり
+- [x] **審査ブロッカー3件を実装完了**（実装=Opus5 / レビュー=Fable。**Codexは利用上限で2026-08-20まで使用不可**のためフォールバック体制）
+  - ①`PrivacyInfo.xcprivacy` 全5ターゲット: App Group共有 `1C8F.1` / アプリ専用`.standard` `CA92.1` / SystemBootTime `35F9.1`・トラッキングなし収集なし。**ビルド成果物から実測**して `.app`＋4`.appex` の計5箇所に埋め込み確認・`plutil -lint` 全OK
+  - ②`ITSAppUsesNonExemptEncryption: false`: CryptoKit/CommonCrypto/Security の import・シンボルともゼロで exempt 該当。**ビルド後のInfo.plistで false を確認**
+  - ③クイックアクション3枠: オファー枠は `offerSlotEnabled=false` で既定OFF（ASCにオファー実体が無い間は率を出さない＝2.3回避）。課金者への非表示は `hasConfirmedEntitlement` で fail-closed 判定。外部決済導線なし（`AppStore.presentOfferCodeRedeemSheet(in:)` のみ）
+  - ⚠️ **Fableの指示誤りを実装者が是正**: 「App Group共有は CA92.1」は誤り。Apple原典では `CA92.1`=アプリ自身のみ / `1C8F.1`=App Group共有。指摘を受け入れた
+- [x] **Fableレビューで2件差し戻し→修正完了**: ①対象アプリ0件のとき「いま一呼吸」が無反応（`setTargets`が空配列を弾かないため設定で全部外すと発生）→ `hasInterventionTargets` を `QuickActionPolicy.types` へ追加し枠自体を登録しない ②`pendingAction`の古いコメント
+  - **修正過程でより広い欠陥が判明**: 変更前は `handleAppActive`（onAppear/scenePhase active）だけが再登録経路で、**フォアグラウンドのまま対象を全部外すとメニューが古いまま残った**。`AppModel.hasInterventionTargets` ＋ `.onChange` を新設して塞いだ。読み取り失敗時は0件扱いにせず直前値を保持（一時的失敗で使えていた枠を消さない）
+- [ ] 🔴 **新規発見: App Privacy（ストアのプライバシー表示）が未公開**。`asc web privacy pull` 実測で宣言内容は `DATA_NOT_COLLECTED` 済みだが `published=false`。提出必須。公開コマンドは**リリースゲートのフックが正しくブロック**（回避せず、A・B完了後に実行）
+- [ ] 年齢レーティング申告は `ageRatingOverride` 系3属性のみで、質問票が未記入の可能性。提出前に要確認（内容の申告はオーナー確認事項）
+
 ## 2026-08-15 — オンボーディング1枚目の訴求是正（タグライン＋CTA・✅ 完了・未コミット）
 
 - 経緯: シミュレータ実機確認 → オーナー指摘①「開く前に選び直す」は何を選ぶか不明 ②「30秒でチェックする」は訴求から読み取れず離脱しそう ③「ドーパミン依存をチェック」は強すぎないか

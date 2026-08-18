@@ -6,7 +6,7 @@ import XCTest
 @testable import DopaBreak
 
 final class MeasurementFoundationTests: XCTestCase {
-    func testOnboardingStepIdentifiersAreStableAndCoverAllFifteenSteps() {
+    func testOnboardingStepIdentifiersAreStableAndCoverAllSixteenSteps() {
         XCTAssertEqual(
             OnboardingStep.allCases.map(\.identifier),
             [
@@ -15,6 +15,7 @@ final class MeasurementFoundationTests: XCTestCase {
                 "quiz_aimless",
                 "quiz_regret",
                 "quiz_result",
+                "recovery_estimate",
                 "choose_apps",
                 "goal_setup",
                 "choose_mode",
@@ -118,7 +119,6 @@ final class MeasurementFoundationTests: XCTestCase {
         XCTAssertEqual(
             Set(PaywallPlacement.allCases.map(\.rawValue)),
             Set([
-                "goals_limit",
                 "settings_target_app_limit",
                 "settings_family_activity_limit",
                 "settings_pro_status_row",
@@ -187,9 +187,9 @@ final class MeasurementFoundationTests: XCTestCase {
         )
     }
 
-    /// まとめ置き換えでも上限は守る。ただし、すでに上限を超えている既存データは保てる。
+    /// 目標の件数制限は撤廃済み（2026-08-17オーナー決定）。Freeでもまとめ置き換えで増減できる。
     @MainActor
-    func testReplaceGoalsBlocksGrowthBeyondTheFreeLimitButKeepsExistingGoals() throws {
+    func testReplaceGoalsAllowsGrowthOnTheFreeTier() throws {
         let suiteName = "MeasurementFoundationTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
@@ -234,7 +234,7 @@ final class MeasurementFoundationTests: XCTestCase {
         XCTAssertEqual(model.entitlementGate.tier, .free)
         XCTAssertEqual(model.goals.map(\.title), ["英語で話す", "読書を30分"])
 
-        // 既存2件のまま書き換えるのは通す（上限超過でも失わせない）
+        // 既存2件のまま書き換えるのは通す
         var kept = model.goals
         kept[0].title = "英語で話し切る"
         XCTAssertTrue(model.replaceGoals(kept))
@@ -244,7 +244,7 @@ final class MeasurementFoundationTests: XCTestCase {
         XCTAssertTrue(model.replaceGoals(Array(model.goals.prefix(1))))
         XCTAssertEqual(model.goals.count, 1)
 
-        // 上限を超えて増やすのは止める
+        // Freeでも増やせる（件数制限の撤廃）
         let extra = Goal(
             id: UUID(),
             title: "資格の勉強",
@@ -254,8 +254,23 @@ final class MeasurementFoundationTests: XCTestCase {
             createdAt: currentDate,
             updatedAt: currentDate
         )
-        XCTAssertFalse(model.replaceGoals(model.goals + [extra]))
-        XCTAssertEqual(model.goals.count, 1)
+        XCTAssertTrue(model.replaceGoals(model.goals + [extra]))
+        XCTAssertEqual(model.goals.map(\.title), ["英語で話し切る", "資格の勉強"])
+
+        // Freeでも3件目・4件目まで足せる
+        let more = (1...2).map { index in
+            Goal(
+                id: UUID(),
+                title: "追加の目標\(index)",
+                lockScreenTitle: nil,
+                category: .other,
+                displayImagePath: nil,
+                createdAt: currentDate,
+                updatedAt: currentDate
+            )
+        }
+        XCTAssertTrue(model.replaceGoals(model.goals + more))
+        XCTAssertEqual(model.goals.count, 4)
     }
 
     func testPaywallResolvedYearlyDaysUsesSnapshotAndFallsBackToDefaultEstimate() {

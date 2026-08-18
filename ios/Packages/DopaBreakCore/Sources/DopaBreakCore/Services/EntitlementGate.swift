@@ -74,13 +74,10 @@ public struct EntitlementGate: Equatable, Sendable {
         tier == .pro
     }
 
+    /// 目標はFree・Proとも無制限。2026-08-17のオーナー決定で、Freeの1件制限を撤廃した。
+    /// 目標は介入体験の中核であり、件数を絞ると継続が落ちる一方で課金の押し出しは弱かったため。
     public var goalsLimit: Int? {
-        switch tier {
-        case .free:
-            return 1
-        case .pro:
-            return nil
-        }
+        nil
     }
 
     public var targetRulesLimit: Int? {

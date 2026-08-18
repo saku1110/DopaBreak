@@ -68,6 +68,7 @@ final class AppModel {
     let usageWatch: UsageWatchController
     let shield: ShieldController
     let nightShieldScheduler: NightShieldScheduler
+    let deepFocusScheduler: DeepFocusScheduler
     let storeService: StoreService
     let funnelEventStore: FunnelEventStore
     let interventionEngine: InterventionEngine?
@@ -113,6 +114,13 @@ final class AppModel {
     /// オンボーディング後にはじめて目標を追加したとき、ロック画面での確認導線を出す要求。
     private(set) var pendingLockScreenCheck = false
 
+    /// 介入の対象アプリが1つ以上選ばれているか。
+    ///
+    /// 対象は `JSONSnapshotStore` にあり、読むだけでは変更を観測できない。
+    /// クイックアクションの介入枠は対象が0件だと着地先を持たないため、
+    /// 書き込みのたびにここへ写して、SwiftUI側が `onChange` で追従できるようにする。
+    private(set) var hasInterventionTargets = false
+
     init(
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
         settingsStore: SettingsStore? = nil,
@@ -154,6 +162,13 @@ final class AppModel {
             settingsStore: resolvedSettingsStore,
             snapshotStore: snapshotStore,
             clearNightShield: { resolvedShield.clearNightShield() },
+            now: now
+        )
+        self.deepFocusScheduler = DeepFocusScheduler(
+            ruleStore: resolvedRuleStore,
+            settingsStore: resolvedSettingsStore,
+            snapshotStore: snapshotStore,
+            clearDeepFocusShield: { resolvedShield.clearDeepFocusShield() },
             now: now
         )
         self.storeService = StoreService(
@@ -257,7 +272,12 @@ final class AppModel {
         // 途中のデータ読み込みが失敗しても完全ブロックの同期だけは必ず走らせる。
         // do-catchの中に置くと、目標や記録の読み取りに失敗した端末で
         // Pro失効時の解除が丸ごとスキップされる。
-        defer { syncShield() }
+        // 対象アプリの有無も同じ理由でdeferに置く。縮小・復元・全削除のどの経路を通っても
+        // 最新の件数がクイックアクション側へ伝わるようにする。
+        defer {
+            refreshInterventionTargetState()
+            syncShield()
+        }
 
         do {
             try reconcileSelectedTargetsWithEntitlement()
@@ -419,10 +439,11 @@ final class AppModel {
     /// 完全ブロック（Deep Focus / 夜だけ強化）を現在の権利とルールへ合わせる（docs/12 §5）。
     ///
     /// 適用条件は「権利が確定していて」「Proで」「対象を持つルールがある」こと。
-    /// 夜だけ強化はさらに、いまが就寝から起床までの窓に入っていることを条件にする。
+    /// さらにどちらの強さも窓の中でしか出さない。夜だけ強化は就寝から起床まで、
+    /// ディープフォーカスは「いますぐ」で始めた回と週1本の予定（2026-08-17オーナー決定④）。
     /// 権利が確定していない間は適用も解除もしない。判断は `ShieldSyncPolicy` にまとめてある。
     ///
-    /// 夜境界そのものは拡張（`NightShieldScheduler` が張る監視）が動かすが、
+    /// 窓の境界そのものは拡張（各スケジューラが張る予定）が動かすが、
     /// コールバックの取りこぼしがあるため、ここでの再計算を復旧経路として残す。
     ///
     /// 順序は「監視と控えの後始末 → シールドの適用・解除」。逆にすると、Freeへ戻った人の
@@ -434,10 +455,66 @@ final class AppModel {
             entitlementGate: entitlementGate,
             hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
         )
+        deepFocusScheduler.rebuild(
+            entitlementGate: entitlementGate,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
+        )
         shield.syncShield(
             entitlementGate: entitlementGate,
             hasConfirmedEntitlement: storeService.hasConfirmedEntitlement,
-            isNightWindow: isNightWindow
+            isNightWindow: isNightWindow,
+            // 窓の外なら必ず解除へ倒れる。拡張の境界コールバックを取りこぼしても、
+            // 前面へ戻ってきたこの一本で「終わったのに開けない」を必ず剥がす。
+            isDeepFocusWindowActive: deepFocusScheduler.isWindowActive
+        )
+    }
+
+    /// 「いますぐ」で完全ブロックを始める。
+    /// - Parameter durationMinutes: `nil` なら「自分で戻すまで」。
+    func startDeepFocusSession(durationMinutes: Int?) {
+        deepFocusScheduler.startSession(durationMinutes: durationMinutes)
+        syncShield()
+    }
+
+    /// 進行中の回をその場で終わらせる。
+    func endDeepFocusSession() {
+        deepFocusScheduler.endSession()
+        syncShield()
+    }
+
+    /// 週1本の予定を書き換える。書いたあと必ず同期して、いま窓に入ったかを反映する。
+    func updateDeepFocusSchedule(_ schedule: DeepFocusSchedule) {
+        settingsStore.deepFocusSchedule = schedule
+        syncShield()
+    }
+
+    var deepFocusSchedule: DeepFocusSchedule {
+        settingsStore.deepFocusSchedule
+    }
+
+    var deepFocusSession: DeepFocusSession? {
+        deepFocusScheduler.activeSession
+    }
+
+    var isDeepFocusWindowActive: Bool {
+        deepFocusScheduler.isWindowActive
+    }
+
+    /// いま予定（毎週）の時間帯に入っているか。
+    /// セッションの解除では開かない状態を、画面が正しく出し分けるために使う。
+    var isDeepFocusScheduleWindowActive: Bool {
+        DeepFocusWindowPolicy.isScheduleActive(
+            now: now(),
+            schedule: settingsStore.deepFocusSchedule,
+            calendar: .autoupdatingCurrent
+        )
+    }
+
+    /// 進行中の回の残り（秒）。「自分で戻すまで」と、進行中でないときは `nil`。
+    var deepFocusSessionRemainingSeconds: TimeInterval? {
+        DeepFocusWindowPolicy.remainingSeconds(
+            now: now(),
+            session: settingsStore.deepFocusSession
         )
     }
 
@@ -487,6 +564,15 @@ final class AppModel {
             try ruleStore.updateMode(id: rule.id, mode: mode)
         }
 
+        // ディープフォーカスから離れたら、進行中の回はその場で畳む。
+        // 残すと「自分で戻すまで」の回が眠ったまま生き残り、あとでディープフォーカスへ
+        // 戻した瞬間に、本人が始めていないブロックが復活する。
+        // 予定（毎週）は設定として残す。こちらは時間が来るまで何も起こさず、
+        // 強さを戻したときに前の設定がそのまま使えるほうが自然なため。
+        if mode != .deepFocus {
+            deepFocusScheduler.endSession()
+        }
+
         syncShield()
     }
 
@@ -517,6 +603,7 @@ final class AppModel {
         // 順序は「監視停止と控え削除 → 解除」。解除を先に置くと、消しきる前の境界で
         // 拡張が張り直したぶんが残る。
         nightShieldScheduler.stopAndClear()
+        deepFocusScheduler.stopAndClear()
         shield.clearShield()
         usageWatch.stopAndClearAllData()
         lockSurfaceCoordinator.cancelAllNotifications()
@@ -557,10 +644,6 @@ final class AppModel {
         return restored
     }
 
-    var canAddGoal: Bool {
-        entitlementGate.canAddGoal(currentCount: goals.count)
-    }
-
     @discardableResult
     func addGoal(
         title: String,
@@ -568,10 +651,7 @@ final class AppModel {
         lockScreenTitle: String?,
         id: UUID = UUID()
     ) -> Bool {
-        guard canAddGoal else {
-            alertMessage = String(localized: "app.error.goal_pro_required", defaultValue: "目標の追加にはProが必要です")
-            return false
-        }
+        // 目標の件数制限は撤廃済み（2026-08-17オーナー決定）。Free・Proとも何件でも足せる
         let now = Date()
         let saved = persistGoal(
             Goal(
@@ -611,15 +691,7 @@ final class AppModel {
     /// ロック画面確認の要求はここでは出さない。オンボーディングには専用の確認ステップがある。
     @discardableResult
     func replaceGoals(_ newGoals: [Goal]) -> Bool {
-        // 上限を超えて「増やす」操作だけを止める。
-        // すでに上限を超えている既存データ（Proから戻った利用者など）はそのまま保てるようにする
-        if let limit = entitlementGate.goalsLimit,
-           newGoals.count > goals.count,
-           newGoals.count > limit {
-            alertMessage = String(localized: "app.error.goal_pro_required", defaultValue: "目標の追加にはProが必要です")
-            return false
-        }
-
+        // 件数制限は撤廃済み（2026-08-17オーナー決定）。ここで増減を止めない
         do {
             try goalStore.replace(goals: newGoals)
             refresh()
@@ -732,7 +804,22 @@ final class AppModel {
         settingsStore.targetAppClampKeptCatalogID = nil
         // 自分で選び直したのだから、縮小前の並びへ勝手に戻してはいけない。
         clampBackupStore.clear()
+        refreshInterventionTargetState()
         refreshLockSurfaces()
+    }
+
+    /// 保存済みの対象アプリ件数を観測できる状態へ写す。
+    /// 読み取りに失敗したときは0件扱いにせず、直前の値を保つ
+    /// （一時的な読み取り失敗で、使えていた介入枠を消さないため）。
+    private func refreshInterventionTargetState() {
+        guard let catalogIDs = try? targetStore.selectedCatalogIDs() else {
+            return
+        }
+        let hasTargets = !catalogIDs.isEmpty
+        guard hasTargets != hasInterventionTargets else {
+            return
+        }
+        hasInterventionTargets = hasTargets
     }
 
     func todayAttemptCountForCurrentRule(catalogID: String) -> Int {
@@ -919,8 +1006,9 @@ final class AppModel {
            RetentionNotificationPolicy.shouldScheduleRenewalNotification(
                willAutoRenew: trial.willAutoRenew
            ),
-           let fireDate = RetentionNotificationDateCalculator.trialDay5Date(
+           let fireDate = RetentionNotificationDateCalculator.trialReminderDate(
                from: trial.purchaseDate,
+               leadDays: settingsStore.trialReminderLeadDays,
                calendar: calendar
            ) {
             trialDay5 = RetentionNotificationSchedule(

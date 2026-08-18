@@ -16,3 +16,6 @@ output/screenshots/
 output/app-store-screenshots/
 video/
 creatives/
+
+# エージェント用worktree（巨大・一時作業ディレクトリ）
+.claude/worktrees/

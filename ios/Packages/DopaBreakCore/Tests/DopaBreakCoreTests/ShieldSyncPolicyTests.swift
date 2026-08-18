@@ -14,7 +14,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .apply(rules: [deepFocus]))
@@ -29,7 +30,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .apply(rules: [first, second]))
@@ -43,7 +45,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -55,7 +58,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: false,
             strictModeAllowed: false,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -67,7 +71,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -80,7 +85,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -92,7 +98,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -108,7 +115,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .apply(rules: [nightOnly]))
@@ -121,7 +129,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -138,7 +147,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
                     isPro: true,
                     strictModeAllowed: true,
                     hasConfirmedEntitlement: true,
-                    isNightWindow: isNightWindow
+                    isNightWindow: isNightWindow,
+                    isDeepFocusWindowActive: true
                 ),
                 .apply(rules: [deepFocus]),
                 "isNightWindow=\(isNightWindow)"
@@ -155,7 +165,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .apply(rules: [deepFocus, nightOnly]))
@@ -167,7 +178,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -179,7 +191,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -193,7 +206,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: false,
             strictModeAllowed: false,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -206,7 +220,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: false,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .preserve)
@@ -220,7 +235,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: false,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .preserve)
@@ -233,7 +249,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: false,
             strictModeAllowed: false,
             hasConfirmedEntitlement: false,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .preserve)
@@ -245,7 +262,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: false,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .preserve)
@@ -267,7 +285,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(rules, [deepFocus])
@@ -288,7 +307,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(rules, [deepFocus, nightOnly])
@@ -300,7 +320,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: false,
             strictModeAllowed: false,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertTrue(rules.isEmpty)
@@ -313,7 +334,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: false,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertTrue(rules.isEmpty)
@@ -325,7 +347,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: false,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertTrue(rules.isEmpty)
@@ -395,7 +418,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
                             isPro: isPro,
                             strictModeAllowed: strictModeAllowed,
                             hasConfirmedEntitlement: hasConfirmed,
-                            isNightWindow: isNightWindow
+                            isNightWindow: isNightWindow,
+                            isDeepFocusWindowActive: true
                         )
                         XCTAssertEqual(
                             action,
@@ -424,7 +448,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: false,
             strictModeAllowed: false,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -438,7 +463,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: false,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .clear)
@@ -454,7 +480,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
                     isPro: true,
                     strictModeAllowed: true,
                     hasConfirmedEntitlement: true,
-                    isNightWindow: isNightWindow
+                    isNightWindow: isNightWindow,
+                    isDeepFocusWindowActive: true
                 ),
                 .preserve,
                 "isNightWindow=\(isNightWindow)"
@@ -474,7 +501,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: false,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .preserve)
@@ -489,7 +517,8 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: false
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .apply(rules: [deepFocus]))
@@ -503,10 +532,199 @@ final class ShieldSyncPolicyTests: XCTestCase {
             isPro: true,
             strictModeAllowed: true,
             hasConfirmedEntitlement: true,
-            isNightWindow: true
+            isNightWindow: true,
+            isDeepFocusWindowActive: true
         )
 
         XCTAssertEqual(action, .apply(rules: [nightOnly]))
+    }
+
+    // MARK: - 完全ブロックの窓（deepFocus）
+
+    /// 2026-08-17より前は「選んでいるあいだ常時」だった。窓の外では何も出さない。
+    /// ここが通らないと「窓が終わったのに開けない」がそのまま残る。
+    func testClearsDeepFocusRulesOutsideTheDeepFocusWindow() {
+        let action = ShieldSyncPolicy.action(
+            rules: [makeRule(mode: .deepFocus)],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: false
+        )
+
+        XCTAssertEqual(action, .clear)
+    }
+
+    func testAppliesDeepFocusRulesInsideTheDeepFocusWindow() {
+        let deepFocus = makeRule(mode: .deepFocus)
+
+        let action = ShieldSyncPolicy.action(
+            rules: [deepFocus],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
+        )
+
+        XCTAssertEqual(action, .apply(rules: [deepFocus]))
+    }
+
+    /// 夜だけ強化は完全ブロックの窓に左右されない。2つの窓が互いを消し合わないことを固定する。
+    func testNightOnlyIsUnaffectedByTheDeepFocusWindow() {
+        let nightOnly = makeRule(mode: .nightOnly)
+
+        for isDeepFocusWindowActive in [true, false] {
+            XCTAssertEqual(
+                ShieldSyncPolicy.action(
+                    rules: [nightOnly],
+                    isPro: true,
+                    strictModeAllowed: true,
+                    hasConfirmedEntitlement: true,
+                    isNightWindow: true,
+                    isDeepFocusWindowActive: isDeepFocusWindowActive
+                ),
+                .apply(rules: [nightOnly]),
+                "isDeepFocusWindowActive=\(isDeepFocusWindowActive)"
+            )
+        }
+    }
+
+    /// 完全ブロックの窓が閉じていても、夜の窓が開いていれば夜のぶんだけ出す。
+    func testAppliesOnlyNightOnlyWhenTheDeepFocusWindowIsClosed() {
+        let nightOnly = makeRule(mode: .nightOnly, selection: 2)
+
+        let action = ShieldSyncPolicy.action(
+            rules: [makeRule(mode: .deepFocus, selection: 1), nightOnly],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: true,
+            isDeepFocusWindowActive: false
+        )
+
+        XCTAssertEqual(action, .apply(rules: [nightOnly]))
+    }
+
+    /// 完全ブロックの窓のまっただ中でも、Freeだと確定していれば解除する。
+    func testClearsForConfirmedFreeInsideTheDeepFocusWindow() {
+        let action = ShieldSyncPolicy.action(
+            rules: [makeRule(mode: .deepFocus)],
+            isPro: false,
+            strictModeAllowed: false,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
+        )
+
+        XCTAssertEqual(action, .clear)
+    }
+
+    /// Freeだと確定したら、ルールを読む前に解除が決まる（読み取り失敗で解除が落ちない）。
+    /// 窓の入力を足しても、この到達性は変わらない。
+    func testDoesNotReadRulesForConfirmedFreeRegardlessOfTheDeepFocusWindow() {
+        for isDeepFocusWindowActive in [true, false] {
+            var didCallProvider = false
+            let action = ShieldSyncPolicy.action(
+                rulesProvider: {
+                    didCallProvider = true
+                    return []
+                },
+                isPro: false,
+                strictModeAllowed: false,
+                hasConfirmedEntitlement: true,
+                isNightWindow: false,
+                isDeepFocusWindowActive: isDeepFocusWindowActive
+            )
+
+            XCTAssertEqual(action, .clear, "isDeepFocusWindowActive=\(isDeepFocusWindowActive)")
+            XCTAssertFalse(didCallProvider, "isDeepFocusWindowActive=\(isDeepFocusWindowActive)")
+        }
+    }
+
+    /// 権利が未確定なら窓の内でも触らない。取得に失敗しただけの課金者から剥がさない。
+    func testPreservesInsideTheDeepFocusWindowWhenUnconfirmed() {
+        let action = ShieldSyncPolicy.action(
+            rules: [makeRule(mode: .deepFocus)],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: false,
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
+        )
+
+        XCTAssertEqual(action, .preserve)
+    }
+
+    /// 窓が閉じていても、未確定なら解除も適用もしない（preserveのままであることを固定する）。
+    func testPreservesOutsideTheDeepFocusWindowWhenUnconfirmed() {
+        let action = ShieldSyncPolicy.action(
+            rules: [makeRule(mode: .deepFocus)],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: false,
+            isNightWindow: false,
+            isDeepFocusWindowActive: false
+        )
+
+        XCTAssertEqual(action, .preserve)
+    }
+
+    /// ルールを読めなかったときは維持。窓の入力を足しても変わらない。
+    func testPreservesWhenRuleProviderThrowsInsideTheDeepFocusWindow() {
+        let action = ShieldSyncPolicy.action(
+            rulesProvider: { throw TestRuleStoreError.unreadable },
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: true
+        )
+
+        XCTAssertEqual(action, .preserve)
+    }
+
+    func testPreservesWhenRuleProviderThrowsOutsideTheDeepFocusWindow() {
+        let action = ShieldSyncPolicy.action(
+            rulesProvider: { throw TestRuleStoreError.unreadable },
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: false
+        )
+
+        XCTAssertEqual(action, .preserve)
+    }
+
+    func testRulesToShieldDropsDeepFocusRulesOutsideTheDeepFocusWindow() {
+        let nightOnly = makeRule(mode: .nightOnly, selection: 3)
+
+        let rules = ShieldSyncPolicy.rulesToShield(
+            rules: [makeRule(mode: .deepFocus, selection: 1), nightOnly],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: true,
+            isDeepFocusWindowActive: false
+        )
+
+        XCTAssertEqual(rules, [nightOnly])
+    }
+
+    /// 両方の窓が閉じていれば、Proでも対象は残らない。
+    func testRulesToShieldIsEmptyWhenBothWindowsAreClosed() {
+        let rules = ShieldSyncPolicy.rulesToShield(
+            rules: [makeRule(mode: .deepFocus, selection: 1), makeRule(mode: .nightOnly, selection: 2)],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: false
+        )
+
+        XCTAssertTrue(rules.isEmpty)
     }
 
     // MARK: - Helpers

@@ -360,4 +360,116 @@ final class SettingsStoreTests: XCTestCase {
         }
     }
 
+    // MARK: - 完全ブロックの窓
+
+    func testDeepFocusSessionRoundTripsAndClears() {
+        let startedAt = Date(timeIntervalSince1970: 1_755_100_000)
+        let endsAt = Date(timeIntervalSince1970: 1_755_103_600)
+        store.deepFocusSession = DeepFocusSession(startedAt: startedAt, endsAt: endsAt)
+
+        XCTAssertEqual(store.deepFocusSession?.startedAt.timeIntervalSince1970, 1_755_100_000)
+        XCTAssertEqual(store.deepFocusSession?.endsAt?.timeIntervalSince1970, 1_755_103_600)
+
+        store.deepFocusSession = nil
+        XCTAssertNil(store.deepFocusSession)
+    }
+
+    /// 「自分で戻すまで」は終わる時刻を持たない。`nil` が「回そのものが無い」と混ざらないこと。
+    func testOpenEndedDeepFocusSessionKeepsItsNilEndDate() {
+        store.deepFocusSession = DeepFocusSession(
+            startedAt: Date(timeIntervalSince1970: 1_755_100_000),
+            endsAt: nil
+        )
+
+        XCTAssertNotNil(store.deepFocusSession)
+        XCTAssertNil(store.deepFocusSession?.endsAt)
+    }
+
+    func testDeepFocusScheduleDefaultsToDisabledWithoutWeekdays() {
+        let schedule = store.deepFocusSchedule
+
+        XCTAssertFalse(schedule.isEnabled)
+        XCTAssertEqual(schedule.weekdays, [])
+        XCTAssertEqual(schedule.startMinutes, DeepFocusConstants.defaultScheduleStartMinutes)
+        XCTAssertEqual(schedule.endMinutes, DeepFocusConstants.defaultScheduleEndMinutes)
+        XCTAssertFalse(DeepFocusWindowPolicy.isScheduleUsable(schedule))
+    }
+
+    func testDeepFocusSchedulePersistsAndNormalizes() {
+        store.deepFocusSchedule = DeepFocusSchedule(
+            isEnabled: true,
+            weekdays: [6, 2, 2, 9],
+            startMinutes: 1_500,
+            endMinutes: -60
+        )
+
+        let restored = store.deepFocusSchedule
+        XCTAssertTrue(restored.isEnabled)
+        XCTAssertEqual(restored.weekdays, [2, 6])
+        XCTAssertEqual(restored.startMinutes, 60)
+        XCTAssertEqual(restored.endMinutes, 1_380)
+    }
+
+    /// 0時ちょうどを保存した人の値が、未保存と同じ扱いで既定へ戻されないこと。
+    func testDeepFocusScheduleKeepsMidnightAsAStoredValue() {
+        store.deepFocusSchedule = DeepFocusSchedule(
+            isEnabled: true,
+            weekdays: [1],
+            startMinutes: 0,
+            endMinutes: 60
+        )
+
+        XCTAssertEqual(store.deepFocusSchedule.startMinutes, 0)
+        XCTAssertEqual(store.deepFocusSchedule.endMinutes, 60)
+    }
+
+    func testResetToDefaultsClearsDeepFocusWindowSettings() {
+        store.deepFocusSession = DeepFocusSession(
+            startedAt: Date(timeIntervalSince1970: 0),
+            endsAt: nil
+        )
+        store.deepFocusSchedule = DeepFocusSchedule(
+            isEnabled: true,
+            weekdays: [2],
+            startMinutes: 60,
+            endMinutes: 300
+        )
+
+        store.resetToDefaults()
+
+        XCTAssertNil(store.deepFocusSession)
+        XCTAssertFalse(store.deepFocusSchedule.isEnabled)
+        XCTAssertEqual(store.deepFocusSchedule.weekdays, [])
+        XCTAssertEqual(
+            store.deepFocusSchedule.startMinutes,
+            DeepFocusConstants.defaultScheduleStartMinutes
+        )
+    }
+
+    func testTrialReminderLeadDaysDefaultsToTwoDaysBefore() {
+        XCTAssertEqual(store.trialReminderLeadDays, TrialReminderLeadDays.standard)
+        XCTAssertEqual(store.trialReminderLeadDays, 2)
+    }
+
+    func testTrialReminderLeadDaysPersistsAcrossStores() {
+        store.trialReminderLeadDays = 3
+
+        XCTAssertEqual(SettingsStore(userDefaults: defaults).trialReminderLeadDays, 3)
+    }
+
+    func testTrialReminderLeadDaysFallsBackToDefaultForUnsupportedValues() {
+        for unsupported in [0, 1, 4, 7, -2] {
+            store.trialReminderLeadDays = unsupported
+            XCTAssertEqual(store.trialReminderLeadDays, 2, "\(unsupported) は既定へ丸める")
+        }
+    }
+
+    func testResetToDefaultsClearsTrialReminderLeadDays() {
+        store.trialReminderLeadDays = 3
+
+        store.resetToDefaults()
+
+        XCTAssertEqual(store.trialReminderLeadDays, 2)
+    }
+
 }

@@ -1364,19 +1364,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "During focus time, social apps won't open easily."
+            "value": "While Deep Focus is on, the apps you chose won't open. You can change the times whenever you want."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "集中時間中は、簡単にはSNSを開けません。"
+            "value": "Deep Focus中は選んだアプリを開けません。時間はいつでも変えられます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "집중 시간에는 SNS를 쉽게 열 수 없어요."
+            "value": "딥 포커스 중에는 고른 앱이 열리지 않아요. 시간은 언제든 바꿀 수 있어요."
           }
         }
       }
@@ -3764,19 +3764,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "See your full history"
+            "value": "Full history and weekly reports"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "記録を全期間さかのぼれる"
+            "value": "記録と週次レポートを全期間"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "전체 기간 기록 다시 보기"
+            "value": "전체 기록과 주간 리포트"
           }
         }
       }
@@ -3805,6 +3805,30 @@
         }
       }
     },
+    "paywall.feature.night_block": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-block while you sleep"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就寝中は自動で完全ブロック"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자는 동안 자동 완전 차단"
+          }
+        }
+      }
+    },
     "paywall.feature.unlimited_apps": {
       "comment": "Screen: Paywall",
       "extractionState": "manual",
@@ -3818,7 +3842,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "止めるアプリを何個でも追加できる"
+            "value": "止めるアプリを何個でも追加"
           }
         },
         "ko": {
@@ -3829,26 +3853,26 @@
         }
       }
     },
-    "paywall.feature.unlimited_goals": {
+    "paywall.feature.usage_watch": {
       "comment": "Screen: Paywall",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add unlimited goals"
+            "value": "Check-ins as often as every 15 minutes"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目標を何個でも追加できる"
+            "value": "使いすぎたら15分ごとに声かけ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목표 무제한 추가"
+            "value": "15분마다 확인 알림 받기"
           }
         }
       }
@@ -7844,19 +7868,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pauses you more firmly before you open social apps while you work"
+            "value": "Fully blocks your chosen apps during the times you set"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "作業中はSNSを開く前の確認を強くする"
+            "value": "決めた時間は選んだアプリを完全ブロック"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "작업 중에는 SNS를 열기 전 확인을 더 강하게 해요"
+            "value": "정한 시간에는 고른 앱을 완전 차단"
           }
         }
       }
@@ -10053,6 +10077,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 무료"
+          }
+        }
+      }
+    },
+    "store.intro_offer.zero_price": {
+      "comment": "Screen: Store",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$@ for %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
           }
         }
       }
@@ -12464,43 +12512,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pause harder with Deep Focus"
+            "value": "Fully block the apps you choose"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focusで強めに止められる"
+            "value": "選んだアプリを完全にブロック"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focus로 더 강하게 멈추기"
-          }
-        }
-      }
-    },
-    "paywall.feature.weekly_report": {
-      "comment": "Screen: Paywall",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "See your weekly review in detail"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "毎週のふりかえりを詳しく見られる"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "주간 리포트 자세히 보기"
+            "value": "고른 앱 완전 차단"
           }
         }
       }
@@ -12982,19 +13006,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apps you pick here won't open until you set the pause strength back to Standard."
+            "value": "The apps you pick won't open during the times you set. Start one now or set a weekly schedule."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだアプリは開けなくなります。強さを標準へ戻すまで続きます。"
+            "value": "選んだアプリは決めた時間だけ開けなくなります。いま始めるか毎週の予定を組むかを選べます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기서 고른 앱은 멈춤 강도를 기본으로 되돌릴 때까지 열리지 않습니다."
+            "value": "여기서 고른 앱은 정한 시간에만 열리지 않습니다. 지금 시작하거나 매주 예약을 걸 수 있습니다."
           }
         }
       }
@@ -13006,19 +13030,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick the apps to fully block and they won't open at all."
+            "value": "Pick the apps to fully block and they won't open during the times you set."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "完全ブロックの対象を選ぶと、そのアプリは開けなくなります。"
+            "value": "完全ブロックの対象を選ぶと、決めた時間だけそのアプリが開けなくなります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "완전 차단할 앱을 고르면 그 앱은 열리지 않습니다."
+            "value": "완전 차단할 앱을 고르면 정한 시간에 그 앱이 열리지 않습니다."
           }
         }
       }
@@ -13030,19 +13054,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focus stops the apps you pick from opening at all."
+            "value": "Deep Focus stops the apps you pick during the times you set."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ディープフォーカスにすると、選んだアプリを完全に止められます。"
+            "value": "ディープフォーカスにすると決めた時間だけ選んだアプリを止められます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "딥 포커스를 쓰면 고른 앱을 완전히 멈출 수 있습니다."
+            "value": "딥 포커스를 쓰면 정한 시간에만 고른 앱을 멈출 수 있습니다."
           }
         }
       }
@@ -13078,19 +13102,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Right now you only get the breath check. Switch to Deep Focus and the apps you pick won't open at all."
+            "value": "Right now you only get the breath check. Switch to Deep Focus and the apps you pick won't open during the times you set."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると、選んだアプリが開けなくなります。"
+            "value": "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금은 숨 고르기 확인만 나옵니다. 딥 포커스로 바꾸면 고른 앱이 아예 열리지 않습니다."
+            "value": "지금은 숨 고르기 확인만 나옵니다. 딥 포커스로 바꾸면 정한 시간에 고른 앱이 열리지 않습니다."
           }
         }
       }
@@ -13115,6 +13139,486 @@
           "stringUnit": {
             "state": "translated",
             "value": "완전 차단할 앱"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.no_window_notice": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is blocked right now. Set a time and the apps you pick won't open."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまは何も止まっていません。時間を決めると選んだアプリが開けなくなります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금은 아무것도 막히지 않습니다. 시간을 정하면 고른 앱이 열리지 않습니다."
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.label": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly schedule"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "毎週の予定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "매주 예약"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.start.label": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시작"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.end.label": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "종료"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.active.label": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled window"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定の時間帯"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "예약된 시간대"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.active.until": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Until %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@まで"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@까지"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.active.session_notice": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After this scheduled window ends, the session you started keeps running."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定の時間帯が終わったあとも、いますぐ始めた分は続きます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "예약된 시간대가 끝난 뒤에도 지금 시작한 차단은 계속됩니다."
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.no_weekday_notice": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick the days and the block runs at your chosen time on those days."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曜日を選ぶと、その曜日の決めた時間だけ止まります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "요일을 고르면 그 요일의 정한 시간에만 멈춥니다."
+          }
+        }
+      }
+    },
+    "settings.deep_focus.schedule.too_short_notice": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A window shorter than 15 minutes can't be set. Move the start and end further apart."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15分より短い時間帯は設定できません。開始と終了を離してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15분보다 짧은 시간대는 설정할 수 없습니다. 시작과 종료를 더 벌려 주세요."
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.label": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start now"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いますぐ始める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금 시작"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.option.thirty_minutes": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 min"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30分"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30분"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.option.one_hour": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hour"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1시간"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.option.two_hours": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 hours"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2시간"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.option.until_stopped": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Until I stop"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戻すまで"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "끌 때까지"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.start.action": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시작"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.stop.action": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unblock now"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いま解除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금 해제"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.remaining": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ left"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 남음"
+          }
+        }
+      }
+    },
+    "settings.deep_focus.session.open_ended.label": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Until you stop it"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分で戻すまで"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "직접 끌 때까지"
+          }
+        }
+      }
+    },
+    "deep_focus.session_end.notification.title": {
+      "comment": "Screen: Notification",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full block finished"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完全ブロックが終わりました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "완전 차단이 끝났어요"
+          }
+        }
+      }
+    },
+    "deep_focus.session_end.notification.body": {
+      "comment": "Screen: Notification",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can open the apps you picked again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだアプリをまた開けます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "고른 앱을 다시 열 수 있습니다."
           }
         }
       }
@@ -13307,6 +13811,582 @@
           "stringUnit": {
             "state": "translated",
             "value": "주간 상세"
+          }
+        }
+      }
+    },
+    "quick_action.intervene.title": {
+      "comment": "Screen: Home screen quick action",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take a breath"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いま一呼吸"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금 한 호흡"
+          }
+        }
+      }
+    },
+    "quick_action.offer.error.unavailable": {
+      "comment": "Screen: Home screen quick action",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open the offer screen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オファーの画面を開けませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오퍼 화면을 열지 못했습니다"
+          }
+        }
+      }
+    },
+    "quick_action.offer.title": {
+      "comment": "Screen: Home screen quick action",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use an offer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オファーを使う"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오퍼 사용하기"
+          }
+        }
+      }
+    },
+    "quick_action.support.title": {
+      "comment": "Screen: Home screen quick action",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send feedback"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フィードバックを送る"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "피드백 보내기"
+          }
+        }
+      }
+    },
+    "onboarding.recovery.eyebrow": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TIME TO GET BACK / GOOD NEWS"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り戻せる時間 / GOOD NEWS"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "되찾을 수 있는 시간 / GOOD NEWS"
+          }
+        }
+      }
+    },
+    "onboarding.recovery.lead": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If you opened half as often"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く回数を半分にできた場合の試算では"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여는 횟수를 절반으로 줄이면"
+          }
+        }
+      }
+    },
+    "onboarding.recovery.hero_yearly.prefix": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1年で 約"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1년에 약"
+          }
+        }
+      }
+    },
+    "onboarding.recovery.hero_yearly.suffix": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "days a year"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일"
+          }
+        }
+      }
+    },
+    "onboarding.recovery.daily_body": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "come back to you"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "が自分の時間に戻ります"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 내 시간으로 돌아옵니다"
+          }
+        }
+      }
+    },
+    "onboarding.recovery.disclaimer": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "*An estimate based on your answer to question 1, assuming half as many opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "※質問1の回答をもとに 開く回数が半分になった場合を計算した試算値です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "※질문 1의 답변을 바탕으로 여는 횟수가 절반이 됐을 때를 계산한 추정치입니다."
+          }
+        }
+      }
+    },
+    "onboarding.recovery.action": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start taking it back"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り戻す設定を始める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "되찾기 설정 시작하기"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.label": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What the picker looks like"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択画面のイメージ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택 화면 예시"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.badge": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose this"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここを選ぶ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이걸 선택"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.opened": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Is Opened"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開かれたとき"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열림"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.closed": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Is Closed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じられたとき"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫힘"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.run_immediately": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run Immediately"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すぐに実行"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즉시 실행"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.ask_before": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Before Running"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実行の前に尋ねる"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 전에 확인"
+          }
+        }
+      }
+    },
+    "onboarding.automation.mock.accessibility_label": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Is Opened and Run Immediately"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「開かれたとき」と「すぐに実行」を選びます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "'열림'과 '즉시 실행'을 선택합니다"
+          }
+        }
+      }
+    },
+    "onboarding.automation.privacy_note": {
+      "comment": "Screen: Onboarding",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak only sees that you opened one of your chosen apps. Nothing else you tap or see is sent to it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検知するのは選んだアプリを開いたことだけです。ほかの操作や画面の内容がDopaBreakに送られることはありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak가 아는 건 선택한 앱을 열었다는 사실뿐입니다. 그 밖의 조작이나 화면 내용은 전송되지 않습니다."
+          }
+        }
+      }
+    },
+    "paywall.trial_reminder.label": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before it renews"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新前のお知らせ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "갱신 전 알림"
+          }
+        }
+      }
+    },
+    "paywall.trial_reminder.body": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We'll remind you before your free trial ends"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無料期間が終わる前に通知でお知らせします"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "무료 기간이 끝나기 전에 알림으로 알려드립니다"
+          }
+        }
+      }
+    },
+    "paywall.trial_reminder.option.two_days": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 days before"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2日前"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2일 전"
+          }
+        }
+      }
+    },
+    "paywall.trial_reminder.option.three_days": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 days before"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3日前"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3일 전"
+          }
+        }
+      }
+    },
+    "paywall.trial_reminder.note": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel during the trial and you won't be charged."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無料期間中に解約すれば請求はありません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "무료 기간 중 해지하면 청구되지 않습니다"
           }
         }
       }

@@ -4,7 +4,6 @@ import SwiftUI
 struct GoalsView: View {
     let model: AppModel
     @State private var editorRoute: GoalEditorRoute?
-    @State private var paywallPlacement: PaywallPlacement?
 
     var body: some View {
         NavigationStack {
@@ -53,13 +52,10 @@ struct GoalsView: View {
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
         }
-        .fullScreenCover(item: $paywallPlacement) { placement in
-            PaywallView(storeService: model.storeService, placement: placement)
-        }
     }
 
     private var isAnyChildModalPresented: Bool {
-        editorRoute != nil || paywallPlacement != nil
+        editorRoute != nil
     }
 
     private var emptyRow: some View {
@@ -110,11 +106,7 @@ struct GoalsView: View {
 
     private var addButton: some View {
         Button {
-            if model.canAddGoal {
-                editorRoute = GoalEditorRoute(goal: nil)
-            } else {
-                paywallPlacement = .goalsLimit
-            }
+            editorRoute = GoalEditorRoute(goal: nil)
         } label: {
             Text(String(localized: "goals.action.add", defaultValue: "目標を追加"))
         }

@@ -3,8 +3,8 @@ import Foundation
 import StoreKit
 import SwiftUI
 
+// 目標の件数制限は撤廃済み（2026-08-17オーナー決定）のため、goals_limit の掲出箇所はない。
 enum PaywallPlacement: String, CaseIterable, Identifiable {
-    case goalsLimit = "goals_limit"
     case settingsTargetAppLimit = "settings_target_app_limit"
     case settingsFamilyActivityLimit = "settings_family_activity_limit"
     case settingsProStatusRow = "settings_pro_status_row"
@@ -42,6 +42,9 @@ struct PaywallView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlan: PaywallPlan = .annual
+    /// 終了前通知の何日前かを画面側で保持する。`SettingsStore` は監視対象ではないため、
+    /// 表示はここを正本にし、変更のたびに保存へ書き戻す。
+    @State private var trialReminderLeadDays: Int
     @State private var alertMessage: String?
     @State private var didRecordAppearance = false
     @State private var didRecordDismissal = false
@@ -56,7 +59,9 @@ struct PaywallView: View {
     ) {
         self.storeService = storeService
         self.placement = placement
-        self.settingsStore = settingsStore ?? ((try? SettingsStore()) ?? SettingsStore(userDefaults: .standard))
+        let resolvedSettingsStore = settingsStore ?? ((try? SettingsStore()) ?? SettingsStore(userDefaults: .standard))
+        self.settingsStore = resolvedSettingsStore
+        _trialReminderLeadDays = State(initialValue: resolvedSettingsStore.trialReminderLeadDays)
         let snapshot = try? snapshotStore.read(
             SelfCheckSnapshot.self,
             from: .selfCheckSnapshot
@@ -80,6 +85,7 @@ struct PaywallView: View {
                 header
                 featureList
                 planList
+                trialReminderCard
                 legalArea
             }
             .padding(.horizontal, 20)
@@ -166,17 +172,17 @@ struct PaywallView: View {
 
     private var featureList: some View {
         VStack(spacing: 0) {
-            PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_apps", defaultValue: "止めるアプリを何個でも追加できる"))
+            PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_apps", defaultValue: "止めるアプリを何個でも追加"))
             divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.deep_focus", defaultValue: "Deep Focusで強めに止められる"))
+            PaywallFeatureRow(text: String(localized: "paywall.feature.deep_focus", defaultValue: "選んだアプリを完全にブロック"))
+            divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.night_block", defaultValue: "就寝中は自動で完全ブロック"))
+            divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.usage_watch", defaultValue: "使いすぎたら15分ごとに声かけ"))
+            divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.full_history", defaultValue: "記録と週次レポートを全期間"))
             divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.lock_theme", defaultValue: "ロック画面テーマを着せ替え"))
-            divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.full_history", defaultValue: "記録を全期間さかのぼれる"))
-            divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.weekly_report", defaultValue: "毎週のふりかえりを詳しく見られる"))
-            divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_goals", defaultValue: "目標を何個でも追加できる"))
         }
         .padding(.horizontal, 4)
     }
@@ -187,6 +193,46 @@ struct PaywallView: View {
             planCard(.monthly)
         }
         .disabled(isBusy)
+    }
+
+    /// 無料期間つきの年額を選んでいるときだけ出す、終了前の知らせの事前選択。
+    /// 請求されるタイミングを自分で握れる実感が、無料期間への警戒をほどく。
+    /// CTAより手前に置くが、支配的にならないよう寸法と彩度は抑える。
+    @ViewBuilder
+    private var trialReminderCard: some View {
+        if selectedPlan == .annual, storeService.isEligibleForAnnualIntroOffer {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 10) {
+                    SmallLabel(text: String(localized: "paywall.trial_reminder.label", defaultValue: "更新前のお知らせ"))
+
+                    Text(String(localized: "paywall.trial_reminder.body", defaultValue: "無料期間が終わる前に通知でお知らせします"))
+                        .dopaFont(14, weight: .bold)
+                        .foregroundStyle(DesignTokens.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Picker(
+                        String(localized: "paywall.trial_reminder.label", defaultValue: "更新前のお知らせ"),
+                        selection: $trialReminderLeadDays
+                    ) {
+                        Text(String(localized: "paywall.trial_reminder.option.two_days", defaultValue: "2日前"))
+                            .tag(2)
+                        Text(String(localized: "paywall.trial_reminder.option.three_days", defaultValue: "3日前"))
+                            .tag(3)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .disabled(isBusy)
+
+                    Text(String(localized: "paywall.trial_reminder.note", defaultValue: "無料期間中に解約すれば請求はありません"))
+                        .dopaFont(12, weight: .medium, lineSpacing: 2)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .onChange(of: trialReminderLeadDays) { _, newValue in
+                settingsStore.trialReminderLeadDays = newValue
+            }
+        }
     }
 
     private var fixedActionBar: some View {

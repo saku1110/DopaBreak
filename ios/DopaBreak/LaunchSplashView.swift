@@ -20,6 +20,8 @@ enum LaunchSplashCompletionReason: Equatable {
     case backgroundResume
     case displayPolicy
     case deepLink
+    /// ホーム画面クイックアクションからの起動。着地先へ即座に送るため演出を畳む。
+    case quickAction
 }
 
 enum LaunchSplashPresentationDecision: Equatable {

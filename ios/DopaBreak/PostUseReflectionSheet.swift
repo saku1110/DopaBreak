@@ -14,6 +14,19 @@ struct PostUseReflectionSheet: View {
 
     @State private var satisfaction: PostUseSatisfaction?
 
+    init(
+        model: AppModel,
+        engine: InterventionEngine,
+        reflection: ReflectionLog,
+        onFinished: @escaping () -> Void
+    ) {
+        self.model = model
+        self.engine = engine
+        self.reflection = reflection
+        self.onFinished = onFinished
+        _satisfaction = State(initialValue: nil)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -26,11 +39,8 @@ struct PostUseReflectionSheet: View {
                     .frame(maxWidth: .infinity)
                     .characterPop(trigger: satisfaction)
 
-                if let satisfaction {
-                    happinessStep(satisfaction: satisfaction)
-                } else {
-                    satisfactionStep
-                }
+                satisfactionStep
+                    .disabled(satisfaction != nil)
 
                 Button(String(localized: "reflection.action.skip", defaultValue: "今回はスキップ")) {
                     skip()
@@ -38,6 +48,8 @@ struct PostUseReflectionSheet: View {
                 .dopaFont(15, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                .opacity(satisfaction != nil ? 0.4 : 1)
+                .disabled(satisfaction != nil)
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -45,13 +57,27 @@ struct PostUseReflectionSheet: View {
         .background(DesignTokens.background)
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
+        .interactiveDismissDisabled(satisfaction != nil)
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: satisfaction)
+        .task(id: satisfaction) {
+            guard let satisfaction else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(550))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            finish(
+                satisfaction: satisfaction,
+                happinessDelta: satisfaction.impliedHappinessDelta
+            )
+        }
     }
 
     private var satisfactionStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(String(localized: "reflection.satisfaction.title", defaultValue: "SNSを見て\nどうだった？"))
+            Text(String(localized: "reflection.satisfaction.title", defaultValue: "SNSを見てどうだった？"))
                 .dopaFont(34, weight: .black, tracking: -0.8)
                 .foregroundStyle(DesignTokens.primaryText)
 
@@ -69,57 +95,21 @@ struct PostUseReflectionSheet: View {
         }
     }
 
-    private func happinessStep(satisfaction: PostUseSatisfaction) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            CardContainer {
-                HStack(spacing: 10) {
-                    Image(systemName: "checkmark")
-                        .dopaFont(13, weight: .black)
-                        .foregroundStyle(DesignTokens.accent)
-                    Text(satisfaction.displayTitle)
-                        .dopaFont(15, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-                }
-            }
-
-            Text(String(localized: "reflection.happiness.title", defaultValue: "幸福感や集中力は\n上がった？"))
-                .dopaFont(32, weight: .black)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            VStack(spacing: 10) {
-                choiceButton(HappinessDelta.increased.displayTitle) {
-                    finish(satisfaction: satisfaction, happinessDelta: .increased)
-                }
-                choiceButton(HappinessDelta.unchanged.displayTitle) {
-                    finish(satisfaction: satisfaction, happinessDelta: .unchanged)
-                }
-                choiceButton(HappinessDelta.decreased.displayTitle) {
-                    finish(satisfaction: satisfaction, happinessDelta: .decreased)
-                }
-            }
-        }
-    }
-
     private func satisfactionChoiceButton(_ value: PostUseSatisfaction) -> some View {
-        choiceButton(value.displayTitle, expression: value.characterExpression) {
+        choiceButton(value.displayTitle, isSelected: satisfaction == value) {
             satisfaction = value
+            AccessibilityNotification.Announcement(value.displayTitle).post()
         }
+        .opacity(satisfaction != nil && satisfaction != value ? 0.4 : 1)
     }
 
     private func choiceButton(
         _ title: String,
-        expression: CharacterExpression? = nil,
+        isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack {
-                if let expression {
-                    CharacterView(
-                        expression,
-                        size: DesignTokens.CharacterSize.inline,
-                        animated: false
-                    )
-                }
                 Text(title)
                     .dopaFont(17, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
@@ -130,11 +120,15 @@ struct PostUseReflectionSheet: View {
             .background(DesignTokens.card)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(DesignTokens.hairline, lineWidth: 1)
+                    .stroke(
+                        isSelected ? DesignTokens.accent : DesignTokens.hairline,
+                        lineWidth: isSelected ? 2 : 1
+                    )
             )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func finish(satisfaction: PostUseSatisfaction, happinessDelta: HappinessDelta) {
@@ -147,6 +141,7 @@ struct PostUseReflectionSheet: View {
             onFinished()
         } catch {
             model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+            self.satisfaction = nil
         }
     }
 
@@ -182,19 +177,6 @@ extension PostUseSatisfaction {
             return String(localized: "reflection.satisfaction.lost_time", defaultValue: "時間を失った")
         case .feltWorse:
             return String(localized: "reflection.satisfaction.felt_worse", defaultValue: "気分が下がった")
-        }
-    }
-}
-
-extension HappinessDelta {
-    var displayTitle: String {
-        switch self {
-        case .increased:
-            return String(localized: "reflection.happiness.increased", defaultValue: "上がった")
-        case .unchanged:
-            return String(localized: "reflection.happiness.unchanged", defaultValue: "変わらない")
-        case .decreased:
-            return String(localized: "reflection.happiness.decreased", defaultValue: "下がった")
         }
     }
 }

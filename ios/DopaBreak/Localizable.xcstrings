@@ -6493,26 +6493,26 @@
         }
       }
     },
-    "intervention.breath.timer_label": {
-      "comment": "Screen: Intervention",
+    "intervention.breath.remaining_seconds.accessibility": {
+      "comment": "Screen: Intervention; VoiceOver label for the breathing countdown",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "BREATHE · %lld SEC"
+            "value": "%lld seconds remaining"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "BREATHE · %lld SEC"
+            "value": "残り%lld秒"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "BREATHE · %lld SEC"
+            "value": "%lld초 남음"
           }
         }
       }
@@ -8677,102 +8677,6 @@
         }
       }
     },
-    "reflection.happiness.decreased": {
-      "comment": "Screen: Reflection",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Went down"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下がった"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "줄었어요"
-          }
-        }
-      }
-    },
-    "reflection.happiness.increased": {
-      "comment": "Screen: Reflection",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Went up"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上がった"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "늘었어요"
-          }
-        }
-      }
-    },
-    "reflection.happiness.title": {
-      "comment": "Screen: Reflection",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Did your happiness\nor focus go up?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "幸福感や集中力は\n上がった？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "행복감이나 집중력이\n늘었나요?"
-          }
-        }
-      }
-    },
-    "reflection.happiness.unchanged": {
-      "comment": "Screen: Reflection",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No change"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "変わらない"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "그대로예요"
-          }
-        }
-      }
-    },
     "reflection.satisfaction.description": {
       "comment": "Screen: Reflection",
       "extractionState": "manual",
@@ -8924,19 +8828,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How did it feel\nafter scrolling?"
+            "value": "How did it feel after scrolling?"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを見て\nどうだった？"
+            "value": "SNSを見てどうだった？"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS를 보고 나서\n어땠나요?"
+            "value": "SNS를 보고 나서 어땠나요?"
           }
         }
       }
@@ -12409,6 +12313,30 @@
         }
       }
     },
+    "onboarding.result.life_grid.legend": {
+      "comment": "Screen: Onboarding quiz result",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 square = 1 year   Filled = time lost to social media"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1マス ＝ 1年　塗り ＝ SNSに消える時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한 칸 = 1년   채워진 칸 = SNS에 사라지는 시간"
+          }
+        }
+      }
+    },
     "onboarding.science.action": {
       "comment": "Screen: Onboarding",
       "extractionState": "manual",
@@ -13102,19 +13030,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Right now you only get the breath check. Switch to Deep Focus and the apps you pick won't open during the times you set."
+            "value": "Standard = one breath before opening. Switch to Deep Focus and the apps you pick won't open during the times you set."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
+            "value": "標準＝開く前に一呼吸。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금은 숨 고르기 확인만 나옵니다. 딥 포커스로 바꾸면 정한 시간에 고른 앱이 열리지 않습니다."
+            "value": "표준 = 열기 전에 한 호흡. 딥 포커스로 바꾸면 정한 시간에 고른 앱이 열리지 않습니다."
           }
         }
       }
@@ -14365,6 +14293,168 @@
             "value": "3일 전"
           }
         }
+      }
+    },
+    "intervention.gate.opening.back": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Go back with ◀ in the top-left to open it (%lld min)" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "左上の ◀ から戻ると開けます（%lld分）" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "왼쪽 위 ◀로 돌아가면 열 수 있어요(%lld분)" } }
+      }
+    },
+    "intervention.gate.already_open.body": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This app is already open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このアプリはすでに開けます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 앱은 이미 열려 있어요" } }
+      }
+    },
+    "intervention.gate.limit.title": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "That's it for today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日はここまで" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘은 여기까지" } }
+      }
+    },
+    "intervention.gate.limit.body": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This app has reached today's limit. You can change the limit in Settings." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このアプリは今日の上限に達しました。上限は設定で変えられます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 앱은 오늘 상한에 도달했어요. 설정에서 상한을 바꿀 수 있어요." } }
+      }
+    },
+    "intervention.gate.cooldown.body": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "You can open it at %@. You can change the wait time in Settings." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%@から開けます。待ち時間は設定で変えられます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%@부터 열 수 있어요. 설정에서 대기 시간을 바꿀 수 있어요." } }
+      }
+    },
+    "intervention.gate.target_name": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This app" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このアプリ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 앱" } }
+      }
+    },
+    "settings.gate.section": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Apps to pause" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "止めるアプリ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "멈출 앱" } }
+      }
+    },
+    "settings.gate.description": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Always pause before opening. Set the number of opens and duration for each app." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開く前に必ず一呼吸。回数や長さはアプリごとに決められます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 꼭 한 호흡. 횟수와 시간은 앱마다 정할 수 있어요" } }
+      }
+    },
+    "settings.gate.app_list": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Settings for each app" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "アプリごとの設定" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "앱별 설정" } }
+      }
+    },
+    "settings.gate.daily_limit": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Opens per day" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "1日に開ける回数" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "하루에 열 수 있는 횟수" } }
+      }
+    },
+    "settings.gate.daily_limit.none": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No limit" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "上限なし" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "상한 없음" } }
+      }
+    },
+    "settings.gate.session_minutes": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Time per open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "1回の長さ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "한 번 열 때의 시간" } }
+      }
+    },
+    "settings.gate.cooldown": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Wait before opening again" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "次に開けるまでの間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "다시 열기까지의 간격" } }
+      }
+    },
+    "settings.gate.cooldown.none": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "None" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "なし" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "없음" } }
+      }
+    },
+    "settings.gate.automation_note": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pro's paused apps don't need a Shortcuts automation." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proの止めるアプリではショートカットの自動化は不要です" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro의 멈출 앱에는 단축어 자동화가 필요하지 않아요" } }
+      }
+    },
+    "settings.gate.category_note": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Category selections are used only for full blocking. The pause before opening works per app." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "카테고리 선택은 완전 차단에만 사용돼요. 열기 전 한 호흡은 앱 단위로 작동해요" } }
+      }
+    },
+    "settings.gate.locked_notice": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "With Pro you can always pause before opening without a Shortcuts setup and set limits and wait times." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro에서는 단축어 설정 없이 열기 전에 항상 멈추고 횟수와 대기 시간도 정할 수 있어요" } }
+      }
+    },
+    "settings.gate.times_format": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld times" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld回" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld회" } }
       }
     },
     "paywall.trial_reminder.note": {

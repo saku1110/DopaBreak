@@ -48,9 +48,9 @@ CANVASES = {
 }
 
 PANEL_DAYS = {
-    "ja": {"iphone-69": 35, "iphone-65": 35, "ipad-13": 33},
-    "en-US": {"iphone-69": 35, "iphone-65": 35, "ipad-13": 31},
-    "ko": {"iphone-69": 33, "iphone-65": 33, "ipad-13": 34},
+    "ja": {"iphone-69": 35, "iphone-65": 35, "ipad-13": 35},
+    "en-US": {"iphone-69": 35, "iphone-65": 35, "ipad-13": 35},
+    "ko": {"iphone-69": 35, "iphone-65": 35, "ipad-13": 35},
 }
 
 COPY = {
@@ -83,7 +83,7 @@ COPY = {
         {
             "eyebrow": "振り返りと統計",
             "headline": ["SNSのあと、本音を記録", "「開かなかった」も積み上がる"],
-            "sub": "満足感・集中・開こうとした回数を見える化",
+            "sub": "満足感と開こうとした回数を見える化",
         },
         {
             "eyebrow": "オンデバイスで安心",
@@ -95,7 +95,7 @@ COPY = {
         {
             "eyebrow": "SEE THE COST OF DOOMSCROLLING",
             "headline": ["“Five more minutes”", "can become {days} days a year"],
-            "sub": "Estimate lost scrolling time from your answers",
+            "sub": "Answer a few questions to see how much time your phone takes.",
         },
         {
             "eyebrow": "NOT ANOTHER APP BLOCKER",
@@ -105,12 +105,12 @@ COPY = {
         {
             "eyebrow": "CHOOSE A REASON AND A TIME",
             "headline": ["Know why you’re opening", "Use only what you need"],
-            "sub": "Name your purpose, then pick 5–30 minutes",
+            "sub": "Name your purpose, then pick 5 to 30 minutes",
         },
         {
-            "eyebrow": "THREE PAUSE STRENGTHS",
-            "headline": ["Make screen time", "fit your real life"],
-            "sub": "Standard, Deep Focus, or stronger at night",
+            "eyebrow": "A DETOX YOU CAN ACTUALLY KEEP",
+            "headline": ["Dopamine detox,", "one skipped open at a time"],
+            "sub": "Every open you skip gets counted, so the number keeps climbing.",
         },
         {
             "eyebrow": "LOCK SCREEN · NOTIFICATIONS · WIDGETS",
@@ -118,9 +118,9 @@ COPY = {
             "sub": "Remember what matters before you open social media",
         },
         {
-            "eyebrow": "REFLECTIONS AND STATS",
+            "eyebrow": "HABIT TRACKER AND CHECK-INS",
             "headline": ["Check in after you scroll", "Count every time you didn’t open"],
-            "sub": "Track satisfaction, focus, attempts, and skipped opens",
+            "sub": "Log how you felt, then see your attempts and skipped opens",
         },
         {
             "eyebrow": "PRIVATE BY DESIGN",
@@ -130,7 +130,7 @@ COPY = {
     ],
     "ko": [
         {
-            "eyebrow": "SNS 시간 셀프 체크",
+            "eyebrow": "숏폼·SNS 시간 셀프 체크",
             "headline": ["‘5분만 더’가", "1년에 {days}일이 돼요"],
             "sub": "답변을 바탕으로 무심코 스크롤한 시간을 추정해요",
         },
@@ -155,9 +155,9 @@ COPY = {
             "sub": "SNS를 열기 전에 내가 하려던 일을 떠올려요",
         },
         {
-            "eyebrow": "사용 후 돌아보기와 통계",
+            "eyebrow": "사용 후 돌아보기와 루틴 통계",
             "headline": ["SNS를 본 뒤 기분을 기록", "열지 않은 횟수도 쌓여요"],
-            "sub": "만족감·집중력·시도·열지 않은 횟수를 한눈에 봐요",
+            "sub": "만족감·시도·열지 않은 횟수를 한눈에 봐요",
         },
         {
             "eyebrow": "기기 안에 안전하게",

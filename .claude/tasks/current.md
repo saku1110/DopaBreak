@@ -1,5 +1,52 @@
 # 現在のタスク状況
 
+## 2026-08-22 — シールド解除フロー＋回数上限＋クールダウン＋アプリ別設定（v1.1・✅ 実装・クロスモデルレビュー完了・未コミット・実機検証待ち）
+
+- 発端: オーナー「ClarymindとDopaBreakどちらが優位？」→ 機能差の実害は制御系3点（クールダウン/回数上限/アプリ別設定）と判定 → 標準モードはショートカット摩擦のみで強制不能と判明 → **オーナー決定「B. 今シールド解除フローまで作る」**（A摩擦版・Cローンチ優先は不採用）
+- 設計正本: `.claude/specs/shield-unlock-flow-v1_1.md`（Fable）。要点: Pro向け常時シールド「ゲート」（ストア `dopabreak.gate`）→ ボタンでDopaBreak起動（iOS 26.5+ `openParentalControlsApp` / 旧OSは通知タップ）→ 既存の一呼吸フロー再利用 → N分だけ解除 → DeviceActivity(開始=終了時刻・≥15分)＋前面同期＋台帳再検証の3層で再シールド。Deep Focus/夜だけは完全ブロックのまま
+- 調査: Clarymind解除フロー実測（Opus5）・Screen Time API制約（Opus5・SDK実物/Apple DTS/Foqos）
+- [x] 設計書
+- [x] Batch1（Core純関数/ストア/テスト＋拡張3本＋シールド文言ja/en/ko）= Codex
+- [x] Batch2（アプリ側: GateShield/GateGrantコントローラ・通知タップ・InterventionTarget一般化・設定UI・docs/11 §6c）= Codex
+- [x] Opus5レビュー3巡（Batch1: 高3中5低4 / Batch2: 高1中5低6 / 最終検証: 新規高1低4）→ Codex修正パス①②③で全件是正 → Fable受け入れ。要点: 台帳はNSFileCoordinator協調＋解除要求を別ファイル化／ゲート対象外シールドに解除UIを出さない会員ガード／権利未確認時は拒否しない（確定Freeのみ）／再シールド予約は分切り上げ＋停止判断を純関数化
+- [x] 検証: Core 496テスト0失敗 / アプリ181テスト0失敗（5 skip）/ 全7ターゲット BUILD SUCCEEDED
+- [ ] **実機検証（設計書§13・10項目）**・TestFlightで解除直後のシールド残留を確認・iOS 26.5実機で `openParentalControlsApp` の実挙動確認（未報告API）
+- [ ] コミット（他セッションの未コミット分と分離して行う）
+- 未確定（オーナー確認）: 既定値（上限なし/クールダウンなし/10分）・ペイウォール機能行への追加可否・スクショ/説明文反映はv1.1リリース時
+
+## 2026-08-20 — App Storeスクリーンショットv2（対角ライム×脳キャラ・🔄 オーナー確認待ち）
+
+- 発端: オーナーが対角ライム分割の参考プレート（8/16のChatGPT用10案の生成物）を提示 →「このデザインをベースに脳キャラ入り・楽しく・ベネフィット明快に」＋追加指示「モックの見せ方と背景構成は毎枚変える。トンマナ配色は共通」
+- 設計=Fable（`.claude/specs/appstore-screenshots-v2-diagonal.md`）／実装=Codex（gpt-5.6-sol Fast・復帰確認済み）／レビュー=Opus5
+- [x] ja / iPhone 6.9" 7枚生成: `output/app-store-screenshots/v2/ja/iphone-69/` ＋ contact-sheet-ja.png ＋ slots.json（画面差し替え座標）
+- [x] 7枚とも構図変化: 01=参考忠実ライム大帯 / 02=細リボン+傾き+キャラ腰掛け / 03=右下ウェッジ+8° / 04=ライム上半分+キャラ右ベゼル寄り / 05=サークルハロー / 06=03鏡像-8° / 07=フルフォン+接地バンド。キャラ=doom/blink/awake/worse/awake反転/relief/relief
+- [x] コピーは8/1承認済み7枚分を流用（読点規則適用で「、」除去のみ）
+- [x] Fable差し戻し1回（04の覗きキャラが顔切れ→右ベゼル寄り添いへ・接地影追加）→ 修正済み
+- [x] **オーナー追加指示2件を反映**: ①モック内はオンボ/設定でなくコア体験の実画面（一呼吸・満足度入力等）②1枚にキャラ合計1体 → `CoreScreensSnapshotCapture.swift` 新設（NativeChrome方式・DEBUG専用イニシャライザをInterventionFlowView/PostUseReflectionSheetへ追加・本番経路不変）で実画面6枚撮影 → 差し替え。構成: 01=統計+doom / 02=一呼吸実画面(内蔵キャラ・マスコットなし) / 03=intent実画面+awake / 04=ホーム実画面(内蔵キャラ) / 05=ロック画面モック+awake反転 / 06=満足度入力実画面(内蔵キャラ) / 07=目標一覧+relief。恒久ルールはメモリ `feedback_store_screenshot_rules.md` に保存
+- [x] **オーナー追加指示（05）**: フォン拡大・LiveActivity可読・目標3つ・iOSデフォルトロック画面忠実再現 → mock_lock全面刷新（日付/9:41/南京錠/LA 3目標/フラッシュライト・カメラ/ホームインジケータ）
+- [x] Opus5クロスモデルレビュー完了: コピー28項目・slots四隅整合は機械照合OK。指摘=06見出し横79%圧縮/クロップ不成立/軽微8件 → Codexへ差し戻し全修正（06はフォントサイズ縮小方式・02/03/04/06のフォン位置確定・assert→raise等）。07の沈み280pxと05のアーク内寄りは目視良好のため意図として維持
+- [x] **オーナー差し戻し（8/20午後）2巡目**: ①全フォン大型化（01/04=幅1060・02=1000・03/06=980・05=1000・07=780。傾きは維持）②05のLiveActivityを実装準拠に全面差し替え（DopaBreakWidgets.swift liveActivityView準拠: あなたの目標eyebrow＋左アクセントバー3pt＋目標3行タイク＋区切り線＋今日開かなかった12回/開こうとした15回。旧モックのアイコン+DOPABREAKヘッダーは実物に無いため廃止・E1パレット実値使用）③01のライム帯拡大でコピー可読化 ④07を目標3件シードで再撮影（05のLAと同一文言・カテゴリ付き）
+- [x] **オーナー差し戻し3巡目（8/20夕）**: ①「機能少なくない？」→ 機能棚卸しの上パネル08〜10追加で計10枚（Apple上限）: 08=Deep Focus時間指定ブロック（30分/1h/2h/戻すまで＋曜日予約・実設定画面）／09=夜だけ強化（就寝中自動完全ブロック・見出しはPW審査済コピー分割）／10=白黒フィルタ連携ガイド。コピーはsales-copywritingフロー・生理効果断定なし。キャラ=blink/relief/worse ②05コピー差し替え「SNSを開くたびに／目標を確認」＋サブ「ロック画面に目標と開かなかった回数を表示」（オーナー指定訴求） ③ポリッシュ: 08/09スクリーンタイム許可済み表示（DEBUG撮影init注入・本番経路不変）・09利用時間通知ON・10タイトル切れ解消
+- 見送り: ロック画面テーマ着せ替え（7テーマ・10枚上限のため。入れ替え候補）
+- [x] **08〜10を追加（機能訴求の拡充・オーナー指摘「機能少なくない？」）**: 08=時間指定の完全ブロック（30分〜2時間＋曜日予約）/ 09=夜だけ強化（就寝〜起床の自動ブロック）/ 10=白黒フィルタ連携。全て実設定画面。09は08と画面が被って見えたためスクロール位置を起床・就寝時刻主役へ再撮影
+- [x] **05にLive Activity拡大コールアウト**（オーナー指示）: ロック画面全体＋LA部を1.35倍で切り出し浮かせ・ライム枠とつなぎ線でズーム表現。拡大は縮小前の正本から切り出しのため文字が鮮明
+- [x] **en-US / ko 展開完了（2026-08-21）**: 各10枚＋contact-sheet。01-04/06-07は8/1のネイティブ監査済みコピー流用、05・08-10は新規transcreation（**humanizer-en / humanizer-ko の audit.py で exit 0 実測**）。en/koの実画面も各9枚撮影（XCTest失敗0）。フォントは en=SFNS / ko=AppleSDGothicNeo（豆腐・置換文字0をOCR確認）。3ロケールでスロット幾何完全同一
+- [ ] オーナー確認 → OKなら 6.5"/iPad派生（asc-screenshot-resize）・ASCアップロード
+- ⚠️ 既知の残課題: ①04はモード訴求コピー×ホーム画面でサブ「標準・Deep Focus・夜だけ強め」が画面内に写らない（モード選択UIはオンボ/設定にしか存在しない。厳密整合はオーナー判断） ②01のサブ「回答から…推計」は統計実画面と厳密には不一致（見える化の文脈では通る） ③05のLA 3目標のうち2つ（朝のランニング・読書30分）はダミー文言
+
+## 2026-08-20 — ASCアプリレコード登録の前進（✅ 完了・スクショとビルド以外の提出物が揃った）
+
+- 経緯: オーナー「スクショはCodex復活後。ASCに登録進めよう」→ docs/16確定値を`asc metadata`（pull→validate→dry-run→push）で投入
+- [x] **メタデータ4ロケール投入・実体照合0差分**: ja/en-US/ko/en-GB（韓国副索引）。app-info=名前/サブタイトル/プライバシーURL、version 1.0=説明文/キーワード/サポートURL。検証0エラー（--subscription-app含む）
+  - jaサブタイトルは**doc02c確定値**「禁止しないアプリ制限・気づきでSNSを減らす」（v2「開く前にひと呼吸」はオーナー承認待ちのまま・docs/16 次アクション4準拠）
+  - en-US/koはv2/v2.1（2026-08-14ネイティブ監査反映済み）。1回目pushでversion側3ロケールが「既存あり」エラー→app-infoロケール作成時のApple自動生成が原因。再pushで全反映
+- [x] **アプリ本体価格=無料**（基準JPN・startDate null=全期間カバー。当日日付は「future」拒否のため前日指定で作成）
+- [x] **提供地域=全175テリトリー**（公開APIのcreateは**全テリトリーをリクエストに含めないと通らない**=部分指定だと'LAO'不足エラー。territory-availabilitiesで175/175 available実測）
+- [x] **カテゴリ=PRODUCTIVITY（主）+ LIFESTYLE（副）**: 確定記録がdocsに無いため競合準拠（one sec/Opal/Forest=仕事効率化）で設定。提出前まで変更可・オーナー異論あれば差し替え
+- [x] オーナー確認2件 → **同日承認・設定完了**: ①著作権=`2026 Toshiki Sakuraya`（versions list実取得で保存確認） ②年齢レーティング質問票=全項目なし/false（オーナー「なしでおｋ」・APIレスポンスで全属性NONE/false確認=4+相当）
+- [ ] ⏳ ゲート待ち（順序固定）: 実機Sandbox検証（A/Bブロック）→ 証跡⏳ → ビルドアップロード → App Privacy公開 → スクショ（Codex復活後）→ 提出
+- ⚠️ asc web系はセッション期限切れ（2FA要）。公開APIで完結したため今回は不要だったが、次にweb系が要る時はオーナーの `asc web auth login` が必要
+
 ## 2026-08-18 — ペイウォールのゼロ価格フレーミング（✅ 実装・レビュー完了・未コミット）
 
 - 発端: オーナーがXのポスト（「7 days free」→「7 days $0」でCVR+35%の主張）を提示 → `/brainstorm`（議題タイプC）で評価 → **オーナー承認「OK入れよう」**
@@ -539,3 +586,27 @@
 - [x] 検証: swift test 389件0失敗・xcodebuild BUILD SUCCEEDED（Opus5実行→Fableが報告確認・重大2件はコード裏取り済み）
 - 残: 実機での夜境界発火（就寝で適用・起床で解除・起床時刻変更直後の旧コールバック無害化）は release-monetization-check の実機検証項目。コード存在で✅を付けない
 - 注: SettingsView.setRuleEnabled に既存の破壊的降格（Free確定時にmode書き潰し）が残存（Codexレビュー外・Opus5発見）。非破壊裁定と食い違うが今回は未変更・オーナー判断待ち
+
+## 2026-08-22 機能画面リデザイン提案（承認待ち）
+- [x] オーナー判断A/B/C → 2026-08-22「全部推奨でOK」で承認（レビューはCodex指示）
+- [ ] **🔄 Phase1 実装（AppIconView＋止めるアプリ＋ホーム）** ← 2026-08-22 15:50 オーナー指示で一時停止。再開時は `.claude/specs/functional-screens-redesign-phase1-brief.md` をOpus5サブエージェントへ渡して着手（コードは未着手・作業ツリーに部分編集なし）
+- [ ] Phase2 記録（`functional-screens-redesign-phase2-brief.md`）
+- [ ] Phase3 設定（`functional-screens-redesign-phase3-brief.md`）
+- [ ] Phase4 目標＋編集シート（`functional-screens-redesign-phase4-brief.md`）
+- 各Phase: 実装=Opus5 → レビュー=Codex（gpt-5.6-sol Fast・max） → 修正 → 実機スクショ提示 → 承認
+
+## 2026-08-22 振り返りシート1問化＋スクショ06差し替え＋ja/ko検索意図反映（✅ 完了・未コミット）
+- 体制: 設計=Fable／実装=Codex（前半）→Opus5サブエージェント（Codexが利用上限・8/27まで）／レビュー=Opus5別インスタンス／受け入れ=Fable
+- [x] 「幸福感や集中力は上がった？」の2問目を削除し1問「SNSを見てどうだった？」に（`happinessDelta`は満足度から導出・Core API不変）。選択肢は文字のみ＋先頭キャラ1体、0.55秒後自動保存、スワイプ閉じ防止・無効状態0.4・VoiceOver読み上げ
+- [x] スクショ06を1問目の実画面へ（ja/en-US/ko raw再撮影・v2再生成）、06サブから「集中/focus/집중력」を削除（両スクリプト）
+- [x] ja/koの検索意図監査反映（並び順01,02,09,08,04,03,05,06,07,10・ja#8勉強・ko#8/#1 eyebrow・upload-order配置）、en-US #6 subをhumanizer-en全ゲート通過形に。ASOセッション受け入れ済み
+- 検証: swift test 459件0失敗 / xcodebuild BUILD SUCCEEDED / lint exit 0 / slots total≤1
+- 未実施: ASCへのスクショアップロード（提出直前に実施）
+
+## 2026-08-22 O-03r 人生グリッド（✅ 完了・未コミット）
+- [x] 仕様 `.claude/specs/onboarding-life-grid.md`（50マス・切り捨て塗り・凡例3言語）
+- [x] 実装（Codex）: LossEstimator.lifeGridFill＋テスト、OnboardingMotionのLifeGrid、凡例3言語、docs/07・design-decisions追記
+- [x] 1回目レビュー（Opus5）: グリッドが画面外（170ptスクロール要）／Reduce Motion1フレーム／lifetime行のa11y hidden／撮影マーカー順 → 是正パスで修正（ファーストビュー内・50%可視で点灯・a11yはグリッド全体hidden）
+- [x] PNG目視（Pro Max＋6.1"・スクロール0）: 5マス＋20%・凡例・CTA被りなし
+- [x] 是正パスの最終レビュー（Opus5）: 点灯がstagger前に終わる→可視ラッチ後250ms待機＋45ms/マスへ／6.1"キャラ120pt採用（凡例下端〜CTA 20pt余白実測）／撮影直前にoffset再assert → Fable目視受け入れ（Pro Max・6.1"）
+- 見送り決定: 機能ごとの研究引用追加（ユーザー価値が薄い・既存科学画面1枚で足りる）

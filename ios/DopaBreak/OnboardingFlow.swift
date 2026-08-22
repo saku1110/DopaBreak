@@ -645,106 +645,145 @@ private extension OnboardingFlow {
         let threeYearMonths = threeYearMonthsText(yearlyDays: estimate.yearlyDays)
         let threeYearSuffix = String(localized: "onboarding.result.three_year.suffix", defaultValue: "か月")
         let threeYearAccessibilityText = "\(threeYearPrefix) \(threeYearMonths) \(threeYearSuffix)"
-        return screenScroll {
-            VStack(alignment: .center, spacing: 24) {
-                centeredEyebrow(String(localized: "onboarding.result.eyebrow", defaultValue: "推計結果 / YOUR RESULT"))
-                    .onboardingStagger(0)
-                centeredLead(String(localized: "onboarding.result.lead", defaultValue: "あなたの回答にもとづく推計では"))
-                    .onboardingStagger(1)
+        let lifetimeYears = LossEstimator.lifetimeYears(fromYearlyDays: estimate.yearlyDays)
+        let lifetimeText = String(
+            localized: "onboarding.result.lifetime",
+            defaultValue: "このままなら50年で 人生の約\(lifetimeYearsText(yearlyDays: estimate.yearlyDays))年"
+        )
+        let lifeGridFill = LossEstimator.lifeGridFill(lifetimeYears: lifetimeYears)
+        return GeometryReader { viewport in
+            let usesCompactResultSpacing = viewport.size.height < 700
+            let resultSpacing: CGFloat = usesCompactResultSpacing ? 8 : 12
+            let heroSpacing: CGFloat = usesCompactResultSpacing ? 4 : 8
+            let resultCharacterSize: CGFloat = usesCompactResultSpacing
+                ? 120
+                : DesignTokens.CharacterSize.header
 
-                // 数値の提示が終わった直後、損失を受け止める表情へ切り替える。
-                CharacterSwapSequence(
-                    from: .doom,
-                    to: .worse,
-                    size: DesignTokens.CharacterSize.lead,
-                    delayNanoseconds: 1_350_000_000
-                )
-                .frame(maxWidth: .infinity)
+            screenScroll {
+                VStack(alignment: .center, spacing: resultSpacing) {
+                    centeredEyebrow(String(localized: "onboarding.result.eyebrow", defaultValue: "推計結果 / YOUR RESULT"))
+                        .onboardingStagger(0)
+                    centeredLead(String(localized: "onboarding.result.lead", defaultValue: "あなたの回答にもとづく推計では"))
+                        .onboardingStagger(1)
 
-                VStack(alignment: .center, spacing: 16) {
-                    HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(heroPrefix)
-                            .dopaFont(20, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .allowsTightening(true)
-                        ZStack {
-                            // 最終値と同じ桁幅を先に確保し、0→38の途中で行全体を動かさない。
-                            Text(heroDays)
-                                .dopaFont(70, weight: .black, design: .rounded)
-                                .monospacedDigit()
-                                .foregroundStyle(DesignTokens.accent)
-                                .dopaDisplayClamp()
-                                .hidden()
-                                .accessibilityHidden(true)
+                    // 結果画面だけheader寸法へ下げ、6.1インチでも人生グリッドまで初期表示する。
+                    CharacterSwapSequence(
+                        from: .doom,
+                        to: .worse,
+                        size: resultCharacterSize,
+                        delayNanoseconds: 1_350_000_000
+                    )
+                    .frame(maxWidth: .infinity)
 
-                            OnboardingCountUp(
-                                target: estimate.yearlyDays,
-                                accessibilityText: heroAccessibilityText
-                            ) { days in
-                                Text("\(days)")
+                    VStack(alignment: .center, spacing: heroSpacing) {
+                        HStack(alignment: .lastTextBaseline, spacing: 8) {
+                            Text(heroPrefix)
+                                .dopaFont(20, weight: .bold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                                .allowsTightening(true)
+                            ZStack {
+                                // 最終値と同じ桁幅を先に確保し、0→38の途中で行全体を動かさない。
+                                Text(heroDays)
                                     .dopaFont(70, weight: .black, design: .rounded)
                                     .monospacedDigit()
                                     .foregroundStyle(DesignTokens.accent)
                                     .dopaDisplayClamp()
+                                    .hidden()
+                                    .accessibilityHidden(true)
+
+                                OnboardingCountUp(
+                                    target: estimate.yearlyDays,
+                                    accessibilityText: heroAccessibilityText
+                                ) { days in
+                                    Text("\(days)")
+                                        .dopaFont(70, weight: .black, design: .rounded)
+                                        .monospacedDigit()
+                                        .foregroundStyle(DesignTokens.accent)
+                                        .dopaDisplayClamp()
+                                }
                             }
-                        }
-                        .layoutPriority(1)
-                        Text(heroSuffix)
-                            .dopaFont(28, weight: .black)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .allowsTightening(true)
-                    }
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Text(verbatim: heroAccessibilityText))
-
-                    centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "がSNSに溶けています"))
-
-                    HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(threeYearPrefix)
-                            .dopaFont(18, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .allowsTightening(true)
-                        Text(threeYearMonths)
-                            .dopaFont(58, weight: .black, design: .rounded)
-                            .monospacedDigit()
-                            .foregroundStyle(DesignTokens.accent)
-                            .dopaDisplayClamp()
                             .layoutPriority(1)
-                        Text(threeYearSuffix)
-                            .dopaFont(28, weight: .black)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .allowsTightening(true)
+                            Text(heroSuffix)
+                                .dopaFont(28, weight: .black)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                                .allowsTightening(true)
+                        }
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(verbatim: heroAccessibilityText))
+
+                        centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "がSNSに溶けています"))
+
+                        HStack(alignment: .lastTextBaseline, spacing: 8) {
+                            Text(threeYearPrefix)
+                                .dopaFont(18, weight: .bold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                                .allowsTightening(true)
+                            Text(threeYearMonths)
+                                .dopaFont(58, weight: .black, design: .rounded)
+                                .monospacedDigit()
+                                .foregroundStyle(DesignTokens.accent)
+                                .dopaDisplayClamp()
+                                .layoutPriority(1)
+                            Text(threeYearSuffix)
+                                .dopaFont(28, weight: .black)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                                .allowsTightening(true)
+                        }
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(verbatim: threeYearAccessibilityText))
                     }
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Text(verbatim: threeYearAccessibilityText))
-                }
-                .onboardingStagger(2)
+                    .onboardingStagger(2)
 
-                centeredLead(
-                    String(
-                        localized: "onboarding.result.disclaimer",
-                        defaultValue: "※1日約\(dailyTimeText(minutes: estimate.dailyMinutes))の想定にもとづく推計値です。"
+                    centeredLead(
+                        String(
+                            localized: "onboarding.result.disclaimer",
+                            defaultValue: "※1日約\(dailyTimeText(minutes: estimate.dailyMinutes))の想定にもとづく推計値です。"
+                        )
                     )
-                )
-                    .padding(.top, 8)
-                    .onboardingStagger(3)
+                        .onboardingStagger(3)
 
-                centeredLead(String(localized: "onboarding.result.lifetime", defaultValue: "このままなら50年で 人生の約\(lifetimeYearsText(yearlyDays: estimate.yearlyDays))年"))
-                    .onboardingStagger(4)
+                    centeredLead(lifetimeText)
+                        .onboardingStagger(4)
+
+                    VStack(spacing: 8) {
+                        OnboardingLifeGrid(
+                            fullCells: lifeGridFill.fullCells,
+                            partialFraction: lifeGridFill.partialFraction,
+                            cellCount: LossEstimator.lifetimeHorizonYears,
+                            reduceMotion: reduceMotion,
+                            viewportHeight: viewport.size.height
+                        )
+                        .onboardingStagger(5)
+
+                        SmallLabel(
+                            text: String(
+                                localized: "onboarding.result.life_grid.legend",
+                                defaultValue: "1マス ＝ 1年　塗り ＝ SNSに消える時間"
+                            )
+                        )
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 320, alignment: .center)
+                        .onboardingStagger(6)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                // 共有screenScrollの28ptは変えず、この結果画面だけ上部の空きを詰める。
+                .padding(.top, usesCompactResultSpacing ? -20 : -16)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 

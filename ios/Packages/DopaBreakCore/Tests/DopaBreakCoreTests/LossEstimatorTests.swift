@@ -103,6 +103,30 @@ final class LossEstimatorTests: XCTestCase {
         XCTAssertEqual(LossEstimator.lifetimeHorizonYears, 50)
     }
 
+    func testLifeGridFillSplitsFullCellsAndPartialWidthWithoutRoundingUp() {
+        let cases: [(years: Double, fullCells: Int, partialFraction: Double)] = [
+            (0, 0, 0),
+            (1.5, 1, 0.5),
+            (3.1, 3, 0.1),
+            (5.2, 5, 0.2),
+            (10.4, 10, 0.4),
+            (13.5, 13, 0.5),
+            (50, 50, 0),
+            (60, 50, 0)
+        ]
+
+        for testCase in cases {
+            let fill = LossEstimator.lifeGridFill(lifetimeYears: testCase.years)
+            XCTAssertEqual(fill.fullCells, testCase.fullCells, "years: \(testCase.years)")
+            XCTAssertEqual(
+                fill.partialFraction,
+                testCase.partialFraction,
+                accuracy: 0.0001,
+                "years: \(testCase.years)"
+            )
+        }
+    }
+
     func testUnknownBucketThrows() {
         XCTAssertThrowsError(try LossEstimator.estimate(usageBucket: "不明")) { error in
             XCTAssertEqual(error as? LossEstimatorError, .unknownUsageBucket("不明"))

@@ -50,6 +50,23 @@ public enum LossEstimator {
         return (years * 10).rounded(.down) / 10
     }
 
+    /// 人生グリッドで塗る年数を、満マス数と次の1マスの横幅比率へ分解する。
+    /// 50年を超える値は全マス塗りで打ち止め、負値や非数は安全側の0として扱う。
+    public static func lifeGridFill(
+        lifetimeYears: Double
+    ) -> (fullCells: Int, partialFraction: Double) {
+        guard !lifetimeYears.isNaN, lifetimeYears > 0 else {
+            return (0, 0)
+        }
+
+        guard lifetimeYears < Double(lifetimeHorizonYears) else {
+            return (lifetimeHorizonYears, 0)
+        }
+
+        let fullCells = Int(lifetimeYears.rounded(.down))
+        return (fullCells, lifetimeYears - Double(fullCells))
+    }
+
     private static func normalized(_ value: String) -> String {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)

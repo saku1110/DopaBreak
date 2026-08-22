@@ -228,8 +228,6 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 | 勝ち画面サブ | 今日{N}回目の、意図した選択。 |
 | 勝ち画面 閉じる | 閉じる |
 | 時間切れ通知 | そろそろ N分。見てどうだった？ |
-| 幸福感 見出し | 幸福感や集中は増えた？ |
-| 幸福感 選択肢 | 上がった / 変わらない / 下がった |
 | スキップ | スキップ |
 
 ---
@@ -261,8 +259,6 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 | 勝ち画面 閉じる | 閉じる |
 | 振り返りシート見出し | SNSを見てどうだった？ |
 | 振り返り選択肢 | 満足感があった / 楽しかった / 何も得られなかった / 時間を失った / 気分が下がった |
-| 振り返り 気分見出し | 幸福感や集中は増えた？ |
-| 振り返り 気分選択肢 | 上がった / 変わらない / 下がった |
 | 振り返り スキップ | スキップ |
 | 時間切れ通知タイトル | そろそろひと休み |
 | 時間切れ通知本文 | そろそろ{N}分。見てどうだった？ |
@@ -514,6 +510,64 @@ Day5通知はトライアル中のみ（トライアル開始+5日）。Month1�
 - **原因で案内を変える**。端末側オフ＝設定の場所＋「設定を開く」／許可はあるのに出せなかった＝「もう一度出す」。オフでもないのに設定変更を促さない。
 - 「確認済み」へは、実際に一度アプリを離れて戻り、かつ掲出が続いているときだけ進む（自己申告ボタンは置かない）。
 - **確認できたときだけ完了として記録する**。見ないまま「次へ」「あとで」で抜けた人には、次に目標を追加したときもう一度出す。
+
+## 6c. 開く前のひと呼吸（Pro・シールド解除フロー・2026-08-22）
+
+### 6c-1. シールド
+
+| キー | ja |
+| --- | --- |
+| shield.title（既存・変更なし） | ディープフォーカス中 |
+| shield.night.title | いまは就寝の時間 |
+| shield.night.subtitle | 起きたら開けます |
+| shield.gate.title | 開く前にひと呼吸 |
+| shield.gate.subtitle.count（%lld） | 今日 %lld回目 |
+| shield.gate.subtitle.count_limit（%lld/%lld） | 今日 %lld/%lld回 |
+| shield.gate.action.breathe | 一呼吸して開く |
+| shield.gate.action.cancel | 開かない |
+| shield.gate.waiting.title | 通知をタップ |
+| shield.gate.waiting.subtitle | 上に出た通知からDopaBreakで一呼吸 |
+| shield.gate.waiting.denied | 通知をオンにすると開けます |
+| shield.gate.waiting.retry | 通知をもう一度送る |
+| shield.gate.limit.title | 今日はここまで |
+| shield.gate.limit.subtitle（%lld） | 今日の上限 %lld回に達しました 0時にリセット |
+| shield.gate.cooldown.title | 少し間をあける |
+| shield.gate.cooldown.subtitle（%@=HH:mm） | %@から開けます |
+
+### 6c-2. 通知
+
+| キー | ja |
+| --- | --- |
+| gate.notification.unlock.title | タップして一呼吸 |
+| gate.notification.unlock.body | DopaBreakで一呼吸してから開きます |
+
+### 6c-3. アプリ内（復帰・上限）
+
+| キー | ja |
+| --- | --- |
+| intervention.gate.opening.back | 左上の ◀ から戻ると開けます（{N}分） |
+| intervention.gate.limit.title | 今日はここまで |
+| intervention.gate.limit.body | このアプリは今日の上限に達しました。上限は設定で変えられます。 |
+| intervention.gate.cooldown.body | {HH:mm}から開けます。待ち時間は設定で変えられます。 |
+| intervention.gate.target_name | このアプリ |
+
+### 6c-4. 設定
+
+| キー | ja |
+| --- | --- |
+| settings.gate.section | 止めるアプリ |
+| settings.gate.description | 開く前に必ず一呼吸。回数や長さはアプリごとに決められます |
+| settings.gate.app_list | アプリごとの設定 |
+| settings.gate.daily_limit | 1日に開ける回数 |
+| settings.gate.daily_limit.none | 上限なし |
+| settings.gate.session_minutes | 1回の長さ |
+| settings.gate.cooldown | 次に開けるまでの間 |
+| settings.gate.cooldown.none | なし |
+| settings.gate.automation_note | Proの止めるアプリではショートカットの自動化は不要です |
+| settings.gate.category_note | カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です |
+| settings.gate.locked_notice（Free） | Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます |
+
+英語・韓国語の確定値は各ターゲットの `Localizable.xcstrings` を正とする。日本語表示は文言原則を優先し読点を置かない。
 
 ## 変更手順（必須）
 1. 文言を変えたい → **先にこの文書を更新**

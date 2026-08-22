@@ -57,7 +57,6 @@ final class OnboardingMotionCapture: XCTestCase {
                 initialStep: stage.step,
                 onComplete: {}
             )
-
             let host = UIHostingController(rootView: root)
             window.rootViewController = host
             window.makeKeyAndVisible()
@@ -66,6 +65,19 @@ final class OnboardingMotionCapture: XCTestCase {
 
             // 先頭フレームが描画されてからマーカーを出し、外部キャプチャと同期させる
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.5))
+            if stage.step == .quizResult {
+                resetQuizResultScrollPosition(in: host)
+                // 1.1秒の年間日数カウントアップと人生グリッド点灯を
+                // どちらも最終値へ到達させてから撮る。
+                let settleDeadline = Date().addingTimeInterval(1.5)
+                while Date() < settleDeadline {
+                    RunLoop.current.run(
+                        mode: .default,
+                        before: min(settleDeadline, Date().addingTimeInterval(0.05))
+                    )
+                }
+                assertQuizResultScrollPosition(in: host)
+            }
             print("ONB_STAGE_BEGIN \(stage.name)")
             fflush(stdout)
 
@@ -88,6 +100,59 @@ final class OnboardingMotionCapture: XCTestCase {
             }
             if let first = windowScene.windows.first {
                 return first
+            }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func resetQuizResultScrollPosition(in host: UIViewController) {
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+
+        guard let scrollView = firstScrollView(in: host.view) else {
+            XCTFail("クイズ結果画面のScrollViewが取得できない")
+            return
+        }
+
+        scrollView.layoutIfNeeded()
+        scrollView.setContentOffset(.zero, animated: false)
+        scrollView.layoutIfNeeded()
+        XCTAssertEqual(
+            scrollView.contentOffset.y,
+            0,
+            accuracy: 0.5,
+            "クイズ結果画面はスクロール位置0のまま撮影する"
+        )
+    }
+
+    @MainActor
+    private func assertQuizResultScrollPosition(in host: UIViewController) {
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+
+        guard let scrollView = firstScrollView(in: host.view) else {
+            XCTFail("クイズ結果画面のScrollViewが取得できない")
+            return
+        }
+
+        scrollView.layoutIfNeeded()
+        XCTAssertEqual(
+            scrollView.contentOffset.y,
+            0,
+            accuracy: 0.5,
+            "クイズ結果画面はsettle後もスクロール位置0を維持する"
+        )
+    }
+
+    private func firstScrollView(in view: UIView) -> UIScrollView? {
+        if let scrollView = view as? UIScrollView {
+            return scrollView
+        }
+
+        for subview in view.subviews {
+            if let scrollView = firstScrollView(in: subview) {
+                return scrollView
             }
         }
         return nil

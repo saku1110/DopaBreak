@@ -202,6 +202,17 @@ public enum PostUseSatisfaction: String, Codable, Equatable, Sendable, CaseItera
     case nothingGained
     case lostTime
     case feltWorse
+
+    public var impliedHappinessDelta: HappinessDelta {
+        switch self {
+        case .satisfied, .fun:
+            return .increased
+        case .nothingGained:
+            return .unchanged
+        case .lostTime, .feltWorse:
+            return .decreased
+        }
+    }
 }
 
 public enum HappinessDelta: String, Codable, Equatable, Sendable, CaseIterable {

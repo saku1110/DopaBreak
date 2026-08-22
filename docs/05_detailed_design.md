@@ -272,8 +272,8 @@ InterventionState
 
 1. `timedSessionEnded` または `reshielded` のタイミングで未回答の `ReflectionLog` を探す。
 2. 未回答ログがあり、直近セッションから一定時間内ならリフレクション画面を表示する。
-3. ユーザーが満足感と幸福感変化を選択する。
-4. `ReflectionLog` に `satisfaction` と `happinessDelta` を保存する。
+3. ユーザーが満足感を1つ選択する。
+4. `ReflectionLog` に `satisfaction` と、満足感から導出した `happinessDelta` を保存する。
 5. 集計snapshotを更新する。
 6. 「何も得られなかった」「時間を失った感じがする」「気分が下がった」が一定割合を超えた場合、Deep Focus強化の提案を表示する。
 

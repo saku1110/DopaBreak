@@ -118,7 +118,7 @@ MVPは「開く前の遅延・意図確認・使用可視化・必要時間だ�
 - 反射的目的 → Breath → Usage Summary → 全目標 → Decision
 - Cancel Success（「開かなかった。あなたの勝ち」）
 - 時間経過は通知。standardでは他社アプリを自動終了しない
-- Post-Use Reflection（満足度→幸福感/集中の2段階）
+- Post-Use Reflection（満足度の1問。幸福感/集中の変化は回答から導出）
 
 **ロック画面サーフェス（2026-07-02: 常設ウィジェット廃止）**
 - Lock Notification / **Daily Live Activity**（フル目標文＋今日の実績・テーマ6種＝doc06 §9）

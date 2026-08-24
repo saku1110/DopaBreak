@@ -551,7 +551,8 @@ final class AppModel {
             isNightWindow: isNightWindow,
             // 窓の外なら必ず解除へ倒れる。拡張の境界コールバックを取りこぼしても、
             // 前面へ戻ってきたこの一本で「終わったのに開けない」を必ず剥がす。
-            isDeepFocusWindowActive: deepFocusScheduler.isWindowActive
+            isDeepFocusWindowActive: deepFocusScheduler.isWindowActive,
+            isManualDeepFocusSessionActive: deepFocusScheduler.activeSession != nil
         )
         // 控えが残る端末、またはキャッシュ上Proの端末では、権利確認の成否にかかわらず
         // 期限回収を動かす。preserveするのは下の権利同期だけで、復旧層②は止めない。

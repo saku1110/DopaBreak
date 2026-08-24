@@ -106,6 +106,26 @@ final class DeepFocusSchedulerTests: XCTestCase {
         XCTAssertTrue(scheduler.isWindowActive)
     }
 
+    func testManualSessionUsesStandardModeTargetsAndEndRemovesItsSnapshot() throws {
+        let standardRule = try makeDeepFocusRule(mode: .standard)
+        let scheduler = makeScheduler()
+        scheduler.startSession(durationMinutes: 30)
+
+        XCTAssertTrue(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        let activeSnapshot = try XCTUnwrap(
+            try snapshotStore.read(
+                DeepFocusShieldSnapshot.self,
+                from: .deepFocusShieldSnapshot
+            )
+        )
+        XCTAssertEqual(activeSnapshot.sessionSelectionDataList, [standardRule.activitySelectionData])
+        XCTAssertTrue(activeSnapshot.selectionDataList.isEmpty)
+
+        scheduler.endSession()
+        XCTAssertFalse(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertFalse(snapshotStore.exists(.deepFocusShieldSnapshot))
+    }
+
     func testEndSessionClearsTheSessionAndItsNotification() throws {
         try makeDeepFocusRule()
         let scheduler = makeScheduler()
@@ -426,11 +446,11 @@ final class DeepFocusSchedulerTests: XCTestCase {
     }
 
     @discardableResult
-    private func makeDeepFocusRule() throws -> TargetRule {
+    private func makeDeepFocusRule(mode: InterventionMode = .deepFocus) throws -> TargetRule {
         try ruleStore.saveFamilyActivitySelection(
             Data([0x01, 0x02]),
             name: "テスト対象",
-            mode: .deepFocus
+            mode: mode
         )
     }
 

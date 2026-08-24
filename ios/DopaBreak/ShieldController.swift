@@ -51,7 +51,8 @@ final class ShieldController {
         entitlementGate: EntitlementGate,
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
-        isDeepFocusWindowActive: Bool
+        isDeepFocusWindowActive: Bool,
+        isManualDeepFocusSessionActive: Bool = false
     ) {
         // ルールの取得も含めて `ShieldSyncPolicy` に判断させる。
         // 取得してから判断する形にすると、読み取りが失敗する端末で
@@ -62,42 +63,62 @@ final class ShieldController {
             strictModeAllowed: entitlementGate.strictModeAllowed,
             hasConfirmedEntitlement: hasConfirmedEntitlement,
             isNightWindow: isNightWindow,
-            isDeepFocusWindowActive: isDeepFocusWindowActive
+            isDeepFocusWindowActive: isDeepFocusWindowActive,
+            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
         ) {
         case .preserve:
             return
         case .clear:
             clearShield()
         case .apply(let rules):
-            applyShield(rules: rules, entitlementGate: entitlementGate)
+            applyShield(
+                rules: rules,
+                entitlementGate: entitlementGate,
+                isNightWindow: isNightWindow,
+                isDeepFocusWindowActive: isDeepFocusWindowActive,
+                isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
+            )
         }
     }
 
-    private func applyShield(rules: [TargetRule], entitlementGate: EntitlementGate) {
+    private func applyShield(
+        rules: [TargetRule],
+        entitlementGate: EntitlementGate,
+        isNightWindow: Bool,
+        isDeepFocusWindowActive: Bool,
+        isManualDeepFocusSessionActive: Bool
+    ) {
         var deepFocusTokens = ShieldTokens()
         var nightTokens = ShieldTokens()
         // 上限は2つのストアで分け合う。ルールの並び順のまま先頭から数えるところは変えない。
         var remainingTargetTokenLimit = entitlementGate.targetAppTokensLimit
 
         for rule in applicableRules(from: rules, entitlementGate: entitlementGate) {
-            let isNightRule = rule.mode == .nightOnly
+            let appliesToDeepFocus = isManualDeepFocusSessionActive
+                || (rule.mode == .deepFocus && isDeepFocusWindowActive)
+            let appliesToNight = rule.mode == .nightOnly && isNightWindow
 
             do {
                 let selection = try decoder.decode(
                     FamilyActivitySelection.self,
                     from: rule.activitySelectionData
                 )
-
-                if isNightRule {
-                    nightTokens.append(selection, remainingLimit: &remainingTargetTokenLimit)
-                } else {
-                    deepFocusTokens.append(selection, remainingLimit: &remainingTargetTokenLimit)
+                // 同じ夜ルールが手動セッションと夜窓の両方へ入る場合も、権利上限は
+                // 1回だけ消費し、同じ限定済みトークン集合を2ストアへ流す。
+                var ruleTokens = ShieldTokens()
+                ruleTokens.append(selection, remainingLimit: &remainingTargetTokenLimit)
+                if appliesToDeepFocus {
+                    deepFocusTokens.merge(ruleTokens)
+                }
+                if appliesToNight {
+                    nightTokens.merge(ruleTokens)
                 }
             } catch {
-                if isNightRule {
-                    nightTokens.didFailDecodingSelection = true
-                } else {
+                if appliesToDeepFocus {
                     deepFocusTokens.didFailDecodingSelection = true
+                }
+                if appliesToNight {
+                    nightTokens.didFailDecodingSelection = true
                 }
                 continue
             }
@@ -162,7 +183,7 @@ final class ShieldController {
     }
 }
 
-/// 1つのストアへ流し込むぶんのトークン。昼と夜で別々に数える。
+/// 1つのストアへ流し込むぶんのトークン。権利上限は呼び出し側で全ストア共通に数える。
 private struct ShieldTokens {
     var applications = Set<ApplicationToken>()
     var categories = Set<ActivityCategoryToken>()
@@ -189,6 +210,13 @@ private struct ShieldTokens {
             to: &webDomains,
             remainingLimit: &remainingLimit
         )
+    }
+
+    mutating func merge(_ other: ShieldTokens) {
+        applications.formUnion(other.applications)
+        categories.formUnion(other.categories)
+        webDomains.formUnion(other.webDomains)
+        didFailDecodingSelection = didFailDecodingSelection || other.didFailDecodingSelection
     }
 
     private static func appendTokens<Token: Hashable>(

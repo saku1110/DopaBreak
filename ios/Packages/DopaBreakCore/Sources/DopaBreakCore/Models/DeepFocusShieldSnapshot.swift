@@ -64,8 +64,14 @@ public struct DeepFocusSchedule: Codable, Equatable, Sendable {
 /// アプリ側で済ませてから書く。拡張には「書いてあるものを、いま窓の内なら適用する」
 /// だけが残る。権利を落としたらアプリが控えごと消す。
 public struct DeepFocusShieldSnapshot: Codable, Equatable, Sendable {
-    /// 有効なディープフォーカスのルールの `activitySelectionData`。空のルールは含めない。
+    /// 毎週の予定で使う、有効なディープフォーカスルールの `activitySelectionData`。
+    /// 空のルールは含めない。
     public var selectionDataList: [Data]
+    /// 手動セッション中だけ使う、有効な全モードの `activitySelectionData`。
+    ///
+    /// `nil` はこのフィールドを持たない旧版の控えを表す。その場合は互換性のため
+    /// `selectionDataList` を手動セッションにも使う。
+    public var sessionSelectionDataList: [Data]?
     public var schedule: DeepFocusSchedule
     /// 進行中のセッション。無ければ `nil`。
     public var session: DeepFocusSession?
@@ -73,11 +79,13 @@ public struct DeepFocusShieldSnapshot: Codable, Equatable, Sendable {
 
     public init(
         selectionDataList: [Data],
+        sessionSelectionDataList: [Data]? = nil,
         schedule: DeepFocusSchedule,
         session: DeepFocusSession?,
         updatedAt: Date
     ) {
         self.selectionDataList = selectionDataList
+        self.sessionSelectionDataList = sessionSelectionDataList
         self.schedule = schedule
         self.session = session
         self.updatedAt = updatedAt

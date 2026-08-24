@@ -883,12 +883,12 @@ private extension OnboardingFlow {
                 centeredLead(String(localized: "onboarding.apps.free_limit_note", defaultValue: "無料プランでは1つまで"))
                     .onboardingStagger(3)
 
-                VStack(spacing: 10) {
-                    ForEach(Array(SNSAppCatalog.all.enumerated()), id: \.element.id) { index, item in
-                        catalogAppButton(item)
-                            .onboardingStagger(4 + index)
-                    }
-                }
+                TargetAppGrid(
+                    items: SNSAppCatalog.all,
+                    selectedCatalogIDs: Set(selectedCatalogIDs),
+                    onboardingStaggerBase: 4,
+                    onToggle: toggleCatalogSelection
+                )
 
                 if let appSelectionMessage {
                     messageCard(appSelectionMessage)
@@ -1196,7 +1196,7 @@ private extension OnboardingFlow {
                                 .foregroundStyle(DesignTokens.secondaryText)
                             Text(String(localized: "onboarding.notification.preview.count", defaultValue: "\(model.todayCancelledCount)回"))
                                 .foregroundStyle(DesignTokens.accent)
-                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開かなかった"))
+                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開くのをやめた"))
                                 .foregroundStyle(DesignTokens.secondaryText)
                         }
                         .dopaFont(14, weight: .bold)
@@ -1483,35 +1483,6 @@ private extension OnboardingFlow {
 }
 
 private extension OnboardingFlow {
-    func catalogAppButton(_ item: SNSAppCatalogItem) -> some View {
-        let isSelected = selectedCatalogIDs.contains(item.catalogID)
-        return Button {
-            toggleCatalogSelection(item)
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: item.symbolName)
-                    .dopaFont(16, weight: .black)
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .frame(width: 42, height: 42)
-                    .background(DesignTokens.backgroundRaised)
-                    .clipShape(Circle())
-
-                Text(item.displayName)
-                    .dopaFont(18, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
-                Spacer()
-                Image(systemName: isSelected ? "checkmark" : "plus")
-                    .dopaFont(16, weight: .bold)
-                    .foregroundStyle(isSelected ? DesignTokens.accent : DesignTokens.secondaryText)
-            }
-            .padding(16)
-            .background(DesignTokens.card)
-            .overlay(optionStroke(isSelected: isSelected))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(OnboardingPressStyle())
-    }
-
     func modeButton(_ mode: InterventionMode) -> some View {
         Button {
             selectMode(mode)

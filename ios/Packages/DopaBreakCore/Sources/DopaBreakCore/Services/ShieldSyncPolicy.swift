@@ -19,6 +19,8 @@ public enum ShieldSyncAction: Equatable, Sendable {
 /// どちらもPro専用で、どちらも決めた窓のなかだけ通す。
 /// `deepFocus` の窓は「いますぐ」で始めた回と週1本の予定（`DeepFocusWindowPolicy`）、
 /// `nightOnly` の窓は就寝から起床まで（`NightWindowPolicy`）。
+/// ただし「いますぐ」の手動セッションは一時的な全対象ブロックとして、保存モードに
+/// 関係なく有効な選択ルールへ適用する。
 /// どちらの判定も別の純関数が持ち、ここへは結果だけを渡す。
 /// 時計を読む処理をこの純関数へ入れないため、呼び出し側が毎回明示して渡す。
 ///
@@ -41,7 +43,8 @@ public enum ShieldSyncPolicy {
         strictModeAllowed: Bool,
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
-        isDeepFocusWindowActive: Bool
+        isDeepFocusWindowActive: Bool,
+        isManualDeepFocusSessionActive: Bool = false
     ) -> [TargetRule] {
         guard hasConfirmedEntitlement, isPro, strictModeAllowed else {
             return []
@@ -51,7 +54,8 @@ public enum ShieldSyncPolicy {
                 && shieldsNow(
                     mode: rule.mode,
                     isNightWindow: isNightWindow,
-                    isDeepFocusWindowActive: isDeepFocusWindowActive
+                    isDeepFocusWindowActive: isDeepFocusWindowActive,
+                    isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
                 )
                 && !rule.activitySelectionData.isEmpty
         }
@@ -61,8 +65,12 @@ public enum ShieldSyncPolicy {
     private static func shieldsNow(
         mode: InterventionMode,
         isNightWindow: Bool,
-        isDeepFocusWindowActive: Bool
+        isDeepFocusWindowActive: Bool,
+        isManualDeepFocusSessionActive: Bool
     ) -> Bool {
+        if isManualDeepFocusSessionActive {
+            return true
+        }
         switch mode {
         case .deepFocus:
             return isDeepFocusWindowActive
@@ -97,7 +105,8 @@ public enum ShieldSyncPolicy {
         strictModeAllowed: Bool,
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
-        isDeepFocusWindowActive: Bool
+        isDeepFocusWindowActive: Bool,
+        isManualDeepFocusSessionActive: Bool = false
     ) -> ShieldSyncAction {
         guard hasConfirmedEntitlement else {
             return .preserve
@@ -109,7 +118,8 @@ public enum ShieldSyncPolicy {
             strictModeAllowed: strictModeAllowed,
             hasConfirmedEntitlement: hasConfirmedEntitlement,
             isNightWindow: isNightWindow,
-            isDeepFocusWindowActive: isDeepFocusWindowActive
+            isDeepFocusWindowActive: isDeepFocusWindowActive,
+            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
         )
         return targets.isEmpty ? .clear : .apply(rules: targets)
     }
@@ -125,7 +135,8 @@ public enum ShieldSyncPolicy {
         strictModeAllowed: Bool,
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
-        isDeepFocusWindowActive: Bool
+        isDeepFocusWindowActive: Bool,
+        isManualDeepFocusSessionActive: Bool = false
     ) -> ShieldSyncAction {
         if requiresUnconditionalClear(
             isPro: isPro,
@@ -152,7 +163,8 @@ public enum ShieldSyncPolicy {
             strictModeAllowed: strictModeAllowed,
             hasConfirmedEntitlement: hasConfirmedEntitlement,
             isNightWindow: isNightWindow,
-            isDeepFocusWindowActive: isDeepFocusWindowActive
+            isDeepFocusWindowActive: isDeepFocusWindowActive,
+            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
         )
     }
 }

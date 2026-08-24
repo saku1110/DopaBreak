@@ -77,6 +77,24 @@ final class StatsServiceTests: XCTestCase {
         XCTAssertEqual(try stats.appRuleBreakdown(from: date(0), to: date(1_000)), [ruleA: 2, ruleB: 1])
     }
 
+    func testAppRuleBreakdownDetailedCountsAttemptsAndCancellationsPerRule() throws {
+        let log = try makeLogStore()
+        let ruleA = uuid(100)
+        let ruleB = uuid(200)
+        try log.insert(attempt(id: 1, ruleId: ruleA, startedAt: date(10), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: ruleA, startedAt: date(20), decision: .opened))
+        try log.insert(attempt(id: 3, ruleId: ruleB, startedAt: date(30), decision: .cancelled))
+
+        let stats = makeStats(log: log, now: date(500))
+
+        let breakdown = try stats.appRuleBreakdownDetailed(from: date(0), to: date(1_000))
+        XCTAssertEqual(breakdown.count, 2)
+        XCTAssertEqual(breakdown[ruleA]?.attempts, 2)
+        XCTAssertEqual(breakdown[ruleA]?.cancelled, 1)
+        XCTAssertEqual(breakdown[ruleB]?.attempts, 1)
+        XCTAssertEqual(breakdown[ruleB]?.cancelled, 1)
+    }
+
     func testReflectionBreakdownCountsAnsweredOnly() throws {
         let log = try makeLogStore()
         try log.insert(reflection(id: 1, promptedAt: date(10), answeredAt: date(11), satisfaction: .satisfied, happinessDelta: .increased))
@@ -87,6 +105,91 @@ final class StatsServiceTests: XCTestCase {
         let stats = makeStats(log: log, now: date(500))
 
         XCTAssertEqual(try stats.reflectionBreakdown(from: date(0), to: date(1_000)), [.satisfied: 2, .lostTime: 1])
+    }
+
+    func testRecentSatisfactionsReturnsLatestValuesInChronologicalOrder() throws {
+        let log = try makeLogStore()
+        try log.insert(reflection(id: 1, promptedAt: date(10), answeredAt: date(11), satisfaction: .satisfied, happinessDelta: .increased))
+        try log.insert(reflection(id: 2, promptedAt: date(20), answeredAt: date(21), satisfaction: .fun, happinessDelta: .increased))
+        try log.insert(reflection(id: 3, promptedAt: date(30), answeredAt: date(31), satisfaction: .lostTime, happinessDelta: .decreased))
+        try log.insert(reflection(id: 4, promptedAt: date(40), answeredAt: nil, satisfaction: nil, happinessDelta: nil))
+
+        let stats = makeStats(log: log, now: date(500))
+
+        XCTAssertEqual(
+            try stats.recentSatisfactions(from: date(0), to: date(1_000), limit: 2),
+            [.fun, .lostTime]
+        )
+        XCTAssertEqual(try stats.recentSatisfactions(from: date(0), to: date(1_000), limit: 0), [])
+    }
+
+    // MARK: - ホーム集計
+
+    func testConsecutiveDaysWithCancellationsReturnsZeroWithoutHistory() throws {
+        let log = try makeLogStore()
+        let now = calendarDate(year: 2026, month: 7, day: 4, hour: 12)
+        XCTAssertEqual(try makeStats(log: log, now: now).consecutiveDaysWithCancellations(endingOn: now), 0)
+    }
+
+    func testConsecutiveDaysWithCancellationsCountsToday() throws {
+        let log = try makeLogStore()
+        let now = calendarDate(year: 2026, month: 7, day: 4, hour: 12)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 4, hour: 9), decision: .cancelled))
+
+        XCTAssertEqual(try makeStats(log: log, now: now).consecutiveDaysWithCancellations(endingOn: now), 1)
+    }
+
+    func testConsecutiveDaysWithCancellationsUsesYesterdayWhenTodayIsZero() throws {
+        let log = try makeLogStore()
+        let now = calendarDate(year: 2026, month: 7, day: 4, hour: 12)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: now, decision: .opened))
+
+        XCTAssertEqual(try makeStats(log: log, now: now).consecutiveDaysWithCancellations(endingOn: now), 3)
+    }
+
+    func testConsecutiveDaysWithCancellationsStopsAtGap() throws {
+        let log = try makeLogStore()
+        let now = calendarDate(year: 2026, month: 7, day: 4, hour: 12)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 4, hour: 9), decision: .cancelled))
+
+        XCTAssertEqual(try makeStats(log: log, now: now).consecutiveDaysWithCancellations(endingOn: now), 2)
+    }
+
+    func testReclaimedSecondsUsesOpenedDurationMedian() throws {
+        let log = try makeLogStore()
+        let start = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
+        let end = calendarDate(year: 2026, month: 7, day: 8, hour: 0)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 4, hour: 9), decision: .opened, selectedDurationSeconds: 120))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 5, hour: 9), decision: .opened, selectedDurationSeconds: 480))
+        try log.insert(attempt(id: 5, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 6, hour: 9), decision: .opened, selectedDurationSeconds: 900))
+
+        XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSeconds(from: start, to: end), 960)
+    }
+
+    func testReclaimedSecondsUsesFiveMinuteDefaultWithoutOpenedHistory() throws {
+        let log = try makeLogStore()
+        let start = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
+        let end = calendarDate(year: 2026, month: 7, day: 8, hour: 0)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled))
+
+        XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSeconds(from: start, to: end), 600)
+    }
+
+    func testReclaimedSecondsReturnsZeroWithoutCancellations() throws {
+        let log = try makeLogStore()
+        let start = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
+        let end = calendarDate(year: 2026, month: 7, day: 8, hour: 0)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .opened, selectedDurationSeconds: 600))
+
+        XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSeconds(from: start, to: end), 0)
     }
 
     func testHappinessDeltaBreakdownCountsAnsweredOnly() throws {
@@ -363,7 +466,8 @@ final class StatsServiceTests: XCTestCase {
         ruleId: UUID,
         startedAt: Date,
         decision: Decision,
-        intent: IntentCategory? = nil
+        intent: IntentCategory? = nil,
+        selectedDurationSeconds: Int? = nil
     ) -> AttemptLog {
         AttemptLog(
             id: uuid(id),
@@ -372,7 +476,7 @@ final class StatsServiceTests: XCTestCase {
             completedAt: startedAt,
             decision: decision,
             intent: intent,
-            selectedDurationSeconds: decision == .opened ? 300 : nil,
+            selectedDurationSeconds: decision == .opened ? (selectedDurationSeconds ?? 300) : nil,
             attemptCount24h: 1,
             opened: decision == .opened
         )

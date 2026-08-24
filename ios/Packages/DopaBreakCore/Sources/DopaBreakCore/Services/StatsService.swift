@@ -74,6 +74,23 @@ public struct StatsService: Sendable {
         return result
     }
 
+    /// ルール別の試行数と「開かなかった」件数。
+    /// ホームと記録で同じ分母・分子を使えるよう、1回の走査でまとめる。
+    public func appRuleBreakdownDetailed(
+        from: Date,
+        to: Date
+    ) throws -> [UUID: (attempts: Int, cancelled: Int)] {
+        var result: [UUID: (attempts: Int, cancelled: Int)] = [:]
+        for attempt in try logStore.fetchAttempts(from: from, to: to) {
+            let current = result[attempt.ruleId] ?? (attempts: 0, cancelled: 0)
+            result[attempt.ruleId] = (
+                attempts: current.attempts + 1,
+                cancelled: current.cancelled + (attempt.decision == .cancelled ? 1 : 0)
+            )
+        }
+        return result
+    }
+
     /// 満足感別のリフレクション数（回答済みのみ）。
     public func reflectionBreakdown(from: Date, to: Date) throws -> [PostUseSatisfaction: Int] {
         var result: [PostUseSatisfaction: Int] = [:]
@@ -82,6 +99,71 @@ public struct StatsService: Sendable {
             result[satisfaction, default: 0] += 1
         }
         return result
+    }
+
+    /// 指定期間で直近に回答した満足感。返却順は古い→新しい。
+    public func recentSatisfactions(
+        from: Date,
+        to: Date,
+        limit: Int
+    ) throws -> [PostUseSatisfaction] {
+        guard limit > 0 else { return [] }
+        let values = try answeredReflections(from: from, to: to).compactMap(\.satisfaction)
+        return Array(values.suffix(limit))
+    }
+
+    /// 「開かなかった日」が何日続いているか。
+    /// 当日がまだ0件なら昨日から数え、昨日も0件なら0日を返す。
+    public func consecutiveDaysWithCancellations(endingOn date: Date) throws -> Int {
+        let endingDay = calendar.startOfDay(for: date)
+        guard let rangeEnd = calendar.date(byAdding: .day, value: 1, to: endingDay) else {
+            throw CoreError.validation(message: "連続日数の日付計算に失敗しました")
+        }
+
+        let cancelledDays = Set(
+            try logStore.fetchAttempts(to: rangeEnd)
+                .filter { $0.decision == .cancelled }
+                .map { calendar.startOfDay(for: $0.startedAt) }
+        )
+
+        var cursor = endingDay
+        if !cancelledDays.contains(cursor) {
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                return 0
+            }
+            cursor = previousDay
+        }
+
+        var count = 0
+        while cancelledDays.contains(cursor) {
+            count += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                break
+            }
+            cursor = previousDay
+        }
+        return count
+    }
+
+    /// 指定期間に「開かなかった」ことで取り戻した推定秒数。
+    /// 1件あたりの時間は、期間終端から直近30日に実際に開いた試行時間の中央値。
+    /// 開いた実績がない間は5分として扱う。
+    public func reclaimedSeconds(from: Date, to: Date) throws -> Int {
+        guard from < to else { return 0 }
+        let cancelledCount = try logStore.fetchAttempts(from: from, to: to)
+            .filter { $0.decision == .cancelled }
+            .count
+        guard cancelledCount > 0 else { return 0 }
+
+        let durationWindowStart = calendar.date(byAdding: .day, value: -30, to: to)
+            ?? to.addingTimeInterval(-30 * 86_400)
+        let openedDurations = try logStore.fetchAttempts(from: durationWindowStart, to: to)
+            .filter { $0.decision == .opened }
+            .compactMap(\.selectedDurationSeconds)
+            .filter { $0 > 0 }
+            .sorted()
+        let medianDuration = median(of: openedDurations) ?? 300
+        return cancelledCount * medianDuration
     }
 
     /// 幸福感変化別のリフレクション数（回答済みのみ）。
@@ -179,6 +261,15 @@ public struct StatsService: Sendable {
             return wasted.contains(satisfaction)
         }.count
         return Double(count) / Double(answered.count)
+    }
+
+    private func median(of sortedValues: [Int]) -> Int? {
+        guard !sortedValues.isEmpty else { return nil }
+        let middle = sortedValues.count / 2
+        if sortedValues.count.isMultiple(of: 2) {
+            return (sortedValues[middle - 1] + sortedValues[middle]) / 2
+        }
+        return sortedValues[middle]
     }
 }
 

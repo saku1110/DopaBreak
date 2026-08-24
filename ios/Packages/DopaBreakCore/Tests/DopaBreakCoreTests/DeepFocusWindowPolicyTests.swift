@@ -348,6 +348,45 @@ final class DeepFocusWindowPolicyTests: XCTestCase {
         )
     }
 
+    func testActiveSelectionDataSeparatesManualSessionFromWeeklySchedule() {
+        let scheduledSelection = Data([0x01])
+        let standardSelection = Data([0x02])
+        let snapshot = DeepFocusShieldSnapshot(
+            selectionDataList: [scheduledSelection],
+            sessionSelectionDataList: [standardSelection, scheduledSelection],
+            schedule: makeSchedule(weekdays: [2], start: 1_200, end: 1_320),
+            session: DeepFocusSession(
+                startedAt: monday(hour: 20, minute: 0),
+                endsAt: monday(hour: 20, minute: 30)
+            ),
+            updatedAt: monday(hour: 20, minute: 0)
+        )
+
+        XCTAssertEqual(
+            DeepFocusWindowPolicy.selectionDataListToShield(
+                now: monday(hour: 20, minute: 15),
+                snapshot: snapshot,
+                calendar: calendar
+            ),
+            [standardSelection, scheduledSelection]
+        )
+        XCTAssertEqual(
+            DeepFocusWindowPolicy.selectionDataListToShield(
+                now: monday(hour: 20, minute: 45),
+                snapshot: snapshot,
+                calendar: calendar
+            ),
+            [scheduledSelection]
+        )
+        XCTAssertTrue(
+            DeepFocusWindowPolicy.selectionDataListToShield(
+                now: monday(hour: 23, minute: 0),
+                snapshot: snapshot,
+                calendar: calendar
+            ).isEmpty
+        )
+    }
+
     // MARK: - 控えを持つ価値があるか
 
     func testHasConfiguredWindowFollowsSessionAndSchedule() {

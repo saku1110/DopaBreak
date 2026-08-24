@@ -1,6 +1,168 @@
 {
   "sourceLanguage": "ja",
   "strings": {
+    "home.apps.legend": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Today: chose not to open / tried to open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日：開くのをやめた / 開こうとした" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘: 열지 않기로 함 / 열려고 함" } }
+      }
+    },
+    "home.apps.ratio": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld / %lld" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld / %lld" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld / %lld" } }
+      }
+    },
+    "home.apps.title": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "By app" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "アプリごと" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "앱별" } }
+      }
+    },
+    "home.reclaimed.hours_minutes": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld hr %lld min" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld時間%lld分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld시간 %lld분" } }
+      }
+    },
+    "home.reclaimed.minutes": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld min" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld분" } }
+      }
+    },
+    "home.reclaimed.week_label": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "this week" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今週" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이번 주" } }
+      }
+    },
+    "home.reclaimed.title": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Time you got back" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "取り戻した時間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "되찾은 시간" } }
+      }
+    },
+    "home.reclaimed.yearly": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "About %@ days a year at this pace" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "この調子なら1年で約 %@日分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 속도라면 1년에 약 %@일" } }
+      }
+    },
+    "home.reflection.count": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%2$lld of %1$lld this week" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今週の%lld回中 %lld回" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이번 주 %lld회 중 %lld회" } }
+      }
+    },
+    "home.reflection.top": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Mostly “%@”" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "「%@」が多め" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "‘%@’가 많아요" } }
+      }
+    },
+    "home.streak.days": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld days in a row" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "連続 %lld日" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "연속 %lld일" } }
+      }
+    },
+    "home.targets.breath_line": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pause setting: %lld seconds" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "一呼吸の設定：%lld秒" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "한 호흡 설정: %lld초" } }
+      }
+    },
+    "home.targets.empty": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose apps to pause" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "止めるアプリを選ぶ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "멈출 앱 고르기" } }
+      }
+    },
+    "home.targets.focus_30": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Close them for 30 minutes" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "30分だけ開けなくする" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "30분만 열 수 없게 하기" } }
+      }
+    },
+    "home.targets.focus_end": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unlock now" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "いま解除する" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "지금 해제하기" } }
+      }
+    },
+    "home.targets.focus_running": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Closed for another %@" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あと%@ 開けません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "앞으로 %@ 동안 열 수 없어요" } }
+      }
+    },
+    "home.targets.night_line": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Closed from %@ until morning" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%@から朝まで開けません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%@부터 아침까지 열 수 없어요" } }
+      }
+    },
+    "home.targets.title": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Apps you're pausing" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "止めているアプリ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "멈춰 둔 앱" } }
+      }
+    },
     "home.achievement.count_unit": {
       "comment": "Screen: Home",
       "extractionState": "manual",
@@ -92,19 +254,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Today, you didn't open"
+            "value": "Chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 開かなかった"
+            "value": "開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘은 열지 않았어요"
+            "value": "열지 않기로 함"
           }
         }
       }
@@ -212,19 +374,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The times you didn't open are recorded here"
+            "value": "The times you choose not to open are recorded here"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった回数がここに残ります"
+            "value": "開くのをやめた回数がここに残ります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않은 횟수가 여기에 남아요"
+            "value": "열지 않기로 한 횟수가 여기에 남아요"
           }
         }
       }
@@ -308,19 +470,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "TODAY ・ %@"
+            "value": "Today ・ %@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "TODAY ・ %@"
+            "value": "今日 ・ %@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 · %@"
+            "value": "오늘 ・ %@"
           }
         }
       }
@@ -368,13 +530,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "THIS WEEK"
+            "value": "This week"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "THIS WEEK"
+            "value": "今週"
           }
         },
         "ko": {
@@ -395,13 +557,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Didn't open %lld time this week"
+                  "value": "Chose not to open %lld time this week"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Didn't open %lld times this week"
+                  "value": "Chose not to open %lld times this week"
                 }
               }
             }
@@ -410,13 +572,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今週 開かなかったのは%lld回"
+            "value": "今週は%lld回、開くのをやめました"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이번 주에 열지 않은 건 %lld회"
+            "value": "이번 주에는 %lld번 열지 않기로 했어요"
           }
         }
       }
@@ -1628,19 +1790,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open"
+            "value": "Chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった"
+            "value": "開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않음"
+            "value": "열지 않기로 함"
           }
         }
       }
@@ -3890,13 +4052,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開かなかった回数が毎日ホームに積み上がります。"
+            "value": "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開くのをやめた回数が毎日ホームに積み上がります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "억지로 참는 앱이 아닙니다. 열기 전에 매번 잠깐 브레이크가 걸릴 뿐입니다. 열지 않은 횟수가 매일 홈에 쌓입니다."
+            "value": "억지로 참는 앱이 아닙니다. 열기 전에 매번 잠깐 브레이크가 걸릴 뿐입니다. 열지 않기로 한 횟수가 매일 홈에 쌓입니다."
           }
         }
       }
@@ -7724,19 +7886,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open"
+            "value": "Chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった"
+            "value": "開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않음"
+            "value": "열지 않기로 함"
           }
         }
       }
@@ -7754,7 +7916,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった\n自分で選べた"
+            "value": "今回は開かないと\n自分で決めました"
           }
         },
         "ko": {
@@ -8060,19 +8222,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld times you didn't open. The annual plan lowers your monthly cost"
+            "value": "You chose not to open %lld times. The annual plan lowers your monthly cost"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまで開かなかった%lld回。年額プランなら月あたりの負担が下がります"
+            "value": "ここまでに%lld回、開くのをやめました。年額プランなら月あたりの負担が下がります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 %lld번 열지 않았어요. 연간 플랜이면 월 부담이 줄어요"
+            "value": "지금까지 %lld번 열지 않기로 했어요. 연간 플랜이면 월 부담이 줄어요"
           }
         }
       }
@@ -8108,19 +8270,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld times you didn't open. You can choose whether to keep going before it ends"
+            "value": "You chose not to open %lld times. You can choose whether to keep going before it ends"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまで開かなかった%lld回。このまま続けるかは期限までに選べます"
+            "value": "ここまでに%lld回、開くのをやめました。このまま続けるかは期限までに選べます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 %lld번 열지 않았어요. 계속할지는 끝나기 전에 정할 수 있어요"
+            "value": "지금까지 %lld번 열지 않기로 했어요. 계속할지는 끝나기 전에 정할 수 있어요"
           }
         }
       }
@@ -8252,19 +8414,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open %lld times / Tried to open %lld times"
+            "value": "Chose not to open %lld times / Tried to open %lld times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった %lld回 / 開こうとした %lld回"
+            "value": "開くのをやめた %lld回 / 開こうとした %lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않은 %lld번 / 열려고 한 %lld번"
+            "value": "열지 않기로 함 %lld번 / 열려고 함 %lld번"
           }
         }
       }
@@ -8306,13 +8468,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この1年で開かなかった %lld回。更新の確認はApp Storeの設定からできます。"
+            "value": "この1年で%lld回、開くのをやめました。更新の確認はApp Storeの設定からできます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지난 1년 동안 열지 않은 게 %lld번. 갱신 확인은 App Store 설정에서 할 수 있어요."
+            "value": "지난 1년 동안 %lld번 열지 않기로 했어요. 갱신 확인은 App Store 설정에서 할 수 있어요."
           }
         }
       }
@@ -8426,13 +8588,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまでに開かなかった %lld回。7日目に年額プランへ切り替わります。解約はいつでもできます。"
+            "value": "ここまでに%lld回、開くのをやめました。7日目に年額プランへ切り替わります。解約はいつでもできます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 열지 않은 게 %lld번. 7일째에 연간 플랜으로 전환돼요. 해지는 언제든 할 수 있어요."
+            "value": "지금까지 %lld번 열지 않기로 했어요. 7일째에 연간 플랜으로 전환돼요. 해지는 언제든 할 수 있어요."
           }
         }
       }
@@ -8468,19 +8630,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open %lld times / Tried to open %lld times"
+            "value": "Chose not to open %lld times / Tried to open %lld times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった %lld回 / 開こうとした %lld回"
+            "value": "開くのをやめた %lld回 / 開こうとした %lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않은 %lld번 / 열려고 한 %lld번"
+            "value": "열지 않기로 함 %lld번 / 열려고 함 %lld번"
           }
         }
       }
@@ -9284,19 +9446,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Total times you didn't open"
+            "value": "Total times you chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "これまでに開かなかった"
+            "value": "これまでに開くのをやめた回数"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 열지 않은 횟수"
+            "value": "지금까지 열지 않기로 한 횟수"
           }
         }
       }
@@ -9308,19 +9470,91 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALL TIME"
+            "value": "All time"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ALL TIME"
+            "value": "全期間"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "전체 기간"
+          }
+        }
+      }
+    },
+    "stats.apps.empty": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No records by app yet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだアプリごとの記録がありません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 앱별 기록이 없어요"
+          }
+        }
+      }
+    },
+    "stats.apps.ratio": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld"
+          }
+        }
+      }
+    },
+    "stats.apps.title": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By app"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリごと"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱별"
           }
         }
       }
@@ -9332,19 +9566,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open"
+            "value": "Chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった"
+            "value": "開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않음"
+            "value": "열지 않기로 함"
           }
         }
       }
@@ -9356,19 +9590,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "BEHAVIOR SIGNAL"
+            "value": "Times you chose not to open and times you opened"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "BEHAVIOR SIGNAL"
+            "value": "開くのをやめた回数と開いた回数"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "행동 신호"
+            "value": "열지 않기로 한 횟수와 연 횟수"
           }
         }
       }
@@ -9404,19 +9638,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Every time you choose again before opening, the moments you win back gather here."
+            "value": "The times you tried to open and chose not to open are recorded here"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開く前に選び直すたび、その記録がここに貯まります。"
+            "value": "開こうとした回数と、開くのをやめた回数がここに残ります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열기 전에 다시 선택할 때마다 그 기록이 여기에 쌓여요."
+            "value": "열려고 한 횟수와 열지 않기로 한 횟수가 여기에 남아요"
           }
         }
       }
@@ -9524,19 +9758,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This week's trend"
+            "value": "This week's record"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今週の傾向"
+            "value": "今週の記録"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이번 주 흐름"
+            "value": "이번 주 기록"
           }
         }
       }
@@ -9572,19 +9806,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open"
+            "value": "Chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった"
+            "value": "開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않음"
+            "value": "열지 않기로 함"
           }
         }
       }
@@ -9649,6 +9883,78 @@
         }
       }
     },
+    "stats.period.all": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All time"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全期間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전체 기간"
+          }
+        }
+      }
+    },
+    "stats.period.today": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘"
+          }
+        }
+      }
+    },
+    "stats.period.week": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今週"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이번 주"
+          }
+        }
+      }
+    },
     "stats.rate.percentage": {
       "comment": "Screen: Stats",
       "extractionState": "manual",
@@ -9680,19 +9986,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How often you didn't open"
+            "value": "How often you chose not to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった割合"
+            "value": "開くのをやめた割合"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않은 비율"
+            "value": "열지 않기로 한 비율"
           }
         }
       }
@@ -9721,6 +10027,30 @@
         }
       }
     },
+    "stats.reflection.title": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How you felt after scrolling"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見たあとの気持ち"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보고 난 뒤의 기분"
+          }
+        }
+      }
+    },
     "stats.summary.today.label": {
       "comment": "Screen: Stats",
       "extractionState": "manual",
@@ -9728,19 +10058,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "TODAY SUMMARY"
+            "value": "Today's record"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "TODAY SUMMARY"
+            "value": "今日の記録"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 요약"
+            "value": "오늘의 기록"
           }
         }
       }
@@ -9752,19 +10082,67 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "WEEKLY SUMMARY"
+            "value": "This week's record"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "WEEKLY SUMMARY"
+            "value": "今週の記録"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이번 주 요약"
+            "value": "이번 주 기록 요약"
+          }
+        }
+      }
+    },
+    "stats.intent.title": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why you tried to open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開こうとした理由"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열려고 한 이유"
+          }
+        }
+      }
+    },
+    "stats.title": {
+      "comment": "Screen: Stats",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기록"
           }
         }
       }
@@ -11768,19 +12146,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open %lld× today"
+            "value": "Chose not to open %lld times today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 開かなかった %lld回"
+            "value": "今日は%lld回、開くのをやめました"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 열지 않음 %lld회"
+            "value": "오늘은 %lld번 열지 않기로 했어요"
           }
         }
       }
@@ -13582,19 +13960,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "VS LAST WEEK"
+            "value": "Compared with last week"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "VS LAST WEEK"
+            "value": "先週との比較"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지난주 대비"
+            "value": "지난주와 비교"
           }
         }
       }
@@ -13702,19 +14080,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@, tried to open %2$lld times, didn't open %3$lld times"
+            "value": "%1$@, tried to open %2$lld times, chose not to open %3$lld times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 開こうとした%2$lld回 開かなかった%3$lld回"
+            "value": "%1$@、開こうとしたのは%2$lld回、開くのをやめたのは%3$lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 열려고 함 %2$lld회 열지 않음 %3$lld회"
+            "value": "%1$@, 열려고 한 횟수 %2$lld회, 열지 않기로 한 횟수 %3$lld회"
           }
         }
       }
@@ -13726,19 +14104,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "WEEKLY DETAIL"
+            "value": "This week's breakdown"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "WEEKLY DETAIL"
+            "value": "今週の内訳"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "주간 상세"
+            "value": "이번 주 내역"
           }
         }
       }

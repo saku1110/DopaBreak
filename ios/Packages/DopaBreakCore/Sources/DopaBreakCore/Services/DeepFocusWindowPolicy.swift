@@ -216,6 +216,34 @@ public enum DeepFocusWindowPolicy {
         )
     }
 
+    /// いま開いている窓に対して、拡張がシールドへ流す選択データを返す。
+    ///
+    /// 手動セッションは現在モードに関係なく全対象へ効き、毎週の予定は従来どおり
+    /// `deepFocus` の対象だけへ効く。両方が重なるあいだは和集合、片方が終わったら
+    /// 残った窓の対象だけへ戻す。
+    public static func selectionDataListToShield(
+        now: Date,
+        snapshot: DeepFocusShieldSnapshot,
+        calendar: Calendar
+    ) -> [Data] {
+        var result: [Data] = []
+        var seen = Set<Data>()
+
+        func appendUnique(_ values: [Data]) {
+            for value in values where seen.insert(value).inserted {
+                result.append(value)
+            }
+        }
+
+        if isSessionActive(now: now, session: snapshot.session) {
+            appendUnique(snapshot.sessionSelectionDataList ?? snapshot.selectionDataList)
+        }
+        if isScheduleActive(now: now, schedule: snapshot.schedule, calendar: calendar) {
+            appendUnique(snapshot.selectionDataList)
+        }
+        return result
+    }
+
     /// 監視と控えを持つ価値があるか。
     /// いま窓の外でも、これから開く予定があるなら控えは要る。
     /// 逆にセッションも予定も無ければ、控えを残す理由がない。

@@ -8,6 +8,7 @@ final class DeepFocusShieldSnapshotTests: XCTestCase {
         let store = try makeSnapshotStore()
         let snapshot = DeepFocusShieldSnapshot(
             selectionDataList: [Data([0x01, 0x02]), Data([0xFF])],
+            sessionSelectionDataList: [Data([0xAA]), Data([0x01, 0x02])],
             schedule: DeepFocusSchedule(
                 isEnabled: true,
                 weekdays: [2, 4, 6],
@@ -27,6 +28,33 @@ final class DeepFocusShieldSnapshotTests: XCTestCase {
             try store.read(DeepFocusShieldSnapshot.self, from: .deepFocusShieldSnapshot),
             snapshot
         )
+    }
+
+    func testDecodesLegacySnapshotWithoutSessionSelections() throws {
+        struct LegacySnapshot: Encodable {
+            let selectionDataList: [Data]
+            let schedule: DeepFocusSchedule
+            let session: DeepFocusSession?
+            let updatedAt: Date
+        }
+
+        let legacy = LegacySnapshot(
+            selectionDataList: [Data([0x01])],
+            schedule: .disabled,
+            session: DeepFocusSession(
+                startedAt: Date(timeIntervalSince1970: 0),
+                endsAt: Date(timeIntervalSince1970: 3_600)
+            ),
+            updatedAt: Date(timeIntervalSince1970: 0)
+        )
+
+        let decoded = try JSONDecoder().decode(
+            DeepFocusShieldSnapshot.self,
+            from: JSONEncoder().encode(legacy)
+        )
+
+        XCTAssertEqual(decoded.selectionDataList, legacy.selectionDataList)
+        XCTAssertNil(decoded.sessionSelectionDataList)
     }
 
     /// 「自分で戻すまで」は終わる時刻を持たない。`nil` のまま戻ることを固定する。

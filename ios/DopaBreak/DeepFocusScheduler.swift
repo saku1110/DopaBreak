@@ -136,23 +136,33 @@ final class DeepFocusScheduler {
             return false
         }
 
-        let selectionDataList = rules
-            .filter { $0.isEnabled && $0.mode == .deepFocus && !$0.activitySelectionData.isEmpty }
-            .map(\.activitySelectionData)
-
         // ここで窓を作らない。窓を開くのは本人の操作（セッション開始・予定のオン）だけで、
         // 同期の副作用でブロックが始まることは絶対にない。
         let session = DeepFocusWindowPolicy.activeSession(
             settingsStore.deepFocusSession,
             now: now()
         )
-        let schedule = settingsStore.deepFocusSchedule
+        let configuredSchedule = settingsStore.deepFocusSchedule
+        let enabledRules = rules.filter {
+            $0.isEnabled && !$0.activitySelectionData.isEmpty
+        }
+        // 手動セッションは一時的な全対象ブロック。保存モードに関係なく、選択データを
+        // 持つ有効ルールを対象にする。毎週の予定は従来どおりdeepFocusだけへ効かせる。
+        let sessionSelectionDataList = session == nil
+            ? []
+            : enabledRules.map(\.activitySelectionData)
+        let scheduleSelectionDataList = enabledRules
+            .filter { $0.mode == .deepFocus }
+            .map(\.activitySelectionData)
+        let effectiveSession = sessionSelectionDataList.isEmpty ? nil : session
+        let effectiveSchedule = scheduleSelectionDataList.isEmpty
+            ? DeepFocusSchedule.disabled
+            : configuredSchedule
 
-        guard !selectionDataList.isEmpty,
-              DeepFocusWindowPolicy.hasConfiguredWindow(
+        guard DeepFocusWindowPolicy.hasConfiguredWindow(
                 now: now(),
-                session: session,
-                schedule: schedule
+                session: effectiveSession,
+                schedule: effectiveSchedule
               ) else {
             stopAndClear()
             return false
@@ -163,9 +173,10 @@ final class DeepFocusScheduler {
         do {
             try snapshotStore.write(
                 DeepFocusShieldSnapshot(
-                    selectionDataList: selectionDataList,
-                    schedule: schedule,
-                    session: session,
+                    selectionDataList: scheduleSelectionDataList,
+                    sessionSelectionDataList: sessionSelectionDataList,
+                    schedule: effectiveSchedule,
+                    session: effectiveSession,
                     updatedAt: now()
                 ),
                 to: .deepFocusShieldSnapshot
@@ -175,11 +186,11 @@ final class DeepFocusScheduler {
             return false
         }
 
-        syncSessionEndNotification(session: session)
+        syncSessionEndNotification(session: effectiveSession)
 
         monitoringCenter.stopMonitoring(Self.allActivityNames)
 
-        let outcome = startMonitoring(session: session, schedule: schedule)
+        let outcome = startMonitoring(session: effectiveSession, schedule: effectiveSchedule)
 
         // 1本も張れなかったときだけ、剥がす側へ倒す。
         // 窓の終わりに解除を出す担い手が拡張側に誰もいないため、掛けっぱなしで放置すると

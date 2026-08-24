@@ -571,6 +571,83 @@ final class ShieldSyncPolicyTests: XCTestCase {
         XCTAssertEqual(action, .apply(rules: [deepFocus]))
     }
 
+    func testManualDeepFocusSessionAppliesSelectedRulesRegardlessOfMode() {
+        let standard = makeRule(mode: .standard, selection: 1)
+        let deepFocus = makeRule(mode: .deepFocus, selection: 2)
+        let nightOnly = makeRule(mode: .nightOnly, selection: 3)
+
+        let action = ShieldSyncPolicy.action(
+            rules: [standard, deepFocus, nightOnly],
+            isPro: true,
+            strictModeAllowed: true,
+            hasConfirmedEntitlement: true,
+            isNightWindow: false,
+            isDeepFocusWindowActive: true,
+            isManualDeepFocusSessionActive: true
+        )
+
+        XCTAssertEqual(action, .apply(rules: [standard, deepFocus, nightOnly]))
+    }
+
+    func testManualDeepFocusSessionDoesNotApplyWithoutConfirmedProEntitlement() {
+        let standard = makeRule(mode: .standard, selection: 1)
+
+        XCTAssertEqual(
+            ShieldSyncPolicy.action(
+                rules: [standard],
+                isPro: false,
+                strictModeAllowed: false,
+                hasConfirmedEntitlement: false,
+                isNightWindow: false,
+                isDeepFocusWindowActive: true,
+                isManualDeepFocusSessionActive: true
+            ),
+            .preserve
+        )
+        XCTAssertEqual(
+            ShieldSyncPolicy.action(
+                rules: [standard],
+                isPro: false,
+                strictModeAllowed: false,
+                hasConfirmedEntitlement: true,
+                isNightWindow: false,
+                isDeepFocusWindowActive: true,
+                isManualDeepFocusSessionActive: true
+            ),
+            .clear
+        )
+    }
+
+    func testEndingManualSessionRemovesStandardTargetButKeepsActiveNightTarget() {
+        let standard = makeRule(mode: .standard, selection: 1)
+        let nightOnly = makeRule(mode: .nightOnly, selection: 2)
+
+        XCTAssertEqual(
+            ShieldSyncPolicy.action(
+                rules: [standard, nightOnly],
+                isPro: true,
+                strictModeAllowed: true,
+                hasConfirmedEntitlement: true,
+                isNightWindow: true,
+                isDeepFocusWindowActive: true,
+                isManualDeepFocusSessionActive: true
+            ),
+            .apply(rules: [standard, nightOnly])
+        )
+        XCTAssertEqual(
+            ShieldSyncPolicy.action(
+                rules: [standard, nightOnly],
+                isPro: true,
+                strictModeAllowed: true,
+                hasConfirmedEntitlement: true,
+                isNightWindow: true,
+                isDeepFocusWindowActive: false,
+                isManualDeepFocusSessionActive: false
+            ),
+            .apply(rules: [nightOnly])
+        )
+    }
+
     /// 夜だけ強化は完全ブロックの窓に左右されない。2つの窓が互いを消し合わないことを固定する。
     func testNightOnlyIsUnaffectedByTheDeepFocusWindow() {
         let nightOnly = makeRule(mode: .nightOnly)

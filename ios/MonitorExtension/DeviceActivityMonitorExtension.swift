@@ -177,15 +177,20 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     /// 控えが壊れているかのどちらかで、どちらも「掛け続ける根拠がない」状態だからだ。
     /// ここで維持を選ぶと、終わったのに開けないブロックを誰も外せなくなる。
     private func clearDeepFocusShieldIfOutsideWindow() {
-        if let snapshot = try? JSONSnapshotStore().read(
+        let snapshotStore = JSONSnapshotStore()
+        let now = Date()
+        if let snapshot = try? snapshotStore.read(
             DeepFocusShieldSnapshot.self,
             from: .deepFocusShieldSnapshot
         ),
         DeepFocusWindowPolicy.isWindowActive(
-            now: Date(),
+            now: now,
             snapshot: snapshot,
             calendar: .autoupdatingCurrent
         ) {
+            // セッションと予定が重なって片方だけ終わった場合は、残った窓の対象へ
+            // 正確に戻す。手動セッションの全モード対象を予定終了まで残さない。
+            applyDeepFocusShield(snapshot: snapshot, snapshotStore: snapshotStore, now: now)
             return
         }
         clearDeepFocusShield()
@@ -207,15 +212,33 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             return
         }
 
+        applyDeepFocusShield(snapshot: snapshot, snapshotStore: snapshotStore, now: Date())
+    }
+
+    private func applyDeepFocusShield(
+        snapshot: DeepFocusShieldSnapshot,
+        snapshotStore: JSONSnapshotStore,
+        now: Date
+    ) {
         guard DeepFocusWindowPolicy.isWindowActive(
-            now: Date(),
+            now: now,
             snapshot: snapshot,
             calendar: .autoupdatingCurrent
         ) else {
             return
         }
 
-        let tokens = decodedTokens(from: snapshot.selectionDataList)
+        let selectionDataList = DeepFocusWindowPolicy.selectionDataListToShield(
+            now: now,
+            snapshot: snapshot,
+            calendar: .autoupdatingCurrent
+        )
+        guard !selectionDataList.isEmpty else {
+            clearDeepFocusShield()
+            return
+        }
+
+        let tokens = decodedTokens(from: selectionDataList)
         guard !tokens.isEmpty else {
             return
         }

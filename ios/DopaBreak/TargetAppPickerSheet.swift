@@ -29,16 +29,11 @@ struct TargetAppPickerSheet: View {
                             .foregroundStyle(DesignTokens.secondaryText)
                     }
 
-                    CardContainer {
-                        VStack(spacing: 0) {
-                            ForEach(Array(SNSAppCatalog.all.enumerated()), id: \.element.id) { index, item in
-                                if index > 0 {
-                                    divider
-                                }
-                                appRow(item)
-                            }
-                        }
-                    }
+                    TargetAppGrid(
+                        items: SNSAppCatalog.all,
+                        selectedCatalogIDs: Set(selectedCatalogIDs),
+                        onToggle: toggle
+                    )
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -66,40 +61,6 @@ struct TargetAppPickerSheet: View {
         .onAppear {
             selectedCatalogIDs = (try? model.targetStore.selectedCatalogIDs()) ?? []
         }
-    }
-
-    private func appRow(_ item: SNSAppCatalogItem) -> some View {
-        let isSelected = selectedCatalogIDs.contains(item.catalogID)
-        return Button {
-            toggle(item)
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: item.symbolName)
-                    .dopaFont(18, weight: .semibold)
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .frame(width: 32, height: 32)
-                    .background(DesignTokens.backgroundRaised)
-                    .clipShape(Circle())
-
-                Text(item.displayName)
-                    .dopaFont(17, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
-
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .dopaFont(20, weight: .semibold)
-                    .foregroundStyle(isSelected ? DesignTokens.accent : DesignTokens.secondaryText)
-            }
-            .padding(.vertical, 12)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var divider: some View {
-        Rectangle()
-            .fill(DesignTokens.hairline)
-            .frame(height: 1)
     }
 
     private var targetLimitDescription: String? {

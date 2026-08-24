@@ -426,7 +426,7 @@ struct SettingsView: View {
             Text(
                 String(
                     localized: "settings.gate.automation_note",
-                    defaultValue: "Proの止めるアプリでは、ショートカットの自動化は不要です"
+                    defaultValue: "Proの止めるアプリではショートカットの自動化は不要です"
                 )
             )
                 .dopaFont(13, weight: .medium, lineSpacing: 3)

@@ -17,6 +17,7 @@ TARGET_CATALOGS = {
     "DopaBreak": MAIN_CATALOG,
     "MonitorExtension": IOS_ROOT / "MonitorExtension" / "Localizable.xcstrings",
     "ShieldConfigExtension": IOS_ROOT / "ShieldConfigExtension" / "Localizable.xcstrings",
+    "ShieldActionExtension": IOS_ROOT / "ShieldActionExtension" / "Localizable.xcstrings",
     "WidgetsExtension": IOS_ROOT / "WidgetsExtension" / "Localizable.xcstrings",
 }
 PLACEHOLDER = "\N{OBJECT REPLACEMENT CHARACTER}"

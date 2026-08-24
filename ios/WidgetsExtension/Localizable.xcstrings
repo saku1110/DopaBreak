@@ -56,19 +56,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open %lld× today"
+            "value": "Chose not to open %lld× today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 開かなかった %lld回"
+            "value": "今日は%lld回 開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 열지 않음 %lld회"
+            "value": "오늘은 %lld번 열지 않기로 함"
           }
         }
       }
@@ -272,19 +272,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open today"
+            "value": "Chose not to open today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 開かなかった"
+            "value": "今日 開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 열지 않음"
+            "value": "오늘 열지 않기로 함"
           }
         }
       }

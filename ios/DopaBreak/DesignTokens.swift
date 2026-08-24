@@ -381,7 +381,7 @@ struct MetricBlock: View {
                 .foregroundStyle(DesignTokens.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // 「12回 / 開かずに戻れた」を2読み上げに割らず、1要素として読ませる。
+        // 「12回 / 開くのをやめた」を2読み上げに割らず、1要素として読ませる。
         .accessibilityElement(children: .combine)
     }
 }

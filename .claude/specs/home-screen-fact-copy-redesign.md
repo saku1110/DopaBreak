@@ -1,5 +1,7 @@
 # ホーム画面の事実コピー再設計＋defaultValue同期監査
 
+> 2026-08-24 オーナー訂正: 行動語彙「開こうとした ↔ 開かなかった」のうち後者は、日本語として目的と意思決定が曖昧なため「開こうとした ↔ 開くのをやめた」へ変更。最新の正本は `.claude/specs/functional-screens-redesign-copy-sheet.md`。
+
 - 日付: 2026-08-15
 - 承認: オーナー（改訂版提案に「おｋ」）
 - 対象: `ios/DopaBreak/HomeView.swift`、`ios/DopaBreak/Localizable.xcstrings`、全SwiftファイルのdefaultValue同期

@@ -628,7 +628,7 @@
 - [x] コピーシート確定 `.claude/specs/functional-screens-redesign-copy-sheet.md`（Phase1新規20キー＋Phase2〜4新規22キー＋既存rewrite42件・ja/en/ko・humanizer-en/ko exit 0）
 - [x] 文言監査 `.claude/specs/copy-audit-2026-08-24.md`（Codex）
 - [x] Phase 1 実装（Codex）＋レビュー7件是正（Opus5→Codex）＋検証全通過＋是正検証（Opus5・全PASS）— **未コミット**。手動30分ブロックはモード非依存で適用（ShieldSyncPolicy拡張）
-- [ ] Phase 2 記録（StatsView）— Codex実装中
+- [x] Phase 2 記録（StatsView）＋オーナー訂正（開くのをやめた統一・CTA統合・「記録を全部見る」・breath行復元）＋ホーム×統計の重複解消（home-stats-dedup.md・別セッション承認分）— レビュー是正済み
 - [ ] Phase 3 設定 — 6b30a93/fe3e752を土台に。GateAppSettingSheet保持・gate文言はdocs/11 §6c
 - [ ] Phase 4 目標
 - 連携: スクショ担当(test-project-23)へPhase完了ごとに連絡・ASCアップロード保留中

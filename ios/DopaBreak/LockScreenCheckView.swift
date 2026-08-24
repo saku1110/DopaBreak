@@ -338,7 +338,7 @@ private struct LockScreenGoalPreview: View {
                 Text(
                     String(
                         localized: "lock_check.preview.cancelled",
-                        defaultValue: "今日 開かなかった \(cancelledCount)回"
+                        defaultValue: "今日は\(cancelledCount)回、開くのをやめました"
                     )
                 )
                     .foregroundStyle(DesignTokens.accent)

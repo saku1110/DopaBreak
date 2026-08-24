@@ -219,6 +219,276 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         )
     }
 
+    /// Phase 1 リデザイン確認用。App Store用rawを上書きせず、専用フォルダへ保存する。
+    @MainActor
+    func testCaptureRedesignPhase1Screens() throws {
+        let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
+        try requireSupportedPixelSize(in: window)
+
+        let proSuiteName = "CoreScreensSnapshotCapture.Phase1.Pro.\(UUID().uuidString)"
+        let proDefaults = try XCTUnwrap(UserDefaults(suiteName: proSuiteName))
+        proDefaults.removePersistentDomain(forName: proSuiteName)
+        defer { proDefaults.removePersistentDomain(forName: proSuiteName) }
+
+        let freeSuiteName = "CoreScreensSnapshotCapture.Phase1.Free.\(UUID().uuidString)"
+        let freeDefaults = try XCTUnwrap(UserDefaults(suiteName: freeSuiteName))
+        freeDefaults.removePersistentDomain(forName: freeSuiteName)
+        defer { freeDefaults.removePersistentDomain(forName: freeSuiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CoreScreensSnapshotCapture-Phase1-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        let container = FixedContainer(url: containerURL)
+
+        let selectedCatalogIDs = ["instagram", "youtube", "tiktok"]
+        let proSettings = redesignSettingsStore(
+            defaults: proDefaults,
+            isPro: true,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        let proModel = redesignSnapshotModel(
+            container: container,
+            settingsStore: proSettings,
+            defaults: proDefaults
+        )
+        try proModel.setTargetCatalogIDs(selectedCatalogIDs)
+
+        let rules = try selectedCatalogIDs.map { catalogID in
+            let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: catalogID))
+            return try proModel.ruleStore.catalogTargetRule(for: target)
+        }
+        let logStore = try SQLiteLogStore(containerProvider: container)
+        let now = Date()
+        try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: now)
+        try seedRedesignReflections(in: logStore, ruleID: rules[0].id, now: now)
+
+        for goal in captureLocale.goalSeeds {
+            XCTAssertTrue(
+                proModel.addGoal(
+                    title: goal.title,
+                    category: goal.category,
+                    lockScreenTitle: goal.lockScreenTitle
+                )
+            )
+        }
+        proModel.refresh(scheduleNotifications: false)
+        XCTAssertEqual(proModel.todayAttemptCount, 15)
+        XCTAssertEqual(proModel.todayCancelledCount, 12)
+
+        let statsService = StatsService(logStore: logStore)
+        let outputDirectory = Self.redesignPhase1OutputDirectory()
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let originalRoot = window.rootViewController
+        defer {
+            window.rootViewController?.dismiss(animated: false)
+            window.rootViewController = originalRoot
+        }
+
+        try capture(
+            AnyView(
+                HomeView(
+                    model: proModel,
+                    settingsStore: proSettings,
+                    statsService: statsService
+                )
+            ),
+            named: "home",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+
+        try capture(
+            AnyView(
+                TargetAppPickerSheet(model: proModel, onPaywallNeeded: {})
+            ),
+            named: "target-picker",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+
+        let freeSettings = redesignSettingsStore(
+            defaults: freeDefaults,
+            isPro: false,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        let freeModel = redesignSnapshotModel(
+            container: container,
+            settingsStore: freeSettings,
+            defaults: freeDefaults
+        )
+        freeModel.refresh(scheduleNotifications: false)
+        XCTAssertFalse(freeModel.entitlementGate.weeklyReportAllowed)
+
+        try capture(
+            AnyView(
+                HomeView(
+                    model: freeModel,
+                    settingsStore: freeSettings,
+                    statsService: statsService
+                )
+            ),
+            named: "home-free",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0,
+            verticalScrollTarget: .offset(520)
+        )
+    }
+
+    /// Phase 2 記録画面確認用。Proの今週とFreeの今日を専用フォルダへ保存する。
+    @MainActor
+    func testCaptureRedesignPhase2StatsScreens() throws {
+        let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
+        try requireSupportedPixelSize(in: window)
+
+        let proSuiteName = "CoreScreensSnapshotCapture.Phase2.Pro.\(UUID().uuidString)"
+        let proDefaults = try XCTUnwrap(UserDefaults(suiteName: proSuiteName))
+        proDefaults.removePersistentDomain(forName: proSuiteName)
+        defer { proDefaults.removePersistentDomain(forName: proSuiteName) }
+
+        let freeSuiteName = "CoreScreensSnapshotCapture.Phase2.Free.\(UUID().uuidString)"
+        let freeDefaults = try XCTUnwrap(UserDefaults(suiteName: freeSuiteName))
+        freeDefaults.removePersistentDomain(forName: freeSuiteName)
+        defer { freeDefaults.removePersistentDomain(forName: freeSuiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CoreScreensSnapshotCapture-Phase2-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        let container = FixedContainer(url: containerURL)
+        let selectedCatalogIDs = ["instagram", "youtube", "tiktok"]
+
+        let proSettings = redesignSettingsStore(
+            defaults: proDefaults,
+            isPro: true,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        let proModel = redesignSnapshotModel(
+            container: container,
+            settingsStore: proSettings,
+            defaults: proDefaults
+        )
+        try proModel.setTargetCatalogIDs(selectedCatalogIDs)
+        let rules = try selectedCatalogIDs.map { catalogID in
+            let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: catalogID))
+            return try proModel.ruleStore.catalogTargetRule(for: target)
+        }
+
+        let logStore = try SQLiteLogStore(containerProvider: container)
+        let now = Date()
+        try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: now)
+        try seedRedesignPreviousWeekAttempts(in: logStore, ruleIDs: rules.map(\.id), now: now)
+        try seedRedesignReflections(in: logStore, ruleID: rules[0].id, now: now)
+        proModel.refresh(scheduleNotifications: false)
+
+        XCTAssertTrue(proModel.entitlementGate.weeklyReportAllowed)
+        XCTAssertEqual(proModel.todayAttemptCount, 15)
+        XCTAssertEqual(proModel.todayCancelledCount, 12)
+
+        let statsService = StatsService(logStore: logStore)
+        let outputDirectory = Self.redesignPhase2OutputDirectory()
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let captureWindowScene = try XCTUnwrap(window.windowScene)
+        let proWindow = UIWindow(windowScene: captureWindowScene)
+        proWindow.frame = window.frame
+        proWindow.windowLevel = window.windowLevel + 1
+        defer {
+            proWindow.isHidden = true
+            window.makeKeyAndVisible()
+        }
+
+        try capture(
+            AnyView(StatsView(model: proModel, statsService: statsService)),
+            named: "stats-pro",
+            in: proWindow,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+        proWindow.isHidden = true
+        window.makeKeyAndVisible()
+
+        let freeSettings = redesignSettingsStore(
+            defaults: freeDefaults,
+            isPro: false,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        let freeModel = redesignSnapshotModel(
+            container: container,
+            settingsStore: freeSettings,
+            defaults: freeDefaults
+        )
+        freeModel.refresh(scheduleNotifications: false)
+        XCTAssertEqual(freeModel.entitlementGate.statsDays, 1)
+
+        let freeWindow = UIWindow(windowScene: captureWindowScene)
+        freeWindow.frame = window.frame
+        freeWindow.windowLevel = window.windowLevel + 1
+        defer {
+            freeWindow.isHidden = true
+            window.makeKeyAndVisible()
+        }
+
+        try capture(
+            AnyView(StatsView(model: freeModel, statsService: statsService)),
+            named: "stats-free",
+            in: freeWindow,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0,
+            verticalScrollTarget: .offset(-1_000)
+        )
+        freeWindow.isHidden = true
+        window.makeKeyAndVisible()
+
+        let emptySuiteName = "CoreScreensSnapshotCapture.Phase2.Empty.\(UUID().uuidString)"
+        let emptyDefaults = try XCTUnwrap(UserDefaults(suiteName: emptySuiteName))
+        emptyDefaults.removePersistentDomain(forName: emptySuiteName)
+        defer { emptyDefaults.removePersistentDomain(forName: emptySuiteName) }
+
+        let emptyContainerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CoreScreensSnapshotCapture-Phase2-Empty-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: emptyContainerURL,
+            withIntermediateDirectories: true
+        )
+        let emptyContainer = FixedContainer(url: emptyContainerURL)
+        let emptySettings = redesignSettingsStore(
+            defaults: emptyDefaults,
+            isPro: true,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        let emptyModel = redesignSnapshotModel(
+            container: emptyContainer,
+            settingsStore: emptySettings,
+            defaults: emptyDefaults
+        )
+        emptyModel.refresh(scheduleNotifications: false)
+        XCTAssertEqual(emptyModel.weekAttemptCount, 0)
+
+        let emptyLogStore = try SQLiteLogStore(containerProvider: emptyContainer)
+        let emptyStatsService = StatsService(logStore: emptyLogStore)
+        let emptyWindow = UIWindow(windowScene: captureWindowScene)
+        emptyWindow.frame = window.frame
+        emptyWindow.windowLevel = window.windowLevel + 1
+        defer {
+            emptyWindow.isHidden = true
+            window.makeKeyAndVisible()
+        }
+
+        try capture(
+            AnyView(StatsView(model: emptyModel, statsService: emptyStatsService)),
+            named: "stats-empty",
+            in: emptyWindow,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+    }
+
     @MainActor
     private func runCapture(
         goalsOnly: Bool,
@@ -419,7 +689,13 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         )
 
         try capture(
-            AnyView(HomeView(model: model, settingsStore: settingsStore)),
+            AnyView(
+                HomeView(
+                    model: model,
+                    settingsStore: settingsStore,
+                    statsService: statsService
+                )
+            ),
             named: "home",
             in: window,
             outputDirectory: outputDirectory
@@ -635,6 +911,167 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         }
     }
 
+    private func seedRedesignAttemptLogs(
+        in logStore: SQLiteLogStore,
+        ruleIDs: [UUID],
+        now: Date
+    ) throws {
+        XCTAssertFalse(ruleIDs.isEmpty)
+        let calendar = Calendar.current
+        let dailyCounts: [(dayOffset: Int, attempts: Int, cancelled: Int)] = [
+            (-6, 3, 2),
+            (-5, 5, 3),
+            (-4, 4, 4),
+            (-3, 7, 5),
+            (-2, 6, 4),
+            (-1, 8, 6),
+            (0, 15, 12)
+        ]
+
+        for day in dailyCounts {
+            let shifted = try XCTUnwrap(
+                calendar.date(byAdding: .day, value: day.dayOffset, to: now)
+            )
+            let startOfDay = calendar.startOfDay(for: shifted)
+            for index in 0..<day.attempts {
+                let startedAt = try XCTUnwrap(
+                    calendar.date(
+                        byAdding: .minute,
+                        value: 8 * 60 + index * 19,
+                        to: startOfDay
+                    )
+                )
+                let isCancelled = index < day.cancelled
+                try logStore.insert(
+                    AttemptLog(
+                        id: UUID(),
+                        ruleId: ruleIDs[index % ruleIDs.count],
+                        startedAt: startedAt,
+                        completedAt: startedAt.addingTimeInterval(12),
+                        decision: isCancelled ? .cancelled : .opened,
+                        intent: isCancelled ? .unconscious : .communication,
+                        selectedDurationSeconds: isCancelled ? nil : 600,
+                        attemptCount24h: index + 1,
+                        opened: !isCancelled
+                    )
+                )
+            }
+        }
+    }
+
+    private func seedRedesignPreviousWeekAttempts(
+        in logStore: SQLiteLogStore,
+        ruleIDs: [UUID],
+        now: Date
+    ) throws {
+        XCTAssertFalse(ruleIDs.isEmpty)
+        let calendar = Calendar.current
+        let dailyCounts: [(dayOffset: Int, attempts: Int, cancelled: Int)] = [
+            (-13, 2, 1),
+            (-12, 4, 2),
+            (-11, 3, 1),
+            (-10, 5, 3),
+            (-9, 4, 2),
+            (-8, 6, 4),
+            (-7, 7, 5)
+        ]
+
+        for day in dailyCounts {
+            let shifted = try XCTUnwrap(
+                calendar.date(byAdding: .day, value: day.dayOffset, to: now)
+            )
+            let startOfDay = calendar.startOfDay(for: shifted)
+            for index in 0..<day.attempts {
+                let startedAt = try XCTUnwrap(
+                    calendar.date(
+                        byAdding: .minute,
+                        value: 8 * 60 + index * 23,
+                        to: startOfDay
+                    )
+                )
+                let isCancelled = index < day.cancelled
+                try logStore.insert(
+                    AttemptLog(
+                        id: UUID(),
+                        ruleId: ruleIDs[index % ruleIDs.count],
+                        startedAt: startedAt,
+                        completedAt: startedAt.addingTimeInterval(12),
+                        decision: isCancelled ? .cancelled : .opened,
+                        intent: isCancelled ? .unconscious : .communication,
+                        selectedDurationSeconds: isCancelled ? nil : 600,
+                        attemptCount24h: index + 1,
+                        opened: !isCancelled
+                    )
+                )
+            }
+        }
+    }
+
+    private func seedRedesignReflections(
+        in logStore: SQLiteLogStore,
+        ruleID: UUID,
+        now: Date
+    ) throws {
+        let calendar = Calendar.current
+        let satisfactions: [PostUseSatisfaction] = [
+            .lostTime, .nothingGained, .lostTime, .satisfied, .lostTime, .feltWorse
+        ]
+        for (index, satisfaction) in satisfactions.enumerated() {
+            let promptedAt = try XCTUnwrap(
+                calendar.date(byAdding: .hour, value: -(satisfactions.count - index), to: now)
+            )
+            try logStore.insert(
+                ReflectionLog(
+                    id: UUID(),
+                    attemptLogId: nil,
+                    ruleId: ruleID,
+                    promptedAt: promptedAt,
+                    answeredAt: promptedAt.addingTimeInterval(20),
+                    trigger: .appReturned,
+                    satisfaction: satisfaction,
+                    happinessDelta: satisfaction.impliedHappinessDelta,
+                    skipped: false,
+                    createdAt: promptedAt
+                )
+            )
+        }
+    }
+
+    @MainActor
+    private func redesignSnapshotModel(
+        container: FixedContainer,
+        settingsStore: SettingsStore,
+        defaults: UserDefaults
+    ) -> AppModel {
+        let monitoringCenter = SnapshotDeviceActivityMonitoringCenter()
+        return AppModel(
+            containerProvider: container,
+            settingsStore: settingsStore,
+            usageWatchStore: UsageWatchStore(userDefaults: defaults),
+            usageWatchSelectionStore: UsageWatchSelectionStore(userDefaults: defaults),
+            usageWatchMonitoringCenter: monitoringCenter,
+            nightShieldMonitoringCenter: monitoringCenter,
+            deepFocusMonitoringCenter: monitoringCenter,
+            deepFocusNotificationCenter: SnapshotDeepFocusNotificationCenter(),
+            automaticallyRefreshEntitlement: false,
+            scheduleNotificationsOnInit: false
+        )
+    }
+
+    private func redesignSettingsStore(
+        defaults: UserDefaults,
+        isPro: Bool,
+        verifiedCatalogIDs: [String]
+    ) -> SettingsStore {
+        let store = SettingsStore(userDefaults: defaults)
+        store.onboardingCompleted = true
+        store.breathDurationSeconds = 8
+        store.verifiedAutomationCatalogIDs = verifiedCatalogIDs
+        store.entitlementCachedIsPro = isPro
+        store.pendingInterventionMode = InterventionMode.standard.rawValue
+        return store
+    }
+
     @MainActor
     private func capture(
         _ view: AnyView,
@@ -715,12 +1152,21 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         target: VerticalScrollTarget,
         screenName: String
     ) throws {
-        // 横チップのScrollViewも同じ階層にいるため、画面より縦に長いものだけを候補にし、
-        // contentSizeが最大のSwiftUI本体ScrollViewを選ぶ。
-        let scrollView = try XCTUnwrap(
-            verticalScrollViews(in: rootView).max {
+        // まず縦にあふれるScrollViewを選び、短い空状態では画面全体を占める候補へ倒す。
+        // これで横チップを避けつつ、large titleのscroll edgeを決定的に再現する。
+        let scrollViews = allScrollViews(in: rootView)
+        let overflowingScrollView = scrollViews
+            .filter { $0.contentSize.height > $0.bounds.height + 1 }
+            .max {
                 $0.contentSize.height < $1.contentSize.height
-            },
+            }
+        let fullHeightScrollView = scrollViews
+            .filter { $0.bounds.width > 100 && $0.bounds.height > 200 }
+            .max {
+                $0.bounds.height < $1.bounds.height
+            }
+        let scrollView = try XCTUnwrap(
+            overflowingScrollView ?? fullHeightScrollView,
             "\(screenName) の縦UIScrollViewが取得できない"
         )
 
@@ -775,14 +1221,13 @@ final class CoreScreensSnapshotCapture: XCTestCase {
     }
 
     @MainActor
-    private func verticalScrollViews(in view: UIView) -> [UIScrollView] {
+    private func allScrollViews(in view: UIView) -> [UIScrollView] {
         var matches: [UIScrollView] = []
-        if let scrollView = view as? UIScrollView,
-           scrollView.contentSize.height > scrollView.bounds.height + 1 {
+        if let scrollView = view as? UIScrollView {
             matches.append(scrollView)
         }
         for subview in view.subviews {
-            matches.append(contentsOf: verticalScrollViews(in: subview))
+            matches.append(contentsOf: allScrollViews(in: subview))
         }
         return matches
     }
@@ -839,6 +1284,22 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                 "output/app-store-screenshots/raw-core/\(locale)",
                 isDirectory: true
             )
+    }
+
+    private static func redesignPhase1OutputDirectory() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("output/screenshots/redesign-phase1", isDirectory: true)
+    }
+
+    private static func redesignPhase2OutputDirectory() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("output/screenshots/redesign-phase2", isDirectory: true)
     }
 }
 

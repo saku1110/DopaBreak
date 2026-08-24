@@ -16,7 +16,7 @@
 | home.reclaimed.hours_minutes | %lld時間%lld分 | %lld hr %lld min | %lld시간 %lld분 | 書式 |
 | home.targets.title | 止めているアプリ | Apps you're pausing | 멈춰 둔 앱 | eyebrow・設定画面の語彙に一致 |
 | home.targets.empty | 止めるアプリを選ぶ | Choose apps to pause | 멈출 앱 고르기 | |
-| home.targets.breath_line | 一呼吸の設定：%lld秒 | Pause setting: %lld seconds | 한 호흡 설정: %lld초 | 設定値だけを示し全経路での待機を断定しない |
+| home.targets.breath_line | 開く前に%lld秒の間が入ります | A %lld-second pause comes before they open | 열기 전에 %lld초 간격이 생겨요 | |
 | home.targets.night_line | %@から朝まで開けません | Closed from %@ until morning | %@부터 아침까지 열 수 없어요 | 夜だけ強化ON時のみ |
 | home.targets.focus_running | あと%@ 開けません | Closed for another %@ | 앞으로 %@ 동안 열 수 없어요 | Deep Focus/夜間実行中 |
 | home.targets.focus_30 | 30分だけ開けなくする | Close them for 30 minutes | 30분만 열 수 없게 하기 | ボタン・金額なし |
@@ -148,3 +148,10 @@
 - 対象: 67行（既存 rewrite 42行・Phase 2〜4新規22キー・rewrite合成表示例3行）。監査用テキストは en / ko とも1文言1行とし、各行末にピリオドを付与
 - en: `humanizer-en/scripts/audit.py` exit 0・全ゲートPASS（AI vocabulary 0・em/en dash 0・chat artifacts 0・15〜28語帯5.4%・56文・平均7.6語・SD 4.34・最小3・最大24）
 - ko: `humanizer-ko/scripts/audit.py` exit 0・전 게이트 통과（번역투0・이중피동・AI 도입/결론 정형各0・同一終止最大連続2・65文・平均18.1字・SD 11.07・最小6・最大57）
+
+## 追記（2026-08-24・オーナー指摘）: Freeぼかし解放CTAの差し替え
+`stats.paywall.weekly_report` の「毎週のふりかえりを詳しく見られる」は不自然かつ課金誘導になっていないため差し替え（Home・Statsの統合CTAで共用）。
+
+| キー | ja | en | ko | 備考 |
+|---|---|---|---|---|
+| stats.paywall.weekly_report（値変更） | 記録を全部見る | See all your stats | 기록 전부 보기 | 行動＋ベネフィット・金額なし・鍵アイコンは既存のまま |

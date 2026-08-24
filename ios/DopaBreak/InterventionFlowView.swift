@@ -559,7 +559,7 @@ struct InterventionFlowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .characterPop(.celebrate)
 
-                Text(String(localized: "intervention.success.title", defaultValue: "開かなかった\n自分で選べた"))
+                Text(String(localized: "intervention.success.title", defaultValue: "開くのをやめた\n自分の時間に戻る"))
                     .dopaFont(32, weight: .black, lineSpacing: 4)
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
@@ -591,7 +591,7 @@ struct InterventionFlowView: View {
                         metricColumn(
                             label: String(
                                 localized: "intervention.success.metric.cancelled",
-                                defaultValue: "開かなかった"
+                                defaultValue: "開くのをやめた"
                             ),
                             value: todayCancelledCountText
                         )
@@ -728,7 +728,7 @@ struct InterventionFlowView: View {
                 .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // 「開かずに戻れた / 3」を1つの読み上げにまとめる。
+        // 「開くのをやめた / 3」を1つの読み上げにまとめる。
         .accessibilityElement(children: .combine)
     }
 

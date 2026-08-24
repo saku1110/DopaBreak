@@ -190,7 +190,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.weekly.body",
-                defaultValue: "開かなかった \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回"
+                defaultValue: "開くのをやめた \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回"
             )
             content.sound = .default
             let weeklyTotalMinutes = hour * 60 + minute + 30
@@ -229,7 +229,7 @@ final class LockSurfaceCoordinator {
             if trialDay5.cancelledCount > 0 {
                 content.body = String(
                     localized: "lock_surface.notification.trial_day5.body_with_count",
-                    defaultValue: "ここまでに開かなかった \(trialDay5.cancelledCount)回。7日目に年額プランへ切り替わります。解約はいつでもできます。"
+                    defaultValue: "ここまでに\(trialDay5.cancelledCount)回、開くのをやめました。7日目に年額プランへ切り替わります。解約はいつでもできます。"
                 )
             } else {
                 content.body = String(
@@ -270,7 +270,7 @@ final class LockSurfaceCoordinator {
             }
             content.body = String(
                 localized: "lock_surface.notification.month1.body",
-                defaultValue: "開かなかった \(month1.cancelledCount)回 / 開こうとした \(month1.attemptCount)回"
+                defaultValue: "開くのをやめた \(month1.cancelledCount)回 / 開こうとした \(month1.attemptCount)回"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -305,7 +305,7 @@ final class LockSurfaceCoordinator {
                 case .counts(let cancelled, let attempts):
                     content.body = String(
                         localized: "lock_surface.notification.month1.body",
-                        defaultValue: "開かなかった \(cancelled)回 / 開こうとした \(attempts)回"
+                        defaultValue: "開くのをやめた \(cancelled)回 / 開こうとした \(attempts)回"
                     )
                 case .fixed:
                     content.body = String(
@@ -340,7 +340,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.month12.body",
-                defaultValue: "この1年で開かなかった \(month12.cancelledCount)回。更新の確認はApp Storeの設定からできます。"
+                defaultValue: "この1年で\(month12.cancelledCount)回、開くのをやめました。更新の確認はApp Storeの設定からできます。"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -368,7 +368,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.annual_offer.body",
-                defaultValue: "ここまで開かなかった\(annualOffer.cancelledCount)回。年額プランなら月あたりの負担が下がります"
+                defaultValue: "ここまでに\(annualOffer.cancelledCount)回、開くのをやめました。年額プランなら月あたりの負担が下がります"
             )
             content.sound = .default
             let trigger = oneShotTrigger(for: fireDate)
@@ -402,7 +402,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.cancel_save.body",
-                defaultValue: "ここまで開かなかった\(cancelSave.cancelledCount)回。このまま続けるかは期限までに選べます"
+                defaultValue: "ここまでに\(cancelSave.cancelledCount)回、開くのをやめました。このまま続けるかは期限までに選べます"
             )
             content.sound = .default
             let didSchedule = await addNotificationRequest(

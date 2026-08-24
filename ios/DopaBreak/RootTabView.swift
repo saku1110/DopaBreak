@@ -34,7 +34,11 @@ struct RootTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomeView(model: model, settingsStore: settingsStore)
+            HomeView(
+                model: model,
+                settingsStore: settingsStore,
+                onOpenStats: { selectedTab = .stats }
+            )
                 .tag(AppTab.home)
                 .tabItem {
                     Label(String(localized: "root_tab.home", defaultValue: "ホーム"), systemImage: "house")

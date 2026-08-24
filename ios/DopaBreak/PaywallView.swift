@@ -165,7 +165,7 @@ struct PaywallView: View {
                     .minimumScaleFactor(0.78)
             }
 
-            Text(String(localized: "paywall.header.body", defaultValue: "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開かなかった回数が毎日ホームに積み上がります。"))
+            Text(String(localized: "paywall.header.body", defaultValue: "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開くのをやめた回数が毎日ホームに積み上がります。"))
                 .dopaFont(14, weight: .medium, lineSpacing: 4)
                 .foregroundStyle(DesignTokens.secondaryText)
         }

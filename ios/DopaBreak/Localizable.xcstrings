@@ -1,33 +1,6 @@
 {
   "sourceLanguage": "ja",
   "strings": {
-    "home.apps.legend": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Today: chose not to open / tried to open" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "今日：開くのをやめた / 開こうとした" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "오늘: 열지 않기로 함 / 열려고 함" } }
-      }
-    },
-    "home.apps.ratio": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%lld / %lld" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "%lld / %lld" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "%lld / %lld" } }
-      }
-    },
-    "home.apps.title": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "By app" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "アプリごと" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "앱별" } }
-      }
-    },
     "home.reclaimed.hours_minutes": {
       "comment": "Screen: Home",
       "extractionState": "manual",
@@ -73,22 +46,13 @@
         "ko": { "stringUnit": { "state": "translated", "value": "이 속도라면 1년에 약 %@일" } }
       }
     },
-    "home.reflection.count": {
+    "home.stats_link.title": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%2$lld of %1$lld this week" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "今週の%lld回中 %lld回" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "이번 주 %lld회 중 %lld회" } }
-      }
-    },
-    "home.reflection.top": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Mostly “%@”" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "「%@」が多め" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "‘%@’가 많아요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "See app details and reflections" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "アプリごとの内訳と振り返りを見る" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "앱별 내역과 돌아보기" } }
       }
     },
     "home.streak.days": {
@@ -104,9 +68,9 @@
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Pause setting: %lld seconds" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "一呼吸の設定：%lld秒" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "한 호흡 설정: %lld초" } }
+        "en": { "stringUnit": { "state": "translated", "value": "A %lld-second pause comes before they open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開く前に%lld秒の間が入ります" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 %lld초 간격이 생겨요" } }
       }
     },
     "home.targets.empty": {
@@ -7910,19 +7874,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Loop broken.\nThat time stays yours."
+            "value": "Chose not to open\nBack to your time"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今回は開かないと\n自分で決めました"
+            "value": "開くのをやめた\n自分の時間に戻る"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "브레이크 성공\n오늘도 내가 선택했어요"
+            "value": "열지 않기로 함\n내 시간으로 돌아가기"
           }
         }
       }
@@ -9463,30 +9427,6 @@
         }
       }
     },
-    "stats.all_time.label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All time"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "全期間"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "전체 기간"
-          }
-        }
-      }
-    },
     "stats.apps.empty": {
       "comment": "Screen: Stats",
       "extractionState": "manual",
@@ -9583,54 +9523,6 @@
         }
       }
     },
-    "stats.behavior.label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Times you chose not to open and times you opened"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開くのをやめた回数と開いた回数"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열지 않기로 한 횟수와 연 횟수"
-          }
-        }
-      }
-    },
-    "stats.behavior.opened": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opened"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開いた"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열었어요"
-          }
-        }
-      }
-    },
     "stats.empty.description": {
       "comment": "Screen: Stats",
       "extractionState": "manual",
@@ -9703,30 +9595,6 @@
         }
       }
     },
-    "stats.header.today.title": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Today's record"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日の記録"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘의 기록"
-          }
-        }
-      }
-    },
     "stats.header.week.eyebrow": {
       "comment": "Screen: Stats",
       "extractionState": "manual",
@@ -9751,30 +9619,6 @@
         }
       }
     },
-    "stats.header.week.title": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This week's record"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今週の記録"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이번 주 기록"
-          }
-        }
-      }
-    },
     "stats.metric.attempted": {
       "comment": "Screen: Stats",
       "extractionState": "manual",
@@ -9794,7 +9638,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 했어요"
+            "value": "열려고 함"
           }
         }
       }
@@ -9855,30 +9699,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld회"
-          }
-        }
-      }
-    },
-    "stats.paywall.full_history": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Look back through your entire history"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録を全期間さかのぼれる"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "모든 기간의 기록을 되돌아볼 수 있어요"
           }
         }
       }
@@ -10047,54 +9867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "보고 난 뒤의 기분"
-          }
-        }
-      }
-    },
-    "stats.summary.today.label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Today's record"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日の記録"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘의 기록"
-          }
-        }
-      }
-    },
-    "stats.summary.week.label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This week's record"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今週の記録"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이번 주 기록 요약"
           }
         }
       }
@@ -10970,24 +10742,48 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "For “Is Opened,” select all target apps together and set the “Set Color Filters” action to On"
+            "value": "Create a new automation, choose “App,” select all target apps, pick “Is Opened” and “Run Immediately,” then tap Next"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「開いている」で対象アプリをまとめて全部選び、アクション「カラーフィルタを設定」をオンにする"
+            "value": "新規オートメーションで「アプリ」を選び、対象アプリをまとめて全部選んで「開いている」と「すぐに実行」を選び「次へ」"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "‘열릴 때’에서 대상 앱을 한꺼번에 모두 선택하고 ‘색상 필터 설정’ 동작을 켬으로 설정하세요"
+            "value": "새 자동화에서 ‘앱’을 선택하고 대상 앱을 한꺼번에 모두 선택한 다음 ‘열릴 때’와 ‘즉시 실행’을 선택하고 ‘다음’을 누르세요"
           }
         }
       }
     },
     "automation_guide.grayscale.step.2": {
+      "comment": "Screen: Automation Guide",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the “Set Color Filters” action, set it to On, and finish"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクション「カラーフィルタを設定」を選び「オン」にして完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘색상 필터 설정’ 동작을 선택해 ‘켬’으로 설정하고 완료하세요"
+          }
+        }
+      }
+    },
+    "automation_guide.grayscale.step.3": {
       "comment": "Screen: Automation Guide",
       "extractionState": "manual",
       "localizations": {
@@ -11000,13 +10796,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "もう1つ作り「閉じている」で同じアプリを選び「カラーフィルタを設定」をオフにする"
+            "value": "もう1つ作り「閉じている」で同じアプリを選び「カラーフィルタを設定」を「オフ」にする"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "자동화를 하나 더 만들고 ‘닫힐 때’에서 같은 앱을 선택한 다음 ‘색상 필터 설정’을 끔으로 설정하세요"
+            "value": "자동화를 하나 더 만들고 ‘닫힐 때’에서 같은 앱을 선택한 다음 ‘색상 필터 설정’을 ‘끔’으로 설정하세요"
           }
         }
       }
@@ -11018,19 +10814,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Step-by-step guide"
+            "value": "Setup steps"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "着実なガイド"
+            "value": "設定手順"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "차근차근 가이드"
+            "value": "설정 순서"
           }
         }
       }
@@ -12146,7 +11942,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open %lld times today"
+            "value": "Chose not to open %lld× today"
           }
         },
         "ja": {
@@ -13930,49 +13726,25 @@
       }
     },
     "stats.paywall.weekly_report": {
-      "comment": "Screen: Stats",
+      "comment": "Screen: Stats / Home",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "See your weekly review in detail"
+            "value": "See all your stats"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "毎週のふりかえりを詳しく見られる"
+            "value": "記録を全部見る"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "주간 리포트 자세히 보기"
-          }
-        }
-      }
-    },
-    "stats.weekly_detail.comparison.label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compared with last week"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先週との比較"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "지난주와 비교"
+            "value": "기록 전부 보기"
           }
         }
       }
@@ -14069,54 +13841,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "지난주와 동일"
-          }
-        }
-      }
-    },
-    "stats.weekly_detail.day.accessibility_label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@, tried to open %2$lld times, chose not to open %3$lld times"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@、開こうとしたのは%2$lld回、開くのをやめたのは%3$lld回"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@, 열려고 한 횟수 %2$lld회, 열지 않기로 한 횟수 %3$lld회"
-          }
-        }
-      }
-    },
-    "stats.weekly_detail.label": {
-      "comment": "Screen: Stats",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This week's breakdown"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今週の内訳"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이번 주 내역"
           }
         }
       }

@@ -1,17 +1,15 @@
 import Combine
+import DopaBreakCore
+import FamilyControls
+import ManagedSettings
 import SwiftUI
 import UIKit
-import DopaBreakCore
 
-/// 週次詳細レポートの読み取り専用サービス。
+/// 記録画面の読み取り専用サービス。
 ///
-/// SQLiteを開くのは一度きりにしたいので、View生成ごとではなくここで1つだけ保持する
-/// （PaywallView・OnboardingFlowが `DefaultContainerProvider` から自前のストアを起こすのと同じ形）。
-/// `static let` の遅延初期化に任せるため、記録データを開けない端末では nil のまま固定される。
-///
-/// 暦は `autoupdatingCurrent` を渡す。`current` はその場のタイムゾーンを写し取った値のため、
-/// 一度きりの生成と組み合わせると、端末のタイムゾーンを変えても古い日境界のまま集計し続ける。
-private enum WeeklyDetailStatsProvider {
+/// SQLiteは画面生成ごとに開かず、既定経路では遅延初期化した1接続を共有する。
+/// 撮影とテストでは `StatsView` のinitializerから決定的なサービスを注入できる。
+private enum StatsDataProvider {
     static let shared: StatsService? = {
         guard let logStore = try? SQLiteLogStore(containerProvider: DefaultContainerProvider()) else {
             return nil
@@ -20,8 +18,7 @@ private enum WeeklyDetailStatsProvider {
     }()
 }
 
-/// 7日窓の起点が動く出来事。日付の変更・タイムゾーンの変更・時刻の大きな変更をまとめて拾う。
-/// `NSCalendarDayChanged` は副スレッドで届くため、購読側へ渡す前にメインへ載せ替える。
+/// 期間の起点が動く出来事。通知はメインスレッドへ載せ替えてからViewへ渡す。
 private enum StatsTimeChange {
     static let publisher = Publishers.MergeMany(
         [
@@ -35,6 +32,73 @@ private enum StatsTimeChange {
     .receive(on: DispatchQueue.main)
 }
 
+private enum StatsPeriod: String, CaseIterable, Identifiable {
+    case week
+    case today
+    case all
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .week:
+            return String(localized: "stats.period.week", defaultValue: "今週")
+        case .today:
+            return String(localized: "stats.period.today", defaultValue: "今日")
+        case .all:
+            return String(localized: "stats.period.all", defaultValue: "全期間")
+        }
+    }
+}
+
+private struct StatsAppMetric: Identifiable {
+    let ruleID: UUID
+    let title: String
+    let catalogItem: SNSAppCatalogItem?
+    let applicationToken: ApplicationToken?
+    let attempts: Int
+    let cancelled: Int
+
+    var id: UUID { ruleID }
+
+    var iconSource: AppIconSource {
+        if let catalogItem {
+            return .catalog(catalogItem)
+        }
+        if let applicationToken {
+            return .token(applicationToken)
+        }
+        return .catalog(
+            SNSAppCatalogItem(
+                catalogID: "stats-rule-placeholder",
+                displayName: title,
+                urlScheme: nil,
+                automationBundleID: "",
+                symbolName: "app.fill"
+            )
+        )
+    }
+}
+
+private struct StatsIntentMetric: Identifiable {
+    let category: IntentCategory
+    let title: String
+    let count: Int
+
+    var id: String { category.rawValue }
+}
+
+private struct StatsDashboardData {
+    var summary = AttemptSummary(attempts: 0, cancelled: 0)
+    var days: [WeeklySummary.Day] = []
+    var weeklyDetail: WeeklyDetailReport?
+    var appMetrics: [StatsAppMetric] = []
+    var reflectionCounts: [PostUseSatisfaction: Int] = [:]
+    var intentMetrics: [StatsIntentMetric] = []
+
+    static let empty = StatsDashboardData()
+}
+
 struct StatsView: View {
     let model: AppModel
 
@@ -42,54 +106,38 @@ struct StatsView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var paywallPlacement: PaywallPlacement?
-    @State private var weeklyDetail: WeeklyDetailReport?
-    @ScaledMetric(relativeTo: .caption) private var dailyBarHeight: CGFloat = 76
+    @State private var period: StatsPeriod
+    @State private var dashboard = StatsDashboardData.empty
 
     init(model: AppModel, statsService: StatsService? = nil) {
         self.model = model
         self.injectedStatsService = statsService
+        _period = State(
+            initialValue: model.entitlementGate.statsDays == 1 ? .today : .week
+        )
     }
 
-    /// 既定の解決は実際に読むときまで遅らせる。Freeのまま使い続ける端末で
-    /// 週次詳細用のSQLite接続を開かせないため、初期化時には触らない。
     private var statsService: StatsService? {
-        injectedStatsService ?? WeeklyDetailStatsProvider.shared
+        injectedStatsService ?? StatsDataProvider.shared
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
-                    if isStatsHistoryLocked {
-                        dailyRate
-                        dailySummary
+                    periodPicker
+                    if dashboard.summary.attempts == 0 {
+                        emptyRecords
                     } else {
-                        weeklyRate
-                    }
-
-                    // 週次詳細はProの実体。Freeにはロックカードで中身を予告する。
-                    if isWeeklyDetailAllowed {
-                        weeklyDetailSection
-                    } else {
-                        lockedWeeklyDetail
-                    }
-
-                    if isStatsHistoryLocked {
-                        lockedWeeklySummary
-                    } else {
-                        if model.weekAttemptCount > 0 {
-                            behaviorSignal
-                        }
-                        allTimeSummary
+                        heroCard
+                        proContentSection
                     }
                 }
                 .padding(.horizontal, DesignTokens.horizontalPadding)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
-            // 自前のScreenHeaderをやめ、システムの大見出しへ寄せた。
-            // スクロールでの縮小・素材効果・VoiceOverの見出し扱いが標準どおりになる。
-            .navigationTitle(navigationTitleText)
+            .navigationTitle(String(localized: "stats.title", defaultValue: "記録"))
             .navigationBarTitleDisplayMode(.large)
             .dopaScreenBackground()
         }
@@ -97,23 +145,29 @@ struct StatsView: View {
         .onAppear {
             model.refresh()
             model.isChildModalActive = isAnyChildModalPresented
-            reloadWeeklyDetail()
+            reloadDashboard()
         }
-        // 介入を1件記録するたびに日別バーも動かす。週次通知から着地した直後の再取得もここが担う。
+        .onChange(of: period) { _, _ in
+            reloadDashboard()
+        }
         .onChange(of: model.weekAttemptCount) { _, _ in
-            reloadWeeklyDetail()
+            reloadDashboard()
         }
-        .onChange(of: isWeeklyDetailAllowed) { _, _ in
-            reloadWeeklyDetail()
+        .onChange(of: isStatsHistoryLocked) { _, isLocked in
+            if isLocked && period != .today {
+                period = .today
+            } else {
+                reloadDashboard()
+            }
         }
-        // 日付やタイムゾーンが変われば、件数が同じでも7日窓の中身は変わる。
-        // 画面を開いたまま日をまたぐ場合はここが、寝かせたまま日をまたぐ場合は復帰が拾う。
         .onReceive(StatsTimeChange.publisher) { _ in
-            reloadWeeklyDetail()
+            model.refresh()
+            reloadDashboard()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            reloadWeeklyDetail()
+            model.refresh()
+            reloadDashboard()
         }
         .onChange(of: isAnyChildModalPresented) { _, isPresented in
             model.isChildModalActive = isPresented
@@ -131,128 +185,194 @@ struct StatsView: View {
         model.entitlementGate.statsDays == 1
     }
 
-    private var isWeeklyDetailAllowed: Bool {
-        model.entitlementGate.weeklyReportAllowed
-    }
+    // MARK: - 期間
 
-    /// 旧ScreenHeaderのeyebrowが担っていた「今日／今週」の区別は見出し本文に含める。
-    private var navigationTitleText: String {
-        isStatsHistoryLocked
-            ? String(localized: "stats.header.today.title", defaultValue: "今日の記録")
-            : String(localized: "stats.header.week.title", defaultValue: "今週の傾向")
-    }
+    private var periodPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(StatsPeriod.allCases) { item in
+                Button {
+                    selectPeriod(item)
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(item.title)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
 
-    private func reloadWeeklyDetail() {
-        guard isWeeklyDetailAllowed, let statsService else {
-            weeklyDetail = nil
-            return
-        }
-        weeklyDetail = try? statsService.weeklyDetailReport()
-    }
-
-    private var dailyRate: some View {
-        rateBlock(text: dailySuccessRateText)
-    }
-
-    private var weeklyRate: some View {
-        rateBlock(text: weeklySuccessRateText)
-    }
-
-    private func rateBlock(text: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(text)
-                .dopaFont(68, weight: .black, design: .rounded, tracking: -2)
-                .monospacedDigit()
-                .foregroundStyle(DesignTokens.primaryText)
-                .contentTransition(.numericText())
-                .dopaDisplayClamp()
-            Text(String(localized: "stats.rate.title", defaultValue: "開かなかった割合"))
-                .dopaFont(14, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-        }
-    }
-
-    private var dailySummary: some View {
-        summaryCard(
-            label: String(localized: "stats.summary.today.label", defaultValue: "TODAY SUMMARY"),
-            attempts: model.todayAttemptCount,
-            cancelled: model.todayCancelledCount
-        )
-    }
-
-    private var weeklySummary: some View {
-        summaryCard(
-            label: String(localized: "stats.summary.week.label", defaultValue: "WEEKLY SUMMARY"),
-            attempts: model.weekAttemptCount,
-            cancelled: model.weekCancelledCount
-        )
-    }
-
-    private func summaryCard(label: String, attempts: Int, cancelled: Int) -> some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 18) {
-                SmallLabel(text: label)
-
-                if attempts == 0 {
-                    emptyRecords
-                } else {
-                    metricPair(attempts: attempts, cancelled: cancelled)
+                        if isStatsHistoryLocked && item != .today {
+                            Text(verbatim: "Pro")
+                                .dopaFont(9, weight: .black, design: .rounded)
+                                .foregroundStyle(DesignTokens.secondaryText)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(DesignTokens.backgroundRaised)
+                                .overlay { Capsule().stroke(DesignTokens.strongHairline, lineWidth: 1) }
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .dopaFont(13, weight: .bold)
+                    .foregroundStyle(period == item ? DesignTokens.accent : DesignTokens.primaryText)
+                    .frame(maxWidth: .infinity, minHeight: DesignTokens.minTapTarget)
+                    .background(DesignTokens.backgroundRaised)
+                    .overlay {
+                        Capsule()
+                            .stroke(
+                                period == item ? DesignTokens.accent : DesignTokens.hairline,
+                                lineWidth: period == item ? 1.5 : 1
+                            )
+                    }
+                    .clipShape(Capsule())
                 }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(period == item ? .isSelected : [])
             }
         }
     }
 
-    // MARK: - 週次詳細（Pro）
-
-    /// 記録データを開けないときは週の合計だけでも欠けさせない。
-    @ViewBuilder
-    private var weeklyDetailSection: some View {
-        if let weeklyDetail {
-            weeklyDetailCard(weeklyDetail)
-        } else {
-            weeklySummary
+    private func selectPeriod(_ selectedPeriod: StatsPeriod) {
+        guard !isStatsHistoryLocked || selectedPeriod == .today else {
+            paywallPlacement = .statsHistoryGate
+            return
+        }
+        withAnimation(DopaMotion.control) {
+            period = selectedPeriod
         }
     }
 
-    private func weeklyDetailCard(_ report: WeeklyDetailReport) -> some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 18) {
-                SmallLabel(
-                    text: String(localized: "stats.weekly_detail.label", defaultValue: "WEEKLY DETAIL")
-                )
+    // MARK: - ヒーロー
 
-                if report.isEmpty {
-                    emptyRecords
-                } else {
-                    metricPair(attempts: report.current.attempts, cancelled: report.current.cancelled)
-                    comparisonRow(report)
-                    dailyBars(report)
+    private var heroCard: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    SmallLabel(
+                        text: String(localized: "stats.rate.title", defaultValue: "開くのをやめた割合")
+                    )
+                    Spacer(minLength: 8)
+                    if period == .week, let report = dashboard.weeklyDetail {
+                        Text(comparisonAttributedText(report))
+                            .dopaFont(12, weight: .semibold)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimit(2)
+                    }
+                }
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .bottom, spacing: 14) {
+                        rateDisplay
+                            .frame(minWidth: 94, alignment: .leading)
+                        periodVisualization
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        rateDisplay
+                        periodVisualization
+                    }
+                }
+
+                if period == .week {
                     legend
                 }
             }
         }
     }
 
-    private func comparisonRow(_ report: WeeklyDetailReport) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            SmallLabel(
-                text: String(
-                    localized: "stats.weekly_detail.comparison.label",
-                    defaultValue: "VS LAST WEEK"
-                )
-            )
-            Spacer(minLength: 8)
-            Text(comparisonText(report))
-                .dopaFont(13, weight: .bold)
-                .foregroundStyle(
-                    isComparisonImproved(report) ? DesignTokens.accent : DesignTokens.secondaryText
-                )
-                .multilineTextAlignment(.trailing)
+    @ViewBuilder
+    private var rateDisplay: some View {
+        if let percentage = successPercentage {
+            HStack(alignment: .firstTextBaseline, spacing: 1) {
+                Text(verbatim: "\(percentage)")
+                    .dopaFont(56, weight: .black, design: .rounded, tracking: -1.8)
+                Text(verbatim: "%")
+                    .dopaFont(22, weight: .black, design: .rounded, tracking: -0.3)
+            }
+            .monospacedDigit()
+            .foregroundStyle(DesignTokens.primaryText)
+            .contentTransition(.numericText())
+            .dopaDisplayClamp()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(percentageText(percentage))
+        } else {
+            Text(String(localized: "stats.rate.unavailable", defaultValue: "—"))
+                .dopaFont(56, weight: .black, design: .rounded)
+                .foregroundStyle(DesignTokens.primaryText)
+                .dopaDisplayClamp()
         }
-        .accessibilityElement(children: .combine)
     }
 
-    /// 前週比は「開かなかった回数」で語る。割合の増減は画面上部の大きな数字が担う。
+    @ViewBuilder
+    private var periodVisualization: some View {
+        switch period {
+        case .week:
+            DayBars(days: dashboard.days, height: 64)
+        case .today:
+            metricPair(
+                attempts: dashboard.summary.attempts,
+                cancelled: dashboard.summary.cancelled
+            )
+        case .all:
+            MetricBlock(
+                label: String(
+                    localized: "stats.all_time.cancelled",
+                    defaultValue: "これまでに開くのをやめた回数"
+                ),
+                value: countText(dashboard.summary.cancelled),
+                accent: true
+            )
+        }
+    }
+
+    private var legend: some View {
+        HStack(spacing: 14) {
+            legendItem(
+                color: DesignTokens.accent,
+                label: String(localized: "stats.behavior.cancelled", defaultValue: "開くのをやめた"),
+                count: dashboard.summary.cancelled
+            )
+            Text("\(attemptedMetricLabel) \(countText(dashboard.summary.attempts))")
+                .dopaFont(11, weight: .bold)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func legendItem(color: Color, label: String, count: Int) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(color)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+            Text("\(label) \(countText(count))")
+                .dopaFont(11, weight: .bold)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+    }
+
+    private var successPercentage: Int? {
+        guard dashboard.summary.attempts > 0 else { return nil }
+        let rate = Double(dashboard.summary.cancelled) / Double(dashboard.summary.attempts)
+        return Int((min(1, max(0, rate)) * 100).rounded())
+    }
+
+    private func percentageText(_ value: Int) -> String {
+        String(localized: "stats.rate.percentage", defaultValue: "\(value)%")
+    }
+
+    private func comparisonAttributedText(_ report: WeeklyDetailReport) -> AttributedString {
+        var result = AttributedString(comparisonText(report))
+        guard let delta = report.cancelledDelta, delta != 0,
+              let range = result.range(of: String(abs(delta))) else {
+            return result
+        }
+        result[range].foregroundColor = DesignTokens.accent
+        return result
+    }
+
     private func comparisonText(_ report: WeeklyDetailReport) -> String {
         guard let delta = report.cancelledDelta else {
             return String(
@@ -278,98 +398,230 @@ struct StatsView: View {
         )
     }
 
-    private func isComparisonImproved(_ report: WeeklyDetailReport) -> Bool {
-        (report.cancelledDelta ?? 0) > 0
-    }
+    // MARK: - アプリごと
 
-    private func dailyBars(_ report: WeeklyDetailReport) -> some View {
-        // 縮尺は今週と前週を通した最大値。週が変わるたびにバーの意味が変わらないようにする。
-        let peak = max(report.peakDailyAttempts, 1)
-        return HStack(alignment: .bottom, spacing: 6) {
-            ForEach(report.current.days, id: \.date) { day in
-                dayColumn(day: day, peak: peak)
+    private var proContentSection: some View {
+        ZStack {
+            VStack(spacing: DesignTokens.sectionSpacing) {
+                appsCard
+                reflectionCard
+                intentCard
+            }
+
+            if isStatsHistoryLocked {
+                weeklyReviewButton
             }
         }
     }
 
-    private func dayColumn(day: WeeklySummary.Day, peak: Int) -> some View {
-        VStack(spacing: 8) {
-            ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(DesignTokens.hairline)
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(DesignTokens.secondaryText.opacity(0.5))
-                    .frame(height: barHeight(for: day.attempts, peak: peak))
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(DesignTokens.accent)
-                    .frame(height: barHeight(for: day.cancelled, peak: peak))
+    private var appsCard: some View {
+        proContentCard {
+            VStack(alignment: .leading, spacing: 10) {
+                SmallLabel(text: String(localized: "stats.apps.title", defaultValue: "アプリごと"))
+
+                if dashboard.appMetrics.isEmpty {
+                    Text(
+                        String(
+                            localized: "stats.apps.empty",
+                            defaultValue: "まだアプリごとの記録がありません"
+                        )
+                    )
+                    .dopaFont(14, weight: .medium)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .padding(.vertical, 6)
+                } else {
+                    ForEach(dashboard.appMetrics) { metric in
+                        appRow(metric)
+                    }
+                }
             }
-            .frame(height: dailyBarHeight)
-            .animation(DopaMotion.transition, value: day)
-
-            Text(weekdayLabel(for: day.date))
-                .dopaFont(10, weight: .bold, design: .monospaced)
-                .foregroundStyle(
-                    Calendar.autoupdatingCurrent.isDateInToday(day.date)
-                        ? DesignTokens.primaryText
-                        : DesignTokens.tertiaryText
-                )
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
         }
-        .frame(maxWidth: .infinity)
-        // 棒と曜日を別々に読ませず、その日の記録として1回で読み上げる。
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(dayAccessibilityLabel(day))
     }
 
-    /// 1回でも記録があった日は、縮尺で潰れても見える高さを残す。
-    private func barHeight(for count: Int, peak: Int) -> CGFloat {
-        guard count > 0, peak > 0 else { return 0 }
-        return max(dailyBarHeight * CGFloat(count) / CGFloat(peak), 4)
-    }
-
-    private func weekdayLabel(for date: Date) -> String {
-        // 集計側と同じ暦を使う。曜日ラベルだけ古いタイムゾーンで固定されるのを避ける。
-        let calendar = Calendar.autoupdatingCurrent
-        let symbols = calendar.veryShortStandaloneWeekdaySymbols
-        let index = calendar.component(.weekday, from: date) - 1
-        guard symbols.indices.contains(index) else {
-            return ""
-        }
-        return symbols[index]
-    }
-
-    private func dayAccessibilityLabel(_ day: WeeklySummary.Day) -> String {
-        let dateText = day.date.formatted(.dateTime.month(.abbreviated).day())
-        return String(
-            localized: "stats.weekly_detail.day.accessibility_label",
-            defaultValue: "\(dateText) 開こうとした\(day.attempts)回 開かなかった\(day.cancelled)回"
+    private func appRow(_ metric: StatsAppMetric) -> some View {
+        let ratioText = String(
+            localized: "stats.apps.ratio",
+            defaultValue: "\(metric.cancelled)/\(metric.attempts)"
         )
-    }
+        return HStack(spacing: 10) {
+            AppIconView(source: metric.iconSource, size: 30)
+                .accessibilityHidden(true)
 
-    /// バーの色分けの凡例。読み上げは各バーのラベルが持つので、ここは見た目だけの補助にする。
-    private var legend: some View {
-        HStack(spacing: 14) {
-            legendItem(color: DesignTokens.accent, text: cancelledMetricLabel)
-            legendItem(color: DesignTokens.secondaryText.opacity(0.5), text: attemptedMetricLabel)
-            Spacer(minLength: 0)
-        }
-        .accessibilityHidden(true)
-    }
+            Text(metric.title)
+                .dopaFont(14, weight: .semibold)
+                .foregroundStyle(DesignTokens.primaryText)
+                .frame(width: 74, alignment: .leading)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-    private func legendItem(color: Color, text: String) -> some View {
-        HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(color)
-                .frame(width: 8, height: 8)
-            Text(text)
-                .dopaFont(11, weight: .bold)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(DesignTokens.hairline)
+                    Capsule()
+                        .fill(DesignTokens.accent)
+                        .frame(
+                            width: proxy.size.width
+                                * CGFloat(metric.cancelled)
+                                / CGFloat(max(1, metric.attempts))
+                        )
+                }
+            }
+            .frame(height: 6)
+
+            Text(ratioText)
+                .dopaFont(12, weight: .bold, design: .monospaced)
                 .foregroundStyle(DesignTokens.secondaryText)
+                .frame(width: 50, alignment: .trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(minHeight: DesignTokens.minTapTarget)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(metric.title) \(ratioText)")
+    }
+
+    // MARK: - 見たあとの気持ち
+
+    private var reflectionCard: some View {
+        proContentCard {
+            VStack(alignment: .leading, spacing: 14) {
+                SmallLabel(
+                    text: String(
+                        localized: "stats.reflection.title",
+                        defaultValue: "見たあとの気持ち"
+                    )
+                )
+
+                if reflectionAnswerCount == 0 {
+                    emptyTitle
+                } else {
+                    HStack(alignment: .top, spacing: 4) {
+                        ForEach(PostUseSatisfaction.allCases, id: \.rawValue) { satisfaction in
+                            let count = dashboard.reflectionCounts[satisfaction] ?? 0
+                            VStack(spacing: 5) {
+                                CharacterView(
+                                    satisfaction.characterExpression,
+                                    size: 40,
+                                    animated: false
+                                )
+                                .opacity(count > 0 ? 1 : 0.45)
+
+                                Text(verbatim: "\(count)")
+                                    .dopaFont(14, weight: .black, design: .rounded)
+                                    .monospacedDigit()
+                                    .foregroundStyle(DesignTokens.primaryText)
+
+                                Text(satisfaction.displayTitle)
+                                    .dopaFont(9.5, weight: .medium, lineSpacing: 1)
+                                    .foregroundStyle(DesignTokens.secondaryText)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.68)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("\(satisfaction.displayTitle) \(countText(count))")
+                        }
+                    }
+                }
+            }
         }
     }
 
-    // MARK: - 共通部品
+    private var reflectionAnswerCount: Int {
+        dashboard.reflectionCounts.values.reduce(0, +)
+    }
+
+    // MARK: - 開こうとした理由
+
+    private var intentCard: some View {
+        proContentCard {
+            VStack(alignment: .leading, spacing: 14) {
+                SmallLabel(
+                    text: String(
+                        localized: "stats.intent.title",
+                        defaultValue: "開こうとした理由"
+                    )
+                )
+
+                if dashboard.intentMetrics.isEmpty {
+                    emptyTitle
+                } else {
+                    StatsFlowLayout(spacing: 8) {
+                        ForEach(dashboard.intentMetrics) { metric in
+                            Text("\(metric.title) \(intentPercentageText(metric.count))")
+                                .dopaFont(12, weight: .bold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .lineLimit(1)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(DesignTokens.backgroundRaised)
+                                .overlay { Capsule().stroke(DesignTokens.hairline, lineWidth: 1) }
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func intentPercentageText(_ count: Int) -> String {
+        let total = max(1, dashboard.intentMetrics.reduce(0) { $0 + $1.count })
+        let percentage = Int((Double(count) * 100 / Double(total)).rounded())
+        return String(format: "%d%%", locale: Locale.autoupdatingCurrent, percentage)
+    }
+
+    // MARK: - Freeオーバーレイ
+
+    private func proContentCard<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ZStack {
+            CardContainer {
+                content()
+            }
+            .blur(radius: isStatsHistoryLocked ? 10 : 0)
+            .accessibilityHidden(isStatsHistoryLocked)
+
+            if isStatsHistoryLocked {
+                DesignTokens.backgroundRaised.opacity(0.6)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
+    }
+
+    private var weeklyReviewButton: some View {
+        Button {
+            paywallPlacement = .statsHistoryGate
+        } label: {
+            Text(
+                String(
+                    localized: "stats.paywall.weekly_report",
+                    defaultValue: "記録を全部見る"
+                )
+            )
+            .dopaFont(13, weight: .bold)
+            .foregroundStyle(DesignTokens.primaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .padding(.horizontal, 14)
+            .frame(minHeight: DesignTokens.minTapTarget)
+            .background(DesignTokens.backgroundRaised)
+            .overlay { Capsule().stroke(DesignTokens.strongHairline, lineWidth: 1) }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+    }
+
+    // MARK: - 共通表示
+
+    private var emptyTitle: some View {
+        Text(String(localized: "stats.empty.title", defaultValue: "まだ記録がありません"))
+            .dopaFont(14, weight: .medium)
+            .foregroundStyle(DesignTokens.secondaryText)
+            .padding(.vertical, 6)
+    }
 
     private var emptyRecords: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -377,9 +629,14 @@ struct StatsView: View {
                 .dopaFont(20, weight: .bold)
                 .foregroundStyle(DesignTokens.primaryText)
 
-            Text(String(localized: "stats.empty.description", defaultValue: "開く前に選び直すたび、その記録がここに貯まります。"))
-                .dopaFont(14, weight: .medium, lineSpacing: 4)
-                .foregroundStyle(DesignTokens.secondaryText)
+            Text(
+                String(
+                    localized: "stats.empty.description",
+                    defaultValue: "開こうとした回数と、開くのをやめた回数がここに残ります"
+                )
+            )
+            .dopaFont(14, weight: .medium, lineSpacing: 4)
+            .foregroundStyle(DesignTokens.secondaryText)
         }
     }
 
@@ -398,7 +655,7 @@ struct StatsView: View {
     }
 
     private var cancelledMetricLabel: String {
-        String(localized: "stats.metric.cancelled", defaultValue: "開かなかった")
+        String(localized: "stats.metric.cancelled", defaultValue: "開くのをやめた")
     }
 
     private var attemptedMetricLabel: String {
@@ -409,137 +666,273 @@ struct StatsView: View {
         String(localized: "stats.metric.count", defaultValue: "\(count)回")
     }
 
-    /// placement は `.statsHistoryGate` を流用する。`.weekly` は自動提示側の間隔計算
-    /// （`WeeklyPaywallPolicy` の `lastWeeklyPaywallShownAt`）に紐づいており、
-    /// 手動タップでその時計を進めると既存の週次自動提示の挙動まで変わるため使わない。
-    private var lockedWeeklyDetail: some View {
-        lockRow(
-            text: String(
-                localized: "stats.paywall.weekly_report",
-                defaultValue: "毎週のふりかえりを詳しく見られる"
-            ),
-            placement: .statsHistoryGate
+    // MARK: - 読み込み
+
+    private func reloadDashboard(referenceDate: Date = Date()) {
+        guard let statsService else {
+            dashboard = fallbackDashboard(referenceDate: referenceDate)
+            return
+        }
+
+        let calendar = Calendar.autoupdatingCurrent
+        let report = try? statsService.weeklyDetailReport()
+        let range = dateRange(
+            for: period,
+            report: report,
+            referenceDate: referenceDate,
+            calendar: calendar
         )
-    }
 
-    private var lockedWeeklySummary: some View {
-        lockRow(
-            text: String(
-                localized: "stats.paywall.full_history",
-                defaultValue: "記録を全期間さかのぼれる"
-            ),
-            placement: .statsHistoryGate
-        )
-    }
-
-    private func lockRow(text: String, placement: PaywallPlacement) -> some View {
-        Button {
-            paywallPlacement = placement
-        } label: {
-            CardContainer {
-                HStack(spacing: 12) {
-                    Image(systemName: "lock.fill")
-                        .dopaFont(15, weight: .bold)
-                        .foregroundStyle(DesignTokens.accent)
-
-                    Text(text)
-                        .dopaFont(15, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .dopaFont(13, weight: .bold)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var behaviorSignal: some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 15) {
-                SmallLabel(text: String(localized: "stats.behavior.label", defaultValue: "BEHAVIOR SIGNAL"))
-                signalRow(
-                    label: String(localized: "stats.behavior.cancelled", defaultValue: "開かなかった"),
-                    value: weeklySuccessRate,
-                    color: DesignTokens.accent
+        let summary: AttemptSummary
+        switch period {
+        case .week:
+            summary = report.map {
+                AttemptSummary(
+                    attempts: $0.current.attempts,
+                    cancelled: $0.current.cancelled
                 )
-                signalRow(
-                    label: String(localized: "stats.behavior.opened", defaultValue: "開いた"),
-                    value: 1 - weeklySuccessRate,
-                    color: DesignTokens.secondaryText
-                )
-            }
-        }
-    }
-
-    private var allTimeSummary: some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 15) {
-                SmallLabel(text: String(localized: "stats.all_time.label", defaultValue: "ALL TIME"))
-                MetricBlock(
-                    label: String(localized: "stats.all_time.cancelled", defaultValue: "これまでに開かなかった"),
-                    value: countText(model.allTimeCancelledCount),
-                    accent: true
-                )
-            }
-        }
-    }
-
-    private func signalRow(label: String, value: CGFloat, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .dopaFont(12, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .frame(width: 52, alignment: .leading)
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(DesignTokens.hairline)
-                    Capsule().fill(color).frame(width: proxy.size.width * value)
-                }
-            }
-            .frame(height: 6)
-            Text(
-                String(
-                    localized: "stats.rate.percentage",
-                    defaultValue: "\(Int((value * 100).rounded()))%"
-                )
+            } ?? AttemptSummary(
+                attempts: model.weekAttemptCount,
+                cancelled: model.weekCancelledCount
             )
-                .dopaFont(12, weight: .bold, design: .monospaced)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .frame(width: 40, alignment: .trailing)
+        case .today:
+            summary = (try? statsService.attemptSummary(from: range.start, to: range.end))
+                ?? AttemptSummary(
+                    attempts: model.todayAttemptCount,
+                    cancelled: model.todayCancelledCount
+                )
+        case .all:
+            summary = AttemptSummary(
+                attempts: (try? statsService.attemptsAllTime()) ?? model.allTimeAttemptCount,
+                cancelled: (try? statsService.cancelledAttemptsAllTime())
+                    ?? model.allTimeCancelledCount
+            )
         }
-    }
 
-    private var weeklySuccessRate: CGFloat {
-        guard model.weekAttemptCount > 0 else { return 0 }
-        return min(1, CGFloat(model.weekCancelledCount) / CGFloat(model.weekAttemptCount))
-    }
+        let detailed = (
+            try? statsService.appRuleBreakdownDetailed(from: range.start, to: range.end)
+        ) ?? [:]
+        let reflectionCounts = (
+            try? statsService.reflectionBreakdown(from: range.start, to: range.end)
+        ) ?? [:]
+        let intentCounts = (
+            try? statsService.intentBreakdown(from: range.start, to: range.end)
+        ) ?? [:]
 
-    private var weeklySuccessRateText: String {
-        guard model.weekAttemptCount > 0 else {
-            return String(localized: "stats.rate.unavailable", defaultValue: "—")
-        }
-        return String(
-            localized: "stats.rate.percentage",
-            defaultValue: "\(Int((weeklySuccessRate * 100).rounded()))%"
+        dashboard = StatsDashboardData(
+            summary: summary,
+            days: report?.current.days ?? emptyWeekDays(referenceDate: referenceDate),
+            weeklyDetail: report,
+            appMetrics: appMetrics(from: detailed),
+            reflectionCounts: reflectionCounts,
+            intentMetrics: intentMetrics(from: intentCounts)
         )
     }
 
-    private var dailySuccessRate: CGFloat {
-        guard model.todayAttemptCount > 0 else { return 0 }
-        return min(1, CGFloat(model.todayCancelledCount) / CGFloat(model.todayAttemptCount))
+    private func fallbackDashboard(referenceDate: Date) -> StatsDashboardData {
+        let summary: AttemptSummary
+        switch period {
+        case .week:
+            summary = AttemptSummary(
+                attempts: model.weekAttemptCount,
+                cancelled: model.weekCancelledCount
+            )
+        case .today:
+            summary = AttemptSummary(
+                attempts: model.todayAttemptCount,
+                cancelled: model.todayCancelledCount
+            )
+        case .all:
+            summary = AttemptSummary(
+                attempts: model.allTimeAttemptCount,
+                cancelled: model.allTimeCancelledCount
+            )
+        }
+        return StatsDashboardData(
+            summary: summary,
+            days: emptyWeekDays(referenceDate: referenceDate)
+        )
     }
 
-    private var dailySuccessRateText: String {
-        guard model.todayAttemptCount > 0 else {
-            return String(localized: "stats.rate.unavailable", defaultValue: "—")
+    private func dateRange(
+        for period: StatsPeriod,
+        report: WeeklyDetailReport?,
+        referenceDate: Date,
+        calendar: Calendar
+    ) -> (start: Date, end: Date) {
+        let todayStart = calendar.startOfDay(for: referenceDate)
+        let todayEnd = calendar.date(byAdding: .day, value: 1, to: todayStart)
+            ?? todayStart.addingTimeInterval(86_400)
+
+        switch period {
+        case .week:
+            let start = report?.current.days.first?.date
+                ?? calendar.date(byAdding: .day, value: -6, to: todayStart)
+                ?? todayStart.addingTimeInterval(-6 * 86_400)
+            let lastDay = report?.current.days.last?.date ?? todayStart
+            let end = calendar.date(byAdding: .day, value: 1, to: lastDay) ?? todayEnd
+            return (start, end)
+        case .today:
+            return (todayStart, todayEnd)
+        case .all:
+            return (Date(timeIntervalSince1970: 0), todayEnd)
         }
-        return String(
-            localized: "stats.rate.percentage",
-            defaultValue: "\(Int((dailySuccessRate * 100).rounded()))%"
+    }
+
+    private func emptyWeekDays(referenceDate: Date) -> [WeeklySummary.Day] {
+        let calendar = Calendar.autoupdatingCurrent
+        let today = calendar.startOfDay(for: referenceDate)
+        return (0..<7).compactMap { index in
+            guard let date = calendar.date(byAdding: .day, value: index - 6, to: today) else {
+                return nil
+            }
+            return WeeklySummary.Day(date: date, attempts: 0, cancelled: 0)
+        }
+    }
+
+    private func appMetrics(
+        from detailed: [UUID: (attempts: Int, cancelled: Int)]
+    ) -> [StatsAppMetric] {
+        let rules = (try? model.ruleStore.allRules()) ?? []
+        let ruleByID = Dictionary(uniqueKeysWithValues: rules.map { ($0.id, $0) })
+
+        return detailed.compactMap { ruleID, breakdown -> StatsAppMetric? in
+            guard let rule = ruleByID[ruleID] else { return nil }
+            let title = rule.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else { return nil }
+
+            let catalogItem = rule.activitySelectionData.isEmpty
+                ? SNSAppCatalog.all.first { $0.displayName == title }
+                : nil
+            let applicationToken = singleApplicationToken(from: rule.activitySelectionData)
+
+            return StatsAppMetric(
+                ruleID: ruleID,
+                title: catalogItem?.displayName ?? title,
+                catalogItem: catalogItem,
+                applicationToken: applicationToken,
+                attempts: breakdown.attempts,
+                cancelled: breakdown.cancelled
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.attempts == rhs.attempts {
+                return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+            }
+            return lhs.attempts > rhs.attempts
+        }
+    }
+
+    private func singleApplicationToken(from selectionData: Data) -> ApplicationToken? {
+        guard !selectionData.isEmpty,
+              let selection = try? JSONDecoder().decode(
+                  FamilyActivitySelection.self,
+                  from: selectionData
+              ),
+              selection.applicationTokens.count == 1 else {
+            return nil
+        }
+        return selection.applicationTokens.first
+    }
+
+    private func intentMetrics(from counts: [IntentCategory: Int]) -> [StatsIntentMetric] {
+        var displayCounts = counts
+        if let legacyAnxietyCount = displayCounts.removeValue(forKey: .anxietyCheck) {
+            displayCounts[.communication, default: 0] += legacyAnxietyCount
+        }
+        let caseOrder = Dictionary(
+            uniqueKeysWithValues: IntentCategory.allCases.enumerated().map { ($1, $0) }
         )
+        return displayCounts.compactMap { category, count -> StatsIntentMetric? in
+            guard count > 0 else { return nil }
+            let title = intentTitle(category)
+            return StatsIntentMetric(category: category, title: title, count: count)
+        }
+        .sorted { lhs, rhs in
+            if lhs.count == rhs.count {
+                return (caseOrder[lhs.category] ?? .max) < (caseOrder[rhs.category] ?? .max)
+            }
+            return lhs.count > rhs.count
+        }
+    }
+
+    private func intentTitle(_ category: IntentCategory) -> String {
+        switch category {
+        case .workRequired:
+            return String(localized: "intervention.reason.work", defaultValue: "仕事で使う")
+        case .research:
+            return String(localized: "intervention.reason.research", defaultValue: "調べもの")
+        case .communication, .anxietyCheck:
+            return String(localized: "intervention.reason.communication", defaultValue: "連絡を確認")
+        case .posting:
+            return String(localized: "intervention.reason.posting", defaultValue: "投稿する")
+        case .boredom:
+            return String(localized: "intervention.reason.boredom", defaultValue: "暇つぶし")
+        case .unconscious:
+            return String(localized: "intervention.reason.unconscious", defaultValue: "なんとなく")
+        case .other:
+            return String(localized: "goal_editor.category.other", defaultValue: "その他")
+        }
+    }
+}
+
+/// 件数順の理由チップを、利用可能幅に合わせて左から折り返す。
+private struct StatsFlowLayout: Layout {
+    let spacing: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let availableWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var measuredWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > availableWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            measuredWidth = max(measuredWidth, x + size.width)
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        return CGSize(
+            width: availableWidth.isFinite ? availableWidth : measuredWidth,
+            height: subviews.isEmpty ? 0 : y + rowHeight
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(
+                at: CGPoint(x: x, y: y),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(size)
+            )
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }

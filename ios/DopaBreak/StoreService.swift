@@ -155,6 +155,7 @@ final class StoreService {
         funnelEventStore: FunnelEventStore = FunnelEventStore(snapshotStore: JSONSnapshotStore()),
         settingsStore: SettingsStore? = nil,
         usageWatchStore: UsageWatchStore? = nil,
+        startsBackgroundTasks: Bool = true,
         now: @escaping () -> Date = { .now }
     ) {
         let resolvedSettingsStore = settingsStore ?? (try? SettingsStore())
@@ -176,9 +177,11 @@ final class StoreService {
             }
         }
 
-        updatesTask = listenForTransactions()
-        Task {
-            await loadProducts()
+        if startsBackgroundTasks {
+            updatesTask = listenForTransactions()
+            Task {
+                await loadProducts()
+            }
         }
     }
 

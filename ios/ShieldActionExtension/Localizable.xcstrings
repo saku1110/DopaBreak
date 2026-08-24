@@ -1,0 +1,54 @@
+{
+  "sourceLanguage": "ja",
+  "strings": {
+    "gate.notification.unlock.body": {
+      "comment": "Notification: Gate unlock",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Breathe in DopaBreak, then open the app"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreakで一呼吸してから開きます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak에서 한 호흡 후 열어요"
+          }
+        }
+      }
+    },
+    "gate.notification.unlock.title": {
+      "comment": "Notification: Gate unlock",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to take a breath"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タップして一呼吸"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "탭해서 한 호흡"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -18,11 +18,17 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 
     private let settingsStore: SettingsStore
     private let usageWatchStore: UsageWatchStore
+    private let onGateUnlockRequest: @MainActor () -> Void
 
-    init(settingsStore: SettingsStore, usageWatchStore: UsageWatchStore? = nil) {
+    init(
+        settingsStore: SettingsStore,
+        usageWatchStore: UsageWatchStore? = nil,
+        onGateUnlockRequest: @MainActor @escaping () -> Void = {}
+    ) {
         self.settingsStore = settingsStore
         self.usageWatchStore = usageWatchStore
             ?? ((try? UsageWatchStore()) ?? UsageWatchStore(userDefaults: .standard))
+        self.onGateUnlockRequest = onGateUnlockRequest
         super.init()
         registerUsageWatchCategory()
     }
@@ -38,6 +44,17 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+           let requestID = response.notification.request.content.userInfo[
+               GateConstants.unlockRequestUserInfoKey
+           ] as? String,
+           UUID(uuidString: requestID) != nil {
+            await MainActor.run {
+                onGateUnlockRequest()
+            }
+            return
+        }
+
         let identifier = response.notification.request.identifier
         let categoryIdentifier = response.notification.request.content.categoryIdentifier
         if categoryIdentifier == UsageWatchConstants.notificationCategoryIdentifier

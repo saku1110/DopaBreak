@@ -1,5 +1,6 @@
 import DopaBreakCore
 import FamilyControls
+import ManagedSettings
 import SwiftUI
 import UIKit
 
@@ -7,6 +8,39 @@ struct SettingsView: View {
     let model: AppModel
     let settingsStore: SettingsStore
     let onResetOnboarding: () -> Void
+
+    #if DEBUG
+    private let snapshotScreenTimeAuthorized: Bool?
+    #endif
+
+    init(
+        model: AppModel,
+        settingsStore: SettingsStore,
+        onResetOnboarding: @escaping () -> Void
+    ) {
+        self.model = model
+        self.settingsStore = settingsStore
+        self.onResetOnboarding = onResetOnboarding
+        #if DEBUG
+        self.snapshotScreenTimeAuthorized = nil
+        #endif
+    }
+
+    #if DEBUG
+    /// App Store素材撮影用。AuthorizationCenterの実状態は変更せず、認可行の表示だけを
+    /// 決定的に差し替える。本番のinitializerからは指定できない。
+    init(
+        snapshotModel model: AppModel,
+        settingsStore: SettingsStore,
+        screenTimeAuthorized: Bool,
+        onResetOnboarding: @escaping () -> Void
+    ) {
+        self.model = model
+        self.settingsStore = settingsStore
+        self.onResetOnboarding = onResetOnboarding
+        self.snapshotScreenTimeAuthorized = screenTimeAuthorized
+    }
+    #endif
 
     @State private var rules: [TargetRule] = []
     @State private var selectedMode: InterventionMode = .standard
@@ -25,6 +59,7 @@ struct SettingsView: View {
     @State private var isTargetPickerPresented = false
     @State private var shouldPresentTargetAppPaywallAfterDismiss = false
     @State private var isAutomationGuidePresented = false
+    @State private var gateAppSettingTarget: GateAppSettingTarget?
     @State private var isLockScreenCheckPresented = false
     @State private var isDeleteAllDataConfirmationPresented = false
     @State private var isDeletionFeedbackVisible = false
@@ -214,6 +249,9 @@ struct SettingsView: View {
         .sheet(isPresented: $isAutomationGuidePresented) {
             AutomationGuideView(model: model, settingsStore: settingsStore)
         }
+        .sheet(item: $gateAppSettingTarget) { target in
+            GateAppSettingSheet(target: target, model: model)
+        }
         .fullScreenCover(isPresented: $isLockScreenCheckPresented, onDismiss: {
             // 確認画面はアプリ内トグルを必要に応じてオンへ戻すため、表示値を取り直す。
             refreshSettingsState()
@@ -275,53 +313,209 @@ struct SettingsView: View {
             || paywallPlacement != nil
             || isTargetPickerPresented
             || isAutomationGuidePresented
+            || gateAppSettingTarget != nil
             || isLockScreenCheckPresented
             || isDeleteAllDataConfirmationPresented
     }
 
     private var targetSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: String(localized: "settings.target.section", defaultValue: "対象"))
+            SmallLabel(
+                text: String(
+                    localized: "settings.gate.section",
+                    defaultValue: "止めるアプリ"
+                )
+            )
 
             CardContainer {
-                VStack(spacing: 0) {
-                    Button {
-                        isTargetPickerPresented = true
-                    } label: {
-                        settingsRow(
-                            label: String(localized: "settings.target.apps", defaultValue: "止めるアプリ"),
-                            value: targetAppsSummary,
-                            disclosure: .navigate
-                        )
+                if isGateUnlocked {
+                    proGateTargetRows
+                } else {
+                    freeCatalogTargetRows
+                }
+            }
+
+            if isGateUnlocked {
+                Text(
+                    String(
+                        localized: "settings.gate.description",
+                        defaultValue: "開く前に必ず一呼吸。回数や長さはアプリごとに決められます"
+                    )
+                )
+                    .dopaFont(13, weight: .medium, lineSpacing: 3)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private var proGateTargetRows: some View {
+        VStack(spacing: 0) {
+            Button {
+                handleAppSelectionTap()
+            } label: {
+                settingsRow(
+                    label: String(localized: "settings.gate.section", defaultValue: "止めるアプリ"),
+                    value: appSelectionSummary,
+                    disclosure: .navigate
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isRequestingAuthorization)
+
+            if !selectedGateApps.isEmpty {
+                divider
+                Text(
+                    String(
+                        localized: "settings.gate.app_list",
+                        defaultValue: "アプリごとの設定"
+                    )
+                )
+                    .dopaFont(13, weight: .bold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 6)
+
+                ForEach(Array(selectedGateApps.enumerated()), id: \.element.id) { index, target in
+                    if index > 0 {
+                        divider
+                            .padding(.leading, 16)
                     }
-                    .buttonStyle(.plain)
-
-                    if let targetAppClampNotice = model.targetAppClampNotice {
-                        Text(targetAppClampNotice)
-                            .dopaFont(13, weight: .semibold)
-                            .foregroundStyle(DesignTokens.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 14)
-                    }
-
-                    divider
-                    breathDurationRow
-
-                    divider
                     Button {
-                        isAutomationGuidePresented = true
+                        gateAppSettingTarget = target
                     } label: {
-                        settingsRow(
-                            label: String(localized: "settings.target.automation", defaultValue: "自動で一呼吸を出す設定"),
-                            value: "",
-                            disclosure: .navigate
-                        )
+                        HStack(spacing: 12) {
+                            Label(target.token)
+                                .dopaFont(16, weight: .semibold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .dopaFont(13, weight: .semibold)
+                                .foregroundStyle(DesignTokens.tertiaryText)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minHeight: DesignTokens.minTapTarget)
+                        .padding(.horizontal, 16)
                     }
                     .buttonStyle(.plain)
                 }
             }
+
+            divider
+            breathDurationRow
+
+            divider
+            Button {
+                isAutomationGuidePresented = true
+            } label: {
+                settingsRow(
+                    label: String(
+                        localized: "settings.target.automation",
+                        defaultValue: "自動で一呼吸を出す設定"
+                    ),
+                    value: "",
+                    disclosure: .navigate
+                )
+            }
+            .buttonStyle(.plain)
+
+            Text(
+                String(
+                    localized: "settings.gate.automation_note",
+                    defaultValue: "Proの止めるアプリでは、ショートカットの自動化は不要です"
+                )
+            )
+                .dopaFont(13, weight: .medium, lineSpacing: 3)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+
+            Text(
+                String(
+                    localized: "settings.gate.category_note",
+                    defaultValue: "カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です"
+                )
+            )
+                .dopaFont(13, weight: .medium, lineSpacing: 3)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+        }
+    }
+
+    private var freeCatalogTargetRows: some View {
+        VStack(spacing: 0) {
+            Button {
+                isTargetPickerPresented = true
+            } label: {
+                settingsRow(
+                    label: String(localized: "settings.target.apps", defaultValue: "止めるアプリ"),
+                    value: targetAppsSummary,
+                    disclosure: .navigate
+                )
+            }
+            .buttonStyle(.plain)
+
+            if let targetAppClampNotice = model.targetAppClampNotice {
+                Text(targetAppClampNotice)
+                    .dopaFont(13, weight: .semibold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
+            }
+
+            divider
+            breathDurationRow
+
+            divider
+            Button {
+                isAutomationGuidePresented = true
+            } label: {
+                settingsRow(
+                    label: String(localized: "settings.target.automation", defaultValue: "自動で一呼吸を出す設定"),
+                    value: "",
+                    disclosure: .navigate
+                )
+            }
+            .buttonStyle(.plain)
+
+            divider
+            Button {
+                paywallPlacement = .settingsGateGate
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "lock.fill")
+                        .dopaFont(14, weight: .bold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .frame(width: 20)
+                    Text(
+                        String(
+                            localized: "settings.gate.locked_notice",
+                            defaultValue: "Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます"
+                        )
+                    )
+                        .dopaFont(13, weight: .semibold, lineSpacing: 3)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .dopaFont(13, weight: .semibold)
+                        .foregroundStyle(DesignTokens.tertiaryText)
+                        .accessibilityHidden(true)
+                }
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -1170,6 +1364,13 @@ struct SettingsView: View {
         model.entitlementGate.strictModeAllowed
     }
 
+    private var isGateUnlocked: Bool {
+        GateEntitlementAccess.isAllowed(
+            hasConfirmedEntitlement: model.storeService.hasConfirmedEntitlement,
+            gateAllowed: model.entitlementGate.gateAllowed
+        )
+    }
+
     /// 選んだ強さによって、いま何が起きるのかをその場に書く。
     /// ディープフォーカス以外では対象を選んでもブロックされないため、黙って無効にしない。
     private var deepFocusFootnote: String {
@@ -1182,7 +1383,7 @@ struct SettingsView: View {
         guard selectedMode.usesShield else {
             return String(
                 localized: "settings.deep_focus.standard_notice",
-                defaultValue: "いまは一呼吸の確認だけが出ます。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
+                defaultValue: "標準＝開く前に一呼吸。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
             )
         }
         // 強さだけ選んで対象が空だと、何も止まらないまま止まっているつもりになる。
@@ -1692,7 +1893,7 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var screenTimeRow: some View {
-        if model.screenTime.isAuthorized {
+        if screenTimeAuthorizedForDisplay {
             settingsRow(
                 label: String(localized: "settings.screen_time.label", defaultValue: "スクリーンタイム"),
                 value: String(localized: "settings.screen_time.authorized", defaultValue: "許可済み")
@@ -1711,6 +1912,15 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var screenTimeAuthorizedForDisplay: Bool {
+        #if DEBUG
+        if let snapshotScreenTimeAuthorized {
+            return snapshotScreenTimeAuthorized
+        }
+        #endif
+        return model.screenTime.isAuthorized
     }
 
     private var modePickerRow: some View {
@@ -1836,6 +2046,35 @@ struct SettingsView: View {
         return summaries.isEmpty
             ? String(localized: "settings.value.not_set", defaultValue: "未設定")
             : summaries.joined(separator: "・")
+    }
+
+    private var selectedGateApps: [GateAppSettingTarget] {
+        Self.gateAppSettingTargets(from: rules)
+    }
+
+    static func gateAppSettingTargets(from rules: [TargetRule]) -> [GateAppSettingTarget] {
+        var targetsByTokenData: [Data: GateAppSettingTarget] = [:]
+        let decoder = JSONDecoder()
+        for rule in rules where rule.isEnabled && !rule.activitySelectionData.isEmpty {
+            guard let selection = try? decoder.decode(
+                FamilyActivitySelection.self,
+                from: rule.activitySelectionData
+            ) else {
+                continue
+            }
+            for token in selection.applicationTokens {
+                guard let tokenData = try? GateTokenCoding.encode(token) else {
+                    continue
+                }
+                targetsByTokenData[tokenData] = GateAppSettingTarget(
+                    token: token,
+                    tokenData: tokenData
+                )
+            }
+        }
+        return targetsByTokenData.values.sorted {
+            $0.tokenData.base64EncodedString() < $1.tokenData.base64EncodedString()
+        }
     }
 
     private var ruleEnabledBinding: Binding<Bool> {

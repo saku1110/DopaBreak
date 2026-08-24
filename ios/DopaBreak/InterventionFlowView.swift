@@ -1,4 +1,6 @@
 import DopaBreakCore
+import FamilyControls
+import ManagedSettings
 import StoreKit
 import SwiftUI
 
@@ -8,13 +10,65 @@ struct InterventionFlowView: View {
     let onFinished: () -> Void
 
     @State private var flow: InterventionFlowModel
+    private let startsFlowOnAppear: Bool
+    private let breathPreviewLoop: Range<TimeInterval>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.requestReview) private var requestReview
 
-    init(target: SNSAppCatalogItem, model: AppModel, settingsStore: SettingsStore, onFinished: @escaping () -> Void) {
+    init(
+        target: InterventionTarget,
+        model: AppModel,
+        settingsStore: SettingsStore,
+        onFinished: @escaping () -> Void
+    ) {
         self.onFinished = onFinished
-        _flow = State(initialValue: InterventionFlowModel(target: target, model: model, settingsStore: settingsStore))
+        self.startsFlowOnAppear = true
+        self.breathPreviewLoop = nil
+        _flow = State(
+            initialValue: InterventionFlowModel(
+                target: target,
+                model: model,
+                settingsStore: settingsStore
+            )
+        )
     }
+
+    init(target: SNSAppCatalogItem, model: AppModel, settingsStore: SettingsStore, onFinished: @escaping () -> Void) {
+        self.init(
+            target: .catalog(target),
+            model: model,
+            settingsStore: settingsStore,
+            onFinished: onFinished
+        )
+    }
+
+    #if DEBUG
+    /// App Store素材撮影用。通常画面と同じ状態機械を実際に開始し、指定した理由があれば
+    /// 選択まで進めた状態を実ウィンドウへ載せる。本番の表示経路では使用しない。
+    init(
+        snapshotTarget target: SNSAppCatalogItem,
+        model: AppModel,
+        settingsStore: SettingsStore,
+        selectedReason: InterventionReason?,
+        breathPreviewLoop: Range<TimeInterval>? = nil,
+        onFinished: @escaping () -> Void
+    ) {
+        let snapshotFlow = InterventionFlowModel(
+            target: target,
+            model: model,
+            settingsStore: settingsStore
+        )
+        snapshotFlow.start()
+        if let selectedReason {
+            snapshotFlow.selectReason(selectedReason)
+        }
+
+        self.onFinished = onFinished
+        self.startsFlowOnAppear = false
+        self.breathPreviewLoop = breathPreviewLoop
+        _flow = State(initialValue: snapshotFlow)
+    }
+    #endif
 
     var body: some View {
         ZStack {
@@ -28,13 +82,15 @@ struct InterventionFlowView: View {
         .sensoryFeedback(trigger: flow.stage) { _, stage in
             switch stage {
             case .win: return .success
-            case .failed: return .error
+            case .failed, .limit: return .error
             default: return nil
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
-            flow.start()
+            if startsFlowOnAppear {
+                flow.start()
+            }
         }
         .onDisappear {
             flow.stop()
@@ -112,6 +168,8 @@ struct InterventionFlowView: View {
             durationSelectionScreen
         case .opening(let message):
             openingScreen(fallbackMessage: message)
+        case .limit(let denial):
+            limitScreen(denial: denial)
         case .win:
             winScreen
         case .failed(let message):
@@ -126,33 +184,41 @@ struct InterventionFlowView: View {
             HStack {
                 SmallLabel(text: String(localized: "intervention.breath.eyebrow", defaultValue: "PAUSE"))
                 Spacer()
-                SmallLabel(text: target.displayName.uppercased())
+                targetLabel
             }
             .padding(.horizontal, 20)
             .padding(.top, 18)
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 4)
 
-            VStack(spacing: 12) {
-                BreathingCharacterView(totalSeconds: flow.breathTotalSeconds)
-                    .frame(maxWidth: 380)
-                    .frame(height: 380)
+            VStack(spacing: 20) {
+                Text(String(localized: "intervention.breath.title", defaultValue: "ひと呼吸おきましょう"))
+                    .dopaFont(24, weight: .black)
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                VStack(spacing: 8) {
-                    Text(String(localized: "intervention.breath.title", defaultValue: "ひと呼吸おきましょう"))
-                        .dopaFont(24, weight: .black)
-                        .foregroundStyle(DesignTokens.primaryText)
-                    SmallLabel(
-                        text: String(
-                            localized: "intervention.breath.timer_label",
-                            defaultValue: "BREATHE · \(flow.breathTotalSeconds) SEC"
-                        )
-                    )
-                }
+                breathingCharacter
+                    .frame(maxWidth: 520, maxHeight: 520)
+                    .padding(.horizontal, 6)
             }
             .frame(maxWidth: .infinity)
 
-            Spacer(minLength: 16)
+            Spacer(minLength: 4)
+        }
+    }
+
+    @ViewBuilder
+    private var breathingCharacter: some View {
+        if let breathPreviewLoop {
+            BreathingCharacterView(
+                totalSeconds: flow.breathTotalSeconds,
+                previewLoop: breathPreviewLoop
+            )
+        } else {
+            BreathingCharacterView(totalSeconds: flow.breathTotalSeconds)
         }
     }
 
@@ -429,7 +495,7 @@ struct InterventionFlowView: View {
                     titleText(
                         String(
                             localized: "intervention.opening.title",
-                            defaultValue: "\(target.displayName)を開いています"
+                            defaultValue: "\(targetDisplayName)を開いています"
                         )
                     )
                     if let reason = flow.selectedReason {
@@ -562,9 +628,78 @@ struct InterventionFlowView: View {
         }
     }
 
+    private func limitScreen(denial: GateDenial) -> some View {
+        stepScaffold {
+            VStack(alignment: .leading, spacing: 20) {
+                titleText(
+                    String(
+                        localized: "intervention.gate.limit.title",
+                        defaultValue: "今日はここまで"
+                    )
+                )
+                Text(limitMessage(for: denial))
+                    .dopaFont(16, weight: .medium, lineSpacing: 5)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } action: {
+            primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
+                onFinished()
+            }
+        }
+    }
+
     // MARK: - Helpers
 
-    private var target: SNSAppCatalogItem { flow.target }
+    @ViewBuilder
+    private var targetLabel: some View {
+        switch flow.target {
+        case .catalog(let target):
+            SmallLabel(text: target.displayName.uppercased())
+        case .gateToken(let tokenData, _):
+            if let token = try? GateTokenCoding.decode(ApplicationToken.self, from: tokenData) {
+                Label(token)
+                    .dopaFont(12, weight: .bold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .lineLimit(1)
+            } else {
+                SmallLabel(text: targetDisplayName)
+            }
+        }
+    }
+
+    private var targetDisplayName: String {
+        switch flow.target {
+        case .catalog(let target):
+            return target.displayName
+        case .gateToken:
+            return String(
+                localized: "intervention.gate.target_name",
+                defaultValue: "このアプリ"
+            )
+        }
+    }
+
+    private func limitMessage(for denial: GateDenial) -> String {
+        switch denial {
+        case .limitReached:
+            return String(
+                localized: "intervention.gate.limit.body",
+                defaultValue: "このアプリは今日の上限に達しました。上限は設定で変えられます。"
+            )
+        case .cooldown(let until):
+            let time = until.formatted(date: .omitted, time: .shortened)
+            return String(
+                localized: "intervention.gate.cooldown.body",
+                defaultValue: "\(time)から開けます。待ち時間は設定で変えられます。"
+            )
+        case .alreadyOpen:
+            return String(
+                localized: "intervention.gate.already_open.body",
+                defaultValue: "このアプリはすでに開けます"
+            )
+        }
+    }
 
     private var todayCancelledCountText: String {
         String(

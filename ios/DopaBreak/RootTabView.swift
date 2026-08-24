@@ -10,6 +10,15 @@ enum AppTab: Hashable {
     case settings
 }
 
+enum GateEntitlementAccess {
+    static func isAllowed(
+        hasConfirmedEntitlement: Bool,
+        gateAllowed: Bool
+    ) -> Bool {
+        !(hasConfirmedEntitlement && !gateAllowed)
+    }
+}
+
 struct RootTabView: View {
     let model: AppModel
     let settingsStore: SettingsStore
@@ -18,7 +27,7 @@ struct RootTabView: View {
     @State private var pendingReflection: ReflectionLog?
     @State private var pendingMidSessionCheckInTarget: SNSAppCatalogItem?
     @State private var pendingPaywallPlacement: PaywallPlacement?
-    @State private var presentedInterventionCatalogID: String?
+    @State private var presentedInterventionTarget: InterventionTarget?
     @State private var isLockScreenCheckPresented = false
     @State private var interventionAwaitingLockDismiss = false
     @Environment(\.scenePhase) private var scenePhase
@@ -73,18 +82,18 @@ struct RootTabView: View {
         }
         .onChange(of: model.storeService.isPro) { _, _ in
             model.refresh()
-            presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
+            presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
         }
         .onChange(of: model.storeService.hasResolvedEntitlement) { _, _ in
             model.refresh()
-            presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
+            presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
         }
         .onChange(of: model.storeService.entitlementRevision) { _, _ in
             model.syncUsageWatchEntitlement()
             model.refresh()
-            presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
+            presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
         }
         .onChange(of: model.isChildModalActive) { _, isActive in
@@ -104,8 +113,8 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .notificationDestinationDidChange)) { _ in
             consumePendingNotificationDestination()
         }
-        .onChange(of: model.pendingInterventionCatalogID) { _, catalogID in
-            presentPendingInterventionIfValid(catalogID)
+        .onChange(of: model.pendingInterventionTarget) { _, target in
+            presentPendingInterventionIfValid(target)
         }
         .fullScreenCover(isPresented: interventionPresented, onDismiss: {
             consumePendingNotificationDestination()
@@ -114,15 +123,14 @@ struct RootTabView: View {
             checkPendingLockScreenCheck()
             checkPendingPaywalls()
         }) {
-            if let catalogID = presentedInterventionCatalogID,
-               let target = SNSAppCatalog.app(catalogID: catalogID) {
+            if let target = presentedInterventionTarget {
                 InterventionFlowView(
                     target: target,
                     model: model,
                     settingsStore: settingsStore,
                     onFinished: {
-                        model.pendingInterventionCatalogID = nil
-                        presentedInterventionCatalogID = nil
+                        model.pendingInterventionTarget = nil
+                        presentedInterventionTarget = nil
                         model.refresh()
                     }
                 )
@@ -150,7 +158,7 @@ struct RootTabView: View {
         .fullScreenCover(isPresented: $isLockScreenCheckPresented, onDismiss: {
             interventionAwaitingLockDismiss = false
             consumePendingNotificationDestination()
-            presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
+            presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingMidSessionCheckIn()
             checkPendingReflection()
             checkPendingPaywalls()
@@ -184,11 +192,11 @@ struct RootTabView: View {
 
     private var interventionPresented: Binding<Bool> {
         Binding(
-            get: { presentedInterventionCatalogID != nil },
+            get: { presentedInterventionTarget != nil },
             set: { isPresented in
                 if !isPresented {
-                    model.pendingInterventionCatalogID = nil
-                    presentedInterventionCatalogID = nil
+                    model.pendingInterventionTarget = nil
+                    presentedInterventionTarget = nil
                 }
             }
         )
@@ -205,7 +213,7 @@ struct RootTabView: View {
         model.refreshEntitlementOnForeground()
         consumePendingNotificationDestination()
         checkPendingIntervention()
-        presentPendingInterventionIfValid(model.pendingInterventionCatalogID)
+        presentPendingInterventionIfValid(model.pendingInterventionTarget)
         checkPendingMidSessionCheckIn()
         checkPendingReflection()
         checkPendingLockScreenCheck()
@@ -228,8 +236,8 @@ struct RootTabView: View {
         }
         // 他の全画面提示が出ている間は据え置き、閉じたときのonDismissから改めて消費する。
         // 先に消してしまうと、生きているcoverの下でシートを立てようとして着地先を落とす。
-        guard model.pendingInterventionCatalogID == nil,
-              presentedInterventionCatalogID == nil,
+        guard model.pendingInterventionTarget == nil,
+              presentedInterventionTarget == nil,
               pendingPaywallPlacement == nil,
               !isLockScreenCheckPresented else {
             return
@@ -256,8 +264,8 @@ struct RootTabView: View {
               settingsStore.liveActivityEnabled,
               model.pendingLockScreenCheck,
               !isLockScreenCheckPresented,
-              model.pendingInterventionCatalogID == nil,
-              presentedInterventionCatalogID == nil,
+              model.pendingInterventionTarget == nil,
+              presentedInterventionTarget == nil,
               pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               pendingPaywallPlacement == nil,
@@ -269,7 +277,7 @@ struct RootTabView: View {
     }
 
     private func checkPendingReflection() {
-        guard model.pendingInterventionCatalogID == nil,
+        guard model.pendingInterventionTarget == nil,
               pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               !isLockScreenCheckPresented else {
@@ -282,7 +290,7 @@ struct RootTabView: View {
     }
 
     private func checkPendingMidSessionCheckIn() {
-        guard model.pendingInterventionCatalogID == nil,
+        guard model.pendingInterventionTarget == nil,
               pendingReflection == nil,
               pendingMidSessionCheckInTarget == nil,
               !isLockScreenCheckPresented else {
@@ -307,8 +315,8 @@ struct RootTabView: View {
 
     private func checkPendingWeeklyPaywall() {
         guard settingsStore.onboardingCompleted,
-              model.pendingInterventionCatalogID == nil,
-              presentedInterventionCatalogID == nil,
+              model.pendingInterventionTarget == nil,
+              presentedInterventionTarget == nil,
               pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               pendingPaywallPlacement == nil,
@@ -331,21 +339,35 @@ struct RootTabView: View {
         pendingPaywallPlacement = .weekly
     }
 
-    private func presentPendingInterventionIfValid(_ catalogID: String?) {
+    private func presentPendingInterventionIfValid(_ target: InterventionTarget?) {
         guard !interventionAwaitingLockDismiss else {
             return
         }
-        guard let catalogID else {
-            presentedInterventionCatalogID = nil
+        guard let target else {
+            presentedInterventionTarget = nil
             return
         }
         guard model.storeService.hasResolvedEntitlement else {
             return
         }
-        guard model.isCurrentInterventionTarget(catalogID: catalogID) else {
-            model.pendingInterventionCatalogID = nil
-            presentedInterventionCatalogID = nil
-            return
+        switch target {
+        case .catalog(let catalogTarget):
+            guard model.isCurrentInterventionTarget(catalogID: catalogTarget.catalogID) else {
+                model.pendingInterventionTarget = nil
+                presentedInterventionTarget = nil
+                return
+            }
+        case .gateToken:
+            // 通知の到着前にFreeへ戻った場合は、解除済みの対象へ古いフローを出さない。
+            // 未確認時はGateSyncPolicyと同じくfail-openでpreserveし、確定Freeだけ拒否する。
+            guard GateEntitlementAccess.isAllowed(
+                hasConfirmedEntitlement: model.storeService.hasConfirmedEntitlement,
+                gateAllowed: model.entitlementGate.gateAllowed
+            ) else {
+                model.pendingInterventionTarget = nil
+                presentedInterventionTarget = nil
+                return
+            }
         }
         // 対象アプリを開こうとした瞬間の一呼吸が最優先。掲出確認は畳んで譲る。
         if isLockScreenCheckPresented {
@@ -353,7 +375,7 @@ struct RootTabView: View {
             isLockScreenCheckPresented = false
             return
         }
-        presentedInterventionCatalogID = catalogID
+        presentedInterventionTarget = target
     }
 }
 

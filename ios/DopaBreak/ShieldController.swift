@@ -21,6 +21,10 @@ final class ShieldController {
     private let legacyManagedSettingsStore = ManagedSettingsStore(
         named: .init(DeepFocusConstants.legacyShieldStoreName)
     )
+    /// 全解除・Free確定時に、日常ゲートの専用ストアも取り残さない。
+    private let gateManagedSettingsStore = ManagedSettingsStore(
+        named: .init(GateConstants.shieldStoreName)
+    )
     private let decoder = JSONDecoder()
 
     init(ruleStore: RuleStore) {
@@ -108,6 +112,7 @@ final class ShieldController {
         clear(deepFocusManagedSettingsStore)
         clear(nightManagedSettingsStore)
         clear(legacyManagedSettingsStore)
+        clear(gateManagedSettingsStore)
     }
 
     /// 完全ブロックぶんだけを剥がす。窓の予定を張れなかったときに、

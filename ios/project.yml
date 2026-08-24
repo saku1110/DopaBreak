@@ -149,6 +149,10 @@ targets:
       path: ShieldActionExtension/Info.plist
       properties:
         CFBundleDisplayName: ShieldActionExtension
+        CFBundleLocalizations:
+          - ja
+          - ko
+          - en
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"

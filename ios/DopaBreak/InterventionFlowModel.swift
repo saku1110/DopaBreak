@@ -4,6 +4,12 @@ import Observation
 import UIKit
 import UserNotifications
 
+/// 一呼吸を始める対象。カタログ起動とシールドからの一時開放を同じ流れへ載せる。
+enum InterventionTarget: Equatable {
+    case catalog(SNSAppCatalogItem)
+    case gateToken(tokenData: Data, ruleId: UUID)
+}
+
 /// 一呼吸フロー（S-01〜S-05・doc12 §2）の画面状態。
 enum InterventionFlowStage: Equatable {
     case breathing
@@ -13,6 +19,7 @@ enum InterventionFlowStage: Equatable {
     case decision
     case durationSelection
     case opening(fallbackMessage: String?)
+    case limit(GateDenial)
     case win
     case failed(String)
 }
@@ -80,7 +87,7 @@ enum InterventionDuration: Int, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class InterventionFlowModel {
-    let target: SNSAppCatalogItem
+    let target: InterventionTarget
     private let model: AppModel
     private let settingsStore: SettingsStore
 
@@ -121,10 +128,22 @@ final class InterventionFlowModel {
         model.recordReviewPromptShown(at: date)
     }
 
-    init(target: SNSAppCatalogItem, model: AppModel, settingsStore: SettingsStore) {
+    init(target: InterventionTarget, model: AppModel, settingsStore: SettingsStore) {
         self.target = target
         self.model = model
         self.settingsStore = settingsStore
+        if case .gateToken(let tokenData, _) = target {
+            let minutes = model.gateAppSetting(for: tokenData).sessionMinutes
+            selectedDuration = InterventionDuration(rawValue: minutes) ?? .tenMinutes
+        }
+    }
+
+    convenience init(
+        target: SNSAppCatalogItem,
+        model: AppModel,
+        settingsStore: SettingsStore
+    ) {
+        self.init(target: .catalog(target), model: model, settingsStore: settingsStore)
     }
 
     func start() {
@@ -159,17 +178,23 @@ final class InterventionFlowModel {
             return
         }
         do {
-            let rule = try model.ruleStore.catalogTargetRule(for: target)
-            ruleId = rule.id
+            let resolvedRuleID: UUID
+            switch target {
+            case .catalog(let catalogTarget):
+                resolvedRuleID = try model.ruleStore.catalogTargetRule(for: catalogTarget).id
+            case .gateToken(_, let gateRuleID):
+                resolvedRuleID = gateRuleID
+            }
+            ruleId = resolvedRuleID
 
             let current = try engine.currentStep()
             let resumable: Set<InterventionStep> = [.idle, .cancelled, .postUseReflection]
             if !resumable.contains(current) {
                 try engine.resetToIdle()
             }
-            try engine.beginIntervention(ruleId: rule.id)
+            try engine.beginIntervention(ruleId: resolvedRuleID)
             try engine.beginIntentSelection() // shieldPresented -> intentSelection
-            todayAttemptDisplayCount = model.todayAttemptCountForCurrentRule(catalogID: target.catalogID) + 1
+            todayAttemptDisplayCount = model.todayAttemptCount(for: resolvedRuleID) + 1
             stage = .reasonSelection
         } catch {
             stage = .failed(String(localized: "intervention.error.preparation", defaultValue: "準備できませんでした"))
@@ -280,7 +305,12 @@ final class InterventionFlowModel {
     }
 
     private func open(for duration: InterventionDuration) {
-        openTargetApp(for: duration)
+        switch target {
+        case .catalog(let catalogTarget):
+            openCatalogTarget(catalogTarget, for: duration)
+        case .gateToken(let tokenData, let ruleId):
+            openGateTarget(tokenData: tokenData, ruleId: ruleId, for: duration)
+        }
     }
 
     private func recordOpenAndScheduleNotifications(for duration: InterventionDuration) {
@@ -339,7 +369,7 @@ final class InterventionFlowModel {
             repeats: false
         )
         let request = UNNotificationRequest(
-            identifier: "dopabreak.midsession.\(target.catalogID).\(UUID().uuidString)",
+            identifier: "dopabreak.midsession.\(notificationTargetIdentifier).\(UUID().uuidString)",
             content: content,
             trigger: trigger
         )
@@ -347,12 +377,15 @@ final class InterventionFlowModel {
         }
     }
 
-    private func openTargetApp(for duration: InterventionDuration) {
+    private func openCatalogTarget(
+        _ catalogTarget: SNSAppCatalogItem,
+        for duration: InterventionDuration
+    ) {
         let fallbackMessage = String(
             localized: "intervention.opening.manual_fallback",
-            defaultValue: "ホーム画面から\(target.displayName)を開いてください"
+            defaultValue: "ホーム画面から\(catalogTarget.displayName)を開いてください"
         )
-        guard let urlScheme = target.urlScheme, let url = URL(string: urlScheme) else {
+        guard let urlScheme = catalogTarget.urlScheme, let url = URL(string: urlScheme) else {
             stage = .opening(fallbackMessage: fallbackMessage)
             // URLスキームがないアプリは、この案内から手動で開く前提で記録と通知を維持する。
             recordOpenAndScheduleNotifications(for: duration)
@@ -371,6 +404,88 @@ final class InterventionFlowModel {
                 self.recordOpenAndScheduleNotifications(for: duration)
             }
             self.isAwaitingTargetOpen = false
+        }
+    }
+
+    private func openGateTarget(
+        tokenData: Data,
+        ruleId: UUID,
+        for duration: InterventionDuration
+    ) {
+        guard let engine = model.interventionEngine else {
+            stage = .failed(
+                String(
+                    localized: "intervention.error.record_store_unavailable",
+                    defaultValue: "記録データを準備できませんでした"
+                )
+            )
+            return
+        }
+
+        let validation: Result<Void, GateDenial>
+        do {
+            validation = try model.canGrantGate(tokenData: tokenData)
+        } catch {
+            stage = .failed(
+                String(localized: "intervention.error.record", defaultValue: "記録できませんでした")
+            )
+            return
+        }
+
+        switch validation {
+        case .success:
+            break
+        case .failure(.alreadyOpen):
+            showGateOpening(for: duration)
+            return
+        case .failure(let denial):
+            do {
+                try engine.recordCancel()
+                model.refresh()
+                stage = .limit(denial)
+            } catch {
+                stage = .failed(
+                    String(localized: "intervention.error.record", defaultValue: "記録できませんでした")
+                )
+            }
+            return
+        }
+
+        // ここから先はopenedとして記録済みになるため、grant内部の再検証は拒否に使わない。
+        // alreadyOpen競合は既存grantを再利用し、limit/cooldown競合も開放を完了させる。
+        do {
+            try engine.recordOpen(durationSeconds: duration.seconds)
+            try model.grantGate(
+                tokenData: tokenData,
+                ruleId: ruleId,
+                minutes: duration.rawValue
+            )
+            model.refresh()
+            scheduleTimeUpNotification(after: duration)
+            // gateTokenは通知タップからcatalogIDへ戻せないため、中間確認は予約しない。
+            showGateOpening(for: duration)
+        } catch {
+            stage = .failed(
+                String(localized: "intervention.error.record", defaultValue: "記録できませんでした")
+            )
+        }
+    }
+
+    private func showGateOpening(for duration: InterventionDuration) {
+        stage = .opening(
+            fallbackMessage: String(
+                localized: "intervention.gate.opening.back",
+                defaultValue: "左上の ◀ から戻ると開けます（\(duration.rawValue)分）"
+            )
+        )
+    }
+
+    private var notificationTargetIdentifier: String {
+        switch target {
+        case .catalog(let target):
+            return target.catalogID
+        case .gateToken(_, let ruleId):
+            return "gate-\(ruleId.uuidString)"
         }
     }
 }

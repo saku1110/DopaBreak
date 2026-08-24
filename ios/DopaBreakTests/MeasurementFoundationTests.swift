@@ -124,6 +124,7 @@ final class MeasurementFoundationTests: XCTestCase {
                 "settings_pro_status_row",
                 "settings_theme_gate",
                 "settings_mode_gate",
+                "settings_gate_gate",
                 "settings_usage_watch_gate",
                 "onboarding_prepaywall_summary",
                 "onboarding_mode_gate",

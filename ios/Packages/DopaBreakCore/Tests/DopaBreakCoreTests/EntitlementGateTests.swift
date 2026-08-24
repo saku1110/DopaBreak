@@ -59,6 +59,7 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertEqual(gate.statsDays, 1)
         XCTAssertFalse(gate.weeklyReportAllowed)
         XCTAssertFalse(gate.strictModeAllowed)
+        XCTAssertFalse(gate.gateAllowed)
         XCTAssertFalse(gate.themesAllowed)
     }
 
@@ -72,6 +73,7 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertNil(gate.statsDays)
         XCTAssertTrue(gate.weeklyReportAllowed)
         XCTAssertTrue(gate.strictModeAllowed)
+        XCTAssertTrue(gate.gateAllowed)
         XCTAssertTrue(gate.themesAllowed)
     }
 

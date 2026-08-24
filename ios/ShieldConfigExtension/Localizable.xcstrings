@@ -5,96 +5,171 @@
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じる"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "닫기"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Close" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "閉じる" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "닫기" } }
+      }
+    },
+    "shield.gate.action.breathe": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Take a breath to open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "一呼吸して開く" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "한 호흡 후 열기" } }
+      }
+    },
+    "shield.gate.action.cancel": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Don't open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開かない" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "열지 않기" } }
+      }
+    },
+    "shield.gate.cooldown.subtitle": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Opens at %@" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%@から開けます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%@부터 열 수 있어요" } }
+      }
+    },
+    "shield.gate.cooldown.title": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Take a short break" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "少し間をあける" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "잠시 쉬어가기" } }
+      }
+    },
+    "shield.gate.limit.subtitle": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Daily limit of %lld reached · resets at midnight" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日の上限 %lld回に達しました 0時にリセット" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘 상한 %lld회 도달 · 자정에 초기화" } }
+      }
+    },
+    "shield.gate.limit.title": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "That's it for today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日はここまで" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘은 여기까지" } }
+      }
+    },
+    "shield.gate.subtitle.count": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Open #%lld today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日 %lld回目" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘 %lld번째" } }
+      }
+    },
+    "shield.gate.subtitle.count_limit": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld of %lld opens today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日 %lld/%lld回" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘 %lld/%lld회" } }
+      }
+    },
+    "shield.gate.title": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "One breath before you open" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開く前にひと呼吸" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 한 호흡" } }
+      }
+    },
+    "shield.gate.waiting.denied": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Turn on notifications to continue" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "通知をオンにすると開けます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "알림을 켜면 열 수 있어요" } }
+      }
+    },
+    "shield.gate.waiting.retry": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Send it again" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "通知をもう一度送る" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "알림 다시 보내기" } }
+      }
+    },
+    "shield.gate.waiting.subtitle": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use the banner above to breathe in DopaBreak" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "上に出た通知からDopaBreakで一呼吸" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "위 알림에서 DopaBreak로 한 호흡" } }
+      }
+    },
+    "shield.gate.waiting.title": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Tap the notification" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "通知をタップ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "알림을 탭하세요" } }
+      }
+    },
+    "shield.night.subtitle": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Opens after you wake" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "起きたら開けます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "일어나면 열 수 있어요" } }
+      }
+    },
+    "shield.night.title": {
+      "comment": "Screen: Shield",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Bedtime now" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "いまは就寝の時間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "지금은 취침 시간" } }
       }
     },
     "shield.subtitle.fallback": {
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time to stay off"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いまは開かない時間"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "지금은 열지 않는 시간"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Time to stay off" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "いまは開かない時間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "지금은 열지 않는 시간" } }
       }
     },
     "shield.subtitle.goal": {
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Protecting %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "守っている目標 %@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "지키는 목표 %@"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Protecting %@" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "守っている目標 %@" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "지키는 목표 %@" } }
       }
     },
     "shield.title": {
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deep Focus on"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ディープフォーカス中"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "딥 포커스 중"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Deep Focus on" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ディープフォーカス中" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "딥 포커스 중" } }
       }
     }
   },

@@ -10,6 +10,7 @@ enum PaywallPlacement: String, CaseIterable, Identifiable {
     case settingsProStatusRow = "settings_pro_status_row"
     case settingsThemeGate = "settings_theme_gate"
     case settingsModeGate = "settings_mode_gate"
+    case settingsGateGate = "settings_gate_gate"
     case settingsUsageWatchGate = "settings_usage_watch_gate"
     case onboardingPrepaywallSummary = "onboarding_prepaywall_summary"
     case onboardingModeGate = "onboarding_mode_gate"

@@ -1,6 +1,27 @@
 import DopaBreakCore
+import DeviceActivity
+import FamilyControls
 import Foundation
+import ManagedSettings
 import Observation
+import UserNotifications
+
+/// シールドから本体へ渡された保険通知を、要求単位で取り消すための出し口。
+protocol GateUnlockNotificationRemoving {
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String])
+    func removeDeliveredNotifications(withIdentifiers identifiers: [String])
+}
+
+extension UNUserNotificationCenter: GateUnlockNotificationRemoving {}
+
+enum GateGrantRecoveryPolicy {
+    static func shouldReconcile(
+        hasShieldSnapshot: Bool,
+        gateAllowed: Bool
+    ) -> Bool {
+        hasShieldSnapshot || gateAllowed
+    }
+}
 
 struct DefaultContainerProvider: ContainerProviding {
     func containerURL() throws -> URL {
@@ -69,6 +90,8 @@ final class AppModel {
     let shield: ShieldController
     let nightShieldScheduler: NightShieldScheduler
     let deepFocusScheduler: DeepFocusScheduler
+    let gateShieldController: GateShieldController
+    let gateGrantController: GateGrantController
     let storeService: StoreService
     let funnelEventStore: FunnelEventStore
     let interventionEngine: InterventionEngine?
@@ -76,6 +99,10 @@ final class AppModel {
     private let settingsStore: SettingsStore
     private let clampBackupStore: TargetClampBackupStore
     private let snapshotStore: JSONSnapshotStore
+    private let gateAppSettingsStore: GateAppSettingsStore
+    private let gateLedgerStore: GateLedgerStore
+    private let gateUnlockRequestStore: GateUnlockRequestStore
+    private let gateUnlockNotificationCenter: any GateUnlockNotificationRemoving
     private let statsService: StatsService?
     private let lockSurfaceCoordinator: LockSurfaceCoordinator
     private let containerProvider: any ContainerProviding
@@ -97,9 +124,25 @@ final class AppModel {
     }
     var alertMessage: String?
 
-    /// 開始待ちの介入起動要求（AppIntent / URLスキーム経由）。RootTabView がこれを監視して
-    /// InterventionFlowView を全画面表示する。
-    var pendingInterventionCatalogID: String?
+    /// 開始待ちの一呼吸起動要求。カタログとシールド解除を同じ全画面表示へ送る。
+    var pendingInterventionTarget: InterventionTarget?
+
+    /// 既存のAppIntent / URLスキーム呼び出し向けの互換窓口。
+    var pendingInterventionCatalogID: String? {
+        get {
+            guard case .catalog(let target) = pendingInterventionTarget else {
+                return nil
+            }
+            return target.catalogID
+        }
+        set {
+            guard let newValue, let target = SNSAppCatalog.app(catalogID: newValue) else {
+                pendingInterventionTarget = nil
+                return
+            }
+            pendingInterventionTarget = .catalog(target)
+        }
+    }
 
     /// RootTabViewの自動提示と競合する、各タブ配下のsheet/fullScreenCover表示状態。
     var isChildModalActive = false
@@ -125,6 +168,16 @@ final class AppModel {
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
         settingsStore: SettingsStore? = nil,
         clampBackupStore: TargetClampBackupStore? = nil,
+        usageWatchStore: UsageWatchStore? = nil,
+        usageWatchSelectionStore: UsageWatchSelectionStore? = nil,
+        usageWatchMonitoringCenter: (any UsageWatchMonitoring)? = nil,
+        nightShieldMonitoringCenter: (any NightShieldMonitoring)? = nil,
+        deepFocusMonitoringCenter: (any DeepFocusMonitoring)? = nil,
+        deepFocusNotificationCenter: (any DeepFocusSessionNotifying)? = nil,
+        gateGrantMonitoringCenter: (any GateGrantMonitoring)? = nil,
+        gateUnlockNotificationCenter: (any GateUnlockNotificationRemoving)? = nil,
+        automaticallyRefreshEntitlement: Bool = true,
+        scheduleNotificationsOnInit: Bool = true,
         now: @escaping () -> Date = { Date() }
     ) {
         let resolvedSettingsStore = settingsStore ?? Self.makeSettingsStore()
@@ -138,6 +191,14 @@ final class AppModel {
 
         let snapshotStore = JSONSnapshotStore(containerProvider: containerProvider)
         self.snapshotStore = snapshotStore
+        let resolvedGateAppSettingsStore = GateAppSettingsStore(snapshotStore: snapshotStore)
+        let resolvedGateLedgerStore = GateLedgerStore(snapshotStore: snapshotStore)
+        let resolvedGateUnlockRequestStore = GateUnlockRequestStore(snapshotStore: snapshotStore)
+        self.gateAppSettingsStore = resolvedGateAppSettingsStore
+        self.gateLedgerStore = resolvedGateLedgerStore
+        self.gateUnlockRequestStore = resolvedGateUnlockRequestStore
+        self.gateUnlockNotificationCenter = gateUnlockNotificationCenter
+            ?? UNUserNotificationCenter.current()
         let funnelEventStore = FunnelEventStore(snapshotStore: snapshotStore)
         self.funnelEventStore = funnelEventStore
         self.lockSurfaceCoordinator = LockSurfaceCoordinator()
@@ -146,14 +207,16 @@ final class AppModel {
         self.ruleStore = resolvedRuleStore
         self.targetStore = InterventionTargetStore(snapshotStore: snapshotStore)
         self.screenTime = ScreenTimeCenter()
-        let usageWatchStore = (try? UsageWatchStore())
+        let resolvedUsageWatchStore = usageWatchStore ?? (try? UsageWatchStore())
             ?? UsageWatchStore(userDefaults: .standard)
-        let usageWatchSelectionStore = (try? UsageWatchSelectionStore())
+        let resolvedUsageWatchSelectionStore = usageWatchSelectionStore
+            ?? (try? UsageWatchSelectionStore())
             ?? UsageWatchSelectionStore(userDefaults: .standard)
         self.usageWatch = UsageWatchController(
             settingsStore: resolvedSettingsStore,
-            usageWatchStore: usageWatchStore,
-            selectionStore: usageWatchSelectionStore
+            usageWatchStore: resolvedUsageWatchStore,
+            selectionStore: resolvedUsageWatchSelectionStore,
+            monitoringCenter: usageWatchMonitoringCenter ?? DeviceActivityCenter()
         )
         let resolvedShield = ShieldController(ruleStore: resolvedRuleStore)
         self.shield = resolvedShield
@@ -161,6 +224,7 @@ final class AppModel {
             ruleStore: resolvedRuleStore,
             settingsStore: resolvedSettingsStore,
             snapshotStore: snapshotStore,
+            monitoringCenter: nightShieldMonitoringCenter ?? DeviceActivityCenter(),
             clearNightShield: { resolvedShield.clearNightShield() },
             now: now
         )
@@ -168,13 +232,33 @@ final class AppModel {
             ruleStore: resolvedRuleStore,
             settingsStore: resolvedSettingsStore,
             snapshotStore: snapshotStore,
+            monitoringCenter: deepFocusMonitoringCenter ?? DeviceActivityCenter(),
+            notificationCenter: deepFocusNotificationCenter ?? UNUserNotificationCenter.current(),
             clearDeepFocusShield: { resolvedShield.clearDeepFocusShield() },
+            now: now
+        )
+        let resolvedGateShieldController = GateShieldController(
+            ruleStore: resolvedRuleStore,
+            ledgerStore: resolvedGateLedgerStore,
+            snapshotStore: GateShieldSnapshotStore(snapshotStore: snapshotStore),
+            now: now
+        )
+        self.gateShieldController = resolvedGateShieldController
+        self.gateGrantController = GateGrantController(
+            settingsStore: resolvedGateAppSettingsStore,
+            ledgerStore: resolvedGateLedgerStore,
+            requestStore: resolvedGateUnlockRequestStore,
+            monitoringCenter: gateGrantMonitoringCenter ?? DeviceActivityCenter(),
+            reapplyGate: { referenceDate in
+                try resolvedGateShieldController.reapply(now: referenceDate)
+            },
             now: now
         )
         self.storeService = StoreService(
             funnelEventStore: funnelEventStore,
             settingsStore: resolvedSettingsStore,
-            usageWatchStore: usageWatchStore,
+            usageWatchStore: resolvedUsageWatchStore,
+            startsBackgroundTasks: automaticallyRefreshEntitlement,
             now: now
         )
         let resolvedLogStore = try? SQLiteLogStore(containerProvider: containerProvider)
@@ -207,13 +291,15 @@ final class AppModel {
 
         // 完全ブロックは refresh() の中で同期する。起動直後は権利が未確定のため
         // ShieldSyncPolicy が「現状維持」を返し、確定後の refresh() で適用・解除が決まる。
-        refresh()
+        refresh(scheduleNotifications: scheduleNotificationsOnInit)
 
-        Task { [weak self] in
-            guard let self else { return }
-            await self.storeService.refreshEntitlement()
-            self.usageWatch.entitlementDidChange(isPro: self.storeService.isPro)
-            self.refresh()
+        if automaticallyRefreshEntitlement {
+            Task { [weak self] in
+                guard let self else { return }
+                await self.storeService.refreshEntitlement()
+                self.usageWatch.entitlementDidChange(isPro: self.storeService.isPro)
+                self.refresh()
+            }
         }
 
         if logStore == nil {
@@ -467,6 +553,31 @@ final class AppModel {
             // 前面へ戻ってきたこの一本で「終わったのに開けない」を必ず剥がす。
             isDeepFocusWindowActive: deepFocusScheduler.isWindowActive
         )
+        // 控えが残る端末、またはキャッシュ上Proの端末では、権利確認の成否にかかわらず
+        // 期限回収を動かす。preserveするのは下の権利同期だけで、復旧層②は止めない。
+        if GateGrantRecoveryPolicy.shouldReconcile(
+            hasShieldSnapshot: snapshotStore.exists(.gateShieldSnapshot),
+            gateAllowed: entitlementGate.gateAllowed
+        ) {
+            try? gateGrantController.reconcile(now: now())
+        }
+        // 夜 → ディープフォーカス → 日常ゲートの順。Free確定時はここが最後に
+        // 専用ストアと控えを無条件解除し、アプリ別設定と台帳は残す。
+        gateShieldController.sync(
+            entitlementGate: entitlementGate,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
+        )
+    }
+
+    /// 前面復帰で終了済みの一時開放を回収する。境界通知を取りこぼした場合の復旧経路。
+    func reconcileGateGrantsOnForeground() {
+        guard GateGrantRecoveryPolicy.shouldReconcile(
+            hasShieldSnapshot: snapshotStore.exists(.gateShieldSnapshot),
+            gateAllowed: entitlementGate.gateAllowed
+        ) else {
+            return
+        }
+        try? gateGrantController.reconcile(now: now())
     }
 
     /// 「いますぐ」で完全ブロックを始める。
@@ -604,6 +715,13 @@ final class AppModel {
         // 拡張が張り直したぶんが残る。
         nightShieldScheduler.stopAndClear()
         deepFocusScheduler.stopAndClear()
+        gateGrantController.stopAllMonitoring()
+        // LocalDataResetterも同じ4ファイルを消すが、その前段が失敗してもゲートだけは
+        // 独立してbest-effort削除する。JSONSnapshotStore.removeは欠損時no-opなので再削除は安全。
+        try? gateAppSettingsStore.remove()
+        try? gateLedgerStore.remove()
+        try? gateUnlockRequestStore.remove()
+        try? gateShieldController.clearAllData()
         shield.clearShield()
         usageWatch.stopAndClearAllData()
         lockSurfaceCoordinator.cancelAllNotifications()
@@ -623,7 +741,7 @@ final class AppModel {
             // 全削除のあとに縮小前の並びが蘇らないよう控えも捨てる
             // （`SettingsStore.resettable` の外にあるキーのため、ここで明示的に消す）。
             clampBackupStore.clear()
-            pendingInterventionCatalogID = nil
+            pendingInterventionTarget = nil
             pendingLockScreenCheck = false
             alertMessage = nil
             refresh(scheduleNotifications: false)
@@ -745,10 +863,14 @@ final class AppModel {
 
     /// アプリ起動要求を受け取る（AppIntent / dopabreak:// URL 経由）。
     func requestStartIntervention(catalogID: String) {
-        guard SNSAppCatalog.contains(catalogID: catalogID) else {
+        guard let target = SNSAppCatalog.app(catalogID: catalogID) else {
             return
         }
-        pendingInterventionCatalogID = catalogID
+        pendingInterventionTarget = .catalog(target)
+    }
+
+    func requestStartIntervention(gateTokenData tokenData: Data, ruleId: UUID) {
+        pendingInterventionTarget = .gateToken(tokenData: tokenData, ruleId: ruleId)
     }
 
     func isCurrentInterventionTarget(catalogID: String) -> Bool {
@@ -761,8 +883,76 @@ final class AppModel {
 
     func consumePendingIntervention() -> String? {
         let value = pendingInterventionCatalogID
-        pendingInterventionCatalogID = nil
+        pendingInterventionTarget = nil
         return value
+    }
+
+    func consumePendingInterventionTarget() -> InterventionTarget? {
+        let value = pendingInterventionTarget
+        pendingInterventionTarget = nil
+        return value
+    }
+
+    /// シールド拡張が残した要求を一度だけ消費し、対応するルールで一呼吸を開く。
+    func consumePendingGateUnlock() {
+        let referenceDate = now()
+        guard let request = try? gateUnlockRequestStore.request() else {
+            return
+        }
+
+        let expiresAt = request.requestedAt.addingTimeInterval(
+            GateConstants.pendingRequestTTL
+        )
+        if expiresAt <= referenceDate {
+            guard (try? gateUnlockRequestStore.clear(matching: request.id)) == true else {
+                return
+            }
+            removeGateUnlockNotifications(requestID: request.id)
+            return
+        }
+        // 未来時刻や一時的なルール読み取り失敗では要求を残し、次のactiveで再試行する。
+        guard request.requestedAt <= referenceDate,
+              let rules = try? ruleStore.allRules() else {
+            return
+        }
+
+        let gateRules = rules.filter { !$0.activitySelectionData.isEmpty }
+        guard !gateRules.isEmpty else {
+            return
+        }
+
+        let decoder = JSONDecoder()
+        let requestedToken = try? GateTokenCoding.decode(
+            ApplicationToken.self,
+            from: request.tokenData
+        )
+        let matchingRule = requestedToken.flatMap { token in
+            gateRules.first { rule in
+                guard let selection = try? decoder.decode(
+                    FamilyActivitySelection.self,
+                    from: rule.activitySelectionData
+                ) else {
+                    return false
+                }
+                return selection.applicationTokens.contains(token)
+            }
+        }
+        let rule = matchingRule ?? gateRules[0]
+        guard (try? gateUnlockRequestStore.clear(matching: request.id)) == true else {
+            return
+        }
+        removeGateUnlockNotifications(requestID: request.id)
+        requestStartIntervention(gateTokenData: request.tokenData, ruleId: rule.id)
+    }
+
+    private func removeGateUnlockNotifications(requestID: UUID) {
+        let identifiers = [GateConstants.unlockNotificationIdentifier(for: requestID)]
+        gateUnlockNotificationCenter.removePendingNotificationRequests(
+            withIdentifiers: identifiers
+        )
+        gateUnlockNotificationCenter.removeDeliveredNotifications(
+            withIdentifiers: identifiers
+        )
     }
 
     /// AppIntentがApp Groupへ残した要求を、本体プロセスの単一消費点で処理する。
@@ -784,6 +974,11 @@ final class AppModel {
             recordFunnelEvent(.automationVerified, detail: catalogID)
             lockSurfaceCoordinator.cancelActivationNotifications()
         }
+        // 検収は先に確定する。一時開放中でもショートカットが正しく発火した事実は失わない。
+        // 介入の抑止自体は対象トークンを問わず、進行中grantが1件でもあれば全体へ適用する。
+        guard !gateGrantController.hasActiveGrant(at: now()) else {
+            return
+        }
         guard let selectedCatalogIDs = try? targetStore.selectedCatalogIDs(),
               selectedCatalogIDs.contains(catalogID) else {
             return
@@ -797,6 +992,50 @@ final class AppModel {
             }
         }
         requestStartIntervention(catalogID: catalogID)
+    }
+
+    func gateAppSetting(for tokenData: Data) -> GateAppSetting {
+        (try? gateAppSettingsStore.setting(for: tokenData))
+            ?? GateDefaults.setting(for: tokenData)
+    }
+
+    func saveGateAppSetting(
+        tokenData: Data,
+        dailyOpenLimit: Int?,
+        sessionMinutes: Int,
+        cooldownMinutes: Int
+    ) throws {
+        let referenceDate = now()
+        var snapshot = try gateAppSettingsStore.snapshot()
+        let setting = GateAppSetting(
+            tokenData: tokenData,
+            dailyOpenLimit: dailyOpenLimit,
+            sessionMinutes: sessionMinutes,
+            cooldownMinutes: cooldownMinutes,
+            updatedAt: referenceDate
+        )
+        if let index = snapshot.settings.firstIndex(where: { $0.tokenData == tokenData }) {
+            snapshot.settings[index] = setting
+        } else {
+            snapshot.settings.append(setting)
+        }
+        snapshot.updatedAt = referenceDate
+        try gateAppSettingsStore.save(snapshot)
+        try gateGrantController.reconcile(now: referenceDate)
+        syncShield()
+    }
+
+    func canGrantGate(tokenData: Data) throws -> Result<Void, GateDenial> {
+        try gateGrantController.validate(tokenData: tokenData)
+    }
+
+    @discardableResult
+    func grantGate(tokenData: Data, ruleId: UUID, minutes: Int) throws -> GateGrant {
+        try gateGrantController.grant(
+            tokenData: tokenData,
+            ruleId: ruleId,
+            minutes: minutes
+        )
     }
 
     func setTargetCatalogIDs(_ catalogIDs: [String]) throws {
@@ -837,6 +1076,19 @@ final class AppModel {
         }
         let attempts = (try? logStore.fetchAttempts(from: start, to: end)) ?? []
         return attempts.filter { $0.ruleId == rule.id }.count
+    }
+
+    func todayAttemptCount(for ruleId: UUID) -> Int {
+        guard let logStore else {
+            return todayAttemptCount
+        }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: now())
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
+            return todayAttemptCount
+        }
+        let attempts = (try? logStore.fetchAttempts(from: start, to: end)) ?? []
+        return attempts.filter { $0.ruleId == ruleId }.count
     }
 
     private func refreshLogCounts() throws {

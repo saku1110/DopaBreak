@@ -116,6 +116,12 @@ public struct EntitlementGate: Equatable, Sendable {
         tier == .pro
     }
 
+    /// 日常の一呼吸ゲートはProだけに適用する。
+    /// `strictModeAllowed` と現在は同値でも、機能の権利を別名で固定して将来の分岐を混ぜない。
+    public var gateAllowed: Bool {
+        tier == .pro
+    }
+
     public var themesAllowed: Bool {
         tier == .pro
     }

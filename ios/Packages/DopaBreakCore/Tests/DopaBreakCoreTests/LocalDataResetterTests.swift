@@ -134,6 +134,22 @@ final class LocalDataResetterTests: XCTestCase {
             to: .selfCheckSnapshot
         )
         try context.interventionEngine.beginIntervention(ruleId: UUID())
+        try context.snapshotStore.write(
+            GateAppSettingsSnapshot(settings: [], updatedAt: timestamp),
+            to: .gateAppSettings
+        )
+        try context.snapshotStore.write(
+            GateLedger(entries: [], activeGrants: [], updatedAt: timestamp),
+            to: .gateLedger
+        )
+        try context.snapshotStore.write(
+            GateShieldSnapshot(selectionDataList: [Data([0x01])], updatedAt: timestamp),
+            to: .gateShieldSnapshot
+        )
+        try context.snapshotStore.write(
+            GateUnlockRequest(id: UUID(), tokenData: Data([0x01]), requestedAt: timestamp),
+            to: .gateUnlockRequest
+        )
 
         try context.resetter.deleteAllLocalData()
 
@@ -162,6 +178,16 @@ final class LocalDataResetterTests: XCTestCase {
             try context.snapshotStore.read(SelfCheckSnapshot.self, from: .selfCheckSnapshot)
         )
         XCTAssertEqual(try context.interventionEngine.currentStep(), .idle)
+        XCTAssertNil(
+            try context.snapshotStore.read(GateAppSettingsSnapshot.self, from: .gateAppSettings)
+        )
+        XCTAssertNil(try context.snapshotStore.read(GateLedger.self, from: .gateLedger))
+        XCTAssertNil(
+            try context.snapshotStore.read(GateShieldSnapshot.self, from: .gateShieldSnapshot)
+        )
+        XCTAssertNil(
+            try context.snapshotStore.read(GateUnlockRequest.self, from: .gateUnlockRequest)
+        )
     }
 
     func testDeleteAllLocalDataWithoutLogStoreClearsOtherStoresAndRemovesSQLiteFiles() throws {

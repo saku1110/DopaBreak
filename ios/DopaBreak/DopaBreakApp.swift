@@ -26,18 +26,39 @@ enum DopaBreakOpenURLHandler {
     }
 }
 
+enum AppLaunchPolicy {
+    static func enablesStartupSideEffects(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        environment["XCTestConfigurationFilePath"] == nil
+    }
+}
+
 @main
 struct DopaBreakApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = AppModel()
+    @State private var model: AppModel
     @State private var onboarding = OnboardingCoordinator()
     @StateObject private var launchSplash = LaunchSplashCoordinator()
     @StateObject private var quickActions = QuickActionCenter.shared
     private let notificationDelegate: NotificationDelegate
 
     init() {
+        let enablesStartupSideEffects = AppLaunchPolicy.enablesStartupSideEffects()
+        let model = AppModel(
+            automaticallyRefreshEntitlement: enablesStartupSideEffects,
+            scheduleNotificationsOnInit: enablesStartupSideEffects
+        )
+        _model = State(
+            initialValue: model
+        )
         let settingsStore = (try? SettingsStore()) ?? SettingsStore(userDefaults: .standard)
-        let notificationDelegate = NotificationDelegate(settingsStore: settingsStore)
+        let notificationDelegate = NotificationDelegate(
+            settingsStore: settingsStore,
+            onGateUnlockRequest: { [weak model] in
+                model?.consumePendingGateUnlock()
+            }
+        )
         self.notificationDelegate = notificationDelegate
         UNUserNotificationCenter.current().delegate = notificationDelegate
         DopaNavigationBar.apply()
@@ -206,6 +227,9 @@ struct DopaBreakApp: App {
 
     private func handleAppActive() {
         model.recordAppOpenedIfNeeded()
+        model.reconcileGateGrantsOnForeground()
+        // openParentalControlsAppは通知タップを伴わないため、activeのたびにも要求を拾う。
+        model.consumePendingGateUnlock()
         consumePendingInterventionRequest()
         updateQuickActions()
         consumePendingQuickAction()

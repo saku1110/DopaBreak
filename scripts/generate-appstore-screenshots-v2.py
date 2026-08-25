@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate localized DopaBreak App Store screenshots v2 for iPhone 6.9-inch.
+"""Generate localized DopaBreak App Store screenshots v2 for iPhone and iPad.
 
 The composition is defined by:
   .claude/specs/appstore-screenshots-v2-diagonal.md
@@ -18,7 +18,8 @@ import argparse
 import importlib.util
 import json
 import math
-from dataclasses import dataclass
+import shutil
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from types import ModuleType
@@ -38,17 +39,45 @@ RAW_CORE_ROOT = ROOT / "output" / "app-store-screenshots" / "raw-core" / "ja"
 
 CANVAS_SIZE = (1320, 2868)
 CANVAS_WIDTH, CANVAS_HEIGHT = CANVAS_SIZE
+IPHONE_CANVAS_SIZE = (1320, 2868)
+IPAD_CANVAS_SIZE = (2064, 2752)
 SCREEN_ASPECT = (1320, 2868)
 SUPPORTED_LOCALES = ("ja", "en-US", "ko")
+SUPPORTED_DEVICES = ("iphone-69", "ipad-13")
 LOCALE = "ja"
 DEVICE = "iphone-69"
 AA_SCALE = 4
+
+IPAD_COPY_MAX_WIDTH = round(IPAD_CANVAS_SIZE[0] * 0.78)
+IPAD_COPY_EYEBROW_Y = 145
+IPAD_COPY_HEADLINE_Y = 245
+IPAD_COPY_SUB_Y = 610
+IPAD_PHONE_VISUAL_TOP = 760
+IPAD_LOCK_PHONE_VISUAL_TOP = 720
+IPAD_STRAIGHT_PHONE_WIDTH = round(IPAD_CANVAS_SIZE[0] * 0.60)
+IPAD_ROTATED_PHONE_WIDTH = math.ceil(IPAD_CANVAS_SIZE[0] * 0.58)
+IPAD_LOCK_PHONE_WIDTH = IPAD_ROTATED_PHONE_WIDTH
+IPAD_LOCK_CALLOUT_WIDTH = 1500
+IPAD_LOCK_CALLOUT_TOP = 1500
 
 COPY_EYEBROW_Y = 240
 COPY_HEADLINE_Y = 340
 COPY_SUB_Y = 680
 PANEL_01_LIME_POLYGON = ((0, 200), (1320, 80), (1320, 1080), (0, 1420))
 PANEL_08_LIME_POLYGON = ((0, 80), (1320, 200), (1320, 1420), (0, 1080))
+PHONE_VISUAL_TOP = 820
+MAX_STRAIGHT_PHONE_WIDTH = 1396
+MAX_SEVEN_DEGREE_PHONE_WIDTH = 1111
+MAX_EIGHT_DEGREE_PHONE_WIDTH = 1081
+LOCK_PHONE_VISUAL_TOP = 800
+# Largest integer outer width whose source y=2280 Live Activity edge lands at
+# or above canvas y=2800 with the upright phone held at visual top y=800.
+LOCK_PHONE_WIDTH = 1204
+LOCK_LIME_CIRCLE_CENTER = (CANVAS_WIDTH // 2, 1830)
+LOCK_LIME_CIRCLE_RADIUS = 640
+LOCK_CHARACTER_WIDTH = 300
+LOCK_CHARACTER_CENTER_X = 230
+LOCK_CHARACTER_BOTTOM_Y = LOCK_PHONE_VISUAL_TOP + 260
 
 
 def lock_pt_to_px(points: float, screen_width: int = CANVAS_WIDTH) -> int:
@@ -59,10 +88,6 @@ CHARACTER_GROUND_SHADOW_WIDTH_RATIO = 0.70
 CHARACTER_GROUND_SHADOW_HEIGHT = 90
 CHARACTER_GROUND_SHADOW_OPACITY = 0.30
 CHARACTER_GROUND_SHADOW_BLUR = 30
-PHONE_GROUND_SHADOW_WIDTH_RATIO = 0.85
-PHONE_GROUND_SHADOW_HEIGHT = 110
-PHONE_GROUND_SHADOW_OPACITY = 0.35
-PHONE_GROUND_SHADOW_BLUR = 40
 
 COLORS = {
     "background": (11, 13, 15),  # #0B0D0F
@@ -93,66 +118,136 @@ LOCK_ACTIVITY_CARD_BOX = (
     2280,
 )
 LOCK_ACTIVITY_CARD_RADIUS = lock_pt_to_px(18)
-PANEL_05_CALLOUT_WIDTH = 1180
-PANEL_05_CALLOUT_TOP = 1390
-PANEL_05_CALLOUT_BORDER_WIDTH = 3
-PANEL_05_SOURCE_OUTLINE_WIDTH = 2
-PANEL_05_CONNECTOR_WIDTH = 2
-PANEL_05_CONNECTOR_OPACITY = 0.60
-PANEL_05_CALLOUT_SHADOW_OPACITY = 0.45
-PANEL_05_CALLOUT_SHADOW_BLUR = 50
-PANEL_05_CALLOUT_SHADOW_OFFSET = (0, 24)
+LOCK_CALLOUT_WIDTH = round(CANVAS_WIDTH * 0.894)
+LOCK_CALLOUT_TOP = 1410
+LOCK_CALLOUT_VERTICAL_CLEARANCE = 40
+LOCK_ACTIVITY_CANVAS_BOTTOM_LIMIT = 2800
+LOCK_CALLOUT_MAX_ACTUAL_WIDTH_RATIO = 1.35
+LOCK_CALLOUT_BORDER_WIDTH = 3
+LOCK_SOURCE_OUTLINE_WIDTH = 2
+LOCK_CONNECTOR_WIDTH = 2
+LOCK_CONNECTOR_OPACITY = 0.60
+LOCK_CALLOUT_SHADOW_OPACITY = 0.45
+LOCK_CALLOUT_SHADOW_BLUR = 50
+LOCK_CALLOUT_SHADOW_OFFSET = (0, 24)
 
+PANEL_IDS = (1, 2, 3, 4, 5, 6, 8, 9, 10)
 SLUGS = (
-    "hook",
-    "pause",
-    "intent-time",
-    "modes",
-    "goal-lockscreen",
-    "reflection-stats",
-    "privacy-settings",
-    "deep-focus",
-    "night-block",
-    "grayscale-guide",
+    "breath",
+    "home",
+    "lockscreen",
+    "night",
+    "stats",
+    "deepfocus",
+    "intent",
+    "reflection",
+    "grayscale-home",
+)
+UPLOAD_ORDER = (
+    (1, "breath"),
+    (3, "lockscreen"),
+    (6, "deepfocus"),
+    (2, "home"),
+    (4, "night"),
+    (8, "intent"),
+    (9, "reflection"),
+    (10, "grayscale-home"),
 )
 
-MODES_SOURCE_PATH = (
-    RAW_CORE_ROOT / "modes.png"
-    if (RAW_CORE_ROOT / "modes.png").is_file()
-    else RAW_CORE_ROOT / "home.png"
-)
+# Layout IDs stay attached to upload positions. Only their screen/copy content moves.
+CONTENT_PANEL_BY_LAYOUT = {
+    1: 2,   # breath
+    2: 1,   # home
+    3: 5,   # lock screen
+    4: 4,   # night mode
+    5: 3,   # stats
+    6: 6,   # deep focus
+    8: 8,   # intent
+    9: 9,   # reflection
+    10: 10, # grayscale home
+}
+LAYOUT_SURFACES = {
+    1: "lime",
+    2: "lime",
+    3: "dark",
+    4: "dark",
+    5: "dark",
+    6: "dark",
+    8: "lime",
+    9: "dark",
+    10: "dark",
+}
+
 SOURCE_PATHS: tuple[Path | None, ...] = (
-    RAW_CORE_ROOT / "stats.png",
+    RAW_CORE_ROOT / "home.png",
     RAW_CORE_ROOT / "breath.png",
-    RAW_CORE_ROOT / "intent.png",
-    MODES_SOURCE_PATH,
-    None,
-    RAW_CORE_ROOT / "reflection.png",
-    RAW_CORE_ROOT / "goals.png",
-    RAW_CORE_ROOT / "deepfocus.png",
+    RAW_CORE_ROOT / "stats.png",
     RAW_CORE_ROOT / "nightmode.png",
-    RAW_CORE_ROOT / "grayscale.png",
-)
-SOURCE_LABELS = tuple(
-    "mock_lock((1320, 2868), 'ja')"
-    if path is None
-    else path.relative_to(ROOT).as_posix()
-    for path in SOURCE_PATHS
+    None,
+    RAW_CORE_ROOT / "deepfocus.png",
+    RAW_CORE_ROOT / "intent.png",
+    RAW_CORE_ROOT / "reflection.png",
+    None,
 )
 
-# 実画面を原寸で目視した個体数。外乗せと合算し、各枚1体以下を検証する。
+# Panels whose screen is drawn by this module instead of an XCTest capture.
+MOCK_SOURCE_NAMES = {5: "mock_lock", 10: "mock_home_grayscale"}
+
+
+def source_labels(paths: Sequence[Path | None], locale: str) -> tuple[str, ...]:
+    labels: list[str] = []
+    for panel, path in zip(PANEL_IDS, paths):
+        if path is None:
+            labels.append(f"{MOCK_SOURCE_NAMES[panel]}((1320, 2868), {locale!r})")
+        else:
+            labels.append(path.relative_to(ROOT).as_posix())
+    return tuple(labels)
+
+
+SOURCE_LABELS = source_labels(SOURCE_PATHS, LOCALE)
+
+# rawを原寸で目視した個体数。statsの気持ちカードは5体が正しい。
 SCREEN_CHARACTER_COUNTS = (
-    0,  # stats
+    1,  # home
     1,  # breath
-    0,  # intent
-    0 if MODES_SOURCE_PATH.name == "modes.png" else 1,  # modes / home fallback
-    0,  # lock mock
-    1,  # reflection（1問目・未選択）
-    0,  # goals
-    0,  # deep focus settings
+    5,  # stats（見たあとの気持ちカード）
     0,  # night-only settings
-    0,  # grayscale automation guide
+    0,  # lock mock
+    0,  # deep focus settings
+    0,  # intent
+    1,  # reflection（1問目・未選択）
+    0,  # grayscale home mock
 )
+
+# 最終コンポジットに見える画面内キャラ数。statsだけは配置後の可視領域から算出する。
+VISIBLE_SCREEN_CHARACTER_COUNTS: tuple[int | None, ...] = (
+    1, 1, None, 0, 0, 0, 0, 1, 0
+)
+STATS_PHONE_WIDTH = MAX_STRAIGHT_PHONE_WIDTH
+STATS_PHONE_VISUAL_TOP = 930
+STATS_DOOM_WIDTH = 300
+STATS_DOOM_CENTER_X = 1130
+STATS_DOOM_BOTTOM_Y = 1260
+STATS_CARD_TOPS = {
+    "ja": {"percentage": 661, "app": 1245, "mood": 1915},
+    "en-US": {"percentage": 661, "app": 1284, "mood": 1954},
+    "ko": {"percentage": 661, "app": 1245, "mood": 1915},
+}
+NIGHT_PHONE_WIDTH = MAX_EIGHT_DEGREE_PHONE_WIDTH
+NIGHT_PHONE_VISUAL_TOP = PHONE_VISUAL_TOP
+NIGHT_PHONE_ROTATION = 8
+NIGHT_CHARACTER_WIDTH = 200
+NIGHT_CHARACTER_CENTER_X = 1220
+NIGHT_CHARACTER_BOTTOM_Y = 1820
+INTENT_PHONE_WIDTH = MAX_STRAIGHT_PHONE_WIDTH
+INTENT_PHONE_VISUAL_TOP = 800
+INTENT_CHARACTER_WIDTH = 300
+INTENT_CHARACTER_CENTER_X = 1120
+INTENT_CHARACTER_BOTTOM_Y = 1420
+REFLECTION_PHONE_WIDTH = MAX_STRAIGHT_PHONE_WIDTH
+REFLECTION_PHONE_VISUAL_TOP = 800
+REFLECTION_LIME_RIBBON = ((0, 770), (1320, 810), (1320, 890), (0, 850))
+BREATH_SOURCE_OFFSET_Y = 400
 
 
 @dataclass(frozen=True)
@@ -187,10 +282,10 @@ def _copy_spec(
 COPY: dict[str, tuple[CopySpec, ...]] = {
     "ja": (
         _copy_spec(
-            "SNS時間を見える化",
-            "「あと5分だけ」が",
-            "1年で35日になる",
-            "回答から無意識スクロールの時間を推計",
+            "SNSに消えるはずだった時間",
+            "「溶けた時間」が",
+            "人生の時間に変わる",
+            "積み上がった時間が何日分かまでホームに",
             "lime",
         ),
         _copy_spec(
@@ -201,68 +296,61 @@ COPY: dict[str, tuple[CopySpec, ...]] = {
             "dark",
         ),
         _copy_spec(
-            "理由と時間を選ぶ",
-            "何のために開く？",
-            "必要な時間だけ使う",
-            "目的を言葉にして5〜30分から選べます",
+            "今日の記録",
+            "開こうとした15回のうち",
+            "12回はやめられた",
+            "どのアプリを何回やめたか まで残る",
             "dark",
-        ),
-        _copy_spec(
-            "目標と実績をひとつの画面に",
-            "我慢できた回数が",
-            "数字で増える",
-            "今日と今週の合計をホームでいつでも確認",
-            "lime",
-        ),
-        _copy_spec(
-            "ロック画面・通知・ウィジェット",
-            "SNSを開くたびに",
-            "目標を確認",
-            "ロック画面に目標と開くのをやめた回数を表示",
-            "dark",
-        ),
-        _copy_spec(
-            "振り返りと統計",
-            "SNSのあと本音を記録",
-            "開くのをやめた回数も積み上がる",
-            "満足感と開こうとした回数を見える化",
-            "dark",
-        ),
-        _copy_spec(
-            "オンデバイスで安心",
-            "記録は端末の中だけ",
-            "無料で始められます",
-            "対象アプリ・呼吸時間・通知をいつでも調整",
-            "dark",
-        ),
-        _copy_spec(
-            "集中タイマーで完全ブロック",
-            "集中したい時間だけ",
-            "選んだアプリを止める",
-            "勉強や仕事の30分〜2時間 曜日と時間帯の予約も",
-            "lime",
         ),
         _copy_spec(
             "夜だけ強化",
             "就寝中は自動で",
             "完全ブロック",
             "夜ふかしスクロールを就寝・起床の時刻で断つ",
+            "lime",
+        ),
+        _copy_spec(
+            "ロック画面の目標",
+            "SNSを開くたびに",
+            "目標を確認",
+            "ロック画面に目標と開くのをやめた回数を表示",
+            "dark",
+        ),
+        _copy_spec(
+            "集中タイマーで完全ブロック",
+            "集中したい時間だけ",
+            "選んだアプリを止める",
+            "30分から解除するまで 曜日と時間帯の予約も",
+            "dark",
+        ),
+        _copy_spec(
+            "理由を選ぶ",
+            "何のために開く？",
+            "理由を決めてから使う",
+            "目的を言葉にして反射で開くのを止める",
+            "lime",
+        ),
+        _copy_spec(
+            "見たあとの本音",
+            "SNSを見たあと",
+            "本音を一つ選ぶだけ",
+            "5つの気持ちから選ぶ 次に開く前の材料になる",
             "dark",
         ),
         _copy_spec(
             "白黒フィルタ連携",
-            "SNSを開くと",
-            "画面が白黒になる",
-            "閉じると色は戻る ガイドどおり設定するだけ",
+            "色を消して",
+            "SNSをつまらなくする",
+            "SNSを開くと自動で白黒に サイドボタン3回の手動切替も",
             "dark",
         ),
     ),
     "en-US": (
         _copy_spec(
-            "SEE THE COST OF DOOMSCROLLING",
-            "“Five more minutes”",
-            "can become 35 days a year",
-            "Answer a few questions to see how much time your phone takes.",
+            "DOPAMINE DETOX, COUNTED IN HOURS",
+            "Hours you would have lost to scrolling",
+            "are yours again",
+            "See how many days it adds up to, right on the home screen.",
             "lime",
         ),
         _copy_spec(
@@ -273,17 +361,17 @@ COPY: dict[str, tuple[CopySpec, ...]] = {
             "dark",
         ),
         _copy_spec(
-            "CHOOSE A REASON AND A TIME",
-            "Know why you’re opening",
-            "Use only what you need",
-            "Name your purpose, then pick 5 to 30 minutes",
+            "TODAY'S RECORD",
+            "Reached for it 15 times",
+            "stopped 12 of them",
+            "Which app, and how many times. It all stays.",
             "dark",
         ),
         _copy_spec(
-            "A DETOX YOU CAN ACTUALLY KEEP",
-            "Dopamine detox,",
-            "one skipped open at a time",
-            "Every open you skip gets counted, so the number keeps climbing.",
+            "STRONGER AT NIGHT",
+            "Your bedtime hours",
+            "block themselves",
+            "Late-night scrolling stops at the bedtime and wake times you set",
             "lime",
         ),
         _copy_spec(
@@ -294,47 +382,40 @@ COPY: dict[str, tuple[CopySpec, ...]] = {
             "dark",
         ),
         _copy_spec(
-            "HABIT TRACKER AND CHECK-INS",
-            "Check in after you scroll",
-            "Count every time you didn’t open",
-            "Log how you felt, then see your attempts and skipped opens",
-            "dark",
-        ),
-        _copy_spec(
-            "PRIVATE BY DESIGN",
-            "Your records stay on device",
-            "Start free",
-            "Adjust paused apps, breath length, and reminders anytime",
-            "dark",
-        ),
-        _copy_spec(
             "BLOCK ON YOUR SCHEDULE",
             "Pick the hours you need to focus",
             "and those apps stay shut",
-            "Start 30 minutes to 2 hours now, or set weekly time slots",
+            "From 30 minutes to until you lift it, plus weekly time slots",
+            "dark",
+        ),
+        _copy_spec(
+            "CHOOSE A REASON",
+            "Know why you're opening",
+            "then decide to use it",
+            "Put the purpose into words and the reflex loses its grip",
             "lime",
         ),
         _copy_spec(
-            "STRONGER AT NIGHT",
-            "Your bedtime hours",
-            "block themselves",
-            "Late-night scrolling stops at the bedtime and wake times you set",
+            "HONEST CHECK-IN",
+            "After you scroll",
+            "pick one honest feeling",
+            "Five moods to choose from. It shapes your next decision.",
             "dark",
         ),
         _copy_spec(
             "GRAYSCALE SHORTCUT",
-            "Open social media",
-            "and your screen turns gray",
-            "Color returns when you close it. Just follow the guide.",
+            "Strip the color",
+            "and social media gets boring",
+            "Goes gray the moment you open social media. Or triple-click the side button.",
             "dark",
         ),
     ),
     "ko": (
         _copy_spec(
-            "숏폼·SNS 시간 셀프 체크",
-            "‘5분만 더’가",
-            "1년에 35일이 돼요",
-            "답변을 바탕으로 무심코 스크롤한 시간을 추정해요",
+            "SNS에 뺏기지 않은 시간",
+            "녹아 없어질 뻔한 시간이",
+            "내 인생의 시간으로 돌아와요",
+            "쌓인 시간이 며칠치인지까지 홈에서 봐요",
             "lime",
         ),
         _copy_spec(
@@ -345,17 +426,17 @@ COPY: dict[str, tuple[CopySpec, ...]] = {
             "dark",
         ),
         _copy_spec(
-            "이유와 시간 선택",
-            "왜 여는지 먼저 확인",
-            "필요한 만큼만 사용해요",
-            "목적을 고르고 5~30분 중 필요한 시간만 선택해요",
+            "오늘의 기록",
+            "열려고 한 15번 중",
+            "12번은 참았어요",
+            "어떤 앱을 몇 번 참았는지까지 남아요",
             "dark",
         ),
         _copy_spec(
-            "목표와 기록을 한 화면에",
-            "참아낸 횟수가",
-            "숫자로 늘어나요",
-            "오늘과 이번 주 합계를 홈에서 바로 확인해요",
+            "밤에만 강하게",
+            "잠든 사이엔 자동으로",
+            "완전 차단",
+            "늦은 밤 스크롤을 취침 기상 시각으로 끊어요",
             "lime",
         ),
         _copy_spec(
@@ -366,38 +447,31 @@ COPY: dict[str, tuple[CopySpec, ...]] = {
             "dark",
         ),
         _copy_spec(
-            "사용 후 돌아보기와 루틴 통계",
-            "SNS를 본 뒤 기분을 기록",
-            "열지 않은 횟수도 쌓여요",
-            "만족감·시도·열지 않은 횟수를 한눈에 봐요",
-            "dark",
-        ),
-        _copy_spec(
-            "기기 안에 안전하게",
-            "기록은 기기 안에만",
-            "무료로 시작해요",
-            "대상 앱·숨 고르기 시간·알림을 언제든 조절해요",
-            "dark",
-        ),
-        _copy_spec(
             "공부·업무 시간 완전 차단",
             "집중할 시간만 골라서",
             "앱을 멈춰요",
-            "지금 30분에서 2시간 요일과 시간대 예약도 돼요",
+            "30분부터 해제할 때까지 요일과 시간대 예약도 돼요",
+            "dark",
+        ),
+        _copy_spec(
+            "이유 선택",
+            "왜 여는지 먼저 확인",
+            "이유를 정하고 써요",
+            "목적을 말로 정하면 무심코 여는 손이 멈춰요",
             "lime",
         ),
         _copy_spec(
-            "밤에만 강하게",
-            "잠든 사이엔 자동으로",
-            "완전 차단",
-            "늦은 밤 스크롤을 취침 기상 시각으로 끊어요",
+            "본 뒤의 솔직한 기분",
+            "SNS를 본 뒤",
+            "솔직한 기분 하나만 골라요",
+            "다섯 가지 기분에서 하나를 고르면 다음에 열기 전 판단 재료가 돼요",
             "dark",
         ),
         _copy_spec(
             "흑백 필터 연동",
-            "SNS를 열면",
-            "화면이 흑백이 돼요",
-            "닫으면 색이 돌아와요 안내대로 설정만 하면 끝",
+            "색을 없애면",
+            "SNS가 시시해져요",
+            "SNS를 열면 자동으로 흑백 측면 버튼 세 번으로 직접 전환도 돼요",
             "dark",
         ),
     ),
@@ -498,6 +572,78 @@ LOCK_GOALS = {
 }
 
 WIDGET_CATALOG_LOCALES = {"ja": "ja", "en-US": "en", "ko": "ko"}
+
+# Panel 10 home-screen mock. Tiles reuse the brand colours and glyph meanings of
+# ios/DopaBreak/AppIconView.swift catalogTile so the grid still reads as "those
+# apps" once the whole screen is converted to grayscale.
+HOME_TILE_SIZE = 196
+HOME_TILE_RADIUS = round(HOME_TILE_SIZE * 0.225)
+HOME_COLUMN_CENTERS = (258, 526, 794, 1062)
+HOME_ROW_TOPS = (330, 640, 950, 1260)
+HOME_LABEL_GAP = 14
+HOME_LABEL_SIZE = 34
+HOME_LABEL_FILL = (235, 237, 239)
+HOME_SEARCH_PILL_BOX = (495, 2434, 825, 2506)
+HOME_DOCK_BOX = (40, 2528, 1280, 2772)
+HOME_DOCK_RADIUS = 80
+HOME_DOCK_TILE_TOP = 2552
+HOME_INDICATOR_BOX = (500, 2784, 820, 2800)
+
+HOME_SNS_TILES = (
+    ("instagram", "Instagram"),
+    ("x", "X"),
+    ("tiktok", "TikTok"),
+    ("youtube", "YouTube"),
+    ("facebook", "Facebook"),
+    ("threads", "Threads"),
+    ("line", "LINE"),
+    ("safari", "Safari"),
+)
+HOME_GENERIC_TILES = (
+    "photos",
+    "notes",
+    "calendar",
+    "weather",
+    "maps",
+    "music",
+    "mail",
+    "settings",
+)
+HOME_GENERIC_LABELS = {
+    "ja": ("写真", "メモ", "カレンダー", "天気", "マップ", "ミュージック", "メール", "設定"),
+    "en-US": (
+        "Photos",
+        "Notes",
+        "Calendar",
+        "Weather",
+        "Maps",
+        "Music",
+        "Mail",
+        "Settings",
+    ),
+    "ko": ("사진", "메모", "캘린더", "날씨", "지도", "음악", "메일", "설정"),
+}
+HOME_DOCK_TILES = ("instagram", "tiktok", "youtube", "line")
+HOME_SEARCH_LABELS = {"ja": "検索", "en-US": "Search", "ko": "검색"}
+HOME_TILE_BACKGROUNDS = {
+    "x": (0, 0, 0),
+    "tiktok": (0, 0, 0),
+    "threads": (0, 0, 0),
+    "youtube": (255, 0, 51),
+    "facebook": (24, 119, 242),
+    "line": (6, 199, 85),
+    "photos": (250, 250, 252),
+    "notes": (252, 252, 250),
+    "calendar": (255, 255, 255),
+    "weather": (64, 156, 255),
+    "maps": (232, 240, 226),
+    "music": (250, 45, 85),
+    "mail": (0, 122, 255),
+    "settings": (142, 142, 147),
+}
+HOME_INSTAGRAM_STOPS = ((249, 206, 52), (238, 42, 123), (98, 40, 215))
+HOME_SAFARI_STOPS = ((47, 180, 255), (10, 132, 255))
+HOME_GLYPH_WHITE = (255, 255, 255, 255)
 
 
 @lru_cache(maxsize=None)
@@ -602,18 +748,18 @@ def validate_legacy_copy_reuse(locale: str) -> None:
     if locale not in ("en-US", "ko"):
         return
     days = LEGACY.PANEL_DAYS[locale][DEVICE]
-    for panel_index in (0, 1, 2, 3, 5, 6):
-        legacy = LEGACY.COPY[locale][panel_index]
+    for panel_id in (1, 2, 3, 4, 6):
+        legacy = LEGACY.COPY[locale][panel_id - 1]
         expected = (
             legacy["eyebrow"],
             tuple(line.format(days=days) for line in legacy["headline"]),
             legacy["sub"],
         )
-        actual_spec = COPY[locale][panel_index]
+        actual_spec = COPY[locale][PANEL_IDS.index(panel_id)]
         actual = (actual_spec.eyebrow, actual_spec.headline, actual_spec.sub)
         if actual != expected:
             raise ValueError(
-                f"Panel {panel_index + 1:02d} {locale} copy differs from legacy: "
+                f"Panel {panel_id:02d} {locale} copy differs from legacy: "
                 f"expected={expected!r}, actual={actual!r}"
             )
 
@@ -621,8 +767,8 @@ def validate_legacy_copy_reuse(locale: str) -> None:
 def configure_locale(locale: str) -> None:
     global LOCALE
     global SCREENSHOT_ROOT, CONTACT_SHEET_PATH, SLOTS_PATH, RAW_CORE_ROOT
-    global MODES_SOURCE_PATH, SOURCE_PATHS, SOURCE_LABELS
-    global SCREEN_CHARACTER_COUNTS, COPY_SPECS
+    global SOURCE_PATHS, SOURCE_LABELS
+    global SCREEN_CHARACTER_COUNTS, VISIBLE_SCREEN_CHARACTER_COUNTS, COPY_SPECS
 
     if locale not in SUPPORTED_LOCALES:
         raise ValueError(f"Unsupported locale: {locale}")
@@ -632,41 +778,30 @@ def configure_locale(locale: str) -> None:
     CONTACT_SHEET_PATH = OUTPUT_ROOT / f"contact-sheet-{locale}.png"
     SLOTS_PATH = OUTPUT_ROOT / f"slots-{locale}.json"
     RAW_CORE_ROOT = ROOT / "output" / "app-store-screenshots" / "raw-core" / locale
-    MODES_SOURCE_PATH = (
-        RAW_CORE_ROOT / "modes.png"
-        if (RAW_CORE_ROOT / "modes.png").is_file()
-        else RAW_CORE_ROOT / "home.png"
-    )
     SOURCE_PATHS = (
-        RAW_CORE_ROOT / "stats.png",
+        RAW_CORE_ROOT / "home.png",
         RAW_CORE_ROOT / "breath.png",
-        RAW_CORE_ROOT / "intent.png",
-        MODES_SOURCE_PATH,
-        None,
-        RAW_CORE_ROOT / "reflection.png",
-        RAW_CORE_ROOT / "goals.png",
-        RAW_CORE_ROOT / "deepfocus.png",
+        RAW_CORE_ROOT / "stats.png",
         RAW_CORE_ROOT / "nightmode.png",
-        RAW_CORE_ROOT / "grayscale.png",
+        None,
+        RAW_CORE_ROOT / "deepfocus.png",
+        RAW_CORE_ROOT / "intent.png",
+        RAW_CORE_ROOT / "reflection.png",
+        None,
     )
-    SOURCE_LABELS = tuple(
-        f"mock_lock((1320, 2868), {locale!r})"
-        if path is None
-        else path.relative_to(ROOT).as_posix()
-        for path in SOURCE_PATHS
-    )
+    SOURCE_LABELS = source_labels(SOURCE_PATHS, locale)
     SCREEN_CHARACTER_COUNTS = (
+        1,
+        1,
+        5,
+        0,
+        0,
+        0,
         0,
         1,
-        0,
-        0 if MODES_SOURCE_PATH.name == "modes.png" else 1,
-        0,
-        1,
-        0,
-        0,
-        0,
         0,
     )
+    VISIBLE_SCREEN_CHARACTER_COUNTS = (1, 1, None, 0, 0, 0, 0, 1, 0)
     COPY_SPECS = COPY[locale]
 
     validate_legacy_copy_reuse(locale)
@@ -1036,6 +1171,25 @@ def draw_lock_bottom_controls(canvas: Image.Image) -> None:
     draw.rounded_rectangle((500, 2784, 820, 2800), radius=8, fill=(255, 255, 255, 245))
 
 
+def lock_clock_image() -> Image.Image:
+    clock_target_width = round(CANVAS_WIDTH * 0.55)
+    image, _ = sf_text_fitted_to_width(
+        "9:41",
+        clock_target_width,
+        weight=620,
+        maximum_size=430,
+        fill=(248, 249, 247),
+    )
+    return image
+
+
+def lock_clock_source_box() -> tuple[int, int, int, int]:
+    image = lock_clock_image()
+    left = round((CANVAS_WIDTH - image.width) / 2)
+    top = 350
+    return left, top, left + image.width, top + image.height
+
+
 def mock_lock(size: tuple[int, int], locale: str) -> Image.Image:
     if size != CANVAS_SIZE:
         raise ValueError(f"The v2 lock mock is fixed to {CANVAS_SIZE}, got {size}")
@@ -1052,20 +1206,422 @@ def mock_lock(size: tuple[int, int], locale: str) -> Image.Image:
     )
     paste_centered_image(image, date_image, 278)
 
-    clock_target_width = round(size[0] * 0.55)
-    clock_image, _ = sf_text_fitted_to_width(
-        "9:41",
-        clock_target_width,
-        weight=620,
-        maximum_size=430,
-        fill=(248, 249, 247),
-    )
-    paste_centered_image(image, clock_image, 350)
+    paste_centered_image(image, lock_clock_image(), lock_clock_source_box()[1])
 
     draw_live_activity_card(image, locale)
 
     draw_lock_bottom_controls(image)
     return image
+
+
+def home_points(points: Sequence[tuple[float, float]], scale: int) -> list[tuple[int, int]]:
+    return [(round(x * scale), round(y * scale)) for x, y in points]
+
+
+def home_box(values: Sequence[float], scale: int) -> tuple[int, ...]:
+    return tuple(round(value * scale) for value in values)
+
+
+def glyph_instagram(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.rounded_rectangle(
+        home_box((46, 46, 150, 150), scale),
+        radius=round(30 * scale),
+        outline=HOME_GLYPH_WHITE,
+        width=round(12 * scale),
+    )
+    draw.ellipse(
+        home_box((72, 72, 124, 124), scale),
+        outline=HOME_GLYPH_WHITE,
+        width=round(12 * scale),
+    )
+    draw.ellipse(home_box((123, 57, 141, 75), scale), fill=HOME_GLYPH_WHITE)
+
+
+def glyph_x(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    width = round(22 * scale)
+    draw.line(home_points(((56, 56), (140, 140)), scale), fill=HOME_GLYPH_WHITE, width=width)
+    draw.line(home_points(((140, 56), (56, 140)), scale), fill=HOME_GLYPH_WHITE, width=width)
+
+
+def glyph_music_note(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.ellipse(home_box((64, 108, 118, 152), scale), fill=HOME_GLYPH_WHITE)
+    draw.rounded_rectangle(
+        home_box((104, 46, 120, 134), scale),
+        radius=round(8 * scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+    draw.polygon(
+        home_points(((118, 46), (152, 62), (152, 90), (118, 74)), scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+
+
+def glyph_youtube(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.rounded_rectangle(
+        home_box((34, 56, 162, 140), scale),
+        radius=round(28 * scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+    draw.polygon(
+        home_points(((84, 76), (84, 120), (122, 98)), scale),
+        fill=(*HOME_TILE_BACKGROUNDS["youtube"], 255),
+    )
+
+
+def glyph_facebook(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    behind = (255, 255, 255, 175)
+    draw.ellipse(home_box((112, 56, 150, 94), scale), fill=behind)
+    draw.pieslice(home_box((100, 94, 168, 156), scale), start=180, end=360, fill=behind)
+    draw.ellipse(home_box((54, 50, 100, 96), scale), fill=HOME_GLYPH_WHITE)
+    draw.pieslice(
+        home_box((34, 98, 120, 162), scale),
+        start=180,
+        end=360,
+        fill=HOME_GLYPH_WHITE,
+    )
+
+
+def glyph_line(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.rounded_rectangle(
+        home_box((32, 42, 164, 134), scale),
+        radius=round(34 * scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+    draw.polygon(
+        home_points(((68, 124), (112, 124), (72, 166)), scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+
+
+def glyph_safari(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.ellipse(
+        home_box((32, 32, 164, 164), scale),
+        outline=HOME_GLYPH_WHITE,
+        width=round(11 * scale),
+    )
+    draw.polygon(
+        home_points(((138, 58), (110, 110), (58, 138), (86, 86)), scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+
+
+def glyph_photos(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    petals = (
+        (98, 52, (255, 204, 0)),
+        (140, 82, (255, 59, 48)),
+        (124, 132, (175, 82, 222)),
+        (72, 132, (0, 122, 255)),
+        (56, 82, (52, 199, 89)),
+    )
+    for center_x, center_y, color in petals:
+        draw.ellipse(
+            home_box(
+                (center_x - 31, center_y - 31, center_x + 31, center_y + 31),
+                scale,
+            ),
+            fill=(*color, 200),
+        )
+
+
+def glyph_notes(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.rectangle(home_box((0, 0, 196, 52), scale), fill=(255, 204, 0, 255))
+    for index in range(3):
+        top = 86 + index * 28
+        draw.rounded_rectangle(
+            home_box((40, top, 156 - index * 30, top + 12), scale),
+            radius=round(6 * scale),
+            fill=(158, 158, 163, 255),
+        )
+
+
+def glyph_calendar(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.rectangle(home_box((0, 0, 196, 48), scale), fill=(255, 59, 48, 255))
+    for row in range(3):
+        for column in range(4):
+            left = 30 + column * 38
+            top = 78 + row * 32
+            draw.ellipse(
+                home_box((left, top, left + 16, top + 16), scale),
+                fill=(172, 174, 180, 255),
+            )
+
+
+def glyph_weather(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.ellipse(home_box((50, 38, 118, 106), scale), fill=(255, 214, 10, 255))
+    draw.ellipse(home_box((58, 100, 116, 150), scale), fill=HOME_GLYPH_WHITE)
+    draw.ellipse(home_box((94, 84, 152, 142), scale), fill=HOME_GLYPH_WHITE)
+    draw.rounded_rectangle(
+        home_box((54, 118, 154, 150), scale),
+        radius=round(16 * scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+
+
+def glyph_maps(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.polygon(
+        home_points(((0, 40), (196, 8), (196, 54), (0, 86)), scale),
+        fill=(118, 178, 240, 255),
+    )
+    draw.polygon(
+        home_points(((0, 152), (88, 116), (196, 170), (196, 196), (0, 196)), scale),
+        fill=(150, 200, 140, 255),
+    )
+    road = home_points(((52, 196), (70, 138), (124, 104), (196, 88)), scale)
+    draw.line(road, fill=HOME_GLYPH_WHITE, width=round(22 * scale), joint="curve")
+    draw.line(road, fill=(255, 190, 70, 255), width=round(9 * scale), joint="curve")
+
+
+def glyph_mail(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    draw.rounded_rectangle(
+        home_box((32, 58, 164, 142), scale),
+        radius=round(16 * scale),
+        fill=HOME_GLYPH_WHITE,
+    )
+    draw.line(
+        home_points(((44, 72), (98, 116), (152, 72)), scale),
+        fill=(*HOME_TILE_BACKGROUNDS["mail"], 255),
+        width=round(11 * scale),
+        joint="curve",
+    )
+
+
+def glyph_settings(draw: ImageDraw.ImageDraw, scale: int) -> None:
+    for index in range(8):
+        angle = math.radians(index * 45)
+        center_x = 98 + math.cos(angle) * 62
+        center_y = 98 + math.sin(angle) * 62
+        draw.ellipse(
+            home_box(
+                (center_x - 15, center_y - 15, center_x + 15, center_y + 15),
+                scale,
+            ),
+            fill=HOME_GLYPH_WHITE,
+        )
+    draw.ellipse(
+        home_box((42, 42, 154, 154), scale),
+        outline=HOME_GLYPH_WHITE,
+        width=round(16 * scale),
+    )
+
+
+HOME_TILE_GLYPHS: dict[str, Callable[[ImageDraw.ImageDraw, int], None]] = {
+    "instagram": glyph_instagram,
+    "x": glyph_x,
+    "tiktok": glyph_music_note,
+    "youtube": glyph_youtube,
+    "facebook": glyph_facebook,
+    "line": glyph_line,
+    "safari": glyph_safari,
+    "photos": glyph_photos,
+    "notes": glyph_notes,
+    "calendar": glyph_calendar,
+    "weather": glyph_weather,
+    "maps": glyph_maps,
+    "music": glyph_music_note,
+    "mail": glyph_mail,
+    "settings": glyph_settings,
+}
+
+
+def diagonal_gradient(
+    size: tuple[int, int],
+    stops: Sequence[tuple[int, int, int]],
+) -> Image.Image:
+    """Bottom-leading to top-trailing multi-stop ramp (Instagram tile)."""
+    steps = 96
+    last = len(stops) - 1
+    pixels: list[tuple[int, int, int]] = []
+    for y in range(steps):
+        for x in range(steps):
+            ratio = (x / (steps - 1) + (1 - y / (steps - 1))) / 2
+            position = ratio * last
+            index = min(last - 1, int(position))
+            local = position - index
+            start, end = stops[index], stops[index + 1]
+            pixels.append(
+                tuple(round(start[i] + (end[i] - start[i]) * local) for i in range(3))
+            )
+    ramp = Image.new("RGB", (steps, steps))
+    ramp.putdata(pixels)
+    return ramp.resize(size, Image.Resampling.BICUBIC)
+
+
+def home_tile_background(kind: str, span: int) -> Image.Image:
+    if kind == "instagram":
+        return diagonal_gradient((span, span), HOME_INSTAGRAM_STOPS)
+    if kind == "safari":
+        return LEGACY.gradient((span, span), *HOME_SAFARI_STOPS)
+    return Image.new("RGB", (span, span), HOME_TILE_BACKGROUNDS[kind])
+
+
+@lru_cache(maxsize=None)
+def home_app_tile(kind: str) -> Image.Image:
+    """Supersampled iOS-style app tile with the AppIconView inner ring."""
+    scale = AA_SCALE
+    span = HOME_TILE_SIZE * scale
+    tile = home_tile_background(kind, span).convert("RGB")
+    if kind == "threads":
+        glyph = text_image_with_font("@", sf_font(round(112 * scale), 600), (255, 255, 255))
+        tile.paste(
+            glyph,
+            (round((span - glyph.width) / 2), round((span - glyph.height) / 2)),
+            glyph.getchannel("A"),
+        )
+    else:
+        HOME_TILE_GLYPHS[kind](ImageDraw.Draw(tile, "RGBA"), scale)
+    ImageDraw.Draw(tile, "RGBA").rounded_rectangle(
+        (scale, scale, span - 1 - scale, span - 1 - scale),
+        radius=HOME_TILE_RADIUS * scale - scale,
+        outline=(255, 255, 255, 40),
+        width=2 * scale,
+    )
+    shape = Image.new("L", (span, span), 0)
+    ImageDraw.Draw(shape).rounded_rectangle(
+        (0, 0, span - 1, span - 1),
+        radius=HOME_TILE_RADIUS * scale,
+        fill=255,
+    )
+    tile = tile.convert("RGBA")
+    tile.putalpha(shape)
+    return tile.resize((HOME_TILE_SIZE, HOME_TILE_SIZE), Image.Resampling.LANCZOS)
+
+
+def paste_home_tile(canvas: Image.Image, kind: str, center_x: int, top: int) -> None:
+    tile = home_app_tile(kind)
+    canvas.paste(tile, (center_x - HOME_TILE_SIZE // 2, top), tile.getchannel("A"))
+
+
+def baseline_text_image(
+    text: str,
+    selected_font: ImageFont.FreeTypeFont,
+    fill: tuple[int, int, int],
+) -> Image.Image:
+    """Render on a shared baseline so neighbouring app labels line up."""
+    ascent, descent = selected_font.getmetrics()
+    width = max(1, math.ceil(selected_font.getlength(text)))
+    image = Image.new("RGBA", (width, ascent + descent), (0, 0, 0, 0))
+    ImageDraw.Draw(image).text((0, 0), text, font=selected_font, fill=(*fill, 255))
+    return image
+
+
+def draw_home_status_bar(canvas: Image.Image) -> None:
+    clock = text_image_with_font("9:41", sf_font(56, 600), (248, 249, 247))
+    canvas.paste(clock, (150, 70), clock.getchannel("A"))
+
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    draw.arc((1054, 49, 1124, 111), start=215, end=325, fill=(255, 255, 255, 245), width=6)
+    draw.arc((1067, 65, 1111, 105), start=215, end=325, fill=(255, 255, 255, 245), width=6)
+    draw.ellipse((1085, 91, 1095, 101), fill=(255, 255, 255, 245))
+    draw.rounded_rectangle(
+        (1152, 59, 1234, 102),
+        radius=10,
+        outline=(255, 255, 255, 245),
+        width=5,
+    )
+    draw.rounded_rectangle((1238, 72, 1245, 90), radius=3, fill=(255, 255, 255, 210))
+    draw.rounded_rectangle((1159, 66, 1218, 95), radius=6, fill=(255, 255, 255, 245))
+
+
+def draw_home_app_grid(canvas: Image.Image, locale: str) -> None:
+    generic_labels = HOME_GENERIC_LABELS[locale]
+    rows = (
+        HOME_SNS_TILES[0:4],
+        HOME_SNS_TILES[4:8],
+        tuple(zip(HOME_GENERIC_TILES[0:4], generic_labels[0:4])),
+        tuple(zip(HOME_GENERIC_TILES[4:8], generic_labels[4:8])),
+    )
+    label_font = font(locale, HOME_LABEL_SIZE, False)
+    for top, row in zip(HOME_ROW_TOPS, rows):
+        for center_x, (kind, label) in zip(HOME_COLUMN_CENTERS, row):
+            paste_home_tile(canvas, kind, center_x, top)
+            label_image = baseline_text_image(label, label_font, HOME_LABEL_FILL)
+            canvas.paste(
+                label_image,
+                (
+                    center_x - label_image.width // 2,
+                    top + HOME_TILE_SIZE + HOME_LABEL_GAP,
+                ),
+                label_image.getchannel("A"),
+            )
+
+
+def paste_translucent_rounded_rect(
+    canvas: Image.Image,
+    box: tuple[int, int, int, int],
+    radius: int,
+    color: tuple[int, int, int],
+    alpha: int,
+) -> None:
+    mask = rounded_mask(canvas.size, box, radius)
+    canvas.paste(color, (0, 0, canvas.width, canvas.height), mask.point(lambda v: v * alpha // 255))
+
+
+def draw_home_search_pill(canvas: Image.Image, locale: str) -> None:
+    left, top, right, bottom = HOME_SEARCH_PILL_BOX
+    paste_translucent_rounded_rect(
+        canvas,
+        HOME_SEARCH_PILL_BOX,
+        (bottom - top) // 2,
+        (255, 255, 255),
+        60,
+    )
+    label = baseline_text_image(
+        HOME_SEARCH_LABELS[locale],
+        font(locale, 30, False),
+        (245, 246, 248),
+    )
+    glyph_span = 34
+    gap = 14
+    start_x = round((left + right) / 2 - (glyph_span + gap + label.width) / 2)
+    center_y = (top + bottom) // 2
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    draw.ellipse(
+        (start_x, center_y - 17, start_x + 27, center_y + 10),
+        outline=(245, 246, 248, 235),
+        width=4,
+    )
+    draw.line(
+        (start_x + 22, center_y + 5, start_x + 32, center_y + 15),
+        fill=(245, 246, 248, 235),
+        width=4,
+    )
+    canvas.paste(
+        label,
+        (start_x + glyph_span + gap, center_y - label.height // 2),
+        label.getchannel("A"),
+    )
+
+
+def draw_home_dock(canvas: Image.Image) -> None:
+    paste_translucent_rounded_rect(
+        canvas,
+        HOME_DOCK_BOX,
+        HOME_DOCK_RADIUS,
+        (255, 255, 255),
+        45,
+    )
+    for center_x, kind in zip(HOME_COLUMN_CENTERS, HOME_DOCK_TILES):
+        paste_home_tile(canvas, kind, center_x, HOME_DOCK_TILE_TOP)
+
+
+def mock_home_grayscale(size: tuple[int, int], locale: str) -> Image.Image:
+    """iOS home screen with the SNS grid, converted to grayscale as a whole."""
+    if size != CANVAS_SIZE:
+        raise ValueError(f"The v2 home mock is fixed to {CANVAS_SIZE}, got {size}")
+    if locale not in SUPPORTED_LOCALES:
+        raise ValueError(f"Unsupported home mock locale: {locale}")
+
+    image = lock_wallpaper(size)
+    draw_home_status_bar(image)
+    draw_home_app_grid(image, locale)
+    draw_home_search_pill(image, locale)
+    draw_home_dock(image)
+    ImageDraw.Draw(image, "RGBA").rounded_rectangle(
+        HOME_INDICATOR_BOX,
+        radius=8,
+        fill=(255, 255, 255, 245),
+    )
+    return ImageOps.grayscale(image).convert("RGB")
 
 
 def tight_text_image(text: str, size: int, fill: tuple[int, int, int], *, bold: bool) -> Image.Image:
@@ -1256,7 +1812,12 @@ def validate_copy_inside_lime_pixels(
     }
 
 
-def prepare_device(source: Image.Image, outer_width: int) -> PreparedDevice:
+def prepare_device(
+    source: Image.Image,
+    outer_width: int,
+    *,
+    expected_source_size: tuple[int, int] | None = None,
+) -> PreparedDevice:
     bezel = round(outer_width * 0.0275)
     outer_radius = round(outer_width * 0.148)
     screen_width = outer_width - bezel * 2
@@ -1264,8 +1825,9 @@ def prepare_device(source: Image.Image, outer_width: int) -> PreparedDevice:
     outer_height = screen_height + bezel * 2
     screen_radius = outer_radius - bezel
 
-    if source.size != CANVAS_SIZE:
-        raise ValueError(f"Device source must be {CANVAS_SIZE}, got {source.size}")
+    source_size = CANVAS_SIZE if expected_source_size is None else expected_source_size
+    if source.size != source_size:
+        raise ValueError(f"Device source must be {source_size}, got {source.size}")
     if source.mode not in {"RGB", "RGBA"}:
         raise ValueError(f"Device source must be RGB/RGBA, got {source.mode}")
     if bezel <= 0 or screen_radius <= 0:
@@ -1492,22 +2054,24 @@ def paste_antialiased_lines(
     canvas.paste(antialiased, (left, top), antialiased.getchannel("A"))
 
 
-def draw_panel_05_live_activity_callout(
+def draw_lock_live_activity_callout(
     canvas: Image.Image,
     source: Image.Image,
     live_activity_geometry: dict[str, Any],
+    clock_geometry: dict[str, Any],
+    character_geometry: dict[str, Any],
 ) -> dict[str, Any]:
     """Magnify the full-resolution lock-screen card above its in-phone source."""
     if source.size != CANVAS_SIZE:
-        raise ValueError(f"Panel 05 callout source must be {CANVAS_SIZE}, got {source.size}")
+        raise ValueError(f"Lock-screen callout source must be {CANVAS_SIZE}, got {source.size}")
 
     source_crop = source.crop(LOCK_ACTIVITY_CARD_BOX)
     source_width, source_height = source_crop.size
-    target_width = PANEL_05_CALLOUT_WIDTH
+    target_width = LOCK_CALLOUT_WIDTH
     target_height = round(source_height * target_width / source_width)
     if target_width >= source_width or target_height >= source_height:
         raise ValueError(
-            "Panel 05 Live Activity callout must be a LANCZOS downscale "
+            "Lock-screen Live Activity callout must be a LANCZOS downscale "
             f"from the full-resolution crop: source={source_crop.size}, "
             f"target={(target_width, target_height)}"
         )
@@ -1523,14 +2087,33 @@ def draw_panel_05_live_activity_callout(
     scaled_card.putalpha(card_mask)
 
     callout_left = round((CANVAS_WIDTH - target_width) / 2)
-    callout_top = PANEL_05_CALLOUT_TOP
+    callout_top = LOCK_CALLOUT_TOP
     callout_right = callout_left + target_width
     callout_bottom = callout_top + target_height
     callout_box = (callout_left, callout_top, callout_right, callout_bottom)
-    if callout_top < 1250 or callout_bottom > 1800:
-        raise ValueError(f"Panel 05 callout must stay inside the y≈1250–1800 band: {callout_box}")
-
+    clock_bounds = clock_geometry["canvas_bounds"]
     actual_bounds = live_activity_geometry["canvas_bounds"]
+    clock_clearance = callout_top - clock_bounds[3]
+    activity_clearance = actual_bounds[1] - callout_bottom
+    if (
+        clock_clearance < LOCK_CALLOUT_VERTICAL_CLEARANCE
+        or activity_clearance < LOCK_CALLOUT_VERTICAL_CLEARANCE
+    ):
+        raise ValueError(
+            "Lock-screen callout must stay in the wallpaper gap with at least "
+            f"{LOCK_CALLOUT_VERTICAL_CLEARANCE}px vertical clearance: "
+            f"clock={clock_bounds}, callout={callout_box}, activity={actual_bounds}"
+        )
+    if actual_bounds[3] > LOCK_ACTIVITY_CANVAS_BOTTOM_LIMIT:
+        raise ValueError(
+            "Lock-screen Live Activity must be fully inside the approved canvas "
+            f"limit y={LOCK_ACTIVITY_CANVAS_BOTTOM_LIMIT}: {actual_bounds}"
+        )
+    if not live_activity_geometry["fully_visible"]:
+        raise ValueError(
+            f"Lock-screen Live Activity must be fully visible: {actual_bounds}"
+        )
+
     actual_box = (
         math.floor(actual_bounds[0]),
         math.floor(actual_bounds[1]),
@@ -1542,11 +2125,17 @@ def draw_panel_05_live_activity_callout(
         * (actual_bounds[2] - actual_bounds[0])
         / source_width
     )
+    actual_display_width = actual_bounds[2] - actual_bounds[0]
+    if target_width > actual_display_width * LOCK_CALLOUT_MAX_ACTUAL_WIDTH_RATIO:
+        raise ValueError(
+            "Lock-screen callout exceeds the 1.35x actual-card width cap: "
+            f"callout={target_width}, actual={actual_display_width:.2f}"
+        )
     paste_rounded_outline(
         canvas,
         actual_box,
         radius=actual_radius,
-        width=PANEL_05_SOURCE_OUTLINE_WIDTH,
+        width=LOCK_SOURCE_OUTLINE_WIDTH,
         fill=COLORS["lime"],
     )
 
@@ -1578,40 +2167,57 @@ def draw_panel_05_live_activity_callout(
             tuple(callout_connector_anchors["bottom_right"]),
         ),
     )
+    character_bounds = character_geometry["visible_alpha_bbox"]
+    if boxes_overlap(clock_bounds, character_bounds):
+        raise ValueError(
+            "Lock-screen character must not overlap the clock: "
+            f"clock={clock_bounds}, character={character_bounds}"
+        )
+    connector_top = min(point[1] for line in connector_lines for point in line)
+    if connector_top < callout_bottom:
+        raise ValueError(
+            "Lock-screen connectors must start at the callout bottom edge: "
+            f"top={connector_top}, callout_bottom={callout_bottom}"
+        )
+    if connector_top <= max(clock_bounds[3], character_bounds[3]):
+        raise ValueError(
+            "Lock-screen connectors must not cross the clock or character: "
+            f"connector_top={connector_top}, clock={clock_bounds}, "
+            f"character={character_bounds}"
+        )
     paste_antialiased_lines(
         canvas,
         connector_lines,
         fill=(
             *COLORS["lime"],
-            round(255 * PANEL_05_CONNECTOR_OPACITY),
+            round(255 * LOCK_CONNECTOR_OPACITY),
         ),
-        width=PANEL_05_CONNECTOR_WIDTH,
+        width=LOCK_CONNECTOR_WIDTH,
     )
 
     shadow_alpha = Image.new("L", CANVAS_SIZE, 0)
     shadow_alpha.paste(
         card_mask,
         (
-            callout_left + PANEL_05_CALLOUT_SHADOW_OFFSET[0],
-            callout_top + PANEL_05_CALLOUT_SHADOW_OFFSET[1],
+            callout_left + LOCK_CALLOUT_SHADOW_OFFSET[0],
+            callout_top + LOCK_CALLOUT_SHADOW_OFFSET[1],
         ),
     )
     paste_black_shadow(
         canvas,
         shadow_alpha,
-        blur=PANEL_05_CALLOUT_SHADOW_BLUR,
-        opacity=round(255 * PANEL_05_CALLOUT_SHADOW_OPACITY),
+        blur=LOCK_CALLOUT_SHADOW_BLUR,
+        opacity=round(255 * LOCK_CALLOUT_SHADOW_OPACITY),
     )
     canvas.paste(scaled_card, (callout_left, callout_top), scaled_card.getchannel("A"))
     paste_rounded_outline(
         canvas,
         callout_box,
         radius=target_radius,
-        width=PANEL_05_CALLOUT_BORDER_WIDTH,
+        width=LOCK_CALLOUT_BORDER_WIDTH,
         fill=COLORS["lime"],
     )
 
-    actual_display_width = actual_bounds[2] - actual_bounds[0]
     return {
         "source_image_size": list(source.size),
         "source_box": list(LOCK_ACTIVITY_CARD_BOX),
@@ -1626,15 +2232,20 @@ def draw_panel_05_live_activity_callout(
         "canvas_bounds": list(callout_box),
         "canvas_corners": callout_corners,
         "connector_anchors": callout_connector_anchors,
+        "vertical_clearance": {
+            "minimum": LOCK_CALLOUT_VERTICAL_CLEARANCE,
+            "below_clock": round(clock_clearance, 2),
+            "above_live_activity": round(activity_clearance, 2),
+        },
         "border": {
             "color": "#C7F94D",
-            "width": PANEL_05_CALLOUT_BORDER_WIDTH,
+            "width": LOCK_CALLOUT_BORDER_WIDTH,
         },
         "shadow": {
             "color": "#000000",
-            "opacity": PANEL_05_CALLOUT_SHADOW_OPACITY,
-            "blur": PANEL_05_CALLOUT_SHADOW_BLUR,
-            "offset": list(PANEL_05_CALLOUT_SHADOW_OFFSET),
+            "opacity": LOCK_CALLOUT_SHADOW_OPACITY,
+            "blur": LOCK_CALLOUT_SHADOW_BLUR,
+            "offset": list(LOCK_CALLOUT_SHADOW_OFFSET),
         },
         "source_outline": {
             "canvas_bounds": [round(value, 2) for value in actual_bounds],
@@ -1643,7 +2254,7 @@ def draw_panel_05_live_activity_callout(
             "corner_radius": actual_radius,
             "border": {
                 "color": "#C7F94D",
-                "width": PANEL_05_SOURCE_OUTLINE_WIDTH,
+                "width": LOCK_SOURCE_OUTLINE_WIDTH,
             },
         },
         "connector_lines": [
@@ -1651,8 +2262,8 @@ def draw_panel_05_live_activity_callout(
                 "from": list(start),
                 "to": list(end),
                 "color": "#C7F94D",
-                "width": PANEL_05_CONNECTOR_WIDTH,
-                "opacity": PANEL_05_CONNECTOR_OPACITY,
+                "width": LOCK_CONNECTOR_WIDTH,
+                "opacity": LOCK_CONNECTOR_OPACITY,
             }
             for start, end in connector_lines
         ],
@@ -1784,6 +2395,22 @@ def place_device(
     }
 
 
+def center_for_visual_top(
+    prepared: PreparedDevice,
+    *,
+    rotation_deg: float,
+    visual_top: float = PHONE_VISUAL_TOP,
+    center_x: float = CANVAS_WIDTH / 2,
+) -> tuple[float, float]:
+    """Center a rotated phone so its outer silhouette starts at visual_top."""
+    theta = math.radians(abs(rotation_deg))
+    rotated_height = (
+        prepared.outer_height * math.cos(theta)
+        + prepared.outer_width * math.sin(theta)
+    )
+    return center_x, visual_top + rotated_height / 2
+
+
 def character_source(name: str) -> Image.Image:
     path = ROOT / f"ios/DopaBreak/Assets.xcassets/Character/{name}.imageset/{name}.png"
     with Image.open(path) as source_file:
@@ -1909,24 +2536,61 @@ def place_character(
 
 
 def source_for(panel: int) -> Image.Image:
-    if panel not in range(1, 11):
+    if panel not in PANEL_IDS:
         raise ValueError(panel)
-    source_path = SOURCE_PATHS[panel - 1]
-    if source_path is None:
+    source_path = SOURCE_PATHS[PANEL_IDS.index(panel)]
+    if panel == 5:
         source = mock_lock(CANVAS_SIZE, LOCALE).convert("RGB")
+    elif panel == 10:
+        source = mock_home_grayscale(CANVAS_SIZE, LOCALE).convert("RGB")
     else:
+        if source_path is None:
+            raise ValueError(f"Panel {panel:02d} has no capture and no mock")
         if not source_path.is_file():
             raise FileNotFoundError(source_path)
         with Image.open(source_path) as raw_source:
             source = raw_source.convert("RGB")
     if source.size != CANVAS_SIZE:
         raise ValueError((panel, source.size))
+    if panel == 2:
+        source = breath_countdown_source(source)
     return source
 
 
+def breath_countdown_source(source: Image.Image) -> Image.Image:
+    """Shift the live breath stage up so the remaining-second numeral stays visible."""
+    image = Image.new("RGB", CANVAS_SIZE, COLORS["background"])
+    image.paste(
+        source.crop((0, BREATH_SOURCE_OFFSET_Y, CANVAS_WIDTH, CANVAS_HEIGHT)),
+        (0, 0),
+    )
+    return image
+
+
+def source_box_is_visible(
+    prepared: PreparedDevice,
+    *,
+    source_box: tuple[int, int, int, int],
+    center: tuple[float, float],
+    rotation_deg: float,
+) -> tuple[bool, dict[str, Any]]:
+    """Count source characters only when their source region meets the canvas."""
+    geometry = source_box_canvas_geometry(
+        prepared,
+        source_box=source_box,
+        center=center,
+        rotation_deg=rotation_deg,
+    )
+    left, top, right, bottom = geometry["canvas_bounds"]
+    visible = left < CANVAS_WIDTH and top < CANVAS_HEIGHT and right > 0 and bottom > 0
+    geometry["intersects_canvas"] = visible
+    return visible, geometry
+
+
 def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
-    if panel not in range(1, 11):
+    if panel not in PANEL_IDS:
         raise ValueError(panel)
+    content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
 
     canvas = dark_background()
 
@@ -1936,26 +2600,27 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         copy_lime_polygon = PANEL_01_LIME_POLYGON
         copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
     elif panel == 2:
-        draw_lime_polygon(canvas, ((0, 1720), (1320, 1400), (1320, 1560), (0, 1880)))
+        copy_lime_polygon = ((0, 0), (1320, 0), (1320, 1450), (0, 1170))
+        copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
     elif panel == 3:
-        draw_lime_polygon(canvas, ((0, 2100), (1320, 1520), (1320, 2868), (0, 2868)))
+        draw_lime_circle(canvas, LOCK_LIME_CIRCLE_CENTER, LOCK_LIME_CIRCLE_RADIUS)
     elif panel == 4:
-        draw_lime_polygon(canvas, ((0, 0), (1320, 0), (1320, 1450), (0, 1170)))
+        draw_lime_polygon(canvas, ((0, 2100), (1320, 1520), (1320, 2868), (0, 2868)))
     elif panel == 5:
         draw_lime_circle(canvas, (660, 1800), 680)
     elif panel == 6:
         draw_lime_polygon(canvas, ((0, 1520), (1320, 2100), (1320, 2868), (0, 2868)))
-    elif panel == 7:
-        draw_lime_polygon(canvas, ((0, 2320), (1320, 2240), (1320, 2868), (0, 2868)))
     elif panel == 8:
-        copy_lime_polygon = PANEL_08_LIME_POLYGON
+        copy_lime_polygon = ((0, 0), (1320, 0), (1320, 1450), (0, 1170))
         copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
     elif panel == 9:
-        draw_lime_polygon(canvas, ((0, 1400), (1320, 1720), (1320, 1880), (0, 1560)))
+        draw_lime_polygon(canvas, REFLECTION_LIME_RIBBON)
     elif panel == 10:
         draw_lime_polygon(canvas, ((0, 1450), (1320, 1170), (1320, 2868), (0, 2868)))
 
-    copy_geometry = draw_copy_block(canvas, COPY_SPECS[panel - 1])
+    content_index = PANEL_IDS.index(content_panel)
+    copy_spec = replace(COPY_SPECS[content_index], surface=LAYOUT_SURFACES[panel])
+    copy_geometry = draw_copy_block(canvas, copy_spec)
     if copy_lime_mask is not None:
         if copy_lime_polygon is None:
             raise RuntimeError(f"Panel {panel:02d} lime polygon was not recorded")
@@ -1965,29 +2630,24 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
             panel=panel,
             polygon=copy_lime_polygon,
         )
-    source = source_for(panel)
-    screen_character_count = SCREEN_CHARACTER_COUNTS[panel - 1]
+    source = source_for(content_panel)
+    source_screen_character_count = SCREEN_CHARACTER_COUNTS[content_index]
+    visible_screen_character_count = VISIBLE_SCREEN_CHARACTER_COUNTS[content_index]
 
     if panel == 1:
-        device = prepare_device(source, 1060)
+        device = prepare_device(source, MAX_STRAIGHT_PHONE_WIDTH)
         device_geometry = place_device(
             canvas,
             device,
-            center=(660, 1050 + device.outer_height / 2),
+            center=center_for_visual_top(device, rotation_deg=0),
             rotation_deg=0,
         )
-        character_geometry = place_character(
-            canvas,
-            name="doom",
-            width=440,
-            rotation_deg=-6,
-            center_x=1030,
-            bottom_y=1330,
-        )
+        # breath.png contains the breathing mascot; no external character is added.
+        character_geometry = None
     elif panel == 2:
-        device = prepare_device(source, 1000)
-        device_center = (660, 2100)
-        device_rotation = -7
+        device = prepare_device(source, MAX_STRAIGHT_PHONE_WIDTH)
+        device_rotation = 0
+        device_center = center_for_visual_top(device, rotation_deg=device_rotation)
         device_geometry = place_device(
             canvas,
             device,
@@ -1996,41 +2656,13 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         )
         character_geometry = None
     elif panel == 3:
-        device = prepare_device(source, 980)
-        device_geometry = {}
-
-        def place_panel_3_device() -> None:
-            device_geometry.update(
-                place_device(
-                    canvas,
-                    device,
-                    center=(560, 2050),
-                    rotation_deg=8,
-                )
-            )
-
-        character_geometry = place_character(
-            canvas,
-            name="awake",
-            width=400,
-            center_x=1080,
-            bottom_y=2350,
-            has_ground_shadow=True,
-            after_ground_shadow=place_panel_3_device,
-        )
-    elif panel == 4:
-        device = prepare_device(source, 1060)
-        device_geometry = place_device(
-            canvas,
-            device,
-            center=(660, 1000 + device.outer_height / 2),
-            rotation_deg=0,
-        )
-        character_geometry = None
-    elif panel == 5:
-        device = prepare_device(source, 1000)
-        device_center = (660, 830 + device.outer_height / 2)
+        device = prepare_device(source, LOCK_PHONE_WIDTH)
         device_rotation = 0
+        device_center = center_for_visual_top(
+            device,
+            rotation_deg=device_rotation,
+            visual_top=LOCK_PHONE_VISUAL_TOP,
+        )
         device_geometry = place_device(
             canvas,
             device,
@@ -2043,6 +2675,29 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
             center=device_center,
             rotation_deg=device_rotation,
         )
+        wider_device = prepare_device(source, LOCK_PHONE_WIDTH + 1)
+        wider_center = center_for_visual_top(
+            wider_device,
+            rotation_deg=device_rotation,
+            visual_top=LOCK_PHONE_VISUAL_TOP,
+        )
+        wider_activity = source_box_canvas_geometry(
+            wider_device,
+            source_box=LOCK_ACTIVITY_CARD_BOX,
+            center=wider_center,
+            rotation_deg=device_rotation,
+        )
+        if wider_activity["canvas_bounds"][3] <= LOCK_ACTIVITY_CANVAS_BOTTOM_LIMIT:
+            raise ValueError(
+                "LOCK_PHONE_WIDTH must be the maximum integer width satisfying "
+                f"the Live Activity y={LOCK_ACTIVITY_CANVAS_BOTTOM_LIMIT} limit"
+            )
+        device_geometry["clock"] = source_box_canvas_geometry(
+            device,
+            source_box=lock_clock_source_box(),
+            center=device_center,
+            rotation_deg=device_rotation,
+        )
         device_geometry["live_activity_localization"] = {
             "date": LOCK_DATES[LOCALE],
             **live_activity_copy(LOCALE),
@@ -2051,88 +2706,114 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         character_geometry = place_character(
             canvas,
             name="awake",
-            width=300,
+            width=LOCK_CHARACTER_WIDTH,
             rotation_deg=-12,
             flip_horizontal=True,
-            center_x=230,
-            bottom_y=1050,
+            center_x=LOCK_CHARACTER_CENTER_X,
+            bottom_y=LOCK_CHARACTER_BOTTOM_Y,
         )
-    elif panel == 6:
-        device = prepare_device(source, 980)
+    elif panel == 4:
+        # Keep nightmode.png pixel-for-pixel aligned to the device screen while
+        # using the former intent wedge composition. The lower character stays
+        # clear of the wake/bed timeline so both 7:00 and 23:00 remain readable.
+        device = prepare_device(source, NIGHT_PHONE_WIDTH)
+        device_center = center_for_visual_top(
+            device,
+            rotation_deg=NIGHT_PHONE_ROTATION,
+            visual_top=NIGHT_PHONE_VISUAL_TOP,
+        )
         device_geometry = place_device(
             canvas,
             device,
-            center=(760, 2050),
-            rotation_deg=-8,
+            center=device_center,
+            rotation_deg=NIGHT_PHONE_ROTATION,
         )
-        character_geometry = None
-    elif panel == 7:
-        device = prepare_device(source, 780)
-        device_ground_shadow_geometry = ground_shadow(
+        character_geometry = place_character(
             canvas,
-            center_x=660,
-            contact_y=2620,
-            width=round(device.outer_width * PHONE_GROUND_SHADOW_WIDTH_RATIO),
-            height=PHONE_GROUND_SHADOW_HEIGHT,
-            opacity=PHONE_GROUND_SHADOW_OPACITY,
-            blur=PHONE_GROUND_SHADOW_BLUR,
+            name="awake",
+            width=NIGHT_CHARACTER_WIDTH,
+            center_x=NIGHT_CHARACTER_CENTER_X,
+            bottom_y=NIGHT_CHARACTER_BOTTOM_Y,
+            has_ground_shadow=True,
         )
+    elif panel == 5:
+        device = prepare_device(source, STATS_PHONE_WIDTH)
+        device_center = center_for_visual_top(
+            device,
+            rotation_deg=0,
+            visual_top=STATS_PHONE_VISUAL_TOP,
+        )
+        device_rotation = 0
         device_geometry = {}
 
-        def place_panel_7_device() -> None:
+        def place_panel_5_device() -> None:
             device_geometry.update(
                 place_device(
                     canvas,
                     device,
-                    center=(660, 2620 - device.outer_height / 2),
-                    rotation_deg=0,
+                    center=device_center,
+                    rotation_deg=device_rotation,
                 )
             )
-            device_geometry["ground_shadow"] = device_ground_shadow_geometry
 
         character_geometry = place_character(
             canvas,
-            name="relief",
-            width=340,
-            center_x=1140,
-            bottom_y=2620,
+            name="doom",
+            width=STATS_DOOM_WIDTH,
+            center_x=STATS_DOOM_CENTER_X,
+            bottom_y=STATS_DOOM_BOTTOM_Y,
             has_ground_shadow=True,
-            after_ground_shadow=place_panel_7_device,
+            after_ground_shadow=place_panel_5_device,
         )
-    elif panel == 8:
-        device = prepare_device(source, 1060)
+    elif panel == 6:
+        device = prepare_device(source, MAX_EIGHT_DEGREE_PHONE_WIDTH)
+        device_rotation = -8
         device_geometry = place_device(
             canvas,
             device,
-            center=(660, 1050 + device.outer_height / 2),
-            rotation_deg=0,
+            center=center_for_visual_top(device, rotation_deg=device_rotation),
+            rotation_deg=device_rotation,
+        )
+        character_geometry = None
+    elif panel == 8:
+        device = prepare_device(source, INTENT_PHONE_WIDTH)
+        device_rotation = 0
+        device_center = center_for_visual_top(
+            device,
+            rotation_deg=device_rotation,
+            visual_top=INTENT_PHONE_VISUAL_TOP,
+        )
+        device_geometry = place_device(
+            canvas,
+            device,
+            center=device_center,
+            rotation_deg=device_rotation,
         )
         character_geometry = place_character(
             canvas,
-            name="blink",
-            width=440,
-            rotation_deg=6,
-            center_x=290,
-            bottom_y=1330,
+            name="awake",
+            width=INTENT_CHARACTER_WIDTH,
+            center_x=INTENT_CHARACTER_CENTER_X,
+            bottom_y=INTENT_CHARACTER_BOTTOM_Y,
+            has_ground_shadow=True,
         )
     elif panel == 9:
-        device = prepare_device(source, 1000)
+        device = prepare_device(source, REFLECTION_PHONE_WIDTH)
+        device_rotation = 0
         device_geometry = place_device(
             canvas,
             device,
-            center=(660, 2100),
-            rotation_deg=7,
+            center=center_for_visual_top(
+                device,
+                rotation_deg=device_rotation,
+                visual_top=REFLECTION_PHONE_VISUAL_TOP,
+            ),
+            rotation_deg=device_rotation,
         )
-        character_geometry = place_character(
-            canvas,
-            name="relief",
-            width=400,
-            rotation_deg=7,
-            center_x=1050,
-            bottom_y=1300,
-        )
+        # reflection.png already contains its one mascot.
+        character_geometry = None
     else:
-        device = prepare_device(source, 1060)
+        device = prepare_device(source, MAX_STRAIGHT_PHONE_WIDTH)
         device_geometry = {}
 
         def place_panel_10_device() -> None:
@@ -2140,7 +2821,7 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
                 place_device(
                     canvas,
                     device,
-                    center=(660, 1000 + device.outer_height / 2),
+                    center=center_for_visual_top(device, rotation_deg=0),
                     rotation_deg=0,
                 )
             )
@@ -2155,11 +2836,13 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
             after_ground_shadow=place_panel_10_device,
         )
 
-    if panel == 5:
-        callout_geometry = draw_panel_05_live_activity_callout(
+    if content_panel == 5:
+        callout_geometry = draw_lock_live_activity_callout(
             canvas,
             source,
             device_geometry["live_activity_card"],
+            device_geometry["clock"],
+            character_geometry,
         )
         callout_box = callout_geometry["canvas_bounds"]
         copy_boxes = [
@@ -2169,14 +2852,14 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         ]
         if any(boxes_overlap(callout_box, box) for box in copy_boxes):
             raise ValueError(
-                f"Panel 05 callout must not overlap the copy block: {callout_box}"
+                f"Lock-screen callout must not overlap the copy block: {callout_box}"
             )
         if character_geometry is not None and boxes_overlap(
             callout_box,
             character_geometry["visible_alpha_bbox"],
         ):
             raise ValueError(
-                "Panel 05 callout must not overlap the character: "
+                "Lock-screen callout must not overlap the character: "
                 f"{callout_box} vs {character_geometry['visible_alpha_bbox']}"
             )
         callout_geometry["overlap_checks"] = {
@@ -2185,8 +2868,68 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         }
         device_geometry["callout"] = callout_geometry
 
+    screen_corner_xs = [
+        point[0] for point in device_geometry["screen_corners"].values()
+    ]
+    if min(screen_corner_xs) < 0 or max(screen_corner_xs) > CANVAS_WIDTH:
+        raise ValueError(
+            f"Panel {panel:02d} screen x coordinates must stay inside the canvas: "
+            f"{screen_corner_xs}"
+        )
+
+    if content_panel == 3:
+        card_tops = STATS_CARD_TOPS[LOCALE]
+        percentage_marker = source_box_canvas_geometry(
+            device,
+            source_box=(0, card_tops["percentage"], CANVAS_WIDTH, card_tops["percentage"] + 1),
+            center=device_center,
+            rotation_deg=device_rotation,
+        )
+        app_marker = source_box_canvas_geometry(
+            device,
+            source_box=(0, card_tops["app"], CANVAS_WIDTH, card_tops["app"] + 1),
+            center=device_center,
+            rotation_deg=device_rotation,
+        )
+        mood_visible, mood_geometry = source_box_is_visible(
+            device,
+            source_box=(0, card_tops["mood"], CANVAS_WIDTH, CANVAS_HEIGHT),
+            center=device_center,
+            rotation_deg=device_rotation,
+        )
+        visible_screen_character_count = 5 if mood_visible else 0
+        device_geometry["stats_source_crop"] = {
+            "raw_card_top_y": card_tops,
+            "percentage_card_canvas_top_y": percentage_marker["canvas_bounds"][1],
+            "app_card_canvas_top_y": app_marker["canvas_bounds"][1],
+            "mood_card": mood_geometry,
+            "percentage_card_included": True,
+            "app_card_included": True,
+            "mood_card_included": mood_visible,
+        }
+        if mood_geometry["canvas_bounds"][1] < 2880:
+            raise ValueError(
+                "Stats mood-card top must stay below the App Store canvas: "
+                f"{mood_geometry['canvas_bounds'][1]}"
+            )
+        if source_screen_character_count != 5 or visible_screen_character_count != 0:
+            raise ValueError(
+                "Stats character accounting must derive raw=5 and visible=0 "
+                "from the mood-card canvas intersection"
+            )
+
+    if visible_screen_character_count is None:
+        raise ValueError(
+            f"Panel {panel:02d} visible screen character count was not resolved"
+        )
+    if visible_screen_character_count > source_screen_character_count:
+        raise ValueError(
+            f"Panel {panel:02d} visible screen character count exceeds raw count: "
+            f"{visible_screen_character_count}>{source_screen_character_count}"
+        )
+
     external_character_count = 0 if character_geometry is None else 1
-    total_character_count = screen_character_count + external_character_count
+    total_character_count = visible_screen_character_count + external_character_count
     if total_character_count > 1:
         raise ValueError((panel, total_character_count))
     if canvas.size != CANVAS_SIZE:
@@ -2205,28 +2948,556 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
                 f"Panel {panel:02d} external character must be fully visible: "
                 f"{character_geometry['visible_alpha_bbox']}"
             )
-    if panel == 5:
-        if not device_geometry["live_activity_card"]["fully_visible"]:
-            raise ValueError(
-                "Panel 05 Live Activity card must be fully visible: "
-                f"{device_geometry['live_activity_card']['canvas_bounds']}"
-            )
     return canvas, {
         "copy_geometry": copy_geometry,
         "slot": device_geometry,
         "character": character_geometry,
         "character_count": {
-            "screen": screen_character_count,
+            "source_screen": source_screen_character_count,
+            "screen": visible_screen_character_count,
             "external": external_character_count,
             "total": total_character_count,
         },
     }
 
 
+def configure_device_context(device: str, locale: str) -> None:
+    """Select output geometry without changing any locale content source."""
+    global CANVAS_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, DEVICE
+    global SCREENSHOT_ROOT, CONTACT_SHEET_PATH, SLOTS_PATH
+
+    if device not in SUPPORTED_DEVICES:
+        raise ValueError(f"Unsupported device: {device}")
+    DEVICE = device
+    if device == "iphone-69":
+        CANVAS_SIZE = IPHONE_CANVAS_SIZE
+        CONTACT_SHEET_PATH = OUTPUT_ROOT / f"contact-sheet-{locale}.png"
+        SLOTS_PATH = OUTPUT_ROOT / f"slots-{locale}.json"
+    else:
+        CANVAS_SIZE = IPAD_CANVAS_SIZE
+        CONTACT_SHEET_PATH = OUTPUT_ROOT / f"contact-sheet-ipad-{locale}.png"
+        SLOTS_PATH = OUTPUT_ROOT / f"slots-ipad-{locale}.json"
+    CANVAS_WIDTH, CANVAS_HEIGHT = CANVAS_SIZE
+    SCREENSHOT_ROOT = OUTPUT_ROOT / locale / device
+
+
+def draw_ipad_copy_block(canvas: Image.Image, spec: CopySpec) -> dict[str, Any]:
+    """Draw centered iPad copy at native font widths, capped at 1.25x iPhone."""
+    if spec.surface == "lime":
+        pill_fill = COLORS["ink"]
+        pill_text = COLORS["lime"]
+        headline_fill = COLORS["ink"]
+        sub_fill = COLORS["lime_sub"]
+    else:
+        pill_fill = COLORS["dark_pill"]
+        pill_text = COLORS["lime"]
+        headline_fill = COLORS["off_white"]
+        sub_fill = COLORS["muted"]
+
+    eyebrow_size = 50
+    eyebrow_image = tight_text_image(spec.eyebrow, eyebrow_size, pill_text, bold=True)
+    eyebrow_natural_width = eyebrow_image.width
+    while eyebrow_image.width > IPAD_COPY_MAX_WIDTH - 84 and eyebrow_size > 1:
+        eyebrow_size -= 1
+        eyebrow_image = tight_text_image(spec.eyebrow, eyebrow_size, pill_text, bold=True)
+    eyebrow_x = round((CANVAS_WIDTH - eyebrow_image.width) / 2)
+    eyebrow_y = IPAD_COPY_EYEBROW_Y + 20
+    eyebrow_box = (
+        eyebrow_x,
+        eyebrow_y,
+        eyebrow_x + eyebrow_image.width,
+        eyebrow_y + eyebrow_image.height,
+    )
+    eyebrow_metric = {
+        "text": spec.eyebrow,
+        "requested_font_size": 50,
+        "rendered_font_size": eyebrow_size,
+        "natural_width": eyebrow_natural_width,
+        "rendered_width": eyebrow_image.width,
+        "max_width": IPAD_COPY_MAX_WIDTH - 84,
+        "horizontal_scale_ratio": 1.0,
+        "uniform_font_scale_ratio": round(eyebrow_size / 50, 6),
+    }
+    pill_box = (
+        eyebrow_box[0] - 42,
+        IPAD_COPY_EYEBROW_Y,
+        eyebrow_box[2] + 42,
+        eyebrow_box[3] + 20,
+    )
+    paste_solid_rounded_rect(
+        canvas,
+        pill_box,
+        (pill_box[3] - pill_box[1]) // 2,
+        pill_fill,
+    )
+    canvas.paste(
+        eyebrow_image,
+        (eyebrow_box[0], eyebrow_box[1]),
+        eyebrow_image.getchannel("A"),
+    )
+
+    headline_boxes: list[tuple[int, int, int, int]] = []
+    headline_metrics: list[dict[str, Any]] = []
+    for line_index, line in enumerate(spec.headline):
+        line_box, line_metric = paste_centered_text(
+            canvas,
+            line,
+            IPAD_COPY_HEADLINE_Y + line_index * (140 + 28),
+            140,
+            headline_fill,
+            bold=True,
+            max_width=IPAD_COPY_MAX_WIDTH,
+        )
+        headline_boxes.append(line_box)
+        headline_metrics.append(line_metric)
+    sub_box, sub_metric = paste_centered_text(
+        canvas,
+        spec.sub,
+        IPAD_COPY_SUB_Y,
+        55,
+        sub_fill,
+        bold=False,
+        max_width=IPAD_COPY_MAX_WIDTH,
+    )
+    geometry = {
+        "pill_box": list(pill_box),
+        "eyebrow_metric": eyebrow_metric,
+        "headline_boxes": [list(box) for box in headline_boxes],
+        "headline_metrics": headline_metrics,
+        "sub_box": list(sub_box),
+        "sub_metric": sub_metric,
+        "max_width": IPAD_COPY_MAX_WIDTH,
+    }
+    boxes = [pill_box, *headline_boxes, sub_box]
+    if any(box[0] < 0 or box[2] > CANVAS_WIDTH for box in boxes):
+        raise ValueError(f"iPad copy exceeds canvas: {boxes}")
+    metrics = [eyebrow_metric, *headline_metrics, sub_metric]
+    if any(metric["horizontal_scale_ratio"] != 1.0 for metric in metrics):
+        raise ValueError("iPad copy must never be resized horizontally")
+    return geometry
+
+
+def source_box_canvas_geometry_ipad(
+    prepared: PreparedDevice,
+    *,
+    source_box: tuple[int, int, int, int],
+    center: tuple[float, float],
+    rotation_deg: float,
+) -> dict[str, Any]:
+    """Map a 1320x2868 raw/mock source box into the iPad marketing canvas."""
+    left, top, right, bottom = source_box
+    source_width, source_height = IPHONE_CANVAS_SIZE
+    scale_x = prepared.screen_width / source_width
+    scale_y = prepared.screen_height / source_height
+    local_corners = (
+        (prepared.bezel + left * scale_x, prepared.bezel + top * scale_y),
+        (prepared.bezel + right * scale_x, prepared.bezel + top * scale_y),
+        (prepared.bezel + right * scale_x, prepared.bezel + bottom * scale_y),
+        (prepared.bezel + left * scale_x, prepared.bezel + bottom * scale_y),
+    )
+    canvas_corners = [
+        transform_point(point, prepared.image.size, center, rotation_deg)
+        for point in local_corners
+    ]
+    xs = [point[0] for point in canvas_corners]
+    ys = [point[1] for point in canvas_corners]
+    bounds = [min(xs), min(ys), max(xs), max(ys)]
+    return {
+        "source_box": list(source_box),
+        "canvas_corners": {
+            "top_left": rounded_point(canvas_corners[0]),
+            "top_right": rounded_point(canvas_corners[1]),
+            "bottom_right": rounded_point(canvas_corners[2]),
+            "bottom_left": rounded_point(canvas_corners[3]),
+        },
+        "canvas_bounds": [round(value, 2) for value in bounds],
+        "fully_visible": (
+            bounds[0] >= 0
+            and bounds[1] >= 0
+            and bounds[2] <= CANVAS_WIDTH
+            and bounds[3] <= CANVAS_HEIGHT
+        ),
+    }
+
+
+def draw_ipad_lock_callout(
+    canvas: Image.Image,
+    source: Image.Image,
+    live_activity_geometry: dict[str, Any],
+    character_geometry: dict[str, Any],
+) -> dict[str, Any]:
+    """Reflow the iPhone Live Activity callout for the 0.75 iPad canvas."""
+    source_crop = source.crop(LOCK_ACTIVITY_CARD_BOX)
+    source_width, source_height = source_crop.size
+    target_width = IPAD_LOCK_CALLOUT_WIDTH
+    target_height = round(source_height * target_width / source_width)
+    target_size = (target_width, target_height)
+    card = source_crop.resize(target_size, Image.Resampling.LANCZOS).convert("RGBA")
+    target_radius = round(LOCK_ACTIVITY_CARD_RADIUS * target_width / source_width)
+    card_mask = rounded_mask(target_size, (0, 0, *target_size), target_radius)
+    card.putalpha(card_mask)
+    left = round((CANVAS_WIDTH - target_width) / 2)
+    top = IPAD_LOCK_CALLOUT_TOP
+    box = (left, top, left + target_width, top + target_height)
+    actual_bounds = live_activity_geometry["canvas_bounds"]
+    if box[3] + 80 > actual_bounds[1]:
+        raise ValueError(f"iPad lock callout has insufficient connector gap: {box}")
+    if boxes_overlap(box, character_geometry["visible_alpha_bbox"]):
+        raise ValueError("iPad lock callout overlaps the character")
+
+    actual_box = tuple(
+        round(value)
+        for value in actual_bounds
+    )
+    actual_radius = round(
+        LOCK_ACTIVITY_CARD_RADIUS
+        * (actual_bounds[2] - actual_bounds[0])
+        / source_width
+    )
+    paste_rounded_outline(
+        canvas,
+        actual_box,
+        radius=actual_radius,
+        width=3,
+        fill=COLORS["lime"],
+    )
+    connector_lines = (
+        (
+            (actual_box[0] + actual_radius, actual_box[1]),
+            (box[0] + target_radius, box[3]),
+        ),
+        (
+            (actual_box[2] - actual_radius, actual_box[1]),
+            (box[2] - target_radius, box[3]),
+        ),
+    )
+    paste_antialiased_lines(
+        canvas,
+        connector_lines,
+        fill=(*COLORS["lime"], round(255 * 0.60)),
+        width=3,
+    )
+    shadow_alpha = Image.new("L", CANVAS_SIZE, 0)
+    shadow_alpha.paste(card_mask, (left, top + 24))
+    paste_black_shadow(canvas, shadow_alpha, blur=50, opacity=round(255 * 0.45))
+    canvas.paste(card, (left, top), card.getchannel("A"))
+    paste_rounded_outline(
+        canvas,
+        box,
+        radius=target_radius,
+        width=4,
+        fill=COLORS["lime"],
+    )
+    return {
+        "source_image_size": list(source.size),
+        "source_box": list(LOCK_ACTIVITY_CARD_BOX),
+        "source_crop_size": [source_width, source_height],
+        "resampling": "LANCZOS",
+        "width": target_width,
+        "height": target_height,
+        "scale_from_source": round(target_width / source_width, 6),
+        "canvas_bounds": list(box),
+        "corner_radius": target_radius,
+        "connector_lines": [
+            {"from": list(start), "to": list(end)}
+            for start, end in connector_lines
+        ],
+        "layer_order": [
+            "phone",
+            "character",
+            "source_outline_and_connector_lines",
+            "callout_shadow",
+            "callout_card_and_border",
+        ],
+    }
+
+
+def render_ipad_panel(
+    panel: int,
+    sources: dict[int, Image.Image],
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Render one iPad 13-inch asset using an iPhone phone mock as the hero."""
+    content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
+    canvas = dark_background()
+    copy_lime_mask: Image.Image | None = None
+    copy_lime_polygon: Sequence[tuple[int, int]] | None = None
+    if panel == 1:
+        copy_lime_polygon = ((0, 170), (2064, 65), (2064, 1040), (0, 1340))
+        copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
+    elif panel in (2, 8):
+        copy_lime_polygon = ((0, 0), (2064, 0), (2064, 1380), (0, 1120))
+        copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
+    elif panel == 3:
+        draw_lime_circle(canvas, (1032, 1810), 770)
+    elif panel == 4:
+        draw_lime_polygon(canvas, ((0, 1980), (2064, 1450), (2064, 2752), (0, 2752)))
+    elif panel == 6:
+        draw_lime_polygon(canvas, ((0, 1450), (2064, 1980), (2064, 2752), (0, 2752)))
+    elif panel == 9:
+        draw_lime_polygon(canvas, ((0, 735), (2064, 780), (2064, 885), (0, 840)))
+    elif panel == 10:
+        draw_lime_polygon(canvas, ((0, 1400), (2064, 1120), (2064, 2752), (0, 2752)))
+
+    content_index = PANEL_IDS.index(content_panel)
+    copy_spec = replace(COPY_SPECS[content_index], surface=LAYOUT_SURFACES[panel])
+    copy_geometry = draw_ipad_copy_block(canvas, copy_spec)
+    if copy_lime_mask is not None:
+        if copy_lime_polygon is None:
+            raise RuntimeError(f"Panel {panel:02d} iPad lime polygon missing")
+        copy_geometry["lime_surface_validation"] = validate_copy_inside_lime_pixels(
+            copy_lime_mask,
+            copy_geometry,
+            panel=panel,
+            polygon=copy_lime_polygon,
+        )
+
+    source = sources[content_panel]
+    straight = IPAD_STRAIGHT_PHONE_WIDTH
+    rotated = IPAD_ROTATED_PHONE_WIDTH
+    phone_width = rotated if panel in (4, 6) else straight
+    rotation = 8 if panel == 4 else (-8 if panel == 6 else 0)
+    visual_top = IPAD_LOCK_PHONE_VISUAL_TOP if panel == 3 else IPAD_PHONE_VISUAL_TOP
+    if panel == 3:
+        phone_width = IPAD_LOCK_PHONE_WIDTH
+    device = prepare_device(
+        source,
+        phone_width,
+        expected_source_size=IPHONE_CANVAS_SIZE,
+    )
+    device_center = center_for_visual_top(
+        device,
+        rotation_deg=rotation,
+        visual_top=visual_top,
+        center_x=CANVAS_WIDTH / 2,
+    )
+    device_geometry = place_device(
+        canvas,
+        device,
+        center=device_center,
+        rotation_deg=rotation,
+    )
+    character_geometry: dict[str, Any] | None = None
+    if panel == 3:
+        character_geometry = place_character(
+            canvas,
+            name="awake",
+            width=330,
+            rotation_deg=-12,
+            flip_horizontal=True,
+            center_x=350,
+            bottom_y=1120,
+        )
+        activity_geometry = source_box_canvas_geometry_ipad(
+            device,
+            source_box=LOCK_ACTIVITY_CARD_BOX,
+            center=device_center,
+            rotation_deg=rotation,
+        )
+        device_geometry["live_activity_card"] = activity_geometry
+        device_geometry["live_activity_localization"] = {
+            "date": LOCK_DATES[LOCALE],
+            **live_activity_copy(LOCALE),
+            "goals": list(LOCK_GOALS[LOCALE]),
+        }
+        device_geometry["callout"] = draw_ipad_lock_callout(
+            canvas,
+            source,
+            activity_geometry,
+            character_geometry,
+        )
+    elif panel == 4:
+        character_geometry = place_character(
+            canvas,
+            name="awake",
+            width=250,
+            center_x=1770,
+            bottom_y=1880,
+            has_ground_shadow=True,
+        )
+    elif panel == 6:
+        character_geometry = place_character(
+            canvas,
+            name="relief",
+            width=280,
+            center_x=190,
+            bottom_y=2180,
+            has_ground_shadow=True,
+        )
+    elif panel == 8:
+        character_geometry = place_character(
+            canvas,
+            name="awake",
+            width=360,
+            center_x=1740,
+            bottom_y=1450,
+            has_ground_shadow=True,
+        )
+    elif panel == 10:
+        character_geometry = place_character(
+            canvas,
+            name="worse",
+            width=400,
+            center_x=350,
+            bottom_y=2400,
+            has_ground_shadow=True,
+        )
+
+    visible_screen_count = VISIBLE_SCREEN_CHARACTER_COUNTS[content_index]
+    if visible_screen_count is None:
+        raise ValueError("Stats is intentionally excluded from the iPad upload set")
+    external_count = int(character_geometry is not None)
+    total_count = visible_screen_count + external_count
+    if total_count != 1:
+        raise ValueError(f"Panel {panel:02d} must contain exactly one mascot: {total_count}")
+
+    screen_xs = [point[0] for point in device_geometry["screen_corners"].values()]
+    outer_xs = [point[0] for point in device_geometry["outer_corners"].values()]
+    if min(screen_xs) < 0 or max(screen_xs) > CANVAS_WIDTH:
+        raise ValueError(f"Panel {panel:02d} iPad screen exceeds horizontal canvas")
+    if min(outer_xs) < 0 or max(outer_xs) > CANVAS_WIDTH:
+        raise ValueError(f"Panel {panel:02d} iPad chassis is clipped horizontally")
+    width_ratio = phone_width / CANVAS_WIDTH
+    if not 0.58 <= width_ratio <= 0.62:
+        raise ValueError(f"Panel {panel:02d} phone width ratio out of range: {width_ratio}")
+    if character_geometry is not None:
+        char_box = character_geometry["visible_alpha_bbox"]
+        if char_box[0] < 0 or char_box[1] < 0 or char_box[2] > CANVAS_WIDTH or char_box[3] > CANVAS_HEIGHT:
+            raise ValueError(f"Panel {panel:02d} iPad character is clipped: {char_box}")
+        copy_boxes = [
+            copy_geometry["pill_box"],
+            *copy_geometry["headline_boxes"],
+            copy_geometry["sub_box"],
+        ]
+        if any(boxes_overlap(char_box, copy_box) for copy_box in copy_boxes):
+            raise ValueError(f"Panel {panel:02d} character overlaps marketing copy")
+    if canvas.mode != "RGB" or canvas.size != IPAD_CANVAS_SIZE:
+        raise ValueError((canvas.mode, canvas.size))
+    return canvas, {
+        "copy_geometry": copy_geometry,
+        "slot": device_geometry,
+        "character": character_geometry,
+        "character_count": {
+            "source_screen": SCREEN_CHARACTER_COUNTS[content_index],
+            "screen": visible_screen_count,
+            "external": external_count,
+            "total": total_count,
+        },
+        "phone_width_ratio": round(width_ratio, 6),
+        "horizontal_screen_containment": True,
+        "horizontal_chassis_containment": True,
+    }
+
+
+def write_ipad_slots(panel_records: Sequence[dict[str, Any]]) -> None:
+    payload = {
+        "version": 2,
+        "canvas": {"width": 2064, "height": 2752},
+        "screen_aspect": "1320:2868",
+        "locale": LOCALE,
+        "device": "ipad-13",
+        "app_store_device_type": "IPAD_PRO_3GEN_129",
+        "fonts": font_manifest(LOCALE),
+        "screenshots": panel_records,
+    }
+    SLOTS_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    loaded = json.loads(SLOTS_PATH.read_text(encoding="utf-8"))
+    if loaded["canvas"] != {"width": 2064, "height": 2752}:
+        raise ValueError(loaded["canvas"])
+    if len(loaded["screenshots"]) != 8:
+        raise ValueError("iPad slots must contain exactly eight screenshots")
+
+
+def sync_ipad_upload_order(files_by_panel: dict[int, Path]) -> None:
+    upload_root = OUTPUT_ROOT / "upload-order" / LOCALE / "ipad-13"
+    upload_root.mkdir(parents=True, exist_ok=True)
+    expected_names = {
+        f"{position:02d}-{slug}.png"
+        for position, (_, slug) in enumerate(UPLOAD_ORDER, start=1)
+    }
+    for stale_path in upload_root.glob("*.png"):
+        if stale_path.name not in expected_names:
+            stale_path.unlink()
+    for position, (panel, slug) in enumerate(UPLOAD_ORDER, start=1):
+        source_path = files_by_panel[panel]
+        target_path = upload_root / f"{position:02d}-{slug}.png"
+        shutil.copyfile(source_path, target_path)
+        validate_png(target_path, IPAD_CANVAS_SIZE)
+        if source_path.read_bytes() != target_path.read_bytes():
+            raise ValueError(f"iPad upload copy differs from source: {target_path}")
+    if len(tuple(upload_root.glob("*.png"))) != 8:
+        raise ValueError(f"iPad upload-order must contain exactly eight PNGs: {upload_root}")
+
+
+def generate_ipad_locale(locale: str) -> None:
+    """Generate the eight iPad assets without writing any iPhone artifact."""
+    configure_device_context("iphone-69", locale)
+    configure_locale(locale)
+    sources = {
+        content_panel: source_for(content_panel)
+        for content_panel in dict.fromkeys(
+            CONTENT_PANEL_BY_LAYOUT[panel] for panel, _ in UPLOAD_ORDER
+        )
+    }
+    configure_device_context("ipad-13", locale)
+    SCREENSHOT_ROOT.mkdir(parents=True, exist_ok=True)
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    expected_names = {
+        f"{panel:02d}-{slug}.png" for panel, slug in UPLOAD_ORDER
+    }
+    for stale_path in SCREENSHOT_ROOT.glob("*.png"):
+        if stale_path.name not in expected_names:
+            stale_path.unlink()
+
+    generated: dict[int, tuple[Path, dict[str, Any]]] = {}
+    for panel, slug in UPLOAD_ORDER:
+        output_path = SCREENSHOT_ROOT / f"{panel:02d}-{slug}.png"
+        image, geometry = render_ipad_panel(panel, sources)
+        image.save(output_path, format="PNG", compress_level=7)
+        validate_png(output_path, IPAD_CANVAS_SIZE)
+        generated[panel] = (output_path, geometry)
+
+    files = [generated[panel][0] for panel, _ in UPLOAD_ORDER]
+    records = []
+    for position, (panel, slug) in enumerate(UPLOAD_ORDER, start=1):
+        content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
+        output_path, geometry = generated[panel]
+        records.append(
+            {
+                "id": f"{panel:02d}",
+                "slug": slug,
+                "file": str(output_path.relative_to(OUTPUT_ROOT)),
+                "source": SOURCE_LABELS[PANEL_IDS.index(content_panel)],
+                "content_panel": content_panel,
+                "upload_position": position,
+                "slots": [geometry["slot"]],
+                "character": geometry["character"],
+                "character_count": geometry["character_count"],
+                "copy_geometry": geometry["copy_geometry"],
+                "phone_width_ratio": geometry["phone_width_ratio"],
+                "horizontal_screen_containment": geometry["horizontal_screen_containment"],
+                "horizontal_chassis_containment": geometry["horizontal_chassis_containment"],
+            }
+        )
+    contact_sheet = make_contact_sheet(files)
+    expected_contact_size = (400 * len(files), round(400 * 2752 / 2064))
+    contact_sheet.save(CONTACT_SHEET_PATH, format="PNG", compress_level=7)
+    validate_png(CONTACT_SHEET_PATH, expected_contact_size)
+    write_ipad_slots(records)
+    sync_ipad_upload_order({panel: generated[panel][0] for panel, _ in UPLOAD_ORDER})
+    print(f"Generated 8 iPad screenshots in {SCREENSHOT_ROOT}")
+    print(f"Contact sheet: {CONTACT_SHEET_PATH} ({expected_contact_size[0]}x{expected_contact_size[1]} RGB)")
+    print(f"Slots: {SLOTS_PATH} (8 entries)")
+    configure_device_context("iphone-69", locale)
+
+
 def make_contact_sheet(files: Sequence[Path]) -> Image.Image:
     thumbnail_width = 400
     thumbnail_height = round(thumbnail_width * CANVAS_HEIGHT / CANVAS_WIDTH)
-    sheet = Image.new("RGB", (thumbnail_width * len(files), thumbnail_height), COLORS["background"])
+    expected_size = (thumbnail_width * len(files), thumbnail_height)
+    sheet = Image.new("RGB", expected_size, COLORS["background"])
     for index, path in enumerate(files):
         with Image.open(path) as source:
             if source.size != CANVAS_SIZE:
@@ -2235,7 +3506,7 @@ def make_contact_sheet(files: Sequence[Path]) -> Image.Image:
                 raise ValueError((path, source.mode))
             thumbnail = source.resize((thumbnail_width, thumbnail_height), Image.Resampling.LANCZOS)
         sheet.paste(thumbnail, (index * thumbnail_width, 0))
-    if sheet.size != (4000, 869):
+    if sheet.size != expected_size:
         raise ValueError(sheet.size)
     if sheet.mode != "RGB":
         raise ValueError(sheet.mode)
@@ -2250,6 +3521,30 @@ def validate_png(path: Path, expected_size: tuple[int, int]) -> None:
             raise ValueError((path, image.size))
         if image.mode != "RGB":
             raise ValueError((path, image.mode))
+
+
+def sync_upload_order(files_by_panel: dict[int, Path]) -> None:
+    upload_root = OUTPUT_ROOT / "upload-order" / LOCALE / DEVICE
+    upload_root.mkdir(parents=True, exist_ok=True)
+    expected_names = {
+        f"{position:02d}-{upload_slug}.png"
+        for position, (_, upload_slug) in enumerate(UPLOAD_ORDER, start=1)
+    }
+    for stale_path in upload_root.glob("*.png"):
+        if stale_path.name not in expected_names:
+            stale_path.unlink()
+    for position, (panel, upload_slug) in enumerate(UPLOAD_ORDER, start=1):
+        source_path = files_by_panel[panel]
+        upload_path = upload_root / f"{position:02d}-{upload_slug}.png"
+        shutil.copyfile(source_path, upload_path)
+        validate_png(upload_path, CANVAS_SIZE)
+        if source_path.read_bytes() != upload_path.read_bytes():
+            raise ValueError(f"Upload-order copy differs from source: {upload_path}")
+    expected_count = len(UPLOAD_ORDER)
+    if len(tuple(upload_root.glob("*.png"))) != expected_count:
+        raise ValueError(
+            f"Upload-order must contain exactly {expected_count} PNGs: {upload_root}"
+        )
 
 
 def write_slots(panel_records: Sequence[dict[str, Any]]) -> None:
@@ -2273,7 +3568,7 @@ def write_slots(panel_records: Sequence[dict[str, Any]]) -> None:
         raise ValueError(loaded["canvas"])
     if loaded["screen_aspect"] != "1320:2868":
         raise ValueError(loaded["screen_aspect"])
-    if len(loaded["screenshots"]) != 10:
+    if len(loaded["screenshots"]) != len(UPLOAD_ORDER):
         raise ValueError(len(loaded["screenshots"]))
     if not all(len(item["slots"]) == 1 for item in loaded["screenshots"]):
         raise ValueError("Every screenshot must contain exactly one screen slot")
@@ -2285,13 +3580,15 @@ def generate_locale(locale: str) -> None:
     configure_locale(locale)
     if not (
         len(COPY_SPECS)
+        == len(PANEL_IDS)
         == len(SLUGS)
         == len(SOURCE_PATHS)
         == len(SOURCE_LABELS)
         == len(SCREEN_CHARACTER_COUNTS)
-        == 10
+        == len(VISIBLE_SCREEN_CHARACTER_COUNTS)
+        == 9
     ):
-        raise ValueError("Expected exactly ten aligned panel specifications")
+        raise ValueError("Expected exactly nine aligned panel specifications")
     expected_copy_positions = (COPY_EYEBROW_Y, COPY_HEADLINE_Y, COPY_SUB_Y)
     if any(
         (spec.eyebrow_y, spec.headline_y, spec.sub_y) != expected_copy_positions
@@ -2300,6 +3597,12 @@ def generate_locale(locale: str) -> None:
         raise ValueError("Every panel must use the shared 240/340/680 copy positions")
     SCREENSHOT_ROOT.mkdir(parents=True, exist_ok=True)
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    expected_panel_names = {
+        f"{panel:02d}-{slug}.png" for panel, slug in zip(PANEL_IDS, SLUGS)
+    }
+    for stale_panel in SCREENSHOT_ROOT.glob("*.png"):
+        if stale_panel.name not in expected_panel_names:
+            stale_panel.unlink()
 
     for weight, details in font_manifest(LOCALE).items():
         fallback = " fallback" if details["fallback_used"] else ""
@@ -2309,20 +3612,31 @@ def generate_locale(locale: str) -> None:
             f"loaded={details['loaded_family']} {details['loaded_style']}"
         )
 
-    files: list[Path] = []
-    panel_records: list[dict[str, Any]] = []
-    for panel, slug in enumerate(SLUGS, start=1):
-        image, geometry = render_panel(panel)
+    generated: dict[int, tuple[Path, dict[str, Any]]] = {}
+    render_order = tuple(panel for panel in PANEL_IDS if panel != 4) + (4,)
+    for panel in render_order:
+        slug = SLUGS[PANEL_IDS.index(panel)]
         output_path = SCREENSHOT_ROOT / f"{panel:02d}-{slug}.png"
+        image, geometry = render_panel(panel)
         image.save(output_path, format="PNG", compress_level=7)
         validate_png(output_path, CANVAS_SIZE)
+        content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
+        generated[panel] = (output_path, geometry)
+
+    files: list[Path] = []
+    panel_records: list[dict[str, Any]] = []
+    for panel, slug in UPLOAD_ORDER:
+        output_path, geometry = generated[panel]
+        content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
         files.append(output_path)
         panel_records.append(
             {
                 "id": f"{panel:02d}",
                 "slug": slug,
                 "file": str(output_path.relative_to(OUTPUT_ROOT)),
-                "source": SOURCE_LABELS[panel - 1],
+                "source": SOURCE_LABELS[PANEL_IDS.index(content_panel)],
+                "content_panel": content_panel,
+                "upload_position": len(panel_records) + 1,
                 "slots": [geometry["slot"]],
                 "character": geometry["character"],
                 "character_count": geometry["character_count"],
@@ -2332,11 +3646,14 @@ def generate_locale(locale: str) -> None:
 
     contact_sheet = make_contact_sheet(files)
     contact_sheet.save(CONTACT_SHEET_PATH, format="PNG", compress_level=7)
-    validate_png(CONTACT_SHEET_PATH, (4000, 869))
+    validate_png(CONTACT_SHEET_PATH, (400 * len(UPLOAD_ORDER), 869))
     write_slots(panel_records)
+    sync_upload_order({panel: generated[panel][0] for panel in PANEL_IDS})
 
-    if len(files) != 10:
-        raise RuntimeError(f"Expected ten screenshots, generated {len(files)}")
+    if len(files) != len(UPLOAD_ORDER):
+        raise RuntimeError(
+            f"Expected {len(UPLOAD_ORDER)} upload screenshots, generated {len(files)}"
+        )
     missing_files = [path for path in files if not path.is_file()]
     if missing_files:
         raise FileNotFoundError(missing_files)
@@ -2361,11 +3678,15 @@ def generate_locale(locale: str) -> None:
         )
         print(
             f"{record['id']}-{record['slug']}.png: 1320x2868 RGB; "
-            f"characters screen={counts['screen']} external={counts['external']} "
+            f"characters raw_screen={counts['source_screen']} "
+            f"visible_screen={counts['screen']} external={counts['external']} "
             f"total={counts['total']}; external_asset={external_description}"
         )
-    print(f"Contact sheet: {CONTACT_SHEET_PATH} (4000x869 RGB)")
-    print(f"Slots: {SLOTS_PATH} (10 entries)")
+    print(
+        f"Contact sheet: {CONTACT_SHEET_PATH} "
+        f"({400 * len(UPLOAD_ORDER)}x869 RGB)"
+    )
+    print(f"Slots: {SLOTS_PATH} ({len(panel_records)} entries)")
 
 
 def parse_args() -> argparse.Namespace:
@@ -2379,6 +3700,12 @@ def parse_args() -> argparse.Namespace:
         choices=SUPPORTED_LOCALES,
         help="Generate only this locale. Repeat to generate more than one; omit for all.",
     )
+    parser.add_argument(
+        "--device",
+        choices=SUPPORTED_DEVICES,
+        default="iphone-69",
+        help="Generate iPhone 6.9-inch (default) or iPad 13-inch marketing assets.",
+    )
     return parser.parse_args()
 
 
@@ -2386,7 +3713,11 @@ def main() -> None:
     args = parse_args()
     locales = tuple(dict.fromkeys(args.locales or SUPPORTED_LOCALES))
     for locale in locales:
-        generate_locale(locale)
+        if args.device == "ipad-13":
+            generate_ipad_locale(locale)
+        else:
+            configure_device_context("iphone-69", locale)
+            generate_locale(locale)
 
 
 if __name__ == "__main__":

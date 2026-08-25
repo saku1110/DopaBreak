@@ -20,7 +20,13 @@
 - ✅ 19:50 8枚構成の並び替え完了・プレビュー提示（画像27→24枚不変・記録パネル不採用）
 - 2026-08-25 19:37 オーナー指摘「6枚目と7枚目の傾きが同じで微妙」「5枚目と6枚目の背景を入れ替え」→ 構図修正バッチ実行中: 5 night ⇄ 6 intent の構図（背景＋傾き＋マスコット）を入替、7 reflection を直立0°＋ライムリボン背景へ。画像はこの3枚のみ変更・コピー/順序不変。（中断した前バッチはスクリプト未変更を確認済み）
 - ✅ 20:00 構図修正完了・プレビュー提示（5 night=ウェッジ+8°／6 intent=上半分ライム0°／7 reflection=リボン0°。隣接同一構図なし。他5パネル不変・保護6群維持）
-- [ ] 6.5"/iPad派生（asc-screenshot-resize）→ ASCアップロード（オーナー合図待ち）（upload-order/{ja,en-US,ko}/iphone-69/ を順番どおり）
+- ✅ 20:20 海外版（en-US/ko）目視確認OK。コミット d236fc4（ホーム主役指標＋撮影ハーネス＋承認コピー＋設計正本。v2生成スクリプトはiPad派生追加中のため次コミット）。6.5インチ派生（1284×2778・sips・アルファなし）3ロケール生成・`asc screenshots validate` 全通過
+- ⛔ `asc screenshots upload` は自動モードの分類器でブロック（外部公開操作）。オーナーが手動実行 or 許可ルール追加が必要。コマンドは current.md 下記
+- 🔄 iPad 13インチ派生（2064×2752・iPhoneモック構図）を Codex で生成中 → 完了後 validate → v2スクリプトとセットでコミット
+- アップロードコマンド（ロケールID: ja=2218ebd6-70e6-4b16-ab0b-25a0e0eefe9b / en-US=564d04a8-0480-418c-9f51-2bde256cbba6 / ko=c39ac167-59d1-461f-9ff4-1689418b4694）:
+  `cd output/app-store-screenshots/v2/upload-order && asc screenshots upload --version-localization <ID> --path ./<loc>/iphone-69 --device-type IPHONE_69` （iphone-65 は IPHONE_65、ipad-13 は IPAD_PRO_3GEN_129）
+- ✅ 20:40 iPad 13インチ派生（2064×2752・iPhoneモック構図・8枚×3ロケール）生成・`asc screenshots validate` 8/8 ready ×3・iPhone成果物54ファイル不変。v2生成スクリプト＋設計正本をコミット
+- [ ] オーナー: アップロード実行（iphone-69 / iphone-65 / ipad-13 ×3ロケール＝9コマンド。IDと形式は上記）（upload-order/{ja,en-US,ko}/iphone-69/ を順番どおり）
 
 
 ## 2026-08-25 — ホーム主役指標を永久累計の「SNSに消えるはずだった時間」に変更（✅ 改訂2まで実装・レビュー・受け入れ完了・未コミット／home.png 再撮影は test-project-72）

@@ -1021,3 +1021,16 @@
 - 却下案: nightのawake幅300／400を下端へ置く案は、Vision OCRの最下部注記または設定行boxと交差したため却下した。reflectionの旧+7°・1111pxは直立指定を満たさず、急角度の太いリボンは最大幅フォンに隠れて構図差が読めないため却下した。intentの旧+8°ウェッジはnightへ移し、awakeを理由カード上へ残す案はUI文字干渉を避けるため採用しなかった。
 - Claude Code向け制約: アップロード順の構図は、1帯（0°）／2円（0°）／3左下ウェッジ（-8°）／4ライム上半分（0°）／5右下ウェッジ（+8°）／6ライム上半分（0°）／7リボン（0°）／8ライム下半分（0°）。4と6は非隣接なので許容し、隣接同一構図を作らない。night／intentの外乗せawakeとreflectionの画面内キャラをそれぞれ合計1体に保つ。スクリーン左右端はキャンバス内、外乗せalpha bboxは全身キャンバス内、raw y=0とコピー／画面ソース／アップロード順を維持する。パネル10の保護6群（`SOURCE_PATHS`末尾None×2、`MOCK_SOURCE_NAMES`、`source_for(panel == 10)`、`UPLOAD_ORDER (10,"grayscale-home")`、`mock_home_grayscale()`／HOME定数、3言語コピー）は変更しない。
 - 検証: `py_compile`、保護6群、全24組の生成元とupload-orderのSHA-256一致、対象外18生成画像（アップロード対象5パネル＋stats、各3言語）の作業前SHA-256一致、各画像PNG／RGB／1320×2868、contact sheet 3200×869、slots各8件、キャラ合計最大1、スクリーンX範囲、マスコット全身範囲、隣接同一構図なしを機械確認した。Vision OCRは3言語でnightの`7:00`／`23:00`、intentの目的質問、reflectionの振り返り質問を認識した。外乗せキャラとOCR意味文字の交差は0（nightの単記号認識はキャラ自身の図柄）。`python3 scripts/lint-display-copy.py`は既存の意図的2件のみでexit 0、`git diff --check`もexit 0。コミットは作成していない。
+
+## 2026-08-25 — Live Activityテーマ7案の再設計モック（提案・オーナー判断待ち）
+- 背景: 現行のロック画面テーマ7種は同一レイアウト×パレット5色差し替えのみ（`ios/WidgetsExtension/DopaBreakWidgets.swift` liveActivityView）。オーナーが「色替えだけ」を却下し、構図から別物の7案を要求。さらに墨と灯・森林・夜更けの初案も却下され、「ゲーミング、シンプルモノクロ、リキッドグラスなど」への入れ替え指示。
+- 提案（未承認）: ①黒とライム=現行維持 ②ゲーミング=HUD＋クエストログ＋DotGothic16＋色収差数字（墨と灯と入れ替え） ③朝霧=中央軸ミニマル ④シンプルモノクロ=白黒スイスタイポ・大数字ヒーロー（森林と入れ替え） ⑤リキッドグラス=iOS 26システムガラス素材・背景tintなし（夜更けと入れ替え） ⑥K-POP=ポスター＋チケットチップ＋マーキー帯 ⑦かわいいピンク=バブルピル＋吹き出し・キャラIPなし
+- 成果物: gpt-image-2モック7枚 `output/mockups/live-activity-themes/01〜07*.png`／設計一覧HTML `output/mockups/live-activity-theme-redesign-2026-08-25.html`（Artifact公開済み）
+- 実装メモ: 全案WidgetKit実装可・画像アセット不要。テーマ入れ替えは`LockTheme` enumのcase名・パレット・表示名（3言語）の変更を伴う。DotGothic16はSIL OFLで埋め込み可。リキッドグラスは`activityBackgroundTint`を外しシステム素材に任せる
+## 2026-08-25 — App Storeスクリーンショットv2のiPad 13インチ派生
+
+- 変更: `scripts/generate-appstore-screenshots-v2.py`へ`--device ipad-13`を追加し、iPhoneと同じ1320×2868 raw/mockをiPhone筐体へ入れたまま2064×2752キャンバスへ再配置した。生成物は`output/app-store-screenshots/v2/{ja,en-US,ko}/ipad-13/`、`upload-order/{locale}/ipad-13/`、`contact-sheet-ipad-{locale}.png`、`slots-ipad-{locale}.json`。設計正本は`.claude/specs/appstore-screenshots-v2-diagonal.md`のiPad節。
+- 採用方針: コピーは中央揃え・幅78%上限・iPhone比1.25倍フォント上限・自然幅描画、フォンは外形幅58〜60%・左右完全包含・下端のみクロップ可とした。帯／円／ウェッジ／上半分ライム／リボンは0.75比率のキャンバスへ個別に座標を引き直し、傾きはnight +8°／deepfocus -8°を維持した。実iPadを撮影する案と、iPhone完成画像を一括拡大する案は、指定されたiPhoneフォンモック構図と自然幅コピー、筐体非クロップを満たさないため不採用。
+- キャラ: 各枚合計1体を機械ゲートにした。rawにキャラがないDeep Focusだけ左余白へreliefを追加し、それ以外は画面内キャラまたはiPhone構図と同じ外乗せキャラを再配置した。全身alpha bboxをキャンバス内へ収め、コピーブロックとの重なりを禁止した。
+- Claude Code向け制約: iPhone出力経路と既定`--device iphone-69`を維持する。`SOURCE_PATHS`のpanel 5/10=`None`、`MOCK_SOURCE_NAMES`、`source_for()`のpanel 10分岐、`UPLOAD_ORDER`のgrayscale-home、`mock_home_grayscale()`とHOME定数、panel 10の3言語コピーは変更しない。iPadの画面ソースは引き続き1320×2868で、`prepare_device(..., expected_source_size=IPHONE_CANVAS_SIZE)`を外さない。iPad生成はiPhone成果物へ書き込まない。
+- 検証: 生成24枚＋upload-order 24枚は2064×2752 RGB PNG・アルファなし。ASC `IPAD_PRO_3GEN_129` validateはja/en-US/koとも8/8 ready・warning/error 0。macOS Vision OCRは24枚すべてでeyebrow/headline 2行/subの4要素を認識。iPhone生成24枚＋upload-order 24枚＋contact-sheet 3枚のSHA-256、保護6群のASTハッシュ、Python構文・lintを不変/成功条件として確認する。

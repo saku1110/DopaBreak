@@ -291,3 +291,42 @@ statsの原寸raw内キャラ数は5で、`SCREEN_CHARACTER_COUNTS` とstats専�
 - アップロード用: `output/app-store-screenshots/v2/upload-order/{ja,en-US,ko}/iphone-69/01〜08-*.png`
 - 接触シート: `contact-sheet-{ja,en-US,ko}.png`（8枚・3200×869）
 - 構図メタデータ: `slots-{ja,en-US,ko}.json`（アップロード対象8件。ja互換用に`slots.json`も同内容）
+## 2026-08-25 追記 — iPad 13インチ派生（IPAD_PRO_3GEN_129）
+
+### 対象と出力
+
+- デバイスキーは `ipad-13`、ASC device typeは `IPAD_PRO_3GEN_129`、縦キャンバスは `2064×2752`。
+- 実iPad画面は撮影せず、iPhone版と同じ `raw-core/{locale}/` の1320×2868キャプチャ、`mock_lock()`、`mock_home_grayscale()`をiPhone筐体へ入れ、iPadキャンバス上へ配置するマーケティング構図とする。
+- 生成対象はアップロード採用8枚だけ。生成IDとslugは `01-breath / 03-lockscreen / 06-deepfocus / 02-home / 04-night / 08-intent / 09-reflection / 10-grayscale-home` を維持し、`output/app-store-screenshots/v2/{ja,en-US,ko}/ipad-13/`へ保存する。
+- アップロード順はiPhoneと同じ `breath / lockscreen / deepfocus / home / night / intent / reflection / grayscale-home`。`output/app-store-screenshots/v2/upload-order/{locale}/ipad-13/01〜08`へ保存する。
+- コンタクトシートは `contact-sheet-ipad-{locale}.png`（3200×533 RGB）、差し替え座標は `slots-ipad-{locale}.json`。全PNGはアルファなしRGBとする。
+
+### コピーとフォン
+
+- コピーブロックは中央揃え。最大幅はキャンバス幅の78%=1609px。eyebrow/headline/subの基準フォントはiPhoneの1.25倍を上限とする50/140/55pxで、自然幅が上限を超えた場合だけフォントサイズを整数で下げて再描画する。字形の横方向リサイズは禁止する。
+- コピーYはeyebrow/headline/sub=`145/245/610`。headline行送りは`140+28`。フォン上端との間に余白を残す。
+- 直立フォン外形幅は1238px（キャンバス幅の約60.0%）、±8°フォンとロック画面フォンは1198px（約58.0%）。筐体とスクリーンは左右をキャンバス内に収め、下端のみiPhone版と同じくキャンバス外クロップを許容する。
+- 通常フォン上端はY=760、ロック画面はY=720。傾きはiPhoneと同じくnight=+8°、deepfocus=-8°、それ以外=0°。
+
+### 8枚の再配置
+
+| upload | 生成ID | 背景・フォン | キャラ |
+|---:|---:|---|---|
+| 1 | 01 breath | 旧01のライム大帯を2064×2752へ再定義。直立60%フォン | raw画面内1体 |
+| 2 | 03 lockscreen | ダーク＋中心(1032,1810)・半径770のライム円。直立58%フォン。LA拡大は1500px幅・Y1500へ再配置 | awake反転・幅330・中心X350・下端Y1120 |
+| 3 | 06 deepfocus | 旧06の左下ウェッジ。-8°・58%フォン | rawにキャラがないため、合計1体条件を満たすrelief・幅280・中心X190・下端Y2180 |
+| 4 | 02 home | 旧04の上半分ライム。直立60%フォン | raw画面内1体 |
+| 5 | 04 night | 旧03系の右下ウェッジ。+8°・58%フォン | awake・幅250・中心X1770・下端Y1880 |
+| 6 | 08 intent | 上半分ライム。直立60%フォン | awake・幅360・中心X1740・下端Y1450 |
+| 7 | 09 reflection | 細ライムリボン。直立60%フォン | raw画面内1体 |
+| 8 | 10 grayscale-home | 右上がりの下部ライム面。直立60%フォン | worse・幅400・中心X350・下端Y2400 |
+
+外乗せキャラは全身をキャンバス内へ収め、コピーブロックと重ねない。raw画面内キャラと外乗せの合計は各枚ちょうど1体とする。Deep Focusだけは現行rawにキャラがないため、iPad派生で左余白へreliefを追加した。全パネルでフォンのスクリーン四隅と筐体四隅のX座標を検査し、左右クロップを禁止する。
+
+### 検証ゲート
+
+- 生成24枚とupload-order 24枚はすべて2064×2752 RGB PNG・アルファなし。
+- `asc screenshots validate --device-type IPAD_PRO_3GEN_129` を3ロケールで実行し、各8/8 ready・error 0・warning 0を必須とする。
+- macOS Vision OCRで各画像の上部740pxを認識し、eyebrow・headline 2行・subの4要素が各ロケールで読めること。
+- `slots-ipad-{locale}.json`でキャラ合計1体、外乗せキャラのalpha bbox完全包含、フォン幅58〜62%、スクリーンと筐体の左右包含を固定する。
+- iPad生成前後でiPhone 6.9の生成24枚、upload-order 24枚、contact-sheet 3枚のSHA-256を比較し不変を必須とする。`SOURCE_PATHS`、`MOCK_SOURCE_NAMES`、`source_for()`のpanel 10分岐、`UPLOAD_ORDER`のgrayscale-home、`mock_home_grayscale()`とHOME定数、3ロケールのpanel 10コピーもASTハッシュで不変を確認する。

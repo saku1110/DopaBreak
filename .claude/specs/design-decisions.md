@@ -1034,3 +1034,36 @@
 - キャラ: 各枚合計1体を機械ゲートにした。rawにキャラがないDeep Focusだけ左余白へreliefを追加し、それ以外は画面内キャラまたはiPhone構図と同じ外乗せキャラを再配置した。全身alpha bboxをキャンバス内へ収め、コピーブロックとの重なりを禁止した。
 - Claude Code向け制約: iPhone出力経路と既定`--device iphone-69`を維持する。`SOURCE_PATHS`のpanel 5/10=`None`、`MOCK_SOURCE_NAMES`、`source_for()`のpanel 10分岐、`UPLOAD_ORDER`のgrayscale-home、`mock_home_grayscale()`とHOME定数、panel 10の3言語コピーは変更しない。iPadの画面ソースは引き続き1320×2868で、`prepare_device(..., expected_source_size=IPHONE_CANVAS_SIZE)`を外さない。iPad生成はiPhone成果物へ書き込まない。
 - 検証: 生成24枚＋upload-order 24枚は2064×2752 RGB PNG・アルファなし。ASC `IPAD_PRO_3GEN_129` validateはja/en-US/koとも8/8 ready・warning/error 0。macOS Vision OCRは24枚すべてでeyebrow/headline 2行/subの4要素を認識。iPhone生成24枚＋upload-order 24枚＋contact-sheet 3枚のSHA-256、保護6群のASTハッシュ、Python構文・lintを不変/成功条件として確認する。
+- 追記（2026-08-25 オーナー指示・確定）: **実績回数（開くのをやめた回数）を大きく配置する案は不可。目標が主役。** 大数字ヒーロー型だったゲーミング・シンプルモノクロ・K-POPを目標主体レイアウトへ改稿し、回数は全案で小さな1行・帯・カプセル等の控えめな扱いに統一した。
+
+## 2026-08-25 — ゲーミングLive Activityカード単体モック
+
+- 作成: `output/mockups/live-activity-themes/02-gaming.png`。1536×1024の横長キャンバス中央に、約72%幅・角丸約24pxの単一Live Activityカードを配置した。
+- 採用方針: `#171129`〜`#0A0714`の暗紫黒背景、`#0A0A14`カード、シアン〜紫〜マゼンタのネオン枠、薄い走査線、HUD角 brackets、ドットマトリクス風日本語を採用。3つの目標行（「英語で商談できる自分になる」「朝のランニングを続ける」「読書を30分する」）を最大の視覚要素とし、回数は下部の小さなステータス行に限定した。
+- 却下案: 大きな実績回数、iPhone筐体、手・写真表現、追加キャプション、余分なロゴ／透かし、目標以外の大きな数字は採用しない。
+- Claude Code向け制約: 画像をWidget実装の背景やスクリーンショット内の端末フレームとして再利用する場合も、カード単体・目標主体・小さい回数という階層を維持する。日本語コピーは指定文字列を変更せず、カード外に追加テキストを置かない。
+
+## 2026-08-25 — App Storeスクショ外乗せマスコットの角掛け・サイズ統一
+
+- 作成・変更: `scripts/generate-appstore-screenshots-v2.py` のupload 3（生成ID06 deepfocus）／5（ID04 night）／6（ID08 intent）／8（ID10 grayscale-home）を、外乗せマスコットがフォン上角へ絡む構図へ統一した。iPhoneは全4体nominal 470px。deepfocus=`blink`・右上・-8°、night=`relief`・左上・+8°、intent=`awake`・右上、grayscale-home=`worse`・右上。upload 1／2、コピー、raw/mock、画面ソース、アップロード順、背景の帯・円・ウェッジ・リボンは変更していない。
+- grayscale-home: iPhoneは最大直立外形1396pxを維持し上端Y805へ詰めた。iPadは外形2184pxへ拡大し、スクリーンX=0〜2064、筐体X=-60〜2124、上端Y760、下端クロップとした。白黒ホーム上へピンクのworseを大きく掛け、旧左下接地配置を廃止した。
+- iPad派生: フォン比率でdeepfocus／nightのキャラを521px、intentをalpha幅要件の下限を満たす470px、最大幅grayscale-homeを735pxとした。角はiPhoneと同じ右／左／右／右、傾きは-8°／+8°／0°／0°。旧deepfocusの左下relief、nightの右下awake、intentの右上小awake、grayscale-homeの左下worseはいずれも役割が弱く接地物に見えたため不採用。
+- 実装ガード: `validate_corner_character_geometry()`を追加し、表情、左右、alpha bbox幅440px以上、マーケコピー矩形との交差0、フォン外形bboxとの交差、指定角の上下をまたぐことを`raise`で固定した。結果は`slots-{locale}.json`／`slots-ipad-{locale}.json`の`corner_attachment`へ保存する。iPad panel 10だけは筐体左右クロップを許容し、スクリーン左右端の0／2064一致と外形2184pxを別ガードで固定した。
+- 数値検証: iPhone alpha幅はdeepfocus/night/intent/grayscale=`445/444/446/448px`、フォン外形bboxとの交差サイズは`445×340 / 444×340 / 446×350 / 448×355px`。iPad alpha幅は`493/492/446/698px`、交差サイズは`437.95×465 / 432.95×460 / 364×350 / 698×565px`。全8枚でコピー交差0、全身キャンバス内、角またぎtrue。macOS Vision OCRの全認識bboxとの交差も0で、最短余白はiPhone night 29.36px、iPad grayscale-home 91px。
+- 再生成・検証: 3ロケール×対象4枚をiphone-69／ipad-13へ反映し、contact-sheet 6本、slots 6本、upload-order該当24枚を更新。iphone-65は対象12枚だけを`sips`で1284×2778へ再派生した。PNG検査123枚は指定寸法・RGB・アルファなし、生成元とiphone-69／ipad-13 upload-orderの48組はbyte一致、非対象生成27枚とiphone-65非対象12枚は作業前SHA-256不変。jaの`asc screenshots validate`はIPHONE_69／IPHONE_65／IPAD_PRO_3GEN_129が各8/8 ready・warning/error 0。保護6群はHEADとのAST 29ノード一致（fingerprint `68be6bd943ef64ec70dd2bc146fa3ba780c45ba09a6328d9203efebf0e55f09b`）、Python compile、`lint-display-copy.py`（既存の意図的な要確認2件のみ）、`git diff --check`、差分TODO/FIXME 0を確認した。コミットは作成していない。
+- Claude Code向け制約: 外乗せ共通基準と確定座標は`.claude/specs/appstore-screenshots-v2-diagonal.md`末尾の追記を正本とする。`SOURCE_PATHS`のpanel 10 `None` 2箇所、`MOCK_SOURCE_NAMES = {5: "mock_lock", 10: "mock_home_grayscale"}`、`source_for(panel == 10)`、`UPLOAD_ORDER (10,"grayscale-home")`、`mock_home_grayscale()`／HOME定数、panel 10コピー3ロケールは変更しない。1・2枚目と非対象パネルの構図・生成物を巻き戻さない。
+
+## 2026-08-25 — iPad 13インチApp Storeスクショのフォン拡大
+
+- 作成・変更: `scripts/generate-appstore-screenshots-v2.py` の `ipad-13` 分岐だけを改修し、直立7構図（ロック画面を除く）のフォン外形を1480px（キャンバス比71.7%）、night +8°／deepfocus -8°を回転後の左右完全包含上限1607pxへ拡大した。ロック画面は上端Y720を維持し、実Live ActivityカードがY2750.99まで収まる最大1224pxとした。コールアウトは時計下端と実カード上端の中間へ動的に置き、両側の垂直余白を約289pxへ揃えた。
+- 採用方針・却下案: 8枚目grayscale-homeも直立共通1480px・上端Y760・筐体左右完全包含へ統一し、旧2184pxの左右筐体クロップはオーナー指定と衝突するため廃止した。外乗せマスコットはフォン幅の約1/3（直立493px、傾き536px、ロック408px）とし、iPhone版と同じ側の上角へ掛けた。帯・円・左右ウェッジ・上半分・リボン・下半分という背景種別は維持し、新フォン寸法に合わせて座標だけを再配置した。
+- 成果物: `output/app-store-screenshots/v2/{ja,en-US,ko}/ipad-13/` 24枚、`output/app-store-screenshots/v2/upload-order/{ja,en-US,ko}/ipad-13/` 24枚、`contact-sheet-ipad-{ja,en-US,ko}.png`、`slots-ipad-{ja,en-US,ko}.json`を再生成した。全画像は2064×2752 RGB PNG・アルファなし、contact sheetは3200×533 RGB。
+- Claude Code向け制約: iPadの直立フォン1480px／Y760、傾きフォン1607px／Y760、ロック1224px／Y720を維持する。傾き幅+1pxとロック幅+1pxが各包含条件を破ることを生成時ガードで確認する。フォン下端のみキャンバス外クロップ可。コピー、raw/mock、`UPLOAD_ORDER`、背景種別、保護6群は変更しない。iPhone生成経路・成果物へ書き込まない。
+- 検証: `asc screenshots validate --device-type IPAD_PRO_3GEN_129`はja/en-US/ko各8/8 ready・warning/error 0。生成元/upload-order 24組はSHA-256一致。保存前後でiphone-69／iphone-65関連78ファイルのSHA-256一致、保護AST 29ノード一致。Python compile、`lint-display-copy.py`（既存の意図的要確認2件のみ・exit 0）、`git diff --check`、差分TODO/FIXME/省略記号0を確認した。コミットは作成していない。
+
+## 2026-08-25 — iPad 13インチ1枚目（一呼吸）の残り秒表示修正
+
+- 作成・変更: `scripts/generate-appstore-screenshots-v2.py` に1枚目専用の `IPAD_BREATH_PHONE_VISUAL_TOP=670` を追加し、`ipad-13` の `panel == 1` だけフォン上端を従来のY760からY670へ上げた。フォン幅1480px、コピー、ライム帯、背景、構図種別、raw `breath.png`、iPhone経路、iPadの他7枚は変更していない。3ロケールの01、iPad contact sheet 3本、iPad slots 3本、upload-orderのiPad 01を再生成した。
+- 採用方針・却下案: 幅を共通 `IPAD_STRAIGHT_PHONE_WIDTH` ごと縮小するとiPadの他パネルへ波及するため却下し、01専用の上端Yだけを調整した。Y670はコピーのsub下端Y665より下で、残り秒「4」の完全bboxをキャンバス内へ収める最小限の変更として採用した。幅下限64%への変更や、コピー・ライム面・構図の変更は行っていない。
+- Claude Code向け制約: `ipad-13` の一呼吸だけ `IPAD_BREATH_PHONE_VISUAL_TOP=670` を維持し、共通 `IPAD_PHONE_VISUAL_TOP=760`、フォン幅1480px、`BREATH_SOURCE_OFFSET_Y=400`、`SOURCE_PATHS`のpanel 10 `None` 2箇所、`MOCK_SOURCE_NAMES`、`source_for(panel == 10)`、`UPLOAD_ORDER`のgrayscale-home、`mock_home_grayscale()`／HOME定数、panel 10の3言語コピーは変更しない。01のコピー・背景・画面内リング／キャラを維持し、生成・upload-orderとも2064×2752 RGB・アルファなしにする。
+- 検証: ja/en-US/koの残り秒「4」実画素bboxは各 `[962,2572,1104,2747]`（下端余白5px）。raw bboxからの数値写像でリング `[379.60,1141.98,1685.46,2447.64]`、キャラ `[506.69,1332.59,1557.31,2312.10]`、数字 `[961.04,2570.47,1105.08,2747.31]`を確認し、全てキャンバス内。`asc screenshots validate --device-type IPAD_PRO_3GEN_129`（ja）は8/8 ready・error/warning 0。変更SHA-256はiPad 01×3、contact sheet×3、slots×3、upload-order iPad 01×3の12件だけで、iPhone全成果物とiPad他7枚は不変。保護6群、`lint-display-copy.py` exit 0、`git diff --check`を確認した。コミットは作成していない。

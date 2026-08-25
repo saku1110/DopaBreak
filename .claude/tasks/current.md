@@ -26,6 +26,7 @@
 - アップロードコマンド（ロケールID: ja=2218ebd6-70e6-4b16-ab0b-25a0e0eefe9b / en-US=564d04a8-0480-418c-9f51-2bde256cbba6 / ko=c39ac167-59d1-461f-9ff4-1689418b4694）:
   `cd output/app-store-screenshots/v2/upload-order && asc screenshots upload --version-localization <ID> --path ./<loc>/iphone-69 --device-type IPHONE_69` （iphone-65 は IPHONE_65、ipad-13 は IPAD_PRO_3GEN_129）
 - ✅ 20:40 iPad 13インチ派生（2064×2752・iPhoneモック構図・8枚×3ロケール）生成・`asc screenshots validate` 8/8 ready ×3・iPhone成果物54ファイル不変。v2生成スクリプト＋設計正本をコミット
+- ✅ 21:10 オーナー指摘反映: マスコット配置基準を統一（幅440〜480・フォン角に重ね・左右交互・意味に合う表情）→ iPhone 3/5/6/8 と iPad 全枚。iPad はモック幅を72%へ拡大（8枚目含む）、1枚目の残り秒が切れる件を修正。validate: iPhone69/65・iPad とも ok
 - [ ] オーナー: アップロード実行（iphone-69 / iphone-65 / ipad-13 ×3ロケール＝9コマンド。IDと形式は上記）（upload-order/{ja,en-US,ko}/iphone-69/ を順番どおり）
 
 

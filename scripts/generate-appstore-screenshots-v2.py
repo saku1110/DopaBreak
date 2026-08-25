@@ -53,12 +53,18 @@ IPAD_COPY_EYEBROW_Y = 145
 IPAD_COPY_HEADLINE_Y = 245
 IPAD_COPY_SUB_Y = 610
 IPAD_PHONE_VISUAL_TOP = 760
+IPAD_BREATH_PHONE_VISUAL_TOP = 670
 IPAD_LOCK_PHONE_VISUAL_TOP = 720
-IPAD_STRAIGHT_PHONE_WIDTH = round(IPAD_CANVAS_SIZE[0] * 0.60)
-IPAD_ROTATED_PHONE_WIDTH = math.ceil(IPAD_CANVAS_SIZE[0] * 0.58)
-IPAD_LOCK_PHONE_WIDTH = IPAD_ROTATED_PHONE_WIDTH
+IPAD_STRAIGHT_PHONE_WIDTH = 1480
+# At 8 degrees, 1607px is the largest integer chassis width whose rotated
+# exterior remains fully inside the 2064px canvas.  The extra height of the
+# 1320:2868 phone, rather than the unrotated width, is the limiting dimension.
+IPAD_ROTATED_PHONE_WIDTH = 1607
+# With visual_top=720, 1224px is the largest integer chassis width whose real
+# y=2280 Live Activity lower edge remains inside the 2752px canvas.
+IPAD_LOCK_PHONE_WIDTH = 1224
 IPAD_LOCK_CALLOUT_WIDTH = 1500
-IPAD_LOCK_CALLOUT_TOP = 1500
+IPAD_LOCK_CLOCK_SOURCE_BOX = (298, 350, 1023, 617)
 
 COPY_EYEBROW_Y = 240
 COPY_HEADLINE_Y = 340
@@ -236,17 +242,21 @@ STATS_CARD_TOPS = {
 NIGHT_PHONE_WIDTH = MAX_EIGHT_DEGREE_PHONE_WIDTH
 NIGHT_PHONE_VISUAL_TOP = PHONE_VISUAL_TOP
 NIGHT_PHONE_ROTATION = 8
-NIGHT_CHARACTER_WIDTH = 200
-NIGHT_CHARACTER_CENTER_X = 1220
-NIGHT_CHARACTER_BOTTOM_Y = 1820
+CORNER_CHARACTER_WIDTH = 470
+DEEPFOCUS_CHARACTER_CENTER_X = 1085
+DEEPFOCUS_CHARACTER_BOTTOM_Y = 1160
+NIGHT_CHARACTER_CENTER_X = 240
+NIGHT_CHARACTER_BOTTOM_Y = 1160
 INTENT_PHONE_WIDTH = MAX_STRAIGHT_PHONE_WIDTH
 INTENT_PHONE_VISUAL_TOP = 800
-INTENT_CHARACTER_WIDTH = 300
-INTENT_CHARACTER_CENTER_X = 1120
-INTENT_CHARACTER_BOTTOM_Y = 1420
+INTENT_CHARACTER_CENTER_X = 1080
+INTENT_CHARACTER_BOTTOM_Y = 1150
 REFLECTION_PHONE_WIDTH = MAX_STRAIGHT_PHONE_WIDTH
 REFLECTION_PHONE_VISUAL_TOP = 800
 REFLECTION_LIME_RIBBON = ((0, 770), (1320, 810), (1320, 890), (0, 850))
+GRAYSCALE_PHONE_VISUAL_TOP = 805
+GRAYSCALE_CHARACTER_CENTER_X = 1080
+GRAYSCALE_CHARACTER_BOTTOM_Y = 1160
 BREATH_SOURCE_OFFSET_Y = 400
 
 
@@ -2289,6 +2299,94 @@ def boxes_overlap(
     )
 
 
+def validate_corner_character_geometry(
+    *,
+    panel: int,
+    character_geometry: dict[str, Any] | None,
+    device_geometry: dict[str, Any],
+    copy_geometry: dict[str, Any],
+    expected_asset: str,
+    expected_side: str,
+) -> dict[str, Any]:
+    """Verify that one large mascot visibly hooks over a phone's upper corner."""
+    if character_geometry is None:
+        raise ValueError(f"Panel {panel:02d} requires an external mascot")
+    if character_geometry["asset"] != expected_asset:
+        raise ValueError(
+            f"Panel {panel:02d} requires {expected_asset}, "
+            f"got {character_geometry['asset']}"
+        )
+    if expected_side not in {"left", "right"}:
+        raise ValueError(expected_side)
+
+    char_box = character_geometry["visible_alpha_bbox"]
+    char_width = char_box[2] - char_box[0]
+    if char_width < 440:
+        raise ValueError(
+            f"Panel {panel:02d} mascot alpha width must be at least 440px: "
+            f"{char_width}"
+        )
+
+    copy_boxes = [
+        copy_geometry["pill_box"],
+        *copy_geometry["headline_boxes"],
+        copy_geometry["sub_box"],
+    ]
+    copy_intersections = sum(boxes_overlap(char_box, box) for box in copy_boxes)
+    if copy_intersections:
+        raise ValueError(
+            f"Panel {panel:02d} mascot overlaps {copy_intersections} copy boxes"
+        )
+
+    outer_points = list(device_geometry["outer_corners"].values())
+    outer_box = [
+        min(point[0] for point in outer_points),
+        min(point[1] for point in outer_points),
+        max(point[0] for point in outer_points),
+        max(point[1] for point in outer_points),
+    ]
+    intersection_box = [
+        max(char_box[0], outer_box[0]),
+        max(char_box[1], outer_box[1]),
+        min(char_box[2], outer_box[2]),
+        min(char_box[3], outer_box[3]),
+    ]
+    intersection_width = max(0, intersection_box[2] - intersection_box[0])
+    intersection_height = max(0, intersection_box[3] - intersection_box[1])
+    if intersection_width <= 0 or intersection_height <= 0:
+        raise ValueError(f"Panel {panel:02d} mascot does not intersect phone exterior")
+
+    corner_name = "top_left" if expected_side == "left" else "top_right"
+    corner = device_geometry["outer_corners"][corner_name]
+    if not char_box[1] < corner[1] < char_box[3]:
+        raise ValueError(
+            f"Panel {panel:02d} mascot must straddle the phone's {corner_name}: "
+            f"character={char_box}, corner={corner}"
+        )
+    visible_center_x = character_geometry["visible_center_x"]
+    if expected_side == "left" and visible_center_x >= CANVAS_WIDTH / 2:
+        raise ValueError(f"Panel {panel:02d} mascot must use the left corner")
+    if expected_side == "right" and visible_center_x <= CANVAS_WIDTH / 2:
+        raise ValueError(f"Panel {panel:02d} mascot must use the right corner")
+
+    return {
+        "side": expected_side,
+        "phone_corner": corner,
+        "alpha_bbox_width": char_width,
+        "phone_bbox_intersection": [round(value, 2) for value in intersection_box],
+        "phone_bbox_intersection_size": [
+            round(intersection_width, 2),
+            round(intersection_height, 2),
+        ],
+        "copy_box_intersections": copy_intersections,
+        "copy_vertical_clearance": round(
+            char_box[1] - max(box[3] for box in copy_boxes),
+            2,
+        ),
+        "straddles_phone_corner": True,
+    }
+
+
 def place_device(
     canvas: Image.Image,
     prepared: PreparedDevice,
@@ -2713,9 +2811,9 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
             bottom_y=LOCK_CHARACTER_BOTTOM_Y,
         )
     elif panel == 4:
-        # Keep nightmode.png pixel-for-pixel aligned to the device screen while
-        # using the former intent wedge composition. The lower character stays
-        # clear of the wake/bed timeline so both 7:00 and 23:00 remain readable.
+        # Keep nightmode.png pixel-for-pixel aligned to the device screen. The
+        # relief mascot hooks over the upper-left chassis corner, above the
+        # wake/bed timeline and away from its labels.
         device = prepare_device(source, NIGHT_PHONE_WIDTH)
         device_center = center_for_visual_top(
             device,
@@ -2730,11 +2828,11 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         )
         character_geometry = place_character(
             canvas,
-            name="awake",
-            width=NIGHT_CHARACTER_WIDTH,
+            name="relief",
+            width=CORNER_CHARACTER_WIDTH,
+            rotation_deg=NIGHT_PHONE_ROTATION,
             center_x=NIGHT_CHARACTER_CENTER_X,
             bottom_y=NIGHT_CHARACTER_BOTTOM_Y,
-            has_ground_shadow=True,
         )
     elif panel == 5:
         device = prepare_device(source, STATS_PHONE_WIDTH)
@@ -2768,13 +2866,21 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
     elif panel == 6:
         device = prepare_device(source, MAX_EIGHT_DEGREE_PHONE_WIDTH)
         device_rotation = -8
+        device_center = center_for_visual_top(device, rotation_deg=device_rotation)
         device_geometry = place_device(
             canvas,
             device,
-            center=center_for_visual_top(device, rotation_deg=device_rotation),
+            center=device_center,
             rotation_deg=device_rotation,
         )
-        character_geometry = None
+        character_geometry = place_character(
+            canvas,
+            name="blink",
+            width=CORNER_CHARACTER_WIDTH,
+            rotation_deg=device_rotation,
+            center_x=DEEPFOCUS_CHARACTER_CENTER_X,
+            bottom_y=DEEPFOCUS_CHARACTER_BOTTOM_Y,
+        )
     elif panel == 8:
         device = prepare_device(source, INTENT_PHONE_WIDTH)
         device_rotation = 0
@@ -2792,10 +2898,9 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         character_geometry = place_character(
             canvas,
             name="awake",
-            width=INTENT_CHARACTER_WIDTH,
+            width=CORNER_CHARACTER_WIDTH,
             center_x=INTENT_CHARACTER_CENTER_X,
             bottom_y=INTENT_CHARACTER_BOTTOM_Y,
-            has_ground_shadow=True,
         )
     elif panel == 9:
         device = prepare_device(source, REFLECTION_PHONE_WIDTH)
@@ -2814,26 +2919,23 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
         character_geometry = None
     else:
         device = prepare_device(source, MAX_STRAIGHT_PHONE_WIDTH)
-        device_geometry = {}
-
-        def place_panel_10_device() -> None:
-            device_geometry.update(
-                place_device(
-                    canvas,
-                    device,
-                    center=center_for_visual_top(device, rotation_deg=0),
-                    rotation_deg=0,
-                )
-            )
+        device_geometry = place_device(
+            canvas,
+            device,
+            center=center_for_visual_top(
+                device,
+                rotation_deg=0,
+                visual_top=GRAYSCALE_PHONE_VISUAL_TOP,
+            ),
+            rotation_deg=0,
+        )
 
         character_geometry = place_character(
             canvas,
             name="worse",
-            width=340,
-            center_x=220,
-            bottom_y=2500,
-            has_ground_shadow=True,
-            after_ground_shadow=place_panel_10_device,
+            width=CORNER_CHARACTER_WIDTH,
+            center_x=GRAYSCALE_CHARACTER_CENTER_X,
+            bottom_y=GRAYSCALE_CHARACTER_BOTTOM_Y,
         )
 
     if content_panel == 5:
@@ -2948,10 +3050,28 @@ def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
                 f"Panel {panel:02d} external character must be fully visible: "
                 f"{character_geometry['visible_alpha_bbox']}"
             )
+    corner_attachment = None
+    corner_requirements = {
+        4: ("relief", "left"),
+        6: ("blink", "right"),
+        8: ("awake", "right"),
+        10: ("worse", "right"),
+    }
+    if panel in corner_requirements:
+        expected_asset, expected_side = corner_requirements[panel]
+        corner_attachment = validate_corner_character_geometry(
+            panel=panel,
+            character_geometry=character_geometry,
+            device_geometry=device_geometry,
+            copy_geometry=copy_geometry,
+            expected_asset=expected_asset,
+            expected_side=expected_side,
+        )
     return canvas, {
         "copy_geometry": copy_geometry,
         "slot": device_geometry,
         "character": character_geometry,
+        "corner_attachment": corner_attachment,
         "character_count": {
             "source_screen": source_screen_character_count,
             "screen": visible_screen_character_count,
@@ -3124,9 +3244,10 @@ def draw_ipad_lock_callout(
     canvas: Image.Image,
     source: Image.Image,
     live_activity_geometry: dict[str, Any],
+    clock_geometry: dict[str, Any],
     character_geometry: dict[str, Any],
 ) -> dict[str, Any]:
-    """Reflow the iPhone Live Activity callout for the 0.75 iPad canvas."""
+    """Center the enlarged card in the wallpaper gap, as on iPhone."""
     source_crop = source.crop(LOCK_ACTIVITY_CARD_BOX)
     source_width, source_height = source_crop.size
     target_width = IPAD_LOCK_CALLOUT_WIDTH
@@ -3137,13 +3258,21 @@ def draw_ipad_lock_callout(
     card_mask = rounded_mask(target_size, (0, 0, *target_size), target_radius)
     card.putalpha(card_mask)
     left = round((CANVAS_WIDTH - target_width) / 2)
-    top = IPAD_LOCK_CALLOUT_TOP
-    box = (left, top, left + target_width, top + target_height)
+    clock_bounds = clock_geometry["canvas_bounds"]
     actual_bounds = live_activity_geometry["canvas_bounds"]
-    if box[3] + 80 > actual_bounds[1]:
-        raise ValueError(f"iPad lock callout has insufficient connector gap: {box}")
+    top = round((clock_bounds[3] + actual_bounds[1] - target_height) / 2)
+    box = (left, top, left + target_width, top + target_height)
+    clock_clearance = top - clock_bounds[3]
+    activity_clearance = actual_bounds[1] - box[3]
+    if min(clock_clearance, activity_clearance) < 80:
+        raise ValueError(
+            "iPad lock callout must sit between the clock and Live Activity: "
+            f"clock={clock_bounds}, callout={box}, activity={actual_bounds}"
+        )
     if boxes_overlap(box, character_geometry["visible_alpha_bbox"]):
         raise ValueError("iPad lock callout overlaps the character")
+    if boxes_overlap(clock_bounds, character_geometry["visible_alpha_bbox"]):
+        raise ValueError("iPad lock character overlaps the clock")
 
     actual_box = tuple(
         round(value)
@@ -3198,6 +3327,10 @@ def draw_ipad_lock_callout(
         "scale_from_source": round(target_width / source_width, 6),
         "canvas_bounds": list(box),
         "corner_radius": target_radius,
+        "vertical_clearance": {
+            "below_clock": round(clock_clearance, 2),
+            "above_live_activity": round(activity_clearance, 2),
+        },
         "connector_lines": [
             {"from": list(start), "to": list(end)}
             for start, end in connector_lines
@@ -3222,21 +3355,21 @@ def render_ipad_panel(
     copy_lime_mask: Image.Image | None = None
     copy_lime_polygon: Sequence[tuple[int, int]] | None = None
     if panel == 1:
-        copy_lime_polygon = ((0, 170), (2064, 65), (2064, 1040), (0, 1340))
+        copy_lime_polygon = ((0, 170), (2064, 65), (2064, 1110), (0, 1450))
         copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
     elif panel in (2, 8):
-        copy_lime_polygon = ((0, 0), (2064, 0), (2064, 1380), (0, 1120))
+        copy_lime_polygon = ((0, 0), (2064, 0), (2064, 1460), (0, 1180))
         copy_lime_mask = draw_lime_polygon(canvas, copy_lime_polygon)
     elif panel == 3:
-        draw_lime_circle(canvas, (1032, 1810), 770)
+        draw_lime_circle(canvas, (1032, 1870), 880)
     elif panel == 4:
-        draw_lime_polygon(canvas, ((0, 1980), (2064, 1450), (2064, 2752), (0, 2752)))
+        draw_lime_polygon(canvas, ((0, 2070), (2064, 1370), (2064, 2752), (0, 2752)))
     elif panel == 6:
-        draw_lime_polygon(canvas, ((0, 1450), (2064, 1980), (2064, 2752), (0, 2752)))
+        draw_lime_polygon(canvas, ((0, 1370), (2064, 2070), (2064, 2752), (0, 2752)))
     elif panel == 9:
-        draw_lime_polygon(canvas, ((0, 735), (2064, 780), (2064, 885), (0, 840)))
+        draw_lime_polygon(canvas, ((0, 725), (2064, 785), (2064, 915), (0, 855)))
     elif panel == 10:
-        draw_lime_polygon(canvas, ((0, 1400), (2064, 1120), (2064, 2752), (0, 2752)))
+        draw_lime_polygon(canvas, ((0, 1500), (2064, 1110), (2064, 2752), (0, 2752)))
 
     content_index = PANEL_IDS.index(content_panel)
     copy_spec = replace(COPY_SPECS[content_index], surface=LAYOUT_SURFACES[panel])
@@ -3256,7 +3389,12 @@ def render_ipad_panel(
     rotated = IPAD_ROTATED_PHONE_WIDTH
     phone_width = rotated if panel in (4, 6) else straight
     rotation = 8 if panel == 4 else (-8 if panel == 6 else 0)
-    visual_top = IPAD_LOCK_PHONE_VISUAL_TOP if panel == 3 else IPAD_PHONE_VISUAL_TOP
+    if panel == 1:
+        visual_top = IPAD_BREATH_PHONE_VISUAL_TOP
+    elif panel == 3:
+        visual_top = IPAD_LOCK_PHONE_VISUAL_TOP
+    else:
+        visual_top = IPAD_PHONE_VISUAL_TOP
     if panel == 3:
         phone_width = IPAD_LOCK_PHONE_WIDTH
     device = prepare_device(
@@ -3281,11 +3419,11 @@ def render_ipad_panel(
         character_geometry = place_character(
             canvas,
             name="awake",
-            width=330,
+            width=round(phone_width / 3),
             rotation_deg=-12,
             flip_horizontal=True,
-            center_x=350,
-            bottom_y=1120,
+            center_x=470,
+            bottom_y=1060,
         )
         activity_geometry = source_box_canvas_geometry_ipad(
             device,
@@ -3294,6 +3432,37 @@ def render_ipad_panel(
             rotation_deg=rotation,
         )
         device_geometry["live_activity_card"] = activity_geometry
+        wider_device = prepare_device(
+            source,
+            phone_width + 1,
+            expected_source_size=IPHONE_CANVAS_SIZE,
+        )
+        wider_center = center_for_visual_top(
+            wider_device,
+            rotation_deg=rotation,
+            visual_top=visual_top,
+            center_x=CANVAS_WIDTH / 2,
+        )
+        wider_activity = source_box_canvas_geometry_ipad(
+            wider_device,
+            source_box=LOCK_ACTIVITY_CARD_BOX,
+            center=wider_center,
+            rotation_deg=rotation,
+        )
+        if wider_activity["canvas_bounds"][3] <= CANVAS_HEIGHT:
+            raise ValueError(
+                "IPAD_LOCK_PHONE_WIDTH must be the maximum integer width with "
+                "the real Live Activity fully inside the canvas"
+            )
+        if not activity_geometry["fully_visible"]:
+            raise ValueError(f"iPad real Live Activity is clipped: {activity_geometry}")
+        clock_geometry = source_box_canvas_geometry_ipad(
+            device,
+            source_box=IPAD_LOCK_CLOCK_SOURCE_BOX,
+            center=device_center,
+            rotation_deg=rotation,
+        )
+        device_geometry["clock"] = clock_geometry
         device_geometry["live_activity_localization"] = {
             "date": LOCK_DATES[LOCALE],
             **live_activity_copy(LOCALE),
@@ -3303,43 +3472,42 @@ def render_ipad_panel(
             canvas,
             source,
             activity_geometry,
+            clock_geometry,
             character_geometry,
         )
     elif panel == 4:
         character_geometry = place_character(
             canvas,
-            name="awake",
-            width=250,
-            center_x=1770,
-            bottom_y=1880,
-            has_ground_shadow=True,
+            name="relief",
+            width=round(phone_width / 3),
+            rotation_deg=rotation,
+            center_x=270,
+            bottom_y=1170,
         )
     elif panel == 6:
         character_geometry = place_character(
             canvas,
-            name="relief",
-            width=280,
-            center_x=190,
-            bottom_y=2180,
-            has_ground_shadow=True,
+            name="blink",
+            width=round(phone_width / 3),
+            rotation_deg=rotation,
+            center_x=1790,
+            bottom_y=1170,
         )
     elif panel == 8:
         character_geometry = place_character(
             canvas,
             name="awake",
-            width=360,
+            width=round(phone_width / 3),
             center_x=1740,
-            bottom_y=1450,
-            has_ground_shadow=True,
+            bottom_y=1120,
         )
     elif panel == 10:
         character_geometry = place_character(
             canvas,
             name="worse",
-            width=400,
-            center_x=350,
-            bottom_y=2400,
-            has_ground_shadow=True,
+            width=round(phone_width / 3),
+            center_x=1740,
+            bottom_y=1120,
         )
 
     visible_screen_count = VISIBLE_SCREEN_CHARACTER_COUNTS[content_index]
@@ -3357,7 +3525,34 @@ def render_ipad_panel(
     if min(outer_xs) < 0 or max(outer_xs) > CANVAS_WIDTH:
         raise ValueError(f"Panel {panel:02d} iPad chassis is clipped horizontally")
     width_ratio = phone_width / CANVAS_WIDTH
-    if not 0.58 <= width_ratio <= 0.62:
+    if panel in (4, 6):
+        wider_device = prepare_device(
+            source,
+            phone_width + 1,
+            expected_source_size=IPHONE_CANVAS_SIZE,
+        )
+        wider_center = center_for_visual_top(
+            wider_device,
+            rotation_deg=rotation,
+            visual_top=visual_top,
+            center_x=CANVAS_WIDTH / 2,
+        )
+        wider_outer = [
+            transform_point(point, wider_device.image.size, wider_center, rotation)
+            for point in (
+                (0, 0),
+                (wider_device.outer_width, 0),
+                (wider_device.outer_width, wider_device.outer_height),
+                (0, wider_device.outer_height),
+            )
+        ]
+        wider_xs = [point[0] for point in wider_outer]
+        if min(wider_xs) >= 0 and max(wider_xs) <= CANVAS_WIDTH:
+            raise ValueError(
+                "IPAD_ROTATED_PHONE_WIDTH must be the maximum integer width "
+                "whose rotated chassis fits horizontally"
+            )
+    elif panel != 3 and not 0.70 <= width_ratio <= 0.74:
         raise ValueError(f"Panel {panel:02d} phone width ratio out of range: {width_ratio}")
     if character_geometry is not None:
         char_box = character_geometry["visible_alpha_bbox"]
@@ -3370,12 +3565,52 @@ def render_ipad_panel(
         ]
         if any(boxes_overlap(char_box, copy_box) for copy_box in copy_boxes):
             raise ValueError(f"Panel {panel:02d} character overlaps marketing copy")
+    corner_attachment = None
+    corner_requirements = {
+        4: ("relief", "left"),
+        6: ("blink", "right"),
+        8: ("awake", "right"),
+        10: ("worse", "right"),
+    }
+    if panel in corner_requirements:
+        expected_asset, expected_side = corner_requirements[panel]
+        corner_attachment = validate_corner_character_geometry(
+            panel=panel,
+            character_geometry=character_geometry,
+            device_geometry=device_geometry,
+            copy_geometry=copy_geometry,
+            expected_asset=expected_asset,
+            expected_side=expected_side,
+        )
+    if panel == 3:
+        if character_geometry is None:
+            raise ValueError("iPad lock panel requires the awake mascot")
+        char_box = character_geometry["visible_alpha_bbox"]
+        phone_corner = device_geometry["outer_corners"]["top_left"]
+        if not (
+            character_geometry["visible_center_x"] < CANVAS_WIDTH / 2
+            and char_box[1] < phone_corner[1] < char_box[3]
+            and boxes_overlap(
+                char_box,
+                (
+                    min(outer_xs),
+                    min(point[1] for point in device_geometry["outer_corners"].values()),
+                    max(outer_xs),
+                    max(point[1] for point in device_geometry["outer_corners"].values()),
+                ),
+            )
+        ):
+            raise ValueError(
+                f"iPad lock mascot must hook over the upper-left phone corner: "
+                f"character={char_box}, corner={phone_corner}"
+            )
     if canvas.mode != "RGB" or canvas.size != IPAD_CANVAS_SIZE:
         raise ValueError((canvas.mode, canvas.size))
     return canvas, {
         "copy_geometry": copy_geometry,
         "slot": device_geometry,
         "character": character_geometry,
+        "corner_attachment": corner_attachment,
         "character_count": {
             "source_screen": SCREEN_CHARACTER_COUNTS[content_index],
             "screen": visible_screen_count,
@@ -3474,6 +3709,7 @@ def generate_ipad_locale(locale: str) -> None:
                 "upload_position": position,
                 "slots": [geometry["slot"]],
                 "character": geometry["character"],
+                "corner_attachment": geometry["corner_attachment"],
                 "character_count": geometry["character_count"],
                 "copy_geometry": geometry["copy_geometry"],
                 "phone_width_ratio": geometry["phone_width_ratio"],
@@ -3639,6 +3875,7 @@ def generate_locale(locale: str) -> None:
                 "upload_position": len(panel_records) + 1,
                 "slots": [geometry["slot"]],
                 "character": geometry["character"],
+                "corner_attachment": geometry["corner_attachment"],
                 "character_count": geometry["character_count"],
                 "copy_geometry": geometry["copy_geometry"],
             }

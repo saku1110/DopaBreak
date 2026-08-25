@@ -134,7 +134,11 @@ public final class InterventionEngine {
             attemptCount24h: try attemptCount24h(ruleId: ruleId, before: timestamp),
             opened: false
         )
-        try logStore.insert(log)
+        let reclaimedSeconds = try ReclaimedTimeEstimator.estimatedSeconds(
+            at: timestamp,
+            logStore: logStore
+        )
+        try logStore.insertCancelledAttempt(log, reclaimedSeconds: reclaimedSeconds)
         // idle へ戻す際に intent はクリアされる（idleContext / idleState は intent = nil）。
         try resolveToIdle(via: .cancelled, at: timestamp)
     }

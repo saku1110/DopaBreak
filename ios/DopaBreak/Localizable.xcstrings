@@ -10,6 +10,15 @@
         "ko": { "stringUnit": { "state": "translated", "value": "%lld시간 %lld분" } }
       }
     },
+    "home.reclaimed.hours": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld hr" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld時間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld시간" } }
+      }
+    },
     "home.reclaimed.minutes": {
       "comment": "Screen: Home",
       "extractionState": "manual",
@@ -19,31 +28,85 @@
         "ko": { "stringUnit": { "state": "translated", "value": "%lld분" } }
       }
     },
-    "home.reclaimed.week_label": {
+    "home.hero.lifetime.days_equiv": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "this week" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "今週" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "이번 주" } }
+        "en": { "stringUnit": { "state": "translated", "value": "= %lld day" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld日分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld일치" } }
       }
     },
-    "home.reclaimed.title": {
+    "home.hero.lifetime.days_equiv_plural": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Time you got back" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "取り戻した時間" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "되찾은 시간" } }
+        "en": { "stringUnit": { "state": "translated", "value": "= %lld days" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld日分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld일치" } }
       }
     },
-    "home.reclaimed.yearly": {
+    "home.hero.lifetime.years_days_equiv": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "About %@ days a year at this pace" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "この調子なら1年で約 %@日分" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "이 속도라면 1년에 약 %@일" } }
+        "en": { "stringUnit": { "state": "translated", "value": "= %1$lld yr %2$lld day" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%1$lld年 %2$lld日分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%1$lld년 %2$lld일치" } }
+      }
+    },
+    "home.hero.lifetime.years_days_equiv_plural": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "= %1$lld yr %2$lld days" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%1$lld年 %2$lld日分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%1$lld년 %2$lld일치" } }
+      }
+    },
+    "home.hero.lifetime.years_equiv": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "= %lld yr" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld年分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld년치" } }
+      }
+    },
+    "home.hero.lifetime.years_equiv_plural": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "= %lld yrs" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%lld年分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%lld년치" } }
+      }
+    },
+    "home.hero.lifetime.title": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Time social media didn't take" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "SNSに消えるはずだった時間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "SNS에 뺏기지 않은 시간" } }
+      }
+    },
+    "home.hero.today_delta": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Today +%@" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日 +%@" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘 +%@" } }
+      }
+    },
+    "home.hero.basis": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$lld skipped × about %2$lld min each" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "やめた%1$lld回 × 1回あたり約%2$lld分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%1$lld번 참음 × 1번에 약 %2$lld분" } }
       }
     },
     "home.stats_link.title": {
@@ -127,30 +190,6 @@
         "ko": { "stringUnit": { "state": "translated", "value": "멈춰 둔 앱" } }
       }
     },
-    "home.achievement.count_unit": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "times"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "回"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "회"
-          }
-        }
-      }
-    },
     "home.achievement.empty_body": {
       "comment": "Screen: Home",
       "extractionState": "manual",
@@ -171,42 +210,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "오늘은 아직 열려고 하지 않았어요"
-          }
-        }
-      }
-    },
-    "home.achievement.summary": {
-      "comment": "Screen: Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Tried to open %lld time"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Tried to open %lld times"
-                }
-              }
-            }
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開こうとしたのは%lld回"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열려고 한 건 %lld회"
           }
         }
       }

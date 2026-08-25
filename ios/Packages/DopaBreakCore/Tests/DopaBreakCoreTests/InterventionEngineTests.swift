@@ -35,6 +35,8 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertNil(attempt.selectedDurationSeconds)
         XCTAssertEqual(attempt.attemptCount24h, 1)
         XCTAssertEqual(try ctx.log.fetchReflections(), [], "cancel does not create a reflection")
+        XCTAssertEqual(try ctx.log.reclaimedLedgerEntryCount(), 1)
+        XCTAssertEqual(try StatsService(logStore: ctx.log).reclaimedSecondsAllTime(), 300)
     }
 
     func testFullHappyPathOpenExpireReshieldReflectionAnswer() throws {
@@ -80,6 +82,7 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertEqual(attempt.selectedDurationSeconds, 300)
         XCTAssertEqual(attempt.intent, .unconscious)
         XCTAssertEqual(attempt.id, answered.attemptLogId, "reflection links back to its attempt")
+        XCTAssertEqual(try ctx.log.reclaimedLedgerEntryCount(), 0, "opened attempts do not enter the ledger")
     }
 
     func testRecordCancelAllowedFromIntentSelection() throws {

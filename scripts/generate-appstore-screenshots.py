@@ -56,46 +56,56 @@ PANEL_DAYS = {
 COPY = {
     "ja": [
         {
-            "eyebrow": "SNS時間を見える化",
-            "headline": ["「あと5分だけ」が", "1年で{days}日になる"],
-            "sub": "回答から、無意識スクロールの時間を推計",
+            "eyebrow": "SNSに消えるはずだった時間",
+            "headline": ["「溶けた時間」が", "人生の時間に変わる"],
+            "sub": "積み上がった時間が何日分かまでホームに",
         },
         {
             "eyebrow": "禁止しないアプリ制限",
-            "headline": ["SNSをブロックしない", "開く前に、ひと呼吸"],
-            "sub": "反射で開く瞬間にだけ、短いブレーキ",
+            "headline": ["SNSをブロックしない", "開く前にひと呼吸"],
+            "sub": "反射で開く瞬間にだけ短いブレーキ",
         },
         {
-            "eyebrow": "理由と時間を選ぶ",
-            "headline": ["何のために開く？", "必要な時間だけ使う"],
-            "sub": "目的を言葉にして、5〜30分から選べます",
+            "eyebrow": "今日の記録",
+            "headline": ["開こうとした15回のうち", "12回はやめられた"],
+            "sub": "どのアプリを何回やめたか まで残る",
         },
         {
-            "eyebrow": "目標と実績をひとつの画面に",
-            "headline": ["我慢できた回数が", "数字で増える"],
-            "sub": "今日と今週の合計をホームでいつでも確認",
+            "eyebrow": "夜だけ強化",
+            "headline": ["就寝中は自動で", "完全ブロック"],
+            "sub": "夜ふかしスクロールを就寝・起床の時刻で断つ",
         },
         {
-            "eyebrow": "ロック画面・通知・ウィジェット",
-            "headline": ["大切な目標を", "いつも目に入る場所へ"],
-            "sub": "SNSを開く前に、やりたいことを思い出す",
+            "eyebrow": "ロック画面の目標",
+            "headline": ["SNSを開くたびに", "目標を確認"],
+            "sub": "ロック画面に目標と開くのをやめた回数を表示",
         },
         {
-            "eyebrow": "振り返りと統計",
-            "headline": ["SNSのあと、本音を記録", "開くのをやめた回数も積み上がる"],
-            "sub": "満足感と開こうとした回数を見える化",
+            "eyebrow": "集中タイマーで完全ブロック",
+            "headline": ["集中したい時間だけ", "選んだアプリを止める"],
+            "sub": "30分から解除するまで 曜日と時間帯の予約も",
         },
         {
-            "eyebrow": "オンデバイスで安心",
-            "headline": ["記録は端末の中だけ", "無料で始められます"],
-            "sub": "対象アプリ・呼吸時間・通知をいつでも調整",
+            "eyebrow": "理由を選ぶ",
+            "headline": ["何のために開く？", "理由を決めてから使う"],
+            "sub": "目的を言葉にして反射で開くのを止める",
+        },
+        {
+            "eyebrow": "見たあとの本音",
+            "headline": ["SNSを見たあと", "本音を一つ選ぶだけ"],
+            "sub": "5つの気持ちから選ぶ 次に開く前の材料になる",
+        },
+        {
+            "eyebrow": "白黒フィルタ連携",
+            "headline": ["色を消して", "SNSをつまらなくする"],
+            "sub": "SNSを開くと自動で白黒に サイドボタン3回の手動切替も",
         },
     ],
     "en-US": [
         {
-            "eyebrow": "SEE THE COST OF DOOMSCROLLING",
-            "headline": ["“Five more minutes”", "can become {days} days a year"],
-            "sub": "Answer a few questions to see how much time your phone takes.",
+            "eyebrow": "DOPAMINE DETOX, COUNTED IN HOURS",
+            "headline": ["Hours you would have lost to scrolling", "are yours again"],
+            "sub": "See how many days it adds up to, right on the home screen.",
         },
         {
             "eyebrow": "NOT ANOTHER APP BLOCKER",
@@ -103,36 +113,46 @@ COPY = {
             "sub": "A short break interrupts the reflex. You still choose.",
         },
         {
-            "eyebrow": "CHOOSE A REASON AND A TIME",
-            "headline": ["Know why you’re opening", "Use only what you need"],
-            "sub": "Name your purpose, then pick 5 to 30 minutes",
+            "eyebrow": "TODAY'S RECORD",
+            "headline": ["Reached for it 15 times", "stopped 12 of them"],
+            "sub": "Which app, and how many times. It all stays.",
         },
         {
-            "eyebrow": "A DETOX YOU CAN ACTUALLY KEEP",
-            "headline": ["Dopamine detox,", "one skipped open at a time"],
-            "sub": "Every open you skip gets counted, so the number keeps climbing.",
+            "eyebrow": "STRONGER AT NIGHT",
+            "headline": ["Your bedtime hours", "block themselves"],
+            "sub": "Late-night scrolling stops at the bedtime and wake times you set",
         },
         {
-            "eyebrow": "LOCK SCREEN · NOTIFICATIONS · WIDGETS",
-            "headline": ["Keep your goal", "where you’ll see it"],
-            "sub": "Remember what matters before you open social media",
+            "eyebrow": "LOCK SCREEN GOALS",
+            "headline": ["Your goals, every time", "you reach for social media"],
+            "sub": "Your goals and skipped opens sit on the lock screen",
         },
         {
-            "eyebrow": "HABIT TRACKER AND CHECK-INS",
-            "headline": ["Check in after you scroll", "Count every time you didn’t open"],
-            "sub": "Log how you felt, then see your attempts and skipped opens",
+            "eyebrow": "BLOCK ON YOUR SCHEDULE",
+            "headline": ["Pick the hours you need to focus", "and those apps stay shut"],
+            "sub": "From 30 minutes to until you lift it, plus weekly time slots",
         },
         {
-            "eyebrow": "PRIVATE BY DESIGN",
-            "headline": ["Your records stay on device", "Start free"],
-            "sub": "Adjust paused apps, breath length, and reminders anytime",
+            "eyebrow": "CHOOSE A REASON",
+            "headline": ["Know why you're opening", "then decide to use it"],
+            "sub": "Put the purpose into words and the reflex loses its grip",
+        },
+        {
+            "eyebrow": "HONEST CHECK-IN",
+            "headline": ["After you scroll", "pick one honest feeling"],
+            "sub": "Five moods to choose from. It shapes your next decision.",
+        },
+        {
+            "eyebrow": "GRAYSCALE SHORTCUT",
+            "headline": ["Strip the color", "and social media gets boring"],
+            "sub": "Goes gray the moment you open social media. Or triple-click the side button.",
         },
     ],
     "ko": [
         {
-            "eyebrow": "숏폼·SNS 시간 셀프 체크",
-            "headline": ["‘5분만 더’가", "1년에 {days}일이 돼요"],
-            "sub": "답변을 바탕으로 무심코 스크롤한 시간을 추정해요",
+            "eyebrow": "SNS에 뺏기지 않은 시간",
+            "headline": ["녹아 없어질 뻔한 시간이", "내 인생의 시간으로 돌아와요"],
+            "sub": "쌓인 시간이 며칠치인지까지 홈에서 봐요",
         },
         {
             "eyebrow": "차단이 아니라 브레이크",
@@ -140,29 +160,39 @@ COPY = {
             "sub": "반사적으로 여는 순간에만 잠깐 브레이크를 걸어요",
         },
         {
-            "eyebrow": "이유와 시간 선택",
-            "headline": ["왜 여는지 먼저 확인", "필요한 만큼만 사용해요"],
-            "sub": "목적을 고르고 5~30분 중 필요한 시간만 선택해요",
+            "eyebrow": "오늘의 기록",
+            "headline": ["열려고 한 15번 중", "12번은 참았어요"],
+            "sub": "어떤 앱을 몇 번 참았는지까지 남아요",
         },
         {
-            "eyebrow": "목표와 기록을 한 화면에",
-            "headline": ["참아낸 횟수가", "숫자로 늘어나요"],
-            "sub": "오늘과 이번 주 합계를 홈에서 바로 확인해요",
+            "eyebrow": "밤에만 강하게",
+            "headline": ["잠든 사이엔 자동으로", "완전 차단"],
+            "sub": "늦은 밤 스크롤을 취침 기상 시각으로 끊어요",
         },
         {
-            "eyebrow": "잠금 화면·알림·위젯",
-            "headline": ["목표를", "늘 보이는 곳에"],
-            "sub": "SNS를 열기 전에 내가 하려던 일을 떠올려요",
+            "eyebrow": "잠금 화면 목표",
+            "headline": ["SNS를 열 때마다", "목표를 확인해요"],
+            "sub": "잠금 화면에 목표와 열지 않은 횟수가 보여요",
         },
         {
-            "eyebrow": "사용 후 돌아보기와 루틴 통계",
-            "headline": ["SNS를 본 뒤 기분을 기록", "열지 않은 횟수도 쌓여요"],
-            "sub": "만족감·시도·열지 않은 횟수를 한눈에 봐요",
+            "eyebrow": "공부·업무 시간 완전 차단",
+            "headline": ["집중할 시간만 골라서", "앱을 멈춰요"],
+            "sub": "30분부터 해제할 때까지 요일과 시간대 예약도 돼요",
         },
         {
-            "eyebrow": "기기 안에 안전하게",
-            "headline": ["기록은 기기 안에만", "무료로 시작해요"],
-            "sub": "대상 앱·숨 고르기 시간·알림을 언제든 조절해요",
+            "eyebrow": "이유 선택",
+            "headline": ["왜 여는지 먼저 확인", "이유를 정하고 써요"],
+            "sub": "목적을 말로 정하면 무심코 여는 손이 멈춰요",
+        },
+        {
+            "eyebrow": "본 뒤의 솔직한 기분",
+            "headline": ["SNS를 본 뒤", "솔직한 기분 하나만 골라요"],
+            "sub": "다섯 가지 기분에서 하나를 고르면 다음에 열기 전 판단 재료가 돼요",
+        },
+        {
+            "eyebrow": "흑백 필터 연동",
+            "headline": ["색을 없애면", "SNS가 시시해져요"],
+            "sub": "SNS를 열면 자동으로 흑백 측면 버튼 세 번으로 직접 전환도 돼요",
         },
     ],
 }
@@ -529,7 +559,7 @@ def compose(locale: str, device: str, panel: int) -> Image.Image:
     canvas.paste(icon, (margin, margin))
     brand_font = font(locale, round(w * (0.025 if is_ipad else 0.033)), True)
     draw.text((margin + icon_size + round(w * 0.018), margin + round(icon_size * 0.22)), "DopaBreak", font=brand_font, fill=primary)
-    counter = f"{panel:02d} / 07"
+    counter = f"{panel:02d} / 06"
     cb = draw.textbbox((0, 0), counter, font=font(locale, round(w * 0.022), True))
     draw.text((w - margin - (cb[2] - cb[0]), margin + round(icon_size * 0.24)), counter, font=font(locale, round(w * 0.022), True), fill=secondary)
 
@@ -601,7 +631,7 @@ def main() -> None:
             output_dir = FINAL_ROOT / locale / device
             output_dir.mkdir(parents=True, exist_ok=True)
             files: list[Path] = []
-            slugs = ("hook", "pause", "intent-time", "modes", "goal-lockscreen", "reflection-stats", "privacy-settings")
+            slugs = ("hook", "pause", "intent-time", "modes", "goal-lockscreen", "reflection-stats")
             for panel, slug in enumerate(slugs, start=1):
                 image = compose(locale, device, panel)
                 path = output_dir / f"{panel:02d}-{slug}.png"

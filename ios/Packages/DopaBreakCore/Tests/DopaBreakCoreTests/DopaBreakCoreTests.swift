@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import XCTest
 @testable import DopaBreakCore
 
@@ -356,12 +357,16 @@ final class DopaBreakCoreTests: XCTestCase {
     func testSQLiteStoreDeleteAllLogsRemovesAttemptsAndReflections() throws {
         let store = try makeLogStore()
 
-        try store.insert(sampleAttempt(id: 34, startedAt: date(61)))
+        try store.insertCancelledAttempt(
+            sampleAttempt(id: 34, startedAt: date(61)),
+            reclaimedSeconds: 300
+        )
         try store.insert(sampleReflection(id: 35, promptedAt: date(62)))
         try store.deleteAllLogs()
 
         XCTAssertEqual(try store.fetchAttempts(), [])
         XCTAssertEqual(try store.fetchReflections(), [])
+        XCTAssertEqual(try store.reclaimedLedgerEntryCount(), 0)
     }
 
     func testSQLiteStoreReopensWithIdempotentMigration() throws {
@@ -378,6 +383,74 @@ final class DopaBreakCoreTests: XCTestCase {
 
         let thirdStore = try SQLiteLogStore(containerProvider: provider)
         XCTAssertEqual(try thirdStore.fetchAttempts(), [attempt])
+    }
+
+    func testReclaimedLedgerBackfillRunsOnceAcrossRepeatedMigration() throws {
+        let containerURL = try makeTemporaryDirectory()
+        let databaseURL = containerURL.appendingPathComponent("attempt_logs.sqlite")
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(databaseURL.path, &db), SQLITE_OK)
+        let now = Date().timeIntervalSince1970
+        let cancelledID = uuid(3_600).uuidString
+        let ruleID = uuid(3_601).uuidString
+        let setupSQL = """
+        CREATE TABLE attempt_logs (
+            id TEXT PRIMARY KEY NOT NULL,
+            rule_id TEXT NOT NULL,
+            started_at REAL NOT NULL,
+            completed_at REAL,
+            decision TEXT NOT NULL,
+            intent TEXT,
+            selected_duration_seconds INTEGER,
+            attempt_count24h INTEGER NOT NULL,
+            opened INTEGER NOT NULL
+        );
+        INSERT INTO attempt_logs VALUES
+            ('\(uuid(3_602).uuidString)', '\(ruleID)', \(now - 3_600), \(now - 3_600), 'opened', NULL, 600, 1, 1),
+            ('\(uuid(3_603).uuidString)', '\(ruleID)', \(now - 1_800), \(now - 1_800), 'opened', NULL, 1200, 1, 1),
+            ('\(cancelledID)', '\(ruleID)', \(now - 600), \(now - 600), 'cancelled', NULL, NULL, 1, 0);
+        PRAGMA user_version = 1;
+        """
+        XCTAssertEqual(sqlite3_exec(db, setupSQL, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+
+        var firstStore: SQLiteLogStore? = try SQLiteLogStore(
+            containerProvider: FixedContainer(url: containerURL)
+        )
+        XCTAssertEqual(try firstStore?.reclaimedLedgerEntryCount(), 1)
+        XCTAssertEqual(try firstStore?.reclaimedSeconds(), 900)
+        firstStore = nil
+
+        let secondStore = try SQLiteLogStore(containerProvider: FixedContainer(url: containerURL))
+        XCTAssertEqual(try secondStore.reclaimedLedgerEntryCount(), 1)
+        XCTAssertEqual(try secondStore.reclaimedSeconds(), 900)
+    }
+
+    func testReclaimedLedgerBackfillRepairsMissingEntryOnReopen() throws {
+        let containerURL = try makeTemporaryDirectory()
+        let provider = FixedContainer(url: containerURL)
+        var store: SQLiteLogStore? = try SQLiteLogStore(containerProvider: provider)
+        XCTAssertEqual(try store?.reclaimedLedgerEntryCount(), 0)
+        store = nil
+
+        let databaseURL = containerURL.appendingPathComponent("attempt_logs.sqlite")
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(databaseURL.path, &db), SQLITE_OK)
+        let now = Date().timeIntervalSince1970
+        let insertSQL = """
+        INSERT INTO attempt_logs
+        (id, rule_id, started_at, completed_at, decision, intent,
+         selected_duration_seconds, attempt_count24h, opened)
+        VALUES
+        ('\(uuid(3_610).uuidString)', '\(uuid(3_611).uuidString)', \(now), \(now),
+         'cancelled', NULL, NULL, 1, 0);
+        """
+        XCTAssertEqual(sqlite3_exec(db, insertSQL, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+
+        let reopenedStore = try SQLiteLogStore(containerProvider: provider)
+        XCTAssertEqual(try reopenedStore.reclaimedLedgerEntryCount(), 1)
+        XCTAssertEqual(try reopenedStore.reclaimedSeconds(), ReclaimedTimeEstimator.defaultSeconds)
     }
 
     func testSQLiteStoreConcurrentInsertsFromTwoQueues() throws {

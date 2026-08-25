@@ -21,10 +21,143 @@ enum HomeStatsLinkDestination: Equatable {
     }
 }
 
+enum ReclaimedTimeFormatter {
+    private static func formatted(
+        _ key: String,
+        defaultValue: String,
+        arguments: [CVarArg],
+        bundle: Bundle,
+        locale _: Locale
+    ) -> String {
+        let format = bundle.localizedString(forKey: key, value: defaultValue, table: nil)
+        return String(format: format, arguments: arguments)
+    }
+
+    static func string(
+        seconds: Int,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let totalMinutes = max(0, seconds) / 60
+        if totalMinutes < 60 {
+            return formatted(
+                "home.reclaimed.minutes",
+                defaultValue: "%lld分",
+                arguments: [totalMinutes],
+                bundle: bundle,
+                locale: locale
+            )
+        }
+
+        let totalHours = totalMinutes / 60
+        return formatted(
+            "home.reclaimed.hours",
+            defaultValue: "%lld時間",
+            arguments: [totalHours],
+            bundle: bundle,
+            locale: locale
+        )
+    }
+
+    static func equivalentString(
+        seconds: Int,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String? {
+        let totalDays = max(0, seconds) / 86_400
+        guard totalDays > 0 else { return nil }
+
+        if totalDays < 365 {
+            return formatted(
+                totalDays == 1
+                    ? "home.hero.lifetime.days_equiv"
+                    : "home.hero.lifetime.days_equiv_plural",
+                defaultValue: "%lld日分",
+                arguments: [totalDays],
+                bundle: bundle,
+                locale: locale
+            )
+        }
+
+        let years = totalDays / 365
+        let days = totalDays % 365
+        if days == 0 {
+            return formatted(
+                years == 1
+                    ? "home.hero.lifetime.years_equiv"
+                    : "home.hero.lifetime.years_equiv_plural",
+                defaultValue: "%lld年分",
+                arguments: [years],
+                bundle: bundle,
+                locale: locale
+            )
+        }
+        return formatted(
+            days == 1
+                ? "home.hero.lifetime.years_days_equiv"
+                : "home.hero.lifetime.years_days_equiv_plural",
+            defaultValue: "%1$lld年 %2$lld日分",
+            arguments: [years, days],
+            bundle: bundle,
+            locale: locale
+        )
+    }
+
+    static func detailedString(
+        seconds: Int,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let totalMinutes = max(0, seconds) / 60
+        guard totalMinutes >= 60 else {
+            return formatted(
+                "home.reclaimed.minutes",
+                defaultValue: "%lld分",
+                arguments: [totalMinutes],
+                bundle: bundle,
+                locale: locale
+            )
+        }
+        let minutes = totalMinutes % 60
+        if minutes == 0 {
+            return formatted(
+                "home.reclaimed.hours",
+                defaultValue: "%lld時間",
+                arguments: [totalMinutes / 60],
+                bundle: bundle,
+                locale: locale
+            )
+        }
+        return formatted(
+            "home.reclaimed.hours_minutes",
+            defaultValue: "%1$lld時間%2$lld分",
+            arguments: [totalMinutes / 60, minutes],
+            bundle: bundle,
+            locale: locale
+        )
+    }
+
+    static func estimatedMinutesPerCancellation(
+        todayReclaimedSeconds: Int,
+        todayCancellationCount: Int,
+        fallbackSeconds: Int
+    ) -> Int {
+        let seconds = if todayReclaimedSeconds > 0 && todayCancellationCount > 0 {
+            todayReclaimedSeconds / todayCancellationCount
+        } else {
+            fallbackSeconds
+        }
+        return max(1, seconds / 60)
+    }
+}
+
 private struct HomeDashboardData {
     var weeklySummary: WeeklySummary?
     var consecutiveDays = 0
-    var reclaimedSeconds = 0
+    var lifetimeReclaimedSeconds = 0
+    var todayReclaimedSeconds = 0
+    var todayReclaimedCancellationCount = 0
+    var estimatedSecondsPerCancellation = ReclaimedTimeEstimator.defaultSeconds
 
     static let empty = HomeDashboardData()
 }
@@ -71,10 +204,6 @@ struct HomeView: View {
                 }
 
                 heroSection
-
-                if !isFirstDayEmpty {
-                    reclaimedTimeCard
-                }
 
                 targetAppsCard
 
@@ -194,27 +323,61 @@ struct HomeView: View {
 
     private var achievementBlock: some View {
         VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .lastTextBaseline, spacing: 5) {
-                Text("\(model.todayCancelledCount)")
+            SmallLabel(
+                text: String(
+                    localized: "home.hero.lifetime.title",
+                    defaultValue: "SNSに消えるはずだった時間"
+                )
+            )
+
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
+                Text(lifetimeReclaimedTimeText)
                     .dopaFont(56, weight: .black, design: .rounded, tracking: -2)
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.accent)
                     .contentTransition(.numericText())
                     .dopaDisplayClamp()
-                Text(String(localized: "home.achievement.count_unit", defaultValue: "回"))
-                    .dopaFont(20, weight: .black)
-                    .foregroundStyle(DesignTokens.accent)
+
+                if let lifetimeReclaimedEquivalentText {
+                    Text(lifetimeReclaimedEquivalentText)
+                        .dopaFont(20, weight: .semibold)
+                        .monospacedDigit()
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .contentTransition(.numericText())
+                        .dopaDisplayClamp()
+                }
             }
             .accessibilityElement(children: .combine)
-            .animation(DopaMotion.control, value: model.todayCancelledCount)
+            .animation(DopaMotion.control, value: dashboard.lifetimeReclaimedSeconds)
 
-            Text(String(localized: "home.achievement.title", defaultValue: "開くのをやめた"))
+            if dashboard.todayReclaimedCancellationCount == 0 {
+                Text(
+                    String(
+                        localized: "home.achievement.empty_body",
+                        defaultValue: "今日はまだ開こうとしていません"
+                    )
+                )
+                .dopaFont(14, weight: .semibold)
+                .foregroundStyle(DesignTokens.secondaryText)
+            } else {
+                Text(
+                    String(
+                        localized: "home.hero.today_delta",
+                        defaultValue: "今日 +\(todayReclaimedTimeText)"
+                    )
+                )
                 .dopaFont(20, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
 
-            Text(achievementSummary)
+                Text(
+                    String(
+                        localized: "home.hero.basis",
+                        defaultValue: "やめた\(dashboard.todayReclaimedCancellationCount)回 × 1回あたり約\(estimatedMinutesPerCancellation)分"
+                    )
+                )
                 .dopaFont(14, weight: .semibold)
                 .foregroundStyle(DesignTokens.secondaryText)
+            }
 
             if dashboard.consecutiveDays > 0 {
                 HStack(spacing: 7) {
@@ -239,50 +402,6 @@ struct HomeView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var achievementSummary: String {
-        if model.todayAttemptCount == 0 {
-            return String(
-                localized: "home.achievement.empty_body",
-                defaultValue: "今日はまだ開こうとしていません"
-            )
-        }
-        return String(
-            localized: "home.achievement.summary",
-            defaultValue: "開こうとしたのは\(model.todayAttemptCount)回"
-        )
-    }
-
-    private var reclaimedTimeCard: some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 10) {
-                SmallLabel(
-                    text: String(localized: "home.reclaimed.title", defaultValue: "取り戻した時間")
-                )
-
-                HStack(alignment: .lastTextBaseline, spacing: 9) {
-                    Text(reclaimedTimeText)
-                        .dopaFont(32, weight: .black, design: .rounded, tracking: -0.7)
-                        .foregroundStyle(DesignTokens.accent)
-                        .contentTransition(.numericText())
-                    Text(String(localized: "home.reclaimed.week_label", defaultValue: "今週"))
-                        .dopaFont(13, weight: .semibold)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                }
-
-                if dashboard.reclaimedSeconds > 0 {
-                    Text(
-                        String(
-                            localized: "home.reclaimed.yearly",
-                            defaultValue: "この調子なら1年で約 \(yearlyReclaimedDaysText)日分"
-                        )
-                    )
-                    .dopaFont(13, weight: .semibold)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                }
-            }
-        }
     }
 
     private var targetAppsCard: some View {
@@ -719,25 +838,24 @@ struct HomeView: View {
         return Self.timeOfDayFormatter.string(from: date)
     }
 
-    private var reclaimedTimeText: String {
-        let totalMinutes = dashboard.reclaimedSeconds / 60
-        if totalMinutes < 60 {
-            return String(
-                localized: "home.reclaimed.minutes",
-                defaultValue: "\(totalMinutes)分"
-            )
-        }
-        return String(
-            localized: "home.reclaimed.hours_minutes",
-            defaultValue: "\(totalMinutes / 60)時間\(totalMinutes % 60)分"
-        )
+    private var lifetimeReclaimedTimeText: String {
+        ReclaimedTimeFormatter.string(seconds: dashboard.lifetimeReclaimedSeconds)
     }
 
-    private var yearlyReclaimedDaysText: String {
-        let days = Double(dashboard.reclaimedSeconds) * 52 / 86_400
-        let floored = floor(days * 10) / 10
-        let format = floored.rounded(.towardZero) == floored ? "%.0f" : "%.1f"
-        return String(format: format, locale: Locale.autoupdatingCurrent, floored)
+    private var lifetimeReclaimedEquivalentText: String? {
+        ReclaimedTimeFormatter.equivalentString(seconds: dashboard.lifetimeReclaimedSeconds)
+    }
+
+    private var todayReclaimedTimeText: String {
+        ReclaimedTimeFormatter.detailedString(seconds: dashboard.todayReclaimedSeconds)
+    }
+
+    private var estimatedMinutesPerCancellation: Int {
+        ReclaimedTimeFormatter.estimatedMinutesPerCancellation(
+            todayReclaimedSeconds: dashboard.todayReclaimedSeconds,
+            todayCancellationCount: dashboard.todayReclaimedCancellationCount,
+            fallbackSeconds: dashboard.estimatedSecondsPerCancellation
+        )
     }
 
     private var primaryGoalTitle: String {
@@ -812,12 +930,17 @@ struct HomeView: View {
         let todayStart = calendar.startOfDay(for: now)
         let todayEnd = calendar.date(byAdding: .day, value: 1, to: todayStart)
             ?? todayStart.addingTimeInterval(86_400)
-        let weekStart = calendar.date(byAdding: .day, value: -6, to: todayStart)
-            ?? todayStart.addingTimeInterval(-6 * 86_400)
         dashboard = HomeDashboardData(
             weeklySummary: try? statsService.weeklySummary(),
             consecutiveDays: (try? statsService.consecutiveDaysWithCancellations(endingOn: now)) ?? 0,
-            reclaimedSeconds: (try? statsService.reclaimedSeconds(from: weekStart, to: todayEnd)) ?? 0
+            lifetimeReclaimedSeconds: (try? statsService.reclaimedSecondsAllTime()) ?? 0,
+            todayReclaimedSeconds: (try? statsService.reclaimedSeconds(from: todayStart, to: todayEnd)) ?? 0,
+            todayReclaimedCancellationCount: (
+                try? statsService.reclaimedCancellationCount(from: todayStart, to: todayEnd)
+            ) ?? 0,
+            estimatedSecondsPerCancellation: (
+                try? statsService.estimatedReclaimedSecondsPerCancellation(at: now)
+            ) ?? ReclaimedTimeEstimator.defaultSeconds
         )
     }
 }

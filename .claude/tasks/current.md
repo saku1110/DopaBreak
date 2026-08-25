@@ -1,11 +1,56 @@
 # 現在のタスク状況
 
-## 2026-08-25 — スクショ#10「白黒」差し替え（🔄 実装中・Opus5サブエージェント）
+## 2026-08-25 — スクショ v3（9枚・訴求ベース再編）仕上げ中（担当=このセッション）
+
+- 構成確定（オーナーがASO判断を当方に委任・1〜3枚目の再考を経て）: 1 一呼吸「あと5分だけ」が／1年で35日になる → 2 ホーム → 3 ロック画面 → 4 夜だけ強化 → 5 記録（アプリ別から表示・気持ちカード=キャラ5体は画面外）→ 6 完全ブロック → 7 理由選択 → 8 振り返り → 9 白黒ホーム（test-project-16 実装・保護6群を保存前に機械チェック）。**7 プライバシー枠は削除**（オーナー指示）
+- 反映済み: v3コピー3ロケール（humanizer en/ko exit 0）・モック拡大（画面切れなし・筐体はみ出し可）・4枚目はテーマ名「黒とライム/Black & Lime/블랙 & 라임」で再撮影済み・en-US 9枚目のステップ切れ是正
+- 🔄 実行中: 3枚目ロック画面の構図修正（直立0°に戻す・サブ直下まで上げる・他と同幅に拡大・LAコールアウト再配置。傾き構図は7枚目へ移動）
+- ⏳ 待ち: **ホーム主役指標の変更（f7・オーナー決定 2026-08-25・正本 home-hero-lifetime-time-2026-08-25.md）** → f7のツリー確定連絡＋フィクスチャ実値 → home.png 3ロケール再撮影 → 2枚目コピーを差し替え（案は v3-proposal.md 追記に記載・監査済み）→ 再生成
+- 教訓: codex exec のプロンプトにバッククォートを直書きするとシェル展開で壊れる → プロンプトはファイルに書いて "$(cat file)" で渡す。同一スクリプトへ複数バッチを同時に走らせない（16:04に他セッションの変更を巻き戻した事故）
+- 2026-08-25 夕: 3枚目は直立・拡大まで反映されたがLAコールアウトが時計に重なり実LAが下端外へ → 実LAが収まる幅へ縮めコールアウトを時計とLAの間に再配置するバッチ実行中。5枚目（記録）はアプリ別カード下が空白 → UI細工なしで raw 撮り直し中（生成側で気持ちカードを下端クロップ）。4枚目（夜だけ強化）の上半分が無関係な設定行＝軽微・後で枠取り調整
+- **ホーム（2枚目）保留中**: 46（旧f7）がヒーロー改訂2（累計は常に時間表記＋横に日数換算・オーナー指示）を実装中。オーナー追加指示「スクショの累計は100時間以上」→ 46へフィクスチャ変更を依頼（週36回は不変・履歴は8日以上前に積む）。確定連絡＋実値を受けて home.png 3ロケール撮影。2枚目 sub は改訂2に合わせ更新済み（v3-proposal.md・en/ko audit exit 0）
+- 2026-08-25 18:00: 3枚目確定（直立・実LAがキャンバス内・コールアウトは時計とLAの間）。stats raw 撮り直し完了（UI細工なし・気持ちカードY=1915/en 1954）。46が改訂2＋累計312時間（13日分・1,872回・縦積みヒーロー）を確定 → home.png 3ロケール撮影中。4/5枚目の枠取りバッチ実行中。2枚目更新プロンプトは /tmp/p2_prompt.txt に用意済み（両方完了後に起動）
+- 2026-08-25 18:30: 2枚目ホーム raw（312時間・13日分）3ロケール撮影済み・パネル再生成済み。3枚目確定。5枚目確定（マスコット右上へ）。4枚目は「rawをスクリーン内でずらす」版を却下→撮り直しraw＋最大幅・下端クロップで再生成中。2枚目見出しはオーナー決定で案A「「溶けた時間」が／人生の時間に変わる」（旧「減らずに積み上がる」は説明的で却下）。プロンプト /tmp/p2c_prompt.txt 用意済み（4枚目バッチ完了後に起動）
+- ✅ 2026-08-25 19:00 **v3 9枚×3ロケール完成**（プレビュー提示済み）。最終順: 1 breath「あと5分だけ」が1年で35日 / 2 home「溶けた時間」が人生の時間に変わる（312時間・13日分、en eyebrow=DOPAMINE DETOX, COUNTED IN HOURS） / 3 deepfocus 集中タイマー / 4 night / 5 lockscreen / 6 stats（気持ちカード画面外） / 7 intent / 8 reflection / 9 grayscale-home。ASO整合: JP 勉強70・タイマー66・集中60 を3枚目へ、EN dopamine detox 復元。保護6群（16）維持
+- 未コミット: スクショ生成スクリプト2本・撮影ハーネス・raw-core・v2出力／アプリ側は46のホーム主役指標（改訂2）ほか（コミットはオーナー指示待ち）
+- 2026-08-25 19:10 オーナー指摘「1枚目のスクショ（一呼吸）とコピー（35日）が違う」→ 1枚目を承認済みの一呼吸訴求「禁止しないアプリ制限／SNSをブロックしない 開く前にひと呼吸／反射で開く瞬間にだけ短いブレーキ」（3ロケール）へ戻すバッチ実行中。**「あと5分だけ」が1年で35日の損失フックはスクショから不採用**（出す画面がオンボにしか無いため）
+- 2026-08-25 19:15 オーナー指示「ロック画面を2〜3枚目に（他アプリとの差別化）」→ 最終順 1 breath / 2 home / **3 lockscreen** / 4 deepfocus / 5 night / 6 stats / 7 intent / 8 reflection / 9 grayscale-home（並び替えプロンプト /tmp/reorder_prompt.txt・1枚目バッチ完了後に起動）
+- ✅ 19:30 1枚目＝一呼吸訴求へ戻し完了・並び替え完了（1 breath / 2 home / 3 lockscreen / 4 deepfocus / 5 night / 6 stats / 7 intent / 8 reflection / 9 grayscale-home）・プレビュー提示
+- 2026-08-25 19:40 オーナー指示「ホームは機能でないので4枚目でよい／記録（6枚目）は不要」→ **8枚構成**へ: 1 breath / 2 lockscreen / 3 deepfocus / 4 home / 5 night / 6 intent / 7 reflection / 8 grayscale-home（記録パネルは不採用・ホームと重複）。並び替えバッチ実行中（画像不変・順序と枚数のみ）
+- ✅ 19:50 8枚構成の並び替え完了・プレビュー提示（画像27→24枚不変・記録パネル不採用）
+- 2026-08-25 19:37 オーナー指摘「6枚目と7枚目の傾きが同じで微妙」「5枚目と6枚目の背景を入れ替え」→ 構図修正バッチ実行中: 5 night ⇄ 6 intent の構図（背景＋傾き＋マスコット）を入替、7 reflection を直立0°＋ライムリボン背景へ。画像はこの3枚のみ変更・コピー/順序不変。（中断した前バッチはスクリプト未変更を確認済み）
+- ✅ 20:00 構図修正完了・プレビュー提示（5 night=ウェッジ+8°／6 intent=上半分ライム0°／7 reflection=リボン0°。隣接同一構図なし。他5パネル不変・保護6群維持）
+- [ ] 6.5"/iPad派生（asc-screenshot-resize）→ ASCアップロード（オーナー合図待ち）（upload-order/{ja,en-US,ko}/iphone-69/ を順番どおり）
+
+
+## 2026-08-25 — ホーム主役指標を永久累計の「SNSに消えるはずだった時間」に変更（✅ 改訂2まで実装・レビュー・受け入れ完了・未コミット／home.png 再撮影は test-project-72）
+
+- **改訂2（オーナー指示 2026-08-25 夕）**: 累計は日・年に繰り上げず常に「時間」表記（「312時間」）、横に「13日分」「1年 73日分」の換算を20ptで併記（24時間未満は非表示）。仕様書「改訂2」節
+- [x] Codex Sol 改訂2 実装完了（HomeStatsLinkDestinationTests 4件成功と報告）
+- [x] Opus5レビュー（論理・境界・キー・テスト問題なし。軽微2件＝VoiceOver結合の復元・換算テキストのクランプをLunaで修正済み）
+- [x] 改訂2＋312時間フィクスチャで `HomeStatsLinkDestinationTests` 4件成功・`testCaptureRedesignPhase1Screens`／`testCaptureHomeScreen` passed（17:56）。実画面: 「312時間 13日分／今日 +2時間／やめた12回 × 約10分／連続7日」。ヒーローは横長のため ViewThatFits が縦積み（マスコット上）に切替わる点を72へ伝達済み
+- [x] test-project-72 へ「改訂2確定・撮影可」＋実値を送付（raw-core/ja/home.png はこちらの検証で上書き済み） → 撮影経路再確認 → test-project-72 へ「改訂2確定」を一報（home.png 撮影はそれまで保留と伝達済み）
+- [x] 撮影フィクスチャの累計312時間化 実装完了（Luna・-14〜-81日に各日 opened2＋cancelled27・ホーム経路のみ・build-for-testing成功）→ 実画面照合待ち
+- [x] ~~**⏸ 撮影フィクスチャの累計312時間化~~（オーナー指示「スクショの累計は100時間以上」）** — 仕様書「撮影フィクスチャ追加」節。担当Codex Lunaは **test-project-72 が同ファイル（CoreScreensSnapshotCapture.swift）と同シミュレータで stats.png 撮り直し中のため、編集前に停止**。72 からの「stats撮影完了」の合図後に同じ指示で再実行する（`codex exec --model gpt-5.6-luna -c model_reasoning_effort="max" -c service_tier="priority"`、対象ファイルはハーネスのみ）。狙い: 累計312時間＝13日分・やめた累計1,872回・直近7日と前週は不変・記録画面の経路には入れない
+
+- オーナー決定: 回数／割合は人生に接続しない → 主役は開かなかった推定時間の永久累計（分→時間→日→年に自動繰り上げ）。予測（1年でN日分）廃止・目標との換算/並置なし
+- 仕様: `.claude/specs/home-hero-lifetime-time-2026-08-25.md`（累計は単調増加必須 → やめた1回ごとに推定秒数を台帳確定・再計算しない）
+- [x] 仕様書・design-decisions追記
+- [x] Codex Sol 初回実装完了（swift test 515件・xcodebuild test 207件成功。Fable再実行でも515/0失敗を確認）
+- [x] Opus5レビュー完了（原子性・移行・単調増加・セキュリティは問題なし。指摘6件を仕様書末尾「レビュー差し戻し」に記載）
+- [x] Codex Sol 差し戻し修正 1〜6 完了（PC停止直前に実装済みだったのを再開時に確認。`swift test` 517件・失敗0／`HomeStatsLinkDestinationTests` 4件成功・TEST SUCCEEDED）
+- [x] 撮影経路確認・**Fable受け入れ完了（ワーキングツリー確定・2026-08-25 17:36）** — `testCaptureRedesignPhase1Screens` 通過。実画面 `output/screenshots/redesign-phase1/home.png` で照合: 見出し「SNSに消えるはずだった時間」／累計「6時間」（36回×600秒）／「今日 +2時間」（12回×600秒）／「やめた12回 × 1回あたり約10分」／「連続 7日」。旧「取り戻した時間」カード・年換算予測は消滅
+- [ ] **スクショ担当セッションへの引き継ぎ（未達）**: 旧担当 test-project-ce はPC再起動で消失し到達不能。**ホームパネル（アップロード2枚目）の home.png 再撮影と文言更新（ce が3言語書き直し済みと報告・scripts/generate-appstore-screenshots-v2.py 内）は、次にスクショを扱うセッションが上記の実値で行う。** 撮影コマンド: `cd ios && TEST_RUNNER_DOPABREAK_CAPTURE_APPSTORE_SCREENSHOTS=1 xcodebuild test -project DopaBreak.xcodeproj -scheme DopaBreak -destination "id=90F5A09F-D128-468C-AB02-7ABB1479B3AE" CODE_SIGNING_ALLOWED=NO -only-testing:DopaBreakTests/CoreScreensSnapshotCapture/testCaptureRedesignPhase1Screens`。コミットはオーナー指示があるまで行わない
+- [ ] レビュー指摘5（設定「ローカルデータ全削除」で累計も0に戻る）は仕様どおり維持。オーナーへ1行報告のみ
+- 後続候補（未着手・未承認）: 単位繰り上げの瞬間の節目演出（触覚＋カード）
+
+## 2026-08-25 — スクショ#10「白黒」差し替え（✅ 完了・ceのv3バッチ後に再検証済み・未コミット）
 
 - 発端: オーナー指摘「『SNSを開くと画面が白黒になる』は訴求としておかしい。設定したらホーム画面も白黒になる。SNSアイコンが並ぶホーム画面を白黒にしたスクショにしろ」
 - 対応: パネル10の画面ソースを AutomationGuideView 実画面 → PILモック `mock_home_grayscale()`（iOSホーム画面・SNS8タイル＋Dock・全面白黒化）へ。コピー3言語を「色を消して／SNSをつまらなくする」系へ書き直し（en/ko humanizer audit exit 0実測）。slug `grayscale-guide`→`grayscale-home`
 - 正本: `.claude/specs/appstore-screenshot-10-grayscale-home-2026-08-25.md`
-- 体制: Codexプローブが2分無応答（利用上限の疑い）→ L3＝Opus5実装（xhigh）／レビュー=Codex（復帰後）または別Opus5
+- 体制: Codexプローブが2分無応答 → L3＝Opus5実装（xhigh）。レビュー=Codex Luna（復帰・3件指摘: UPLOAD_ORDER slug漏れ=修正済み／upload-order README の旧slug参照=ceのv3バッチ側／Dock座標の≈差=許容）
+- 事故: 16:04に test-project-ce のv3バッチ（9枚構成・並び順改訂）が同スクリプトを上書きしパネル10の4点が巻き戻り→16:07に最小差分で復旧。以後 ce が保存前に4点を機械チェックする運用。16:25版で再検証: 4点・モック本体・3ロケールコピーすべて存在、10-grayscale-home.png は3ロケールとも画面領域の非グレー画素0・upload-order の 09-grayscale-home.png とバイト一致（v3で07 goals削除のため9枚）
 
 ## 2026-08-25 — ペイウォール監査（paywall-optimization）＋割引バッジの根拠連動（✅ 実装・検証済み・未コミット）
 
@@ -656,7 +701,7 @@
 - 並走: 5d=モーション改修 Step A〜C 完了（Step DはLockScreenCheckView待ち行列 ce→a4→5d）／a4=ロック画面確認のサイドボタン位置＋lock_check.*キー
 - 連携: スクショ担当(test-project-23)へPhase完了ごとに連絡・ASCアップロード保留中
 
-## 2026-08-25 ロック画面確認: サイドボタン位置マーカー＋英語eyebrow削除（🔄 レビュー最終確認中・未コミット）
+## 2026-08-25 ロック画面確認: サイドボタン位置マーカー＋英語eyebrow削除（✅ 完了・未コミット＝test-project-42のコミットに同梱）
 - 体制: 設計=Fable／寸法調査=Opus5（Apple公式寸法図34機種を直読・ピクセル検証）／実装=Codex Sol medium（2回）／レビュー=Opus5（2回）／受け入れ=Fable
 - 正本: `.claude/specs/lock-check-side-button-marker.md`（§3 端末寸法表・§6 是正バッチ1）
 - [x] `LOCK SCREEN` eyebrow削除（`lock_check.eyebrow` キー削除・stagger振り直し）
@@ -665,5 +710,6 @@
 - [x] 手順1カード＋抽象端末図を廃止、`lock_check.step1.*` 削除、`lock_check.side_button.*` 追加（ja/en/ko）
 - [x] 同梱: `lock_check.preview.cancelled` ja「今日は%lld回 開くのをやめました」（読点→半角スペース・test-project-42依頼）
 - [x] レビュー1→是正（スクロールで空きが伸びるループ／文言ブロック中心ずれ／横向き未正規化／間隔・幅・折返し・矢印向き・stagger視覚順）→ build/テスト8件0失敗/監査2本 exit 0・PNG目視OK
-- [ ] レビュー2（是正の再確認）→ Fable受け入れ → 各セッション（42/ce/5d）へ確定連絡
+- [x] レビュー2（指摘3件: シート経路safe area二重計上／余白+48pt過多／`\n`注入）→ 是正バッチ2（固定幅240ptで折返し制御）→ PNG目視・実測OK → Fable受け入れ → 42/ce/5d へ確定連絡済み
+- [x] 同梱: `lock_check.preview.cancelled` を実LAと一致（ja「やめた」／ko「함」・42依頼）
 - 実機確認（オーナー）: バーの高さが手元の iPhone の物理サイドボタンと合うかは実機でしか確認できない

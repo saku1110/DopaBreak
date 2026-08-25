@@ -29,6 +29,13 @@ public final class SQLiteLogStore: @unchecked Sendable {
     }
 
     public func insert(_ log: AttemptLog) throws {
+        if log.decision == .cancelled {
+            let reference = log.completedAt ?? log.startedAt
+            let seconds = try ReclaimedTimeEstimator.estimatedSeconds(at: reference, logStore: self)
+            try insertCancelledAttempt(log, reclaimedSeconds: seconds)
+            return
+        }
+
         try attemptDatabase.perform { db in
             let sql = """
             INSERT INTO attempt_logs
@@ -40,6 +47,47 @@ public final class SQLiteLogStore: @unchecked Sendable {
             defer { sqlite3_finalize(statement) }
             try bindAttempt(log, to: statement, db: db)
             try stepDone(statement, db: db, sql: sql)
+        }
+    }
+
+    /// cancelled の AttemptLog と、その時点で確定した推定時間を同一トランザクションで保存する。
+    public func insertCancelledAttempt(_ log: AttemptLog, reclaimedSeconds: Int) throws {
+        guard log.decision == .cancelled else {
+            throw CoreError.validation(message: "reclaimed ledger requires a cancelled attempt")
+        }
+        guard reclaimedSeconds >= 0 else {
+            throw CoreError.validation(message: "reclaimedSeconds must not be negative")
+        }
+
+        try attemptDatabase.perform { db in
+            try execute(db, "BEGIN IMMEDIATE")
+            do {
+                let attemptSQL = """
+                INSERT INTO attempt_logs
+                (id, rule_id, started_at, completed_at, decision, intent,
+                 selected_duration_seconds, attempt_count24h, opened)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+                let attemptStatement = try prepare(db, attemptSQL)
+                defer { sqlite3_finalize(attemptStatement) }
+                try bindAttempt(log, to: attemptStatement, db: db)
+                try stepDone(attemptStatement, db: db, sql: attemptSQL)
+
+                let ledgerSQL = """
+                INSERT INTO reclaimed_ledger (attempt_id, seconds, recorded_at)
+                VALUES (?, ?, ?)
+                """
+                let ledgerStatement = try prepare(db, ledgerSQL)
+                defer { sqlite3_finalize(ledgerStatement) }
+                try bindText(log.id.uuidString, to: ledgerStatement, at: 1, db: db, sql: ledgerSQL)
+                try bindInt(reclaimedSeconds, to: ledgerStatement, at: 2, db: db, sql: ledgerSQL)
+                try bindDate(log.completedAt ?? log.startedAt, to: ledgerStatement, at: 3, db: db, sql: ledgerSQL)
+                try stepDone(ledgerStatement, db: db, sql: ledgerSQL)
+                try execute(db, "COMMIT")
+            } catch {
+                try? execute(db, "ROLLBACK")
+                throw error
+            }
         }
     }
 
@@ -83,6 +131,49 @@ public final class SQLiteLogStore: @unchecked Sendable {
             let statement = try prepare(db, sql)
             defer { sqlite3_finalize(statement) }
             try bindText(Decision.cancelled.rawValue, to: statement, at: 1, db: db, sql: sql)
+            return try fetchCount(statement, db: db, sql: sql)
+        }
+    }
+
+    public func reclaimedSeconds(from start: Date? = nil, to end: Date? = nil) throws -> Int {
+        try attemptDatabase.perform { db in
+            let query = rangeQuery(
+                table: "reclaimed_ledger",
+                columns: "COALESCE(SUM(seconds), 0)",
+                dateColumn: "recorded_at",
+                start: start,
+                end: end,
+                includesOrdering: false
+            )
+            let statement = try prepare(db, query.sql)
+            defer { sqlite3_finalize(statement) }
+            try bindRange(query.values, to: statement, db: db)
+            return try fetchCount(statement, db: db, sql: query.sql)
+        }
+    }
+
+    public func reclaimedCancellationCount(from start: Date, to end: Date) throws -> Int {
+        try attemptDatabase.perform { db in
+            let query = rangeQuery(
+                table: "reclaimed_ledger",
+                columns: "COUNT(*)",
+                dateColumn: "recorded_at",
+                start: start,
+                end: end,
+                includesOrdering: false
+            )
+            let statement = try prepare(db, query.sql)
+            defer { sqlite3_finalize(statement) }
+            try bindRange(query.values, to: statement, db: db)
+            return try fetchCount(statement, db: db, sql: query.sql)
+        }
+    }
+
+    func reclaimedLedgerEntryCount() throws -> Int {
+        try attemptDatabase.perform { db in
+            let sql = "SELECT COUNT(*) FROM reclaimed_ledger"
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
             return try fetchCount(statement, db: db, sql: sql)
         }
     }
@@ -158,7 +249,15 @@ public final class SQLiteLogStore: @unchecked Sendable {
 
     public func deleteAllLogs() throws {
         try attemptDatabase.perform { db in
-            try execute(db, "DELETE FROM attempt_logs")
+            try execute(db, "BEGIN IMMEDIATE")
+            do {
+                try execute(db, "DELETE FROM reclaimed_ledger")
+                try execute(db, "DELETE FROM attempt_logs")
+                try execute(db, "COMMIT")
+            } catch {
+                try? execute(db, "ROLLBACK")
+                throw error
+            }
         }
         try reflectionDatabase.perform { db in
             try execute(db, "DELETE FROM reflection_logs")
@@ -195,7 +294,12 @@ private enum SQLiteSchema {
     case attemptLogs
     case reflectionLogs
 
-    var version: Int { 1 }
+    var version: Int {
+        switch self {
+        case .attemptLogs: 2
+        case .reflectionLogs: 1
+        }
+    }
 
     var createSQL: String {
         switch self {
@@ -214,6 +318,13 @@ private enum SQLiteSchema {
             );
             CREATE INDEX IF NOT EXISTS idx_attempt_logs_started_at
             ON attempt_logs(started_at);
+            CREATE TABLE IF NOT EXISTS reclaimed_ledger (
+                attempt_id TEXT PRIMARY KEY NOT NULL,
+                seconds INTEGER NOT NULL,
+                recorded_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_reclaimed_ledger_recorded_at
+            ON reclaimed_ledger(recorded_at);
             """
         case .reflectionLogs:
             return """
@@ -282,13 +393,22 @@ private final class SQLiteDatabase: @unchecked Sendable {
             throw CoreError.sqliteOpen(path: url.path, message: "database is closed")
         }
         let currentVersion = try userVersion(db)
-        guard currentVersion < schema.version else {
-            return
+        if currentVersion < schema.version {
+            try execute(db, "BEGIN IMMEDIATE")
+            do {
+                try execute(db, schema.createSQL)
+                try execute(db, "PRAGMA user_version = \(schema.version)")
+                try execute(db, "COMMIT")
+            } catch {
+                try? execute(db, "ROLLBACK")
+                throw error
+            }
         }
+
+        guard case .attemptLogs = schema else { return }
         try execute(db, "BEGIN IMMEDIATE")
         do {
-            try execute(db, schema.createSQL)
-            try execute(db, "PRAGMA user_version = \(schema.version)")
+            try backfillReclaimedLedger(db)
             try execute(db, "COMMIT")
         } catch {
             try? execute(db, "ROLLBACK")
@@ -367,7 +487,8 @@ private func rangeQuery(
     columns: String,
     dateColumn: String,
     start: Date?,
-    end: Date?
+    end: Date?,
+    includesOrdering: Bool = true
 ) -> (sql: String, values: [Date]) {
     var clauses: [String] = []
     var values: [Date] = []
@@ -380,8 +501,45 @@ private func rangeQuery(
         values.append(end)
     }
     let whereClause = clauses.isEmpty ? "" : " WHERE \(clauses.joined(separator: " AND "))"
-    let sql = "SELECT \(columns) FROM \(table)\(whereClause) ORDER BY \(dateColumn) ASC"
+    let ordering = includesOrdering ? " ORDER BY \(dateColumn) ASC" : ""
+    let sql = "SELECT \(columns) FROM \(table)\(whereClause)\(ordering)"
     return (sql, values)
+}
+
+private func backfillReclaimedLedger(_ db: OpaquePointer) throws {
+    let reference = Date()
+    let windowStart = reference.addingTimeInterval(-ReclaimedTimeEstimator.historyWindow)
+    let durationSQL = """
+    SELECT selected_duration_seconds
+    FROM attempt_logs
+    WHERE decision = ?
+      AND started_at >= ?
+      AND started_at < ?
+      AND selected_duration_seconds > 0
+    ORDER BY selected_duration_seconds ASC
+    """
+    let durationStatement = try prepare(db, durationSQL)
+    defer { sqlite3_finalize(durationStatement) }
+    try bindText(Decision.opened.rawValue, to: durationStatement, at: 1, db: db, sql: durationSQL)
+    try bindDate(windowStart, to: durationStatement, at: 2, db: db, sql: durationSQL)
+    try bindDate(reference, to: durationStatement, at: 3, db: db, sql: durationSQL)
+    let durations = try fetchRows(durationStatement, db: db, sql: durationSQL) { statement in
+        int(statement, 0)
+    }
+    let seconds = ReclaimedTimeEstimator.median(of: durations)
+        ?? ReclaimedTimeEstimator.defaultSeconds
+
+    let backfillSQL = """
+    INSERT OR IGNORE INTO reclaimed_ledger (attempt_id, seconds, recorded_at)
+    SELECT id, ?, COALESCE(completed_at, started_at)
+    FROM attempt_logs
+    WHERE decision = ?
+    """
+    let backfillStatement = try prepare(db, backfillSQL)
+    defer { sqlite3_finalize(backfillStatement) }
+    try bindInt(seconds, to: backfillStatement, at: 1, db: db, sql: backfillSQL)
+    try bindText(Decision.cancelled.rawValue, to: backfillStatement, at: 2, db: db, sql: backfillSQL)
+    try stepDone(backfillStatement, db: db, sql: backfillSQL)
 }
 
 private func bindRange(_ values: [Date], to statement: OpaquePointer, db: OpaquePointer) throws {

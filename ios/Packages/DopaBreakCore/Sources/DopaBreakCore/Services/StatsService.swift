@@ -145,25 +145,26 @@ public struct StatsService: Sendable {
         return count
     }
 
-    /// 指定期間に「開かなかった」ことで取り戻した推定秒数。
-    /// 1件あたりの時間は、期間終端から直近30日に実際に開いた試行時間の中央値。
-    /// 開いた実績がない間は5分として扱う。
+    /// 永久台帳に確定済みの全期間の推定秒数。
+    public func reclaimedSecondsAllTime() throws -> Int {
+        try logStore.reclaimedSeconds()
+    }
+
+    /// 指定期間に永久台帳へ記録された推定秒数。`to` は排他。
     public func reclaimedSeconds(from: Date, to: Date) throws -> Int {
         guard from < to else { return 0 }
-        let cancelledCount = try logStore.fetchAttempts(from: from, to: to)
-            .filter { $0.decision == .cancelled }
-            .count
-        guard cancelledCount > 0 else { return 0 }
+        return try logStore.reclaimedSeconds(from: from, to: to)
+    }
 
-        let durationWindowStart = calendar.date(byAdding: .day, value: -30, to: to)
-            ?? to.addingTimeInterval(-30 * 86_400)
-        let openedDurations = try logStore.fetchAttempts(from: durationWindowStart, to: to)
-            .filter { $0.decision == .opened }
-            .compactMap(\.selectedDurationSeconds)
-            .filter { $0 > 0 }
-            .sorted()
-        let medianDuration = median(of: openedDurations) ?? 300
-        return cancelledCount * medianDuration
+    /// 指定期間に永久台帳へ記録されたキャンセル件数。`to` は排他。
+    public func reclaimedCancellationCount(from: Date, to: Date) throws -> Int {
+        guard from < to else { return 0 }
+        return try logStore.reclaimedCancellationCount(from: from, to: to)
+    }
+
+    /// 現時点でキャンセルした場合の1回あたり推定秒数。ホームの根拠表示に使う。
+    public func estimatedReclaimedSecondsPerCancellation(at date: Date) throws -> Int {
+        try ReclaimedTimeEstimator.estimatedSeconds(at: date, logStore: logStore)
     }
 
     /// 幸福感変化別のリフレクション数（回答済みのみ）。
@@ -263,14 +264,6 @@ public struct StatsService: Sendable {
         return Double(count) / Double(answered.count)
     }
 
-    private func median(of sortedValues: [Int]) -> Int? {
-        guard !sortedValues.isEmpty else { return nil }
-        let middle = sortedValues.count / 2
-        if sortedValues.count.isMultiple(of: 2) {
-            return (sortedValues[middle - 1] + sortedValues[middle]) / 2
-        }
-        return sortedValues[middle]
-    }
 }
 
 public struct AttemptSummary: Equatable, Sendable {

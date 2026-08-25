@@ -171,7 +171,44 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             goalsOnly: false,
             additionalOnly: false,
             breathOnly: false,
-            reflectionOnly: false
+            reflectionOnly: false,
+            redesignedStoreOnly: false
+        )
+    }
+
+    /// 機能画面リデザイン後のApp Store素材だけを更新し、breath/intentを上書きしない。
+    @MainActor
+    func testCaptureRedesignedStoreScreens() throws {
+        try runCapture(
+            goalsOnly: false,
+            additionalOnly: false,
+            breathOnly: false,
+            reflectionOnly: false,
+            redesignedStoreOnly: true
+        )
+    }
+
+    /// ホームだけを対象アプリ3件の選択済み状態で更新し、他のApp Store用rawを上書きしない。
+    @MainActor
+    func testCaptureHomeScreen() throws {
+        try runCapture(
+            goalsOnly: false,
+            additionalOnly: false,
+            breathOnly: false,
+            reflectionOnly: false,
+            homeOnly: true
+        )
+    }
+
+    /// 記録だけをPhase 2と同じPro・3アプリ・回答済みデータで更新し、他のrawを上書きしない。
+    @MainActor
+    func testCaptureStatsScreen() throws {
+        try runCapture(
+            goalsOnly: false,
+            additionalOnly: false,
+            breathOnly: false,
+            reflectionOnly: false,
+            statsOnly: true
         )
     }
 
@@ -219,6 +256,30 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         )
     }
 
+    /// nightmodeだけを更新し、他のApp Store用rawを上書きしない。
+    @MainActor
+    func testCaptureNightmodeScreen() throws {
+        try runCapture(
+            goalsOnly: false,
+            additionalOnly: true,
+            breathOnly: false,
+            reflectionOnly: false,
+            nightmodeOnly: true
+        )
+    }
+
+    /// 白黒ガイドだけを更新し、設定パネル08・09を上書きしない。
+    @MainActor
+    func testCaptureGrayscaleScreen() throws {
+        try runCapture(
+            goalsOnly: false,
+            additionalOnly: true,
+            breathOnly: false,
+            reflectionOnly: false,
+            grayscaleOnly: true
+        )
+    }
+
     /// Phase 1 リデザイン確認用。App Store用rawを上書きせず、専用フォルダへ保存する。
     @MainActor
     func testCaptureRedesignPhase1Screens() throws {
@@ -260,6 +321,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         let logStore = try SQLiteLogStore(containerProvider: container)
         let now = Date()
         try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: now)
+        try seedRedesignLifetimeHistory(in: logStore, ruleIDs: rules.map(\.id), now: now)
         try seedRedesignReflections(in: logStore, ruleID: rules[0].id, now: now)
 
         for goal in captureLocale.goalSeeds {
@@ -716,7 +778,12 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         goalsOnly: Bool,
         additionalOnly: Bool,
         breathOnly: Bool,
-        reflectionOnly: Bool
+        reflectionOnly: Bool,
+        redesignedStoreOnly: Bool = false,
+        homeOnly: Bool = false,
+        statsOnly: Bool = false,
+        nightmodeOnly: Bool = false,
+        grayscaleOnly: Bool = false
     ) throws {
         let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
         try requireSupportedPixelSize(in: window)
@@ -737,6 +804,11 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             additionalOnly: additionalOnly,
             breathOnly: breathOnly,
             reflectionOnly: reflectionOnly,
+            redesignedStoreOnly: redesignedStoreOnly,
+            homeOnly: homeOnly,
+            statsOnly: statsOnly,
+            nightmodeOnly: nightmodeOnly,
+            grayscaleOnly: grayscaleOnly,
             window: window
         )
         // AppModelの非同期StoreKit更新がSQLite接続を短時間保持し得るため、実行中にunlinkしない。
@@ -751,13 +823,25 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         additionalOnly: Bool,
         breathOnly: Bool,
         reflectionOnly: Bool,
+        redesignedStoreOnly: Bool,
+        homeOnly: Bool,
+        statsOnly: Bool,
+        nightmodeOnly: Bool,
+        grayscaleOnly: Bool,
         window: UIWindow
     ) throws {
         let container = FixedContainer(url: containerURL)
         let settingsStore = SettingsStore(userDefaults: defaults)
         settingsStore.onboardingCompleted = true
         settingsStore.breathDurationSeconds = 8
-        settingsStore.verifiedAutomationCatalogIDs = ["instagram"]
+        let selectedCatalogIDs = ["instagram", "youtube", "tiktok"]
+        settingsStore.verifiedAutomationCatalogIDs = homeOnly || statsOnly
+            ? selectedCatalogIDs
+            : ["instagram"]
+        if homeOnly || statsOnly {
+            // Phase 1・2と同じDEBUGシード。StoreKitを動かさずPro権利を維持する。
+            settingsStore.entitlementCachedIsPro = true
+        }
         if additionalOnly {
             settingsStore.entitlementCachedIsPro = true
             settingsStore.pendingInterventionMode = InterventionMode.deepFocus.rawValue
@@ -800,10 +884,36 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             automaticallyRefreshEntitlement: false,
             scheduleNotificationsOnInit: false
         )
+        if homeOnly || statsOnly {
+            try model.setTargetCatalogIDs(selectedCatalogIDs)
+            XCTAssertEqual(try model.targetStore.selectedCatalogIDs(), selectedCatalogIDs)
+            XCTAssertEqual(
+                settingsStore.verifiedAutomationCatalogIDs,
+                selectedCatalogIDs
+            )
+        }
         let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
         let rule = try model.ruleStore.catalogTargetRule(for: target)
         let logStore = try SQLiteLogStore(containerProvider: container)
-        try seedAttemptLogs(in: logStore, ruleID: rule.id, now: Date())
+        let now = Date()
+        if statsOnly {
+            let rules = try selectedCatalogIDs.map { catalogID in
+                let selectedTarget = try XCTUnwrap(SNSAppCatalog.app(catalogID: catalogID))
+                return try model.ruleStore.catalogTargetRule(for: selectedTarget)
+            }
+            try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: now)
+            try seedRedesignPreviousWeekAttempts(in: logStore, ruleIDs: rules.map(\.id), now: now)
+            try seedRedesignReflections(in: logStore, ruleID: rules[0].id, now: now)
+        } else if homeOnly {
+            let rules = try selectedCatalogIDs.map { catalogID in
+                let selectedTarget = try XCTUnwrap(SNSAppCatalog.app(catalogID: catalogID))
+                return try model.ruleStore.catalogTargetRule(for: selectedTarget)
+            }
+            try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: now)
+            try seedRedesignLifetimeHistory(in: logStore, ruleIDs: rules.map(\.id), now: now)
+        } else {
+            try seedAttemptLogs(in: logStore, ruleID: rule.id, now: now)
+        }
 
         let goalSeeds = captureLocale.goalSeeds
         for goal in goalSeeds {
@@ -850,13 +960,43 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             window.rootViewController = originalRoot
         }
 
+        if homeOnly {
+            try capture(
+                AnyView(
+                    HomeView(
+                        model: model,
+                        settingsStore: settingsStore,
+                        statsService: statsService
+                    )
+                ),
+                named: "home",
+                in: window,
+                outputDirectory: outputDirectory
+            )
+            return
+        }
+
+        if statsOnly {
+            XCTAssertTrue(model.entitlementGate.weeklyReportAllowed)
+            try capture(
+                AnyView(StatsView(model: model, statsService: statsService)),
+                named: "stats",
+                in: window,
+                outputDirectory: outputDirectory,
+                settleTime: 1.0
+            )
+            return
+        }
+
         if additionalOnly {
             try captureAdditionalSettingsScreens(
                 model: model,
                 settingsStore: settingsStore,
                 applicationToken: snapshotToken,
                 in: window,
-                outputDirectory: outputDirectory
+                outputDirectory: outputDirectory,
+                nightmodeOnly: nightmodeOnly,
+                grayscaleOnly: grayscaleOnly
             )
             return
         }
@@ -883,32 +1023,34 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             return
         }
 
-        try captureBreathScreen(
-            target: target,
-            model: model,
-            settingsStore: settingsStore,
-            in: window,
-            outputDirectory: outputDirectory
-        )
+        if !redesignedStoreOnly {
+            try captureBreathScreen(
+                target: target,
+                model: model,
+                settingsStore: settingsStore,
+                in: window,
+                outputDirectory: outputDirectory
+            )
 
-        if breathOnly {
-            return
+            if breathOnly {
+                return
+            }
+
+            try capture(
+                AnyView(
+                    InterventionFlowView(
+                        snapshotTarget: target,
+                        model: model,
+                        settingsStore: settingsStore,
+                        selectedReason: nil,
+                        onFinished: {}
+                    )
+                ),
+                named: "intent",
+                in: window,
+                outputDirectory: outputDirectory
+            )
         }
-
-        try capture(
-            AnyView(
-                InterventionFlowView(
-                    snapshotTarget: target,
-                    model: model,
-                    settingsStore: settingsStore,
-                    selectedReason: nil,
-                    onFinished: {}
-                )
-            ),
-            named: "intent",
-            in: window,
-            outputDirectory: outputDirectory
-        )
 
         try capture(
             AnyView(
@@ -1005,7 +1147,9 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         settingsStore: SettingsStore,
         applicationToken: ApplicationToken,
         in window: UIWindow,
-        outputDirectory: URL
+        outputDirectory: URL,
+        nightmodeOnly: Bool = false,
+        grayscaleOnly: Bool = false
     ) throws {
         var blockSelection = FamilyActivitySelection()
         blockSelection.applicationTokens = [applicationToken]
@@ -1027,28 +1171,68 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         XCTAssertEqual(model.usageWatch.selectedTokenCount, 1)
         XCTAssertEqual(model.usageWatch.questionIntervalMinutes, 15)
 
+        if nightmodeOnly {
+            try captureNightmodeScreen(
+                model: model,
+                settingsStore: settingsStore,
+                in: window,
+                outputDirectory: outputDirectory
+            )
+            return
+        }
+
+        if !grayscaleOnly {
+            try capture(
+                AnyView(
+                    SettingsView(
+                        snapshotModel: model,
+                        settingsStore: settingsStore,
+                        screenTimeAuthorized: true,
+                        onResetOnboarding: {}
+                    )
+                ),
+                named: "deepfocus",
+                in: window,
+                outputDirectory: outputDirectory,
+                settleTime: 1.0,
+                verticalScrollTarget: .offset(60),
+                validateBeforeRender: {
+                    _ = try XCTUnwrap(
+                        model.entitlementGate.strictModeAllowed ? true : nil,
+                        "deepfocusの描画前に撮影用Pro権利が失われた"
+                    )
+                }
+            )
+
+            try captureNightmodeScreen(
+                model: model,
+                settingsStore: settingsStore,
+                in: window,
+                outputDirectory: outputDirectory
+            )
+        }
+
+        try model.applyInterventionMode(.deepFocus)
+        settingsStore.pendingInterventionMode = InterventionMode.deepFocus.rawValue
         try capture(
-            AnyView(
-                SettingsView(
-                    snapshotModel: model,
-                    settingsStore: settingsStore,
-                    screenTimeAuthorized: true,
-                    onResetOnboarding: {}
-                )
-            ),
-            named: "deepfocus",
+            AnyView(AutomationGuideView(model: model, settingsStore: settingsStore)),
+            named: "grayscale",
             in: window,
             outputDirectory: outputDirectory,
             settleTime: 1.0,
-            verticalScrollTarget: .offset(60),
-            validateBeforeRender: {
-                _ = try XCTUnwrap(
-                    model.entitlementGate.strictModeAllowed ? true : nil,
-                    "deepfocusの描画前に撮影用Pro権利が失われた"
-                )
-            }
+            verticalScrollTarget: captureLocale.outputLocale == "en-US"
+                ? .bottomInset(270)
+                : .bottomInset(24)
         )
+    }
 
+    @MainActor
+    private func captureNightmodeScreen(
+        model: AppModel,
+        settingsStore: SettingsStore,
+        in window: UIWindow,
+        outputDirectory: URL
+    ) throws {
         try model.applyInterventionMode(.nightOnly)
         settingsStore.pendingInterventionMode = InterventionMode.nightOnly.rawValue
         try capture(
@@ -1064,24 +1248,13 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             in: window,
             outputDirectory: outputDirectory,
             settleTime: 1.0,
-            verticalScrollTarget: .offset(280),
+            verticalScrollTarget: .offset(615),
             validateBeforeRender: {
                 _ = try XCTUnwrap(
                     model.entitlementGate.strictModeAllowed ? true : nil,
                     "nightmodeの描画前に撮影用Pro権利が失われた"
                 )
             }
-        )
-
-        try model.applyInterventionMode(.deepFocus)
-        settingsStore.pendingInterventionMode = InterventionMode.deepFocus.rawValue
-        try capture(
-            AnyView(AutomationGuideView(model: model, settingsStore: settingsStore)),
-            named: "grayscale",
-            in: window,
-            outputDirectory: outputDirectory,
-            settleTime: 1.0,
-            verticalScrollTarget: .bottomInset(24)
         )
     }
 
@@ -1155,7 +1328,8 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                 calendar.date(byAdding: .day, value: day.dayOffset, to: now)
             )
             let startOfDay = calendar.startOfDay(for: shifted)
-            for index in 0..<day.attempts {
+            let openedCount = day.attempts - day.cancelled
+            for index in 0..<openedCount {
                 let startedAt = try XCTUnwrap(
                     calendar.date(
                         byAdding: .minute,
@@ -1163,18 +1337,101 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                         to: startOfDay
                     )
                 )
-                let isCancelled = index < day.cancelled
                 try logStore.insert(
                     AttemptLog(
                         id: UUID(),
                         ruleId: ruleIDs[index % ruleIDs.count],
                         startedAt: startedAt,
                         completedAt: startedAt.addingTimeInterval(12),
-                        decision: isCancelled ? .cancelled : .opened,
-                        intent: isCancelled ? .unconscious : .communication,
-                        selectedDurationSeconds: isCancelled ? nil : 600,
+                        decision: .opened,
+                        intent: .communication,
+                        selectedDurationSeconds: 600,
                         attemptCount24h: index + 1,
-                        opened: !isCancelled
+                        opened: true
+                    )
+                )
+            }
+            for index in 0..<day.cancelled {
+                let startedAt = try XCTUnwrap(
+                    calendar.date(
+                        byAdding: .minute,
+                        value: 8 * 60 + (openedCount + index) * 19,
+                        to: startOfDay
+                    )
+                )
+                try logStore.insert(
+                    AttemptLog(
+                        id: UUID(),
+                        ruleId: ruleIDs[(openedCount + index) % ruleIDs.count],
+                        startedAt: startedAt,
+                        completedAt: startedAt.addingTimeInterval(12),
+                        decision: .cancelled,
+                        intent: .unconscious,
+                        selectedDurationSeconds: nil,
+                        attemptCount24h: openedCount + index + 1,
+                        opened: false
+                    )
+                )
+            }
+        }
+    }
+
+    private func seedRedesignLifetimeHistory(
+        in logStore: SQLiteLogStore,
+        ruleIDs: [UUID],
+        now: Date
+    ) throws {
+        XCTAssertFalse(ruleIDs.isEmpty)
+        let calendar = Calendar.current
+
+        for dayOffset in stride(from: -14, through: -81, by: -1) {
+            let shifted = try XCTUnwrap(
+                calendar.date(byAdding: .day, value: dayOffset, to: now)
+            )
+            let startOfDay = calendar.startOfDay(for: shifted)
+
+            for index in 0..<2 {
+                let startedAt = try XCTUnwrap(
+                    calendar.date(
+                        byAdding: .minute,
+                        value: 7 * 60 + index * 19,
+                        to: startOfDay
+                    )
+                )
+                try logStore.insert(
+                    AttemptLog(
+                        id: UUID(),
+                        ruleId: ruleIDs[index % ruleIDs.count],
+                        startedAt: startedAt,
+                        completedAt: startedAt.addingTimeInterval(12),
+                        decision: .opened,
+                        intent: .communication,
+                        selectedDurationSeconds: 600,
+                        attemptCount24h: index + 1,
+                        opened: true
+                    )
+                )
+            }
+
+            for index in 0..<27 {
+                let startedAt = try XCTUnwrap(
+                    calendar.date(
+                        byAdding: .minute,
+                        value: 8 * 60 + index * 19,
+                        to: startOfDay
+                    )
+                )
+                try logStore.insert(
+                    AttemptLog(
+                        id: UUID(),
+                        ruleId: ruleIDs[(index + 2) % ruleIDs.count],
+                        startedAt: startedAt,
+                        completedAt: startedAt.addingTimeInterval(12),
+                        decision: .cancelled,
+                        intent: .unconscious,
+                        selectedDurationSeconds: nil,
+                        attemptCount24h: index + 3,
+                        opened: false
                     )
                 )
             }

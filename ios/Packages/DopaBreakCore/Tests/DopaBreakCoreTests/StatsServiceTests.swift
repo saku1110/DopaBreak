@@ -164,21 +164,22 @@ final class StatsServiceTests: XCTestCase {
         let log = try makeLogStore()
         let start = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
         let end = calendarDate(year: 2026, month: 7, day: 8, hour: 0)
-        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled))
-        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled))
-        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 4, hour: 9), decision: .opened, selectedDurationSeconds: 120))
-        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 5, hour: 9), decision: .opened, selectedDurationSeconds: 480))
-        try log.insert(attempt(id: 5, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 6, hour: 9), decision: .opened, selectedDurationSeconds: 900))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 1), decision: .opened, selectedDurationSeconds: 120))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 2), decision: .opened, selectedDurationSeconds: 480))
+        try log.insert(attempt(id: 5, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 3), decision: .opened, selectedDurationSeconds: 900))
+        try insertCancelled(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled), in: log)
+        try insertCancelled(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled), in: log)
 
         XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSeconds(from: start, to: end), 960)
+        XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSecondsAllTime(), 960)
     }
 
     func testReclaimedSecondsUsesFiveMinuteDefaultWithoutOpenedHistory() throws {
         let log = try makeLogStore()
         let start = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
         let end = calendarDate(year: 2026, month: 7, day: 8, hour: 0)
-        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled))
-        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled))
+        try insertCancelled(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .cancelled), in: log)
+        try insertCancelled(attempt(id: 2, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 3, hour: 9), decision: .cancelled), in: log)
 
         XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSeconds(from: start, to: end), 600)
     }
@@ -190,6 +191,53 @@ final class StatsServiceTests: XCTestCase {
         try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 9), decision: .opened, selectedDurationSeconds: 600))
 
         XCTAssertEqual(try makeStats(log: log, now: end).reclaimedSeconds(from: start, to: end), 0)
+    }
+
+    func testReclaimedSecondsAndCountUseCompletedAtAcrossDayBoundary() throws {
+        let log = try makeLogStore()
+        let firstDayStart = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
+        let secondDayStart = calendarDate(year: 2026, month: 7, day: 2, hour: 0)
+        let thirdDayStart = calendarDate(year: 2026, month: 7, day: 3, hour: 0)
+        let startedAt = calendarDate(year: 2026, month: 7, day: 1, hour: 23, minute: 59, second: 50)
+        let completedAt = calendarDate(year: 2026, month: 7, day: 2, hour: 0, minute: 0, second: 10)
+        let cancellation = AttemptLog(
+            id: uuid(500),
+            ruleId: uuid(1),
+            startedAt: startedAt,
+            completedAt: completedAt,
+            decision: .cancelled,
+            intent: .unconscious,
+            selectedDurationSeconds: nil,
+            attemptCount24h: 1,
+            opened: false
+        )
+        try log.insertCancelledAttempt(cancellation, reclaimedSeconds: 300)
+        let stats = makeStats(log: log, now: completedAt)
+
+        XCTAssertEqual(try stats.reclaimedSeconds(from: firstDayStart, to: secondDayStart), 0)
+        XCTAssertEqual(try stats.reclaimedCancellationCount(from: firstDayStart, to: secondDayStart), 0)
+        XCTAssertEqual(try stats.reclaimedSeconds(from: secondDayStart, to: thirdDayStart), 300)
+        XCTAssertEqual(try stats.reclaimedCancellationCount(from: secondDayStart, to: thirdDayStart), 1)
+    }
+
+    func testReclaimedSecondsAllTimeDoesNotShrinkWhenMedianLaterDrops() throws {
+        let log = try makeLogStore()
+        let highDurationDate = calendarDate(year: 2026, month: 7, day: 1, hour: 9)
+        let cancellationDate = calendarDate(year: 2026, month: 7, day: 2, hour: 9)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: highDurationDate, decision: .opened, selectedDurationSeconds: 1_800))
+        try insertCancelled(attempt(id: 2, ruleId: uuid(1), startedAt: cancellationDate, decision: .cancelled), in: log)
+
+        let stats = makeStats(log: log, now: cancellationDate)
+        XCTAssertEqual(try stats.reclaimedSecondsAllTime(), 1_800)
+
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: cancellationDate.addingTimeInterval(60), decision: .opened, selectedDurationSeconds: 60))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: cancellationDate.addingTimeInterval(120), decision: .opened, selectedDurationSeconds: 60))
+
+        XCTAssertEqual(try stats.reclaimedSecondsAllTime(), 1_800)
+        XCTAssertEqual(
+            try stats.estimatedReclaimedSecondsPerCancellation(at: cancellationDate.addingTimeInterval(180)),
+            60
+        )
     }
 
     func testHappinessDeltaBreakdownCountsAnsweredOnly() throws {
@@ -445,6 +493,12 @@ final class StatsServiceTests: XCTestCase {
 
     private func makeStats(log: SQLiteLogStore, now: Date) -> StatsService {
         StatsService(logStore: log, calendar: utcCalendar(), now: { now })
+    }
+
+    private func insertCancelled(_ attempt: AttemptLog, in log: SQLiteLogStore) throws {
+        let reference = attempt.completedAt ?? attempt.startedAt
+        let seconds = try ReclaimedTimeEstimator.estimatedSeconds(at: reference, logStore: log)
+        try log.insertCancelledAttempt(attempt, reclaimedSeconds: seconds)
     }
 
     private func makeLogStore() throws -> SQLiteLogStore {

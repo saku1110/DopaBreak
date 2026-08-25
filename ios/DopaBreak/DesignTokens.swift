@@ -54,6 +54,10 @@ enum DopaMotion {
     static let momentum = Animation.snappy(duration: 0.3, extraBounce: 0.1)
     /// 達成の瞬間だけ使う祝福モーション。ここ以外で跳ねさせない。
     static let celebrate = Animation.bouncy(duration: 0.5, extraBounce: 0.15)
+    /// 選択マーカーなど、押した指へ即座に返す小さな跳ね。
+    static let select = Animation.spring(response: 0.25, dampingFraction: 0.72)
+    /// グラフ・バッジなど、同じ面が形を変える遷移。
+    static let morph = Animation.spring(response: 0.45, dampingFraction: 0.72)
 }
 
 // MARK: - タイポグラフィ（Dynamic Type）

@@ -46,6 +46,7 @@ struct LockScreenCheckContent: View {
     var contentTopPadding: CGFloat = 0
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var titleHeight: CGFloat = 0
     @State private var didEnterBackground = false
     /// 一度でもアプリを離れて戻ったか。掲出処理の完了と復帰の順序が入れ替わっても
@@ -88,6 +89,8 @@ struct LockScreenCheckContent: View {
 
                 verificationSteps
                     .onboardingStagger(2)
+                    .transition(.opacity)
+                    .animation(reduceMotion ? nil : DopaMotion.morph, value: phase)
                 goalPreview
                     .onboardingStagger(3)
                 permissionNote
@@ -104,6 +107,12 @@ struct LockScreenCheckContent: View {
                     .onboardingStagger(2)
                 visibleBadge
                     .onboardingStagger(3)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale(scale: 0.82).combined(with: .opacity)
+                    )
+                    .animation(reduceMotion ? nil : DopaMotion.select, value: phase)
             case .blocked(.systemDisabled):
                 goalPreview
                     .onboardingStagger(2)
@@ -264,7 +273,13 @@ struct LockScreenCheckContent: View {
 
     private func start() async {
         let status = await model.presentGoalOnLockScreen()
-        phase = Self.phase(for: status, didReturnFromLockScreen: didObserveReturn, current: phase)
+        updatePhase(
+            to: Self.phase(
+                for: status,
+                didReturnFromLockScreen: didObserveReturn,
+                current: phase
+            )
+        )
     }
 
     private func refreshStatus() async {
@@ -275,11 +290,23 @@ struct LockScreenCheckContent: View {
             // しないよう、出し直してから判定する。
             status = await model.presentGoalOnLockScreen()
         }
-        phase = Self.phase(
-            for: status,
-            didReturnFromLockScreen: didObserveReturn,
-            current: phase
+        updatePhase(
+            to: Self.phase(
+                for: status,
+                didReturnFromLockScreen: didObserveReturn,
+                current: phase
+            )
         )
+    }
+
+    private func updatePhase(to nextPhase: LockScreenCheckPhase) {
+        let didConfirm = phase != .confirmed && nextPhase == .confirmed
+        withAnimation(reduceMotion ? nil : DopaMotion.morph) {
+            phase = nextPhase
+        }
+        if didConfirm {
+            HapticFeedback.success()
+        }
     }
 
     /// 掲出状況と「ロック画面から戻ってきたか」から表示状態を決める。
@@ -514,9 +541,7 @@ struct SideButtonEdgeMarker: View {
     let geometry: DeviceSideButtonGeometry
     let headerBottomY: CGFloat
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var markerFrame: CGRect = .zero
-    @State private var isVisible = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -558,7 +583,6 @@ struct SideButtonEdgeMarker: View {
                         }
                     }
             }
-            .opacity(isVisible ? 1 : 0)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(
                 geometry.hasCameraControl
@@ -568,15 +592,6 @@ struct SideButtonEdgeMarker: View {
         }
         .ignoresSafeArea(.all, edges: .trailing)
         .onPreferenceChange(SideButtonMarkerFramePreferenceKey.self) { markerFrame = $0 }
-        .onAppear {
-            if reduceMotion {
-                isVisible = true
-            } else {
-                withAnimation(DopaMotion.transition) {
-                    isVisible = true
-                }
-            }
-        }
     }
 
     private func arrowName(barCenterY: CGFloat) -> String {
@@ -634,6 +649,7 @@ struct LockScreenCheckSheet: View {
     @State private var phase: LockScreenCheckPhase = .starting
     @State private var markerBlockBottomY: CGFloat = 0
     @State private var sideButtonGeometry = DeviceSideButtonGeometry.current()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { proxy in
@@ -659,6 +675,8 @@ struct LockScreenCheckSheet: View {
                             headerBottomY: proxy.safeAreaInsets.top
                         )
                         .ignoresSafeArea()
+                        .transition(.opacity)
+                        .animation(reduceMotion ? nil : DopaMotion.morph, value: phase)
                     }
                 }
                 .onPreferenceChange(SideButtonMarkerBottomPreferenceKey.self) {

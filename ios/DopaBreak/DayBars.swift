@@ -5,6 +5,8 @@ struct DayBars: View {
     let days: [WeeklySummary.Day]
     var height: CGFloat = 62
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var maximumCancelledCount: Int {
         days.map { max(0, $0.cancelled) }.max() ?? 0
     }
@@ -59,17 +61,20 @@ struct DayBars: View {
                 .fill(DesignTokens.hairline)
                 .frame(width: 3, height: 3)
         } else {
+            let barHeight = max(
+                4,
+                availableHeight
+                    * CGFloat(cancelled)
+                    / CGFloat(max(1, maximumCancelledCount))
+            )
+
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(DesignTokens.accent)
                 .frame(
                     width: max(3, availableWidth * 0.62),
-                    height: max(
-                        4,
-                        availableHeight
-                            * CGFloat(cancelled)
-                            / CGFloat(max(1, maximumCancelledCount))
-                    )
+                    height: barHeight
                 )
+                .animation(reduceMotion ? nil : DopaMotion.morph, value: barHeight)
         }
     }
 

@@ -32,6 +32,7 @@ struct TargetAppPickerSheet: View {
                     TargetAppGrid(
                         items: SNSAppCatalog.all,
                         selectedCatalogIDs: Set(selectedCatalogIDs),
+                        style: .large,
                         onToggle: toggle
                     )
 
@@ -43,7 +44,7 @@ struct TargetAppPickerSheet: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
-                .padding(.bottom, 60)
+                .padding(.bottom, 32)
             }
             .dopaScreenBackground()
             .navigationBarTitleDisplayMode(.inline)
@@ -75,6 +76,7 @@ struct TargetAppPickerSheet: View {
 
         if selectedCatalogIDs.contains(item.catalogID) {
             selectedCatalogIDs.removeAll { $0 == item.catalogID }
+            HapticFeedback.selection()
             persist()
             return
         }
@@ -86,6 +88,7 @@ struct TargetAppPickerSheet: View {
         }
 
         selectedCatalogIDs.append(item.catalogID)
+        HapticFeedback.selection()
         persist()
     }
 

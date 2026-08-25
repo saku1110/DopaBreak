@@ -1269,6 +1269,8 @@ private extension OnboardingFlow {
                         headerBottomY: progressHeaderBottomY
                     )
                     .ignoresSafeArea()
+                    .transition(.opacity)
+                    .animation(reduceMotion ? nil : DopaMotion.morph, value: lockScreenCheckPhase)
                 }
             }
             .onPreferenceChange(SideButtonMarkerBottomPreferenceKey.self) {

@@ -897,3 +897,10 @@
 - 採用方針・却下案: en-USの長いstep1で下端固定だとバッジと指示文が画面外へ出るため、LazyVStackのbottom反復位置合わせを維持するbottomInset差分を採用した。直接 `.offset(3380)` は初回の仮想化レイアウトが未確定で中間ステップへ止まったため却下した。パネル画像、contact sheet、slots、upload-order、生成スクリプトは変更していない。
 - Claude Code向け制約: raw専用テストは `testCaptureGrayscaleScreen` を使い、`grayscaleOnly=true` でdeepfocus/nightmodeを保存しない。en-USの最終contentOffsetは3270pt、ja/koは24ptのまま。status bar 9:41、dark、指定UDID、1320×2868、localeは `-testLanguage en -testRegion US` を維持する。
 - 検証: Vision OCRで `1`（badge crop）、`Create a new automation...`、`Is Opened`、`Make your screen grayscale (optional)` を認識。en-US rawはPNG/1320×2868/RGB。ja/ko grayscale SHA-256は変更前と一致（ja=`6b4bfab35a1e9d08bb4c1fd46787b2dc2b7172b2d8baf7a2a7e84ae98ec66312`、ko=`5060a5516676dca52fe42aff1411f996b884c5b09a1b27d05141f1003a7483d3`）。コミットしていない。
+
+## 2026-08-25 — モーション改修 Step D ロック画面確認
+
+- 作成・変更: `ios/DopaBreak/LockScreenCheckView.swift` のphase反映を `DopaMotion.morph` の同一トランザクションへまとめ、手順カードのcollapse＋fade、プレビュー減光解除、確認バッジの `DopaMotion.select` scale popを接続した。`SideButtonEdgeMarker` 自身の独立した登場アニメーションは外し、単独シートと `ios/DopaBreak/OnboardingFlow.swift` の両overlayへ同じopacity transitionを付けた。
+- ハプティクス・Reduce Motion: phase反映前後を比較し、非confirmedから`.confirmed`へ入る瞬間だけ `HapticFeedback.success()` を発火する。確認済みのまま復帰して`refreshStatus()`が再実行されても再発火しない。Reduce Motion時はphaseのmorph、collapse、badge scale、marker transitionを即時化し、ハプティクスは維持する。
+- Claude Code向け制約: `Self.phase(for:didReturnFromLockScreen:current:)`、`start()`／`refreshStatus()`の非同期再判定、blocked／noGoal分岐、現行`onboardingStagger` index、`phase == .waiting`条件、`DeviceSideButtonGeometry`とmarkerレイアウト計算は変更していない。OnboardingFlowの変更はSideButtonEdgeMarker overlayのtransition指定だけに限定した。
+- 検証: 署名なしgeneric iOS Simulator向け全7ターゲットbuildは`BUILD SUCCEEDED`。DopaBreakCoreは513件・失敗0、DopaBreakTestsは205件・13件skip・失敗0で`TEST SUCCEEDED`。`python3 scripts/lint-display-copy.py`と`python3 scripts/audit-default-values.py`はexit 0、`git diff --check`も成功した。コミットはしていない。

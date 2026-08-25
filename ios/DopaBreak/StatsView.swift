@@ -104,6 +104,7 @@ struct StatsView: View {
 
     private let injectedStatsService: StatsService?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var paywallPlacement: PaywallPlacement?
     @State private var period: StatsPeriod
@@ -147,15 +148,12 @@ struct StatsView: View {
             model.isChildModalActive = isAnyChildModalPresented
             reloadDashboard()
         }
-        .onChange(of: period) { _, _ in
-            reloadDashboard()
-        }
         .onChange(of: model.weekAttemptCount) { _, _ in
             reloadDashboard()
         }
         .onChange(of: isStatsHistoryLocked) { _, isLocked in
             if isLocked && period != .today {
-                period = .today
+                updatePeriod(.today)
             } else {
                 reloadDashboard()
             }
@@ -233,8 +231,14 @@ struct StatsView: View {
             paywallPlacement = .statsHistoryGate
             return
         }
-        withAnimation(DopaMotion.control) {
+        updatePeriod(selectedPeriod)
+    }
+
+    private func updatePeriod(_ selectedPeriod: StatsPeriod) {
+        guard period != selectedPeriod else { return }
+        withAnimation(reduceMotion ? nil : DopaMotion.morph) {
             period = selectedPeriod
+            reloadDashboard(period: selectedPeriod)
         }
     }
 
@@ -303,24 +307,29 @@ struct StatsView: View {
 
     @ViewBuilder
     private var periodVisualization: some View {
-        switch period {
-        case .week:
-            DayBars(days: dashboard.days, height: 64)
-        case .today:
-            metricPair(
-                attempts: dashboard.summary.attempts,
-                cancelled: dashboard.summary.cancelled
-            )
-        case .all:
-            MetricBlock(
-                label: String(
-                    localized: "stats.all_time.cancelled",
-                    defaultValue: "これまでに開くのをやめた回数"
-                ),
-                value: countText(dashboard.summary.cancelled),
-                accent: true
-            )
+        Group {
+            switch period {
+            case .week:
+                DayBars(days: dashboard.days, height: 64)
+            case .today:
+                metricPair(
+                    attempts: dashboard.summary.attempts,
+                    cancelled: dashboard.summary.cancelled
+                )
+            case .all:
+                MetricBlock(
+                    label: String(
+                        localized: "stats.all_time.cancelled",
+                        defaultValue: "これまでに開くのをやめた回数"
+                    ),
+                    value: countText(dashboard.summary.cancelled),
+                    accent: true
+                )
+            }
         }
+        .id(period)
+        .transition(.opacity)
+        .animation(.easeOut(duration: 0.25), value: period)
     }
 
     private var legend: some View {
@@ -668,23 +677,31 @@ struct StatsView: View {
 
     // MARK: - 読み込み
 
-    private func reloadDashboard(referenceDate: Date = Date()) {
+    private func reloadDashboard(
+        referenceDate: Date = Date(),
+        period selectedPeriod: StatsPeriod? = nil
+    ) {
+        let dashboardPeriod = selectedPeriod ?? period
+
         guard let statsService else {
-            dashboard = fallbackDashboard(referenceDate: referenceDate)
+            dashboard = fallbackDashboard(
+                referenceDate: referenceDate,
+                period: dashboardPeriod
+            )
             return
         }
 
         let calendar = Calendar.autoupdatingCurrent
         let report = try? statsService.weeklyDetailReport()
         let range = dateRange(
-            for: period,
+            for: dashboardPeriod,
             report: report,
             referenceDate: referenceDate,
             calendar: calendar
         )
 
         let summary: AttemptSummary
-        switch period {
+        switch dashboardPeriod {
         case .week:
             summary = report.map {
                 AttemptSummary(
@@ -729,9 +746,12 @@ struct StatsView: View {
         )
     }
 
-    private func fallbackDashboard(referenceDate: Date) -> StatsDashboardData {
+    private func fallbackDashboard(
+        referenceDate: Date,
+        period dashboardPeriod: StatsPeriod
+    ) -> StatsDashboardData {
         let summary: AttemptSummary
-        switch period {
+        switch dashboardPeriod {
         case .week:
             summary = AttemptSummary(
                 attempts: model.weekAttemptCount,

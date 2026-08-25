@@ -160,3 +160,10 @@ struct DeviceSideButtonGeometry {
 3. **コード内の `\n` 注入をやめる**（`markerText` の `replacingOccurrences(of: "押して画面", with: "押して\n画面")` を削除。表示コピーに `\n` をハードコードしない全体ルール）。折返しはレイアウトで制御する: ラベルの `maxWidth` を画面幅の割合ではなく **固定 240pt** にする（20pt の日本語で「サイドボタンを1回押して」=全角11字＋半角1字 ≈ 231pt が収まり、次の「画」を足した ≈ 251pt は収まらない想定）。PNG を再出力して1行目が「押して」で終わり2行目が「画面」で始まることを実測し、ずれる場合は 232〜248pt の範囲で調整して採用値を報告する。en/ko も3行以内で収まることを確認する
 4. `SideButtonMarkerLayout.placeSubviews` の `guard subviews.count == 4 else { return }` に `assertionFailure` を添える（Debug で無音の空描画を防ぐ）
 5. 再実行: build／`DeviceSideButtonGeometryTests`＋`LockScreenCheckSnapshotCapture`／`audit-default-values.py`／`lint-display-copy.py`、PNG 再出力と実測（バー 249〜356pt・ブロック中心 ≈302.5pt・文言右端とバーの間 ≥14pt・折返し位置）
+
+
+---
+
+## 追記: 登場アニメーションの統合（2026-08-25・モーション改修 Step D）
+
+§2-2「登場」の opacity 0→1 は、マーカー内部の `isVisible` state から **overlay 側の `.transition(.opacity)` ＋ `.animation(reduceMotion ? nil : DopaMotion.morph, value: phase)` へ統合**した（`LockScreenCheckSheet` と `OnboardingFlow.lockScreenCheckContent` の両方）。Step D で `phase` の反映を `withAnimation` トランザクションへまとめたため、内部fadeを残すと同じ要素が二重に補間される。`.waiting` へ遷移した瞬間に1回fadeする挙動と、Reduce Motion での即時表示は従来どおり。表示条件・ジオメトリ計算・レイアウトは無変更。

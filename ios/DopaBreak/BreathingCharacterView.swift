@@ -17,6 +17,22 @@ struct BreathCharacterTimeline {
         max(0, totalDuration - Self.reliefDuration)
     }
 
+    /// 1.0から0.0へ減る残り時間の割合。Reduce Motion時は秒の境界だけで更新する。
+    func progress(at elapsed: TimeInterval, reduceMotion: Bool = false) -> Double {
+        let elapsed = clampedElapsed(elapsed)
+        guard reduceMotion else {
+            return 1 - (elapsed / totalDuration)
+        }
+
+        return Double(remainingSeconds(at: elapsed)) / totalDuration
+    }
+
+    /// 表示用の残り秒。途中の端数は切り上げ、終了時だけ0を返す。
+    func remainingSeconds(at elapsed: TimeInterval) -> Int {
+        let remainingDuration = totalDuration - clampedElapsed(elapsed)
+        return max(0, Int(ceil(remainingDuration)))
+    }
+
     func expression(at elapsed: TimeInterval) -> CharacterExpression {
         let elapsed = clampedElapsed(elapsed)
         if elapsed >= reliefStart {
@@ -100,6 +116,9 @@ struct BreathCharacterTimeline {
 /// ドーパの表情・拡縮と呼吸同期ハプティクスをまとめた呼吸ステージ専用ビュー。
 struct BreathingCharacterView: View {
     private static let frameInterval: TimeInterval = 1.0 / 30.0
+    private static let ringLineWidth: CGFloat = 6
+    private static let characterToRingRatio: CGFloat = 0.82
+    private static let countdownSpacing: CGFloat = 24
 
     let totalSeconds: Int
     private let previewLoop: Range<TimeInterval>?
@@ -132,11 +151,51 @@ struct BreathingCharacterView: View {
             let expression = timeline.expression(at: elapsed)
             let scale = reduceMotion ? CGFloat(1) : timeline.scale(at: elapsed)
             let opacity = timeline.opacity(at: elapsed, reduceMotion: reduceMotion)
+            let progress = timeline.progress(at: elapsed, reduceMotion: reduceMotion)
+            // 終了と画面遷移の間に最終フレームが描かれても、表示は「…→1」で止める。
+            let remainingSeconds = max(1, timeline.remainingSeconds(at: elapsed))
 
-            CharacterView(expression, size: DesignTokens.CharacterSize.hero)
-                .scaleEffect(scale)
-                .opacity(opacity)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: Self.countdownSpacing) {
+                GeometryReader { proxy in
+                    let ringDiameter = min(proxy.size.width, proxy.size.height)
+
+                    ZStack {
+                        Circle()
+                            .stroke(
+                                DesignTokens.accent.opacity(0.18),
+                                lineWidth: Self.ringLineWidth
+                            )
+                            .accessibilityHidden(true)
+
+                        Circle()
+                            .trim(from: 0, to: CGFloat(progress))
+                            .stroke(
+                                DesignTokens.accent,
+                                style: StrokeStyle(
+                                    lineWidth: Self.ringLineWidth,
+                                    lineCap: .round
+                                )
+                            )
+                            // Circleのtrimは時計回り。開始点だけ12時方向へ移す。
+                            .rotationEffect(.degrees(-90))
+                            .accessibilityHidden(true)
+
+                        CharacterView(
+                            expression,
+                            size: ringDiameter * Self.characterToRingRatio,
+                            // 空のpreviewLoopは静止撮影用。独立浮遊も止めて同じ位相を再現する。
+                            animated: previewLoop?.isEmpty != true
+                        )
+                        .scaleEffect(scale)
+                        .opacity(opacity)
+                    }
+                    .frame(width: ringDiameter, height: ringDiameter)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .aspectRatio(1, contentMode: .fit)
+
+                countdown(remainingSeconds)
+            }
         }
         .onAppear {
             beginPlaybackIfNeeded()
@@ -182,6 +241,27 @@ struct BreathingCharacterView: View {
         let position = elapsed.truncatingRemainder(dividingBy: roundTrip)
         let offset = position <= span ? position : roundTrip - position
         return lowerBound + offset
+    }
+
+    private func countdown(_ remainingSeconds: Int) -> some View {
+        Text(
+            String(
+                localized: "intervention.breath.countdown",
+                defaultValue: "\(remainingSeconds)"
+            )
+        )
+        .dopaFont(76, weight: .bold, design: .rounded)
+        .monospacedDigit()
+        .foregroundStyle(DesignTokens.accent)
+        .lineLimit(1)
+        // 高さが厳しい端末では、数字ではなく上のGeometryReader（リング）を縮める。
+        .fixedSize(horizontal: true, vertical: true)
+        .accessibilityLabel(
+            String(
+                localized: "intervention.breath.remaining_seconds.accessibility",
+                defaultValue: "残り\(remainingSeconds)秒"
+            )
+        )
     }
 
     @MainActor

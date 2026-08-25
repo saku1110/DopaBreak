@@ -3,6 +3,94 @@ import XCTest
 @testable import DopaBreak
 
 final class BreathingCharacterViewTests: XCTestCase {
+    func testProgressForThreeAndEightSecondsAtStartMidpointEndAndOutsideBounds() {
+        for totalSeconds in [3, 8] {
+            let timeline = BreathCharacterTimeline(totalSeconds: totalSeconds)
+
+            XCTAssertEqual(timeline.progress(at: 0), 1, accuracy: 0.000_001)
+            XCTAssertEqual(
+                timeline.progress(at: timeline.totalDuration / 2),
+                0.5,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(
+                timeline.progress(at: timeline.totalDuration),
+                0,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(timeline.progress(at: -1), 1, accuracy: 0.000_001)
+            XCTAssertEqual(
+                timeline.progress(at: timeline.totalDuration + 1),
+                0,
+                accuracy: 0.000_001
+            )
+        }
+    }
+
+    func testRemainingSecondsForThreeAndEightSecondsAtStartMidpointAndEnd() {
+        let threeSecondTimeline = BreathCharacterTimeline(totalSeconds: 3)
+        XCTAssertEqual(threeSecondTimeline.remainingSeconds(at: 0), 3)
+        XCTAssertEqual(threeSecondTimeline.remainingSeconds(at: 1.5), 2)
+        XCTAssertEqual(threeSecondTimeline.remainingSeconds(at: 3), 0)
+
+        let eightSecondTimeline = BreathCharacterTimeline(totalSeconds: 8)
+        XCTAssertEqual(eightSecondTimeline.remainingSeconds(at: 0), 8)
+        XCTAssertEqual(eightSecondTimeline.remainingSeconds(at: 4), 4)
+        XCTAssertEqual(eightSecondTimeline.remainingSeconds(at: 8), 0)
+    }
+
+    func testRemainingSecondsUsesCeilingAtEveryWholeSecondBoundary() {
+        for totalSeconds in [3, 8] {
+            let timeline = BreathCharacterTimeline(totalSeconds: totalSeconds)
+
+            for elapsedSecond in 0..<totalSeconds {
+                let justBeforeNextSecond = TimeInterval(elapsedSecond + 1) - 0.000_001
+                XCTAssertEqual(
+                    timeline.remainingSeconds(at: justBeforeNextSecond),
+                    totalSeconds - elapsedSecond
+                )
+                XCTAssertEqual(
+                    timeline.remainingSeconds(at: TimeInterval(elapsedSecond + 1)),
+                    totalSeconds - elapsedSecond - 1
+                )
+            }
+
+            XCTAssertEqual(timeline.remainingSeconds(at: -1), totalSeconds)
+            XCTAssertEqual(
+                timeline.remainingSeconds(at: timeline.totalDuration + 1),
+                0
+            )
+        }
+    }
+
+    func testReducedMotionProgressUpdatesOnlyAtWholeSecondBoundaries() {
+        for totalSeconds in [3, 8] {
+            let timeline = BreathCharacterTimeline(totalSeconds: totalSeconds)
+            let afterFirstBoundary = Double(totalSeconds - 1) / Double(totalSeconds)
+
+            XCTAssertEqual(
+                timeline.progress(at: 0.999_999, reduceMotion: true),
+                1,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(
+                timeline.progress(at: 1, reduceMotion: true),
+                afterFirstBoundary,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(
+                timeline.progress(at: 1.999_999, reduceMotion: true),
+                afterFirstBoundary,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(
+                timeline.progress(at: timeline.totalDuration, reduceMotion: true),
+                0,
+                accuracy: 0.000_001
+            )
+        }
+    }
+
     func testSupportedDurationsProduceExactlyOneBreathPeak() {
         for totalSeconds in [3, 5, 8] {
             let timeline = BreathCharacterTimeline(totalSeconds: totalSeconds)

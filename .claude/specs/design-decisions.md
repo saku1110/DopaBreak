@@ -835,3 +835,65 @@
 - 採用方針・却下案: バッジを消す案、価格未取得時も固定58%を出す案、新しい人気訴求コピーを作る案は採用していない。人気表示は価格根拠を必要としない既存先頭セグメントに限定し、割引率の計算式・四捨五入、既存 `paywall.plan.annual.savings_badge` の値と `%lld%%`、フォント・accent背景・Capsule・paddingを維持した。
 - Claude Code向け制約: `AnnualDiscountPolicy.percent` はアプリターゲット内の純関数で、`annualPrice`／`monthlyPrice` のどちらかがnil、`monthlyPrice <= 0`、または算出整数率が0以下ならnilを返す。価格未取得時に割引率フォールバックを再導入しない。CTA、法定表示、trial reminder、plan detail／price、StoreService、購入・復元、annual＋monthly構成、StoreKitの通貨書式には触れない。
 - 検証: `xcodegen generate`成功。DopaBreakスキームのgeneric iOS Simulatorビルドはアプリ・4拡張・Core依存を含め `BUILD SUCCEEDED`。iOS 26.5 iPhone 16のDopaBreakTestsは194件・手動撮影9件skip・失敗0、DopaBreakCoreは513件・失敗0。`xcstringstool`を含むビルド、`jq`、`audit-default-values.py`（mismatch／missing／specifier-type／unknown-targetすべて0）、`lint-display-copy.py`、対象差分の`git diff --check`も成功した。
+
+## 2026-08-25 ロック画面確認: サイドボタン位置マーカー＋英語eyebrow削除（Claude Code a4・設計正本 `.claude/specs/lock-check-side-button-marker.md`）
+- 決定: 「サイドボタンを1回押して画面を消す」の案内を、抽象的な端末図（60×96pt）から**画面右端・実際の物理サイドボタンと同じ高さの縦バー＋矢印＋文言**へ置き換える（参考: Lock Screen Notes の案内画面。オーナー指示）。位置は Apple 公式寸法図（Accessory dimensional drawings）から機種ごとに読み取った「ボタン上端÷画面アクティブ高さ」「長さ÷画面高さ」の割合を静的テーブルで持ち、実行時の論理高さに掛けて出す。34機種（XS〜17系・Air・SE2/3）を収録、未知機種は同一論理サイズの最新機種→中央値でフォールバック
+- 決定: `LOCK SCREEN` eyebrow を削除（装飾用英語eyebrow禁止・2026-08-24オーナー指示の適用漏れ）。手順1カード＋端末図を廃止し、手順2カードとプレビューは維持
+- 決定: 「下のカメラボタンではなく上のボタン」注記は Camera Control のある iPhone 16 / 16 Plus / 16 Pro / 16 Pro Max / 17 / 17 Pro / 17 Pro Max / Air だけに出す（16e・17e・15以前には出さない）
+- 却下: 端末図の縮尺を変えて正確に描く案（画面上の位置と物理位置が一致しないので目印にならない）／マーカーをスクロール内容の中に置く案（スクロールで物理位置からずれる）
+- Codex向け制約: `DeviceSideButtonGeometry` の数値は設計書 §3 の表以外を書かない。`LockScreenGoalPreview`（GoalsView と共有）と `phase` 状態機械は変更しない。`.onboardingStagger` の順序は維持（eyebrow削除で index を0から詰める。モーション改修 Step D がこの順序に依存）
+
+## 2026-08-25 — 機能画面リデザイン後のApp Storeスクリーンショット再撮影・再生成
+
+- コピー: `scripts/generate-appstore-screenshots-v2.py` と承認正本 `scripts/generate-appstore-screenshots.py` の04を同時更新した。jaは「取り戻した時間／開くのをやめた分が／時間になって戻る／今週の合計と1年ぶんの目安をホームに表示」、en-USは「TIME YOU GOT BACK／Every open you skip／turns back into time／Your weekly total and yearly pace sit on the home screen」、koは「되찾은 시간／열지 않기로 한 만큼／시간이 돌아와요／이번 주 합계와 1년 예상치를 홈에서 확인해요」。`validate_legacy_copy_reuse` は3ロケールで成功した。
+- 撮影: `ios/DopaBreakTests/CoreScreensSnapshotCapture.swift` に `testCaptureRedesignedStoreScreens` を追加し、既存の `breath.png`／`intent.png` を上書きせず `home.png`／`stats.png`／`goals.png`／`reflection.png` だけを撮る限定経路にした。既存 `testCaptureAdditionalSettingsScreens` と合わせ、Simulator `90F5A09F-D128-468C-AB02-7ABB1479B3AE`、iOS 18.3.1、ダーク、status bar 9:41、ja/JP・en/US・ko/KRで `output/app-store-screenshots/raw-core/{ja,en-US,ko}/{stats,home,reflection,goals,deepfocus,nightmode,grayscale}.png` を更新した。各ロケール2テスト・失敗0で、一時 `DOPABREAK_CAPTURE_APPSTORE_SCREENSHOTS` は撮影後に解除した。
+- 再生成: `output/app-store-screenshots/v2/{ja,en-US,ko}/iphone-69/` の01・04・06・07・08・09・10、`contact-sheet-{ja,en-US,ko}.png`、`slots-{ja,en-US,ko}.json`、ja互換 `slots.json`、`upload-order/{ja,en-US,ko}/iphone-69/` を更新した。02・03・05は撮影元を更新せず、作業前SHA-256との一致を3ロケールすべてで確認した。アップロードの生成番号順は全ロケール `01,02,09,08,04,03,05,06,07,10`、各localeの既存READMEはバイト不変で維持した。
+- デザイン方針: 新ホームの主役である「取り戻した時間」を04の訴求と実画面の両方で一致させ、Phase 1〜4の刷新後UIを画面ソースにする。02／03／05まで一律に差し替える案は撮影元が変わっておらず不要な差分になるため却下した。撮影シード（2.3時間/日、週6時間0分、連続7日、週36回、今日15試行12停止、ローカライズ済み目標3件）は変更していない。
+- Claude Code向け制約: raw-core更新では今回追加した限定テストを使い、breath／intentを巻き込まない。04コピーは旧正本とv2を常に同時更新する。最終30枚は1320×2868 RGB、各slotsのキャラ合計1以下、アップロード順は上記生成番号列を維持する。08／09は許可済み表示を保ち、10のモックラベルは `automation_guide.grayscale.mock.apps` のja/en/koを使う。
+- 検証: 最終30枚はPNG／RGB／1320×2868、contact sheet 3枚はPNG／RGB／4000×869、slots各10件・キャラ最大1。Vision OCRで04の指定コピー3言語、07の目標3件、08／09の「未許可／Not authorized／미허용」不在、10 en-US「Select all target apps」・ko「대상 앱 모두 선택」を確認した。日本語OCRに `%lld回、` 型の読点表示なし。`python3 scripts/lint-display-copy.py` は既存の要確認2件のみでexit 0。upload-order 30枚は生成元とSHA-256一致、README 3本は作業前後SHA-256一致。
+
+## 2026-08-25 ロック画面確認のサイドボタンマーカー実装
+- 作成・変更: `ios/DopaBreak/DeviceSideButtonGeometry.swift` に設計正本 §3 の識別子テーブル、論理サイズ別の最新機種フォールバック、中央値フォールバックを実装した。`ios/DopaBreak/LockScreenCheckView.swift` は待機中だけ画面右端マーカーを出し、PreferenceKey でタイトル下端とマーカー文言下端を測って本文の空きを作る構成へ変更した。`ios/DopaBreak/OnboardingFlow.swift` と `LockScreenCheckSheet` の両方から同じ overlay を利用する。
+- 採用方針: バーはスクロールと無関係な画面座標に固定し、文言だけをヘッダー下端にクランプする。従来の抽象端末図と手順1カードは削除し、手順2カード、プレビュー、許可注記をマーカー下へ逃がした。マーカーをスクロール内容へ入れる案は物理位置とずれるため不採用。
+- ローカライズ・テスト: `ios/DopaBreak/Localizable.xcstrings` の eyebrow / step1 キーを削除し、side-button 2キーをja/en/koで追加。`lock_check.preview.cancelled` のja読点を半角スペースへ変更した。`ios/DopaBreakTests/DeviceSideButtonGeometryTests.swift` に代表3機種と2種のフォールバックを追加し、`LockScreenCheckSnapshotCapture.swift` は393×852のZStackに iPhone 15 相当マーカーを直接合成する。
+- Claude Code向け制約: `DeviceSideButtonGeometry` の割合は必ず設計書 §3 を正本とし、サイズフォールバックで Camera Control を true と推定しない。`LockScreenGoalPreview`、phase状態機械、`start()` / `refreshStatus()` / `LockScreenCheckAction`、blocked / noGoal 分岐を変更しない。iOS 17対応のため `GeometryReader` + `PreferenceKey` を維持し、`onGeometryChange` へ置き換えない。
+- 検証: iPhone 16 Pro Simulator向けbuildは `BUILD SUCCEEDED`。幾何テスト5件＋スナップショットハーネス1件は失敗0で `TEST SUCCEEDED`。`audit-default-values.py` は mismatches / missing / unresolved / specifier-type / unknown-target がすべて0、`lint-display-copy.py` は既存の要確認2件のみでどちらもexit 0。
+
+## 2026-08-25 — App Storeパネル04の対象アプリ選択済みシード
+
+- 作成・変更: `ios/DopaBreakTests/CoreScreensSnapshotCapture.swift` に home 専用の `testCaptureHomeScreen` を追加した。Phase 1 と同じ `instagram` / `youtube` / `tiktok` のカタログIDを `setTargetCatalogIDs` へ投入し、同じ3件を `verifiedAutomationCatalogIDs`、DEBUG用のキャッシュPro状態を注入する。専用分岐は `output/app-store-screenshots/raw-core/{ja,en-US,ko}/home.png` だけを保存して直ちに戻るため、stats / reflection / goals / deepfocus / nightmode / grayscale のraw撮影を実行しない。
+- 再撮影・再生成: iPhone 16 Pro Max Simulator `90F5A09F-D128-468C-AB02-7ABB1479B3AE`、iOS 18.3.1、status bar 9:41、ja/JP・en/US・ko/KRでhome専用XCTestを各1件実行した。3言語の `04-modes.png`、`contact-sheet-{ja,en-US,ko}.png` を再生成し、生成04をupload-order 05（ja/ko=`05-modes.png`、en-USは既存ファイル名=`05-deep-focus.png`）へ同期した。`slots-{ja,en-US,ko}.json` とja互換 `slots.json` は再生成したが、画面ソースと幾何が不変なのでSHA-256も不変だった。
+- 採用方針・却下案: アプリ本体の表示ロジックやFamilyControlsの新規注入APIは作らず、既存Phase 1のカタログID・検証済みID・キャッシュ権利シードだけをhome専用経路で流用した。全画面再撮影、通常シードの恒久変更、画像へのアイコン合成は、他パネルへの波及または実画面でない状態になるため採用していない。全パネル再合成で未コミット中のロック画面変更が05へ混入したため、既存upload-order 07に保持されていたバイト一致の旧05へ戻し、contact sheetだけを新04＋旧05で作り直した。
+- Claude Code向け制約: パネル04だけを直す場合は `testCaptureHomeScreen` を使い、3カタログIDの順序、8秒、既存ログ／目標シードを変えない。04の生成元は引き続き `raw-core/{locale}/home.png`、キャラは画面内1体・外乗せ0体、upload-orderは生成04→アップロード05を維持する。home以外のrawや生成01/06/07/08/09/10を同時更新しない。
+- 検証: home専用XCTestは3言語とも1件・失敗0。rawのアイコン領域を画素判定し、Instagramのマゼンタ系、YouTubeの赤、TikTokのシアンと、独立したライム点3成分を全言語で検出した。Vision OCRは8秒コピー3言語を認識し、空状態コピー `止めるアプリを選ぶ` / `Choose apps to pause` / `멈출 앱 고르기` は0件。最終04は全言語1320×2868 RGB、slots上のキャラ合計1。生成04とupload-order 05のSHA-256はja=`6b1b01566b028b753cac0386d8c05a0f52b07064afec71bda5d537f70ce98282`、en-US=`2aa194c5135c00bbd94c5898e1eed4439a13e5af8fb5ad4ecdf764795ab50609`、ko=`397889450bb0f78f17f06bb4d13e26aa4f68bb755f54eb29c9ef1a36c847c005`で各ペア一致。生成01/06/07/08/09/10は3言語18枚すべて作業前SHA-256と一致した。
+
+## 2026-08-25 — App Storeパネル01のPro記録画面
+
+- 作成・変更: `ios/DopaBreakTests/CoreScreensSnapshotCapture.swift` にstats専用の `testCaptureStatsScreen` を追加した。Phase 2と同じ `entitlementCachedIsPro = true`、3カタログID、`seedRedesignAttemptLogs`、前週ログ、回答済み振り返りを流用し、`output/app-store-screenshots/raw-core/{ja,en-US,ko}/stats.png` だけを保存してreturnする。`scripts/generate-appstore-screenshots-v2.py` は01の端末幅を1060pxから860pxへ変更し、期間チップ、アプリ別、見たあとの気持ち、開こうとした理由の3カードを1320×2868内へ収めた。
+- 再生成・同期: 3言語の `output/app-store-screenshots/v2/{locale}/iphone-69/01-hook.png` と `contact-sheet-{ja,en-US,ko}.png` を更新し、各 `upload-order/{locale}/iphone-69/01-hook.png` へ生成01を同期した。全パネル再合成時に並行中のロック画面変更が05へ混入したため、upload-order 07に保持されていた作業前バイトを生成05へ戻し、新01と保持済み02〜10からcontact sheetを再構成した。
+- 採用方針・却下案・制約: 新しい権利注入APIや画像上のロック除去は作らず、Phase 2のDEBUG用キャッシュ権利と既存シード関数だけを採用した。Freeのまま撮る案、全raw再撮影、カード3枚目を切ったままにする案は却下した。Claude Code側は01更新に `testCaptureStatsScreen` を使い、3カタログIDの順序、2.3時間/日、週6時間0分、連続7日、週36回、今日15試行12停止、目標3件の既存シードを変更しない。01の端末幅860pxと上端1050pxを維持し、理由カードまで表示する。
+- 検証: stats専用XCTestはja/en-US/ko各1件・失敗0。Vision OCRで3言語の最終01から期間、3アプリ、気持ちカード、理由カードと理由チップを認識し、課金CTA相当と `Pro` は0件。raw OCRと原寸目視で気持ち件数を確認した。最終01は全言語1320×2868 RGB、slots上のキャラ合計1。生成01とupload-order 01は各言語でSHA-256一致し、生成02〜10の27枚は作業前SHA-256と一致した。撮影opt-in環境変数は完了後に解除した。
+
+## 2026-08-25 — App Storeモック最大化・パネル07削除
+
+- 作成・変更: `scripts/generate-appstore-screenshots-v2.py` の生成IDを `01,02,03,04,05,06,08,09,10` の9枚へ変更し、3ロケールの07コピー・source・panel分岐を削除した。直立フォンは外形1396px（スクリーン1320px）、±7°は1111px、±8°は1081pxへ最大化し、05以外の回転後外形上端をy=820、中心xを660へ統一した。`scripts/generate-appstore-screenshots.py` も3ロケールの07コピーと旧7枚目生成を削除した。`output/app-store-screenshots/v2/` の3ロケール各9枚、9枚横並びcontact sheet、slots、upload-order、各READMEを再生成・更新した。設計正本は `.claude/specs/appstore-screenshots-v2-diagonal.md`。
+- 採用方針: フォン筐体のクリップを許し、スクリーン左右端だけを制約にした。整数丸め込み後のスクリーン寸法で回転四隅を計算し、±7°はx=0.54〜1319.46、±8°はx=0.13〜1319.87、直立はx=0〜1320を上限とした。背景図形、コピー座標・フォント・色、回転角、マスコット寸法と既存の重なり関係は維持した。全マスコットが既存座標のままalpha bbox内へ収まるため移動は不要だった。フォン中心を左右へ寄せたまま幅だけ増やす案は03/06でスクリーンがはみ出すため却下し、07の連番を詰める案は後続のコピー差し替え・並び替えを妨げるため却下した。
+- Claude Code向け制約: 05はLive Activityコールアウトの承認済み画像を再利用し、ジェネレーターは既存05を上書きしない。未コミット中のロック画面文言を再合成へ混入させないこと。生成IDは欠番07を維持する。upload-orderは生成元ID `01,02,09,08,04,03,05,06,10` の順で9枚。各localeのslotsは9件、contact sheetは3600×869 RGB。フォン幅を変更する場合は外形ではなく回転後スクリーン4隅のxを0〜1320で再検証する。
+- 検証: v2 generatorは3ロケール完走し、`validate_legacy_copy_reuse` もen-US/koで通過。最終27枚は1320×2868 RGB、キャラ合計最大1、外乗せalpha bboxは全件キャンバス内。05は作業前SHA-256と3ロケール一致。upload-orderは各9枚が生成元とSHA-256一致。`lint-display-copy.py` は既存の要確認2件のみでexit 0、構文確認と`git diff --check`もexit 0。
+
+## 2026-08-25 — ロック画面テーマ既定名の表示修正
+- 変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift` の `LockTheme.e1.displayName` を「E1」から「黒とライム」へ変更し、`docs/11_ui_copy.md` のテーマ名一覧も同期した。
+- 方針: 黒地＋ライムの見た目をそのまま表す平易な日本語名を採用した。列挙子 `.e1` と保存用 `rawValue` は変更していない。
+- 却下・制約: `ios/DopaBreak/Localizable.xcstrings` と `ios/DopaBreak/LockScreenCheckView.swift` は並行作業中のため触れていない。`LOCK_THEME_E1` など内部識別子、enum参照のみのテスト名、旧値を記録する設計仕様は変更しない。
+
+## 2026-08-25 — ロック画面テーマ名のアプリ層ローカライズ
+- 作成・変更: `ios/DopaBreak/LockScreenThemeDisplay.swift` に Core の `LockTheme` へ `localizedDisplayName` を追加し、`ios/DopaBreak/Localizable.xcstrings` に7テーマの `lock_surface.theme.*` キーをja/en/koで追加した。`ios/DopaBreak/SettingsLockSurfaceView.swift` と `ios/DopaBreak/SettingsView.swift` の設定画面表示だけを新プロパティへ切り替えた。
+- 採用方針・却下案: Core の `displayName` は日本語フォールバックとして維持し、保存・共有モデルや既存のロック画面確認／オンボーディング表示は変更しない。依頼文の概念名 `LockScreenTheme` ではなく、リポジトリの実体である `LockTheme` を拡張した。テーマ名の英語・韓国語は設定画面の短いラベルとして指定値を採用し、句読点やレイアウト変更は加えていない。
+- Claude Code向け制約: `LockScreenCheckView.swift`、`OnboardingFlow.swift`、Core、テストは触れない。7キーは既存String Catalogエントリの末尾に追加したため、既存エントリの並び・書式を変更しない。新規SwiftファイルはDopaBreakアプリターゲットに含める。
+
+## 2026-08-25 — en-US白黒ガイドrawのスクロール位置修正
+
+- 作成・変更: `ios/DopaBreakTests/CoreScreensSnapshotCapture.swift` に `testCaptureGrayscaleScreen()` と `grayscaleOnly` 分岐を追加し、`output/app-store-screenshots/raw-core/en-US/grayscale.png` だけを再撮影した。en-USのみ `verticalScrollTarget` を `.bottomInset(270)` にし、解決後の `UIScrollView.contentOffset.y` は `3270pt`（`maximumY=3540pt`）。ja/koは従来の `.bottomInset(24)` を維持した。
+- 採用方針・却下案: en-USの長いstep1で下端固定だとバッジと指示文が画面外へ出るため、LazyVStackのbottom反復位置合わせを維持するbottomInset差分を採用した。直接 `.offset(3380)` は初回の仮想化レイアウトが未確定で中間ステップへ止まったため却下した。パネル画像、contact sheet、slots、upload-order、生成スクリプトは変更していない。
+- Claude Code向け制約: raw専用テストは `testCaptureGrayscaleScreen` を使い、`grayscaleOnly=true` でdeepfocus/nightmodeを保存しない。en-USの最終contentOffsetは3270pt、ja/koは24ptのまま。status bar 9:41、dark、指定UDID、1320×2868、localeは `-testLanguage en -testRegion US` を維持する。
+- 検証: Vision OCRで `1`（badge crop）、`Create a new automation...`、`Is Opened`、`Make your screen grayscale (optional)` を認識。en-US rawはPNG/1320×2868/RGB。ja/ko grayscale SHA-256は変更前と一致（ja=`6b4bfab35a1e9d08bb4c1fd46787b2dc2b7172b2d8baf7a2a7e84ae98ec66312`、ko=`5060a5516676dca52fe42aff1411f996b884c5b09a1b27d05141f1003a7483d3`）。コミットしていない。

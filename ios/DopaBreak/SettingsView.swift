@@ -1080,7 +1080,7 @@ struct SettingsView: View {
                             localized: "settings.entry.lock_surface",
                             defaultValue: "ロック画面の表示"
                         ),
-                        value: selectedLockTheme.displayName
+                        value: selectedLockTheme.localizedDisplayName
                     )
                 }
                 .buttonStyle(.plain)

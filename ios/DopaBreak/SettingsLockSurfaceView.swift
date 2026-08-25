@@ -105,7 +105,7 @@ struct SettingsLockSurfaceView: View {
                 Circle()
                     .fill(Color(lockThemeColor: palette.accent))
                     .frame(width: 8, height: 8)
-                Text(theme.displayName)
+                Text(theme.localizedDisplayName)
                     .dopaFont(13, weight: .bold)
                 if theme != .e1 {
                     Text(String(localized: "settings.status.pro", defaultValue: "Pro"))

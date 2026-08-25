@@ -11791,30 +11791,6 @@
         }
       }
     },
-    "lock_check.eyebrow": {
-      "comment": "Screen: Lock Screen Check",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "LOCK SCREEN"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "LOCK SCREEN"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "LOCK SCREEN"
-          }
-        }
-      }
-    },
     "lock_check.lead.blocked": {
       "comment": "Screen: Lock Screen Check",
       "extractionState": "manual",
@@ -11972,13 +11948,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日は%lld回、開くのをやめました"
+            "value": "今日は%lld回 開くのをやめた"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘은 %lld번 열지 않기로 했어요"
+            "value": "오늘은 %lld번 열지 않기로 함"
           }
         }
       }
@@ -12079,6 +12055,54 @@
         }
       }
     },
+    "lock_check.side_button.camera_control_note": {
+      "comment": "Screen: Lock Screen Check",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The upper button, not the camera control below"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下のカメラボタンではなく上のボタン"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아래 카메라 버튼이 아니라 위쪽 버튼"
+          }
+        }
+      }
+    },
+    "lock_check.side_button.label": {
+      "comment": "Screen: Lock Screen Check",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press the side button once to turn off the screen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドボタンを1回押して画面を消す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "측면 버튼을 한 번 눌러 화면을 끄세요"
+          }
+        }
+      }
+    },
     "lock_check.status.visible": {
       "comment": "Screen: Lock Screen Check",
       "extractionState": "manual",
@@ -12099,54 +12123,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "잠금 화면에 표시 중"
-          }
-        }
-      }
-    },
-    "lock_check.step1.note": {
-      "comment": "Screen: Lock Screen Check, step 1 note",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use the upper button, not the camera control below"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下のカメラボタンではなく上のボタンです"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아래쪽 카메라 버튼이 아니라 위쪽 버튼입니다"
-          }
-        }
-      }
-    },
-    "lock_check.step1.title": {
-      "comment": "Screen: Lock Screen Check, step 1",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Press the side button once to turn off the screen"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "サイドボタンを1回押して画面を消す"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "측면 버튼을 한 번 눌러 화면을 끄세요"
           }
         }
       }
@@ -14915,6 +14891,174 @@
           "stringUnit": {
             "state": "translated",
             "value": "기상"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.e1": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Black & Lime"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "黒とライム"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "블랙 & 라임"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.sumi": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ink & Lantern"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "墨と灯"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "먹과 등불"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.asagiri": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morning Mist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "朝霧"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아침 안개"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.shinrin": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forest"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "森林"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "숲"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.yozora": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Late Night"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜更け"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "깊은 밤"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.kpop": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K-POP"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K-POP"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K-POP"
+          }
+        }
+      }
+    },
+    "lock_surface.theme.kawaiiPink": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cute Pink"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "かわいいピンク"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "귀여운 핑크"
           }
         }
       }

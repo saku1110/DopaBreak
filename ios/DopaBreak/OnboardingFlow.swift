@@ -77,6 +77,14 @@ private struct PagerHitTestingModifier: ViewModifier {
     }
 }
 
+private struct OnboardingProgressHeaderBottomPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 private struct RotatingGoalPlaceholder: View {
     let placeholders: [String]
 
@@ -231,6 +239,9 @@ struct OnboardingFlow: View {
     @State private var notificationMessage: String?
     @State private var isRequestingNotifications = false
     @State private var lockScreenCheckPhase: LockScreenCheckPhase = .starting
+    @State private var lockScreenMarkerBlockBottomY: CGFloat = 0
+    @State private var lockScreenSideButtonGeometry = DeviceSideButtonGeometry.current()
+    @State private var progressHeaderBottomY: CGFloat = 0
     @State private var paywallPlacement: PaywallPlacement?
     @State private var flowAlert: OnboardingAlert?
     /// 選択の触感トークン。画面と一緒に消えない位置で監視する
@@ -352,6 +363,17 @@ struct OnboardingFlow: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: OnboardingProgressHeaderBottomPreferenceKey.self,
+                    value: proxy.frame(in: .global).maxY
+                )
+            }
+        }
+        .onPreferenceChange(OnboardingProgressHeaderBottomPreferenceKey.self) {
+            progressHeaderBottomY = $0
+        }
     }
 
     private var pager: some View {
@@ -1230,8 +1252,28 @@ private extension OnboardingFlow {
     }
 
     var lockScreenCheckContent: some View {
-        screenScroll {
-            LockScreenCheckContent(model: model, phase: $lockScreenCheckPhase)
+        GeometryReader { proxy in
+            screenScroll {
+                LockScreenCheckContent(
+                    model: model,
+                    phase: $lockScreenCheckPhase,
+                    markerBlockBottomY: lockScreenMarkerBlockBottomY,
+                    scrollContainerTopY: proxy.frame(in: .global).minY,
+                    contentTopPadding: 28
+                )
+            }
+            .overlay(alignment: .topTrailing) {
+                if lockScreenCheckPhase == .waiting {
+                    SideButtonEdgeMarker(
+                        geometry: lockScreenSideButtonGeometry,
+                        headerBottomY: progressHeaderBottomY
+                    )
+                    .ignoresSafeArea()
+                }
+            }
+            .onPreferenceChange(SideButtonMarkerBottomPreferenceKey.self) {
+                lockScreenMarkerBlockBottomY = $0
+            }
         }
     }
 

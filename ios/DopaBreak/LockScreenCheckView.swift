@@ -41,8 +41,12 @@ enum LockScreenCheckPhase: Equatable {
 struct LockScreenCheckContent: View {
     let model: AppModel
     @Binding var phase: LockScreenCheckPhase
+    var markerBlockBottomY: CGFloat? = nil
+    var scrollContainerTopY: CGFloat = 0
+    var contentTopPadding: CGFloat = 0
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var titleHeight: CGFloat = 0
     @State private var didEnterBackground = false
     /// 一度でもアプリを離れて戻ったか。掲出処理の完了と復帰の順序が入れ替わっても
     /// 確認済みを取りこぼさないよう、状態として持つ。
@@ -50,17 +54,21 @@ struct LockScreenCheckContent: View {
 
     var body: some View {
         VStack(alignment: .center, spacing: 24) {
-            SmallLabel(text: String(localized: "lock_check.eyebrow", defaultValue: "LOCK SCREEN"))
-                .frame(maxWidth: .infinity, alignment: .center)
-                .onboardingStagger(0)
-
             Text(title)
                 .dopaFont(32, weight: .black, lineSpacing: 4)
                 .foregroundStyle(DesignTokens.primaryText)
                 .minimumScaleFactor(0.74)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .onboardingStagger(1)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: LockScreenTitleHeightPreferenceKey.self,
+                            value: proxy.size.height
+                        )
+                    }
+                }
+                .onboardingStagger(0)
 
             // 掲出できている間は2ステップカードが案内するため、リードは出さない。
             if let lead {
@@ -70,34 +78,44 @@ struct LockScreenCheckContent: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .onboardingStagger(2)
+                    .onboardingStagger(1)
             }
 
-            LockScreenGoalPreview(
-                titles: previewTitles,
-                cancelledCount: model.todayCancelledCount,
-                attemptCount: model.todayAttemptCount,
-                isDimmed: !phase.isPresenting
-            )
-            .onboardingStagger(3)
-
             switch phase {
-            case .starting, .waiting:
+            case .waiting:
+                Color.clear
+                    .frame(height: waitingSpacerHeight)
+
                 verificationSteps
-                    .onboardingStagger(4)
+                    .onboardingStagger(2)
+                goalPreview
+                    .onboardingStagger(3)
                 permissionNote
-                    .onboardingStagger(5)
+                    .onboardingStagger(4)
+            case .starting:
+                goalPreview
+                    .onboardingStagger(2)
+                verificationSteps
+                    .onboardingStagger(3)
+                permissionNote
+                    .onboardingStagger(4)
             case .confirmed:
+                goalPreview
+                    .onboardingStagger(2)
                 visibleBadge
-                    .onboardingStagger(4)
+                    .onboardingStagger(3)
             case .blocked(.systemDisabled):
+                goalPreview
+                    .onboardingStagger(2)
                 settingsPathCard
-                    .onboardingStagger(4)
+                    .onboardingStagger(3)
             case .blocked(.failed), .noGoal:
-                EmptyView()
+                goalPreview
+                    .onboardingStagger(2)
             }
         }
         .frame(maxWidth: .infinity)
+        .onPreferenceChange(LockScreenTitleHeightPreferenceKey.self) { titleHeight = $0 }
         .task {
             await start()
         }
@@ -117,6 +135,23 @@ struct LockScreenCheckContent: View {
                 break
             }
         }
+    }
+
+    private var waitingSpacerHeight: CGFloat {
+        guard phase == .waiting, let markerBlockBottomY else {
+            return 0
+        }
+        let stableTitleBottomY = scrollContainerTopY + contentTopPadding + titleHeight
+        return max(0, markerBlockBottomY - stableTitleBottomY + 16 - 48)
+    }
+
+    private var goalPreview: some View {
+        LockScreenGoalPreview(
+            titles: previewTitles,
+            cancelledCount: model.todayCancelledCount,
+            attemptCount: model.todayAttemptCount,
+            isDimmed: !phase.isPresenting
+        )
     }
 
     private var title: String {
@@ -168,35 +203,14 @@ struct LockScreenCheckContent: View {
     }
 
     private var verificationSteps: some View {
-        VStack(spacing: 12) {
-            CardContainer {
-                VStack(alignment: .leading, spacing: 16) {
-                    LockScreenStepRow(
-                        number: 1,
-                        title: String(
-                            localized: "lock_check.step1.title",
-                            defaultValue: "サイドボタンを1回押して画面を消す"
-                        ),
-                        note: String(
-                            localized: "lock_check.step1.note",
-                            defaultValue: "下のカメラボタンではなく上のボタンです"
-                        )
-                    )
-
-                    SideButtonDeviceIllustration()
-                        .frame(maxWidth: .infinity)
-                }
-            }
-
-            CardContainer {
-                LockScreenStepRow(
-                    number: 2,
-                    title: String(
-                        localized: "lock_check.step2.title",
-                        defaultValue: "画面をタップして点けるとロック画面に目標が出ています"
-                    )
+        CardContainer {
+            LockScreenStepRow(
+                number: 2,
+                title: String(
+                    localized: "lock_check.step2.title",
+                    defaultValue: "画面をタップして点けるとロック画面に目標が出ています"
                 )
-            }
+            )
         }
     }
 
@@ -344,7 +358,7 @@ struct LockScreenGoalPreview: View {
                 Text(
                     String(
                         localized: "lock_check.preview.cancelled",
-                        defaultValue: "今日は\(cancelledCount)回、開くのをやめました"
+                        defaultValue: "今日は\(cancelledCount)回 開くのをやめた"
                     )
                 )
                     .foregroundStyle(DesignTokens.accent)
@@ -409,48 +423,206 @@ private struct LockScreenStepRow: View {
     }
 }
 
-/// 上のサイドボタンと下のカメラコントロールだけを描き分けた簡略端末図。
-private struct SideButtonDeviceIllustration: View {
+private struct LockScreenTitleHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct SideButtonMarkerFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+struct SideButtonMarkerBottomPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct SideButtonMarkerLayout: Layout {
+    let geometry: DeviceSideButtonGeometry
+    let headerBottomY: CGFloat
+    let originY: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard subviews.count == 4 else {
+            assertionFailure("SideButtonMarkerLayout expects exactly four subviews")
+            return
+        }
+
+        let barHeight = max(56, geometry.length)
+        let barTopY = geometry.top - originY
+        subviews[0].place(
+            at: CGPoint(x: bounds.maxX, y: bounds.minY + barTopY),
+            anchor: .topTrailing,
+            proposal: ProposedViewSize(width: 5, height: barHeight)
+        )
+
+        let maximumBlockWidth: CGFloat = 240
+        let textProposal = ProposedViewSize(width: maximumBlockWidth, height: nil)
+        let textSize = subviews[1].sizeThatFits(textProposal)
+        let arrowSize = subviews[2].sizeThatFits(.unspecified)
+        let blockHeight = textSize.height + 8 + arrowSize.height
+        let blockWidth = max(textSize.width, arrowSize.width + 14)
+        let barCenterY = geometry.top + barHeight / 2
+        let centeredBlockTopY = barCenterY - blockHeight / 2
+        let blockTopY = max(headerBottomY + 8, centeredBlockTopY) - originY
+        subviews[1].place(
+            at: CGPoint(x: bounds.maxX - 5, y: bounds.minY + blockTopY),
+            anchor: .topTrailing,
+            proposal: ProposedViewSize(width: textSize.width, height: textSize.height)
+        )
+        subviews[2].place(
+            at: CGPoint(
+                x: bounds.maxX - 5 - 14,
+                y: bounds.minY + blockTopY + textSize.height + 8
+            ),
+            anchor: .topTrailing,
+            proposal: ProposedViewSize(width: arrowSize.width, height: arrowSize.height)
+        )
+        subviews[3].place(
+            at: CGPoint(x: bounds.maxX - 5, y: bounds.minY + blockTopY),
+            anchor: .topTrailing,
+            proposal: ProposedViewSize(width: blockWidth, height: blockHeight)
+        )
+    }
+}
+
+/// 実際の物理サイドボタンと同じ画面Y座標を指すエッジマーカー。
+struct SideButtonEdgeMarker: View {
+    let geometry: DeviceSideButtonGeometry
+    let headerBottomY: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var markerFrame: CGRect = .zero
+    @State private var isVisible = false
+
     var body: some View {
-        HStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(DesignTokens.cardPressed)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(DesignTokens.strongHairline, lineWidth: 1)
-                    }
+        GeometryReader { proxy in
+            let originY = proxy.frame(in: .global).minY
+            let barHeight = max(56, geometry.length)
+            let barCenterY = geometry.top + barHeight / 2
+            let arrowName = arrowName(barCenterY: barCenterY)
 
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(DesignTokens.background)
-                    .padding(5)
-
-                Capsule()
-                    .fill(DesignTokens.secondaryText.opacity(0.45))
-                    .frame(width: 16, height: 3)
-                    .padding(.top, 9)
-            }
-            .frame(width: 54, height: 96)
-
-            VStack(spacing: 0) {
-                Color.clear.frame(height: 20)
-
+            SideButtonMarkerLayout(
+                geometry: geometry,
+                headerBottomY: headerBottomY,
+                originY: originY
+            ) {
                 Capsule()
                     .fill(DesignTokens.accent)
-                    .frame(width: 6, height: 22)
+                    .frame(width: 5, height: barHeight)
+                    .accessibilityHidden(true)
 
-                Color.clear.frame(height: 10)
+                markerText
+                    .padding(.trailing, 14)
 
-                Capsule()
-                    .fill(DesignTokens.secondaryText.opacity(0.28))
-                    .frame(width: 4, height: 14)
+                Image(systemName: arrowName)
+                    .font(.system(size: 28))
+                    .foregroundStyle(DesignTokens.primaryText)
 
-                Spacer(minLength: 0)
+                Color.clear
+                    .background {
+                        GeometryReader { labelProxy in
+                            let frame = labelProxy.frame(in: .global)
+                            Color.clear
+                                .preference(
+                                    key: SideButtonMarkerFramePreferenceKey.self,
+                                    value: frame
+                                )
+                                .preference(
+                                    key: SideButtonMarkerBottomPreferenceKey.self,
+                                    value: frame.maxY
+                                )
+                        }
+                    }
             }
-            .frame(width: 6, height: 96)
+            .opacity(isVisible ? 1 : 0)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                geometry.hasCameraControl
+                    ? "\(localizedLabel) \(localizedNote)"
+                    : localizedLabel
+            )
         }
-        .frame(width: 60, height: 96)
-        .accessibilityHidden(true)
+        .ignoresSafeArea(.all, edges: .trailing)
+        .onPreferenceChange(SideButtonMarkerFramePreferenceKey.self) { markerFrame = $0 }
+        .onAppear {
+            if reduceMotion {
+                isVisible = true
+            } else {
+                withAnimation(DopaMotion.transition) {
+                    isVisible = true
+                }
+            }
+        }
+    }
+
+    private func arrowName(barCenterY: CGFloat) -> String {
+        guard markerFrame.height > 0 else {
+            return "arrow.right"
+        }
+        if barCenterY < markerFrame.minY {
+            return "arrow.turn.right.up"
+        }
+        if barCenterY > markerFrame.maxY {
+            return "arrow.turn.right.down"
+        }
+        return "arrow.right"
+    }
+
+    private var localizedLabel: String {
+        String(
+            localized: "lock_check.side_button.label",
+            defaultValue: "サイドボタンを1回押して画面を消す"
+        )
+    }
+
+    private var localizedNote: String {
+        String(
+            localized: "lock_check.side_button.camera_control_note",
+            defaultValue: "下のカメラボタンではなく上のボタン"
+        )
+    }
+
+    private var markerText: some View {
+        VStack(alignment: .trailing) {
+            Text(localizedLabel)
+                .dopaFont(20, weight: .black, lineSpacing: 4)
+                .foregroundStyle(DesignTokens.primaryText)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if geometry.hasCameraControl {
+                Text(localizedNote)
+                    .dopaFont(13, weight: .semibold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+        }
     }
 }
 
@@ -460,16 +632,38 @@ struct LockScreenCheckSheet: View {
     let onFinish: () -> Void
 
     @State private var phase: LockScreenCheckPhase = .starting
+    @State private var markerBlockBottomY: CGFloat = 0
+    @State private var sideButtonGeometry = DeviceSideButtonGeometry.current()
 
     var body: some View {
-        ZStack {
-            DesignTokens.background.ignoresSafeArea()
+        GeometryReader { proxy in
+            ZStack {
+                DesignTokens.background.ignoresSafeArea()
 
-            ScrollView {
-                LockScreenCheckContent(model: model, phase: $phase)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 36)
-                    .padding(.bottom, 132)
+                ScrollView {
+                    LockScreenCheckContent(
+                        model: model,
+                        phase: $phase,
+                        markerBlockBottomY: markerBlockBottomY,
+                        scrollContainerTopY: proxy.frame(in: .global).minY + proxy.safeAreaInsets.top,
+                        contentTopPadding: 36
+                    )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 36)
+                        .padding(.bottom, 132)
+                }
+                .overlay(alignment: .topTrailing) {
+                    if phase == .waiting {
+                        SideButtonEdgeMarker(
+                            geometry: sideButtonGeometry,
+                            headerBottomY: proxy.safeAreaInsets.top
+                        )
+                        .ignoresSafeArea()
+                    }
+                }
+                .onPreferenceChange(SideButtonMarkerBottomPreferenceKey.self) {
+                    markerBlockBottomY = $0
+                }
             }
         }
         .safeAreaInset(edge: .bottom) {

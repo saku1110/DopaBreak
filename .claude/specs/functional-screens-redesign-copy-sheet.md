@@ -163,3 +163,9 @@
 |---|---|---|---|---|
 | home.week.summary | 今週は%lld回 開くのをやめました | Chose not to open %lld times this week | 이번 주에는 %lld번 열지 않기로 했어요 | スクショ04に写る |
 | lock_check.preview.cancelled | 今日は%lld回 開くのをやめました | （既存のまま） | （既存のまま） | スクショ07に写る・LockScreenCheckView側はa4が同梱 |
+
+## 追記（2026-08-25）: ロック画面テーマ既定名の内部コード露出是正
+`LockScreenTheme.e1.displayName` が「E1」（内部コード名）でUIとスクショ09に露出。他テーマと同じ平易な命名へ。
+| 対象 | 旧 | 新 | 備考 |
+|---|---|---|---|
+| LockScreenTheme.e1 displayName（Core・ハードコード） | E1 | 黒とライム | 見た目そのもの（黒地＋ライム）。列挙子名・保存値は不変。※テーマ名はCore内ja固定でen/ko未ローカライズ（既存課題・今回対象外） |

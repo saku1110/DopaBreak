@@ -269,7 +269,7 @@ public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
 
     public var displayName: String {
         switch self {
-        case .e1: return "E1"
+        case .e1: return "黒とライム"
         case .sumi: return "墨と灯"
         case .asagiri: return "朝霧"
         case .shinrin: return "森林"

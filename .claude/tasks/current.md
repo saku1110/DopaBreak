@@ -1,5 +1,22 @@
 # 現在のタスク状況
 
+## 2026-08-25 — スクショ#10「白黒」差し替え（🔄 実装中・Opus5サブエージェント）
+
+- 発端: オーナー指摘「『SNSを開くと画面が白黒になる』は訴求としておかしい。設定したらホーム画面も白黒になる。SNSアイコンが並ぶホーム画面を白黒にしたスクショにしろ」
+- 対応: パネル10の画面ソースを AutomationGuideView 実画面 → PILモック `mock_home_grayscale()`（iOSホーム画面・SNS8タイル＋Dock・全面白黒化）へ。コピー3言語を「色を消して／SNSをつまらなくする」系へ書き直し（en/ko humanizer audit exit 0実測）。slug `grayscale-guide`→`grayscale-home`
+- 正本: `.claude/specs/appstore-screenshot-10-grayscale-home-2026-08-25.md`
+- 体制: Codexプローブが2分無応答（利用上限の疑い）→ L3＝Opus5実装（xhigh）／レビュー=Codex（復帰後）または別Opus5
+
+## 2026-08-25 — ペイウォール監査（paywall-optimization）＋割引バッジの根拠連動（✅ 実装・検証済み・未コミット）
+
+- 発端: オーナーが `/paywall-optimization` を起動 → 現行 `PaywallView` をスキル19パターンで監査。**13相当が既に適用済み**（月換算ヒーロー＋総額ガードレール／2プラン＋Lifetime退避／単一オファー誘導／年額デフォルト／トライアル終了リマインダー／パーソナライズ見出し／ベネフィット6行／ゼロ価格フレーミング）
+- 🔴 **検出した実害1件を修正**: 商品ロード失敗時に価格が「—」のまま「一番人気・**58%お得**」だけが残る状態だった（`annualDiscountPercent` の58ハードコードfallback）。裏付けのない割引表示のため景表法の有利誤認・App Store 2.3に触れる。2026-07-12監査で潰した「読込失敗時にハードコード価格を出す構造」（月額¥780 fallback）の同型の取り残し
+- 実装=Codex Sol medium（課金系はL2固定）／検証=Fable本体が独立実行。`AnnualDiscountPolicy.percent` を純関数として切り出しOptional化（両商品nil・月額0以下・割引率0以下でnil）→ 根拠がない時はCapsuleスタイルのまま「一番人気」だけ表示。新キー `paywall.plan.annual.popular_badge`（ja/en/ko＝既存 `savings_badge` の先頭セグメント流用・新規の言い回しなし）
+- 検証（Fable実測）: BUILD SUCCEEDED ／ `AnnualDiscountPolicyTests` 5件失敗0 ／ `audit-default-values.py` mismatches 0・exit 0 ／ `lint-display-copy.py` exit 0 ／ xcstrings差分は追加1キーのみで既存paywallキーの値変更・削除ゼロを機械照合
+- 見送り2件は `backlog.md` へ記録: ①ペイウォールの社会的証明（**未リリースで実績がなく、今書けば捏造＝景表法・2.3。v1.0は空欄が正解**。レビューが付いてから見出し直下へ）②年額解約フローのwin-back（Lifetime）＝スキルが「初回提出に入れるな」と明記のためv1.1
+- パターン18（トライアルを既定から外す）は**適用しない**。スキル自身が無名アプリでは危険と明記しており条件を満たさない
+
+
 ## 2026-08-24 — スクショ再撮影の待機（🔒 機能画面リデザイン完了待ち・担当=このセッション）
 
 - 経緯: test-project-a8 が機能画面リデザイン Phase1〜4 を実装中。**Phase対象画面＝スクショ5枚の撮影元**のため、現行スクショは完成後に陳腐化する
@@ -634,6 +651,19 @@
 - [x] Phase 1 実装（Codex）＋レビュー7件是正（Opus5→Codex）＋検証全通過＋是正検証（Opus5・全PASS）— **未コミット**。手動30分ブロックはモード非依存で適用（ShieldSyncPolicy拡張）
 - [x] Phase 2 記録（StatsView）＋オーナー訂正（開くのをやめた統一・CTA統合・「記録を全部見る」・breath行復元）＋ホーム×統計の重複解消（home-stats-dedup.md・別セッション承認分）— レビュー是正済み
 - [x] Phase 3 設定 — a8消滅後 test-project-ce が完成（是正3件: スクリーンタイム権限行復元・強さ名2行・アイコン出し分け統一）。Codex独立レビュー済み追加指摘ゼロ。未コミット
-- [ ] Phase 4 目標 — ce 実装中（最終検証）。完了後 test-project-42（旧a8）がCodexで独立レビュー→是正差し戻し→受け入れ→オーナーへコミット可否。コミットはパス指定でモーション7件（5d分）を除外
+- [x] Phase 4 目標 — ce 実装・Codex独立レビュー指摘0・42が受け入れ。**Phase 3＋4 を 6d7fa80 でコミット**（AutomationGuideViewローカライズ化・HomeStatsLinkDestinationTests同梱・モーション7件/lock_check/年額割引は除外）
+- [ ] a4の lock_check.preview.cancelled 読点是正 → ツリー確定 → ce が3ロケール×7枚（01/04/06/07/08/09/10）再撮影 → ASCアップロード
 - 並走: 5d=モーション改修 Step A〜C 完了（Step DはLockScreenCheckView待ち行列 ce→a4→5d）／a4=ロック画面確認のサイドボタン位置＋lock_check.*キー
 - 連携: スクショ担当(test-project-23)へPhase完了ごとに連絡・ASCアップロード保留中
+
+## 2026-08-25 ロック画面確認: サイドボタン位置マーカー＋英語eyebrow削除（🔄 レビュー最終確認中・未コミット）
+- 体制: 設計=Fable／寸法調査=Opus5（Apple公式寸法図34機種を直読・ピクセル検証）／実装=Codex Sol medium（2回）／レビュー=Opus5（2回）／受け入れ=Fable
+- 正本: `.claude/specs/lock-check-side-button-marker.md`（§3 端末寸法表・§6 是正バッチ1）
+- [x] `LOCK SCREEN` eyebrow削除（`lock_check.eyebrow` キー削除・stagger振り直し）
+- [x] `DeviceSideButtonGeometry.swift`（識別子35→割合テーブル・同一論理サイズ最新機種→中央値フォールバック・縦向き正規化・SIMULATOR_MODEL_IDENTIFIER優先）＋テスト
+- [x] `SideButtonEdgeMarker`（画面右端に物理サイドボタンと同じ高さの縦バー＋文言＋矢印・`.waiting` のみ・Camera Control 機のみ注記）を OnboardingFlow と LockScreenCheckSheet へ overlay
+- [x] 手順1カード＋抽象端末図を廃止、`lock_check.step1.*` 削除、`lock_check.side_button.*` 追加（ja/en/ko）
+- [x] 同梱: `lock_check.preview.cancelled` ja「今日は%lld回 開くのをやめました」（読点→半角スペース・test-project-42依頼）
+- [x] レビュー1→是正（スクロールで空きが伸びるループ／文言ブロック中心ずれ／横向き未正規化／間隔・幅・折返し・矢印向き・stagger視覚順）→ build/テスト8件0失敗/監査2本 exit 0・PNG目視OK
+- [ ] レビュー2（是正の再確認）→ Fable受け入れ → 各セッション（42/ce/5d）へ確定連絡
+- 実機確認（オーナー）: バーの高さが手元の iPhone の物理サイドボタンと合うかは実機でしか確認できない

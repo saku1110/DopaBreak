@@ -4,12 +4,16 @@
 
 - 経緯: test-project-a8 が機能画面リデザイン Phase1〜4 を実装中。**Phase対象画面＝スクショ5枚の撮影元**のため、現行スクショは完成後に陳腐化する
 - **ASCアップロードは全Phase完了＋コミット確定まで保留**（実物と食い違うと審査2.3リスク）
-- 影響する5枚: 01 hook=StatsView(Phase2) / 04 modes=HomeView(Phase1・完了済) / 07 privacy=GoalsView(Phase4) / 08 deep-focus・09 night-block=SettingsView(Phase3)。02/03/05/06/10 は影響なし
+- 影響する**6枚**（2026-08-24更新・a8合意済み）: 01 hook=StatsView(Phase2) / 04 modes=HomeView(Phase1) / **06 reflection-stats=シート背後がStatsView(Phase2)** / 07 privacy=GoalsView(Phase4) / 08 deep-focus・09 night-block=SettingsView(Phase3)。影響なし: 02 pause・03 intent・05 lockscreen・10 grayscale
+  - 06を当初5枚に含め忘れていた。06は `PostUseReflectionSheet` 単体でなく「記録入りStatsViewの上にシートを提示したウィンドウ全体」を撮る仕様（設計正本§画面ソース）のため、Phase2のStatsView刷新で背景が変わる
 - **段取り（a8と合意済み）**: 各Phase個別ではなく **全Phase完了＋コミット確定後に5枚まとめて再撮影→該当パネル・upload-order・contact-sheet を3ロケール再生成**（手戻り最小化）
 - **撮影シード凍結（a8が各Phaseレビューで不変を確認）**: 2.3時間/日・週6時間0分・連続7日・週36回。この値でスクショ01「1年で35日失う」と新ホーム「1年で約13日分取り戻す」が週16.1h中6h=37%で整合する。**変更する場合は必ず事前連絡をもらう**
 - 04の新コピー案（**オーナー確認待ち・未確定**）: eyebrow「取り戻した時間」/ headline「我慢した分が／時間になって返ってくる」/ sub「開かなかった回数から今週の合計と1年ぶんを表示」。「1年で約13日分」は見出しに使わず画面内に写す形（景表法の効果断定回避）。en/koは実画面確定後にtranscreation＋humanizer監査
 - このセッションの未コミット変更（a8へ上書き禁止を通知済み）: BreathingCharacterView（リング ratio0.82/線幅6/countdownSpacing24＋progress/remainingSeconds）・InterventionFlowView（呼吸画面レイアウト＋DEBUG撮影init）・PostUseReflectionSheet（DEBUG撮影init）・CoreScreensSnapshotCapture（新規）・xcstrings（intervention.breath.countdown / remaining_seconds.accessibility 追加、timer_label 削除）
-- [ ] Phase2完了連絡待ち → Phase3 → Phase4 → コミット確定 → 5枚一括再撮影 → 6.5"/iPad派生 → ASCアップロード
+- 2026-08-24 a8がPhase1(2c93078)・Phase2＋語彙統一(0cfa6af)をコミット。**語彙統一「開かなかった→開くのをやめた」がスクショCOPYにも適用された**（a8実施）。ja 06見出しが「本音を記録／…も記録」で重複したため2行目を「開くのをやめた回数も積み上がる」へ是正（ko「쌓여요」と整合・en/koは重複なしのため不変）
+- **以後COPYテーブル変更はa8から事前連絡をもらう運用で合意**（UI_COPY=モック内画面文言の同期はa8担当のまま）
+- 2026-08-25 **Phase 3（設定）実装完了・検証済み・未コミット**（a8消滅分を別セッションが引き継ぎ完成）。子画面5ファイル新設＋`SettingsView.swift` 2230→2100行。是正3件: スクリーンタイム許可行の復帰（撮影init `snapshotScreenTimeAuthorized` の読み手も復活＝パネル08・09の「許可済み」表示が再び成立）／強さカード名の2行折り返し（「ディープフォー…」の切れを解消）／ステータスカードと止めるアプリ行のアイコン出し分け一本化。検証: Core 513・アプリ187（8skip）失敗0・lint exit 0・defaultValue監査 mismatches 0。確認用スクショ `output/screenshots/redesign-phase3/{settings-top,settings-top-free,settings-notifications}.png`。**撮影シード（今日15回中12回・週36回）は不変**
+- [ ] Phase4 → コミット確定 → **6枚**一括再撮影 → 6.5"/iPad派生 → ASCアップロード
 
 
 ## 2026-08-22 — シールド解除フロー＋回数上限＋クールダウン＋アプリ別設定（v1.1・✅ コミット済み 6b30a93・実機検証待ち）
@@ -629,6 +633,7 @@
 - [x] 文言監査 `.claude/specs/copy-audit-2026-08-24.md`（Codex）
 - [x] Phase 1 実装（Codex）＋レビュー7件是正（Opus5→Codex）＋検証全通過＋是正検証（Opus5・全PASS）— **未コミット**。手動30分ブロックはモード非依存で適用（ShieldSyncPolicy拡張）
 - [x] Phase 2 記録（StatsView）＋オーナー訂正（開くのをやめた統一・CTA統合・「記録を全部見る」・breath行復元）＋ホーム×統計の重複解消（home-stats-dedup.md・別セッション承認分）— レビュー是正済み
-- [ ] Phase 3 設定 — 6b30a93/fe3e752を土台に。GateAppSettingSheet保持・gate文言はdocs/11 §6c
-- [ ] Phase 4 目標
+- [x] Phase 3 設定 — a8消滅後 test-project-ce が完成（是正3件: スクリーンタイム権限行復元・強さ名2行・アイコン出し分け統一）。Codex独立レビュー済み追加指摘ゼロ。未コミット
+- [ ] Phase 4 目標 — ce 実装中（最終検証）。完了後 test-project-42（旧a8）がCodexで独立レビュー→是正差し戻し→受け入れ→オーナーへコミット可否。コミットはパス指定でモーション7件（5d分）を除外
+- 並走: 5d=モーション改修 Step A〜C 完了（Step DはLockScreenCheckView待ち行列 ce→a4→5d）／a4=ロック画面確認のサイドボタン位置＋lock_check.*キー
 - 連携: スクショ担当(test-project-23)へPhase完了ごとに連絡・ASCアップロード保留中

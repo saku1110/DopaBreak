@@ -418,7 +418,7 @@ struct HomeView: View {
             }
             return String(
                 localized: "settings.deep_focus.session.open_ended.label",
-                defaultValue: "自分で戻すまで"
+                defaultValue: "自分で解除するまで"
             )
         }
         return String(
@@ -445,7 +445,7 @@ struct HomeView: View {
     private var weekSummaryText: String {
         String(
             localized: "home.week.summary",
-            defaultValue: "今週は\(model.weekCancelledCount)回、開くのをやめました"
+            defaultValue: "今週は\(model.weekCancelledCount)回 開くのをやめました"
         )
     }
 
@@ -513,7 +513,7 @@ struct HomeView: View {
         } label: {
             CardContainer {
                 HStack(spacing: 14) {
-                    goalCategoryTile
+                    GoalCategoryTile(category: primaryGoalCategory, size: 44)
 
                     VStack(alignment: .leading, spacing: 7) {
                         SmallLabel(text: goalLabel)
@@ -534,16 +534,6 @@ struct HomeView: View {
             }
         }
         .buttonStyle(.plain)
-    }
-
-    private var goalCategoryTile: some View {
-        Image(systemName: primaryGoalCategory.symbolName)
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(DesignTokens.accent)
-            .frame(width: 44, height: 44)
-            .background(DesignTokens.accent.opacity(0.14))
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .accessibilityHidden(true)
     }
 
     private var goalLabel: String {
@@ -829,19 +819,6 @@ struct HomeView: View {
             consecutiveDays: (try? statsService.consecutiveDaysWithCancellations(endingOn: now)) ?? 0,
             reclaimedSeconds: (try? statsService.reclaimedSeconds(from: weekStart, to: todayEnd)) ?? 0
         )
-    }
-}
-
-private extension GoalCategory {
-    var symbolName: String {
-        switch self {
-        case .study: return "book.fill"
-        case .work: return "briefcase.fill"
-        case .health: return "figure.run"
-        case .sleep: return "moon.stars.fill"
-        case .creative: return "paintbrush.fill"
-        case .other: return "star.fill"
-        }
     }
 }
 

@@ -489,6 +489,228 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         )
     }
 
+    /// Phase 3 設定画面確認用。App Store用rawを上書きせず、専用フォルダへ保存する。
+    @MainActor
+    func testCaptureRedesignPhase3SettingsScreens() throws {
+        let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
+        try requireSupportedPixelSize(in: window)
+
+        let proSuiteName = "CoreScreensSnapshotCapture.Phase3.Pro.\(UUID().uuidString)"
+        let proDefaults = try XCTUnwrap(UserDefaults(suiteName: proSuiteName))
+        proDefaults.removePersistentDomain(forName: proSuiteName)
+        defer { proDefaults.removePersistentDomain(forName: proSuiteName) }
+
+        let freeSuiteName = "CoreScreensSnapshotCapture.Phase3.Free.\(UUID().uuidString)"
+        let freeDefaults = try XCTUnwrap(UserDefaults(suiteName: freeSuiteName))
+        freeDefaults.removePersistentDomain(forName: freeSuiteName)
+        defer { freeDefaults.removePersistentDomain(forName: freeSuiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CoreScreensSnapshotCapture-Phase3-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        let container = FixedContainer(url: containerURL)
+        let selectedCatalogIDs = ["instagram", "youtube", "tiktok"]
+
+        // 利用時間の通知を「使っている」状態で撮るためのトークン。撮影専用の固定値。
+        let snapshotToken = try JSONDecoder().decode(
+            ApplicationToken.self,
+            from: Data(#"{"data":"ZG9wYWJyZWFrLXRlc3QtdG9rZW4="}"#.utf8)
+        )
+
+        let proSettings = redesignSettingsStore(
+            defaults: proDefaults,
+            isPro: true,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        proSettings.wakeTimeMinutes = 7 * 60
+        proSettings.bedTimeMinutes = 23 * 60
+        proSettings.usageWatchEnabled = true
+        proSettings.usageWatchQuestionIntervalMinutes = 15
+        proSettings.usageWatchNightModeEnabled = true
+
+        var usageWatchSelection = FamilyActivitySelection()
+        usageWatchSelection.applicationTokens = [snapshotToken]
+        UsageWatchSelectionStore(userDefaults: proDefaults).save(usageWatchSelection)
+
+        let proModel = redesignSnapshotModel(
+            container: container,
+            settingsStore: proSettings,
+            defaults: proDefaults
+        )
+        try proModel.setTargetCatalogIDs(selectedCatalogIDs)
+
+        let rules = try selectedCatalogIDs.map { catalogID in
+            let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: catalogID))
+            return try proModel.ruleStore.catalogTargetRule(for: target)
+        }
+        let logStore = try SQLiteLogStore(containerProvider: container)
+        // 撮影シードは Phase 1・2 と同一（今日15回中12回・週36回）。
+        try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: Date())
+        proModel.refresh(scheduleNotifications: false)
+
+        XCTAssertEqual(proModel.todayAttemptCount, 15)
+        XCTAssertEqual(proModel.todayCancelledCount, 12)
+        XCTAssertTrue(proModel.entitlementGate.strictModeAllowed)
+        XCTAssertTrue(proModel.usageWatch.isEnabled)
+        XCTAssertEqual(proModel.usageWatch.selectedTokenCount, 1)
+
+        let outputDirectory = Self.redesignPhase3OutputDirectory()
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let originalRoot = window.rootViewController
+        defer {
+            window.rootViewController?.dismiss(animated: false)
+            window.rootViewController = originalRoot
+        }
+
+        try capture(
+            AnyView(
+                SettingsView(
+                    snapshotModel: proModel,
+                    settingsStore: proSettings,
+                    screenTimeAuthorized: true,
+                    onResetOnboarding: {}
+                )
+            ),
+            named: "settings-top",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+
+        try capture(
+            AnyView(
+                SettingsNotificationsSnapshotHost(
+                    model: proModel,
+                    settingsStore: proSettings
+                )
+            ),
+            named: "settings-notifications",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+
+        let freeSettings = redesignSettingsStore(
+            defaults: freeDefaults,
+            isPro: false,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        freeSettings.wakeTimeMinutes = 7 * 60
+        freeSettings.bedTimeMinutes = 23 * 60
+
+        let freeModel = redesignSnapshotModel(
+            container: container,
+            settingsStore: freeSettings,
+            defaults: freeDefaults
+        )
+        freeModel.refresh(scheduleNotifications: false)
+        XCTAssertFalse(freeModel.entitlementGate.strictModeAllowed)
+
+        try capture(
+            AnyView(
+                SettingsView(
+                    model: freeModel,
+                    settingsStore: freeSettings,
+                    onResetOnboarding: {}
+                )
+            ),
+            named: "settings-top-free",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+    }
+
+    /// Phase 4 目標画面確認用。目標3件の一覧と、学びカテゴリの編集シートを専用フォルダへ保存する。
+    @MainActor
+    func testCaptureRedesignPhase4GoalsScreens() throws {
+        let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
+        try requireSupportedPixelSize(in: window)
+
+        let suiteName = "CoreScreensSnapshotCapture.Phase4.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CoreScreensSnapshotCapture-Phase4-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        let container = FixedContainer(url: containerURL)
+        let selectedCatalogIDs = ["instagram", "youtube", "tiktok"]
+
+        let settings = redesignSettingsStore(
+            defaults: defaults,
+            isPro: true,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        let model = redesignSnapshotModel(
+            container: container,
+            settingsStore: settings,
+            defaults: defaults
+        )
+        try model.setTargetCatalogIDs(selectedCatalogIDs)
+
+        let rules = try selectedCatalogIDs.map { catalogID in
+            let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: catalogID))
+            return try model.ruleStore.catalogTargetRule(for: target)
+        }
+        let logStore = try SQLiteLogStore(containerProvider: container)
+        // 撮影シードは Phase 1〜3 と同一（今日15回中12回・週36回）。
+        try seedRedesignAttemptLogs(in: logStore, ruleIDs: rules.map(\.id), now: Date())
+
+        for goal in captureLocale.goalSeeds {
+            XCTAssertTrue(
+                model.addGoal(
+                    title: goal.title,
+                    category: goal.category,
+                    lockScreenTitle: goal.lockScreenTitle
+                )
+            )
+        }
+        model.refresh(scheduleNotifications: false)
+
+        XCTAssertEqual(model.goals.count, 3)
+        XCTAssertEqual(model.todayAttemptCount, 15)
+        XCTAssertEqual(model.todayCancelledCount, 12)
+
+        let outputDirectory = Self.redesignPhase4OutputDirectory()
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let originalRoot = window.rootViewController
+        defer {
+            window.rootViewController?.dismiss(animated: false)
+            window.rootViewController = originalRoot
+        }
+
+        try capture(
+            AnyView(GoalsView(model: model)),
+            named: "goals",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+
+        // 編集シートは「学び」を選んである目標を開いて、チップの選択状態ごと撮る。
+        let studyGoal = try XCTUnwrap(
+            model.goals.first { $0.category == .study },
+            "学びカテゴリの目標がシードにない"
+        )
+        try capture(
+            AnyView(GoalEditorSheet(model: model, goal: studyGoal)),
+            named: "goal-editor",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0
+        )
+    }
+
     @MainActor
     private func runCapture(
         goalsOnly: Bool,
@@ -1294,12 +1516,66 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             .appendingPathComponent("output/screenshots/redesign-phase1", isDirectory: true)
     }
 
+    private static func redesignPhase3OutputDirectory() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("output/screenshots/redesign-phase3", isDirectory: true)
+    }
+
+    private static func redesignPhase4OutputDirectory() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("output/screenshots/redesign-phase4", isDirectory: true)
+    }
+
     private static func redesignPhase2OutputDirectory() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("output/screenshots/redesign-phase2", isDirectory: true)
+    }
+}
+
+/// 子画面「通知」は親から`@Binding`を受け取る。撮影では親を出さずに済むよう、
+/// 同じ初期値を持つ`@State`で包んで単体で描画する。
+private struct SettingsNotificationsSnapshotHost: View {
+    let model: AppModel
+    let settingsStore: SettingsStore
+
+    @State private var morningNotificationEnabled = true
+    @State private var weeklyReportNotificationEnabled = true
+    @State private var retentionSupportNotificationsEnabled = true
+    @State private var planNotificationsEnabled = true
+    @State private var usageWatchSelection = FamilyActivitySelection()
+    @State private var isUsageWatchPickerPresented = false
+    @State private var shouldEnableUsageWatchAfterPicker = false
+    @State private var usageWatchAuthorizationWasDenied = false
+    @State private var isRequestingUsageWatchAuthorization = false
+    @State private var paywallPlacement: PaywallPlacement?
+
+    var body: some View {
+        NavigationStack {
+            SettingsNotificationsView(
+                model: model,
+                settingsStore: settingsStore,
+                morningNotificationEnabled: $morningNotificationEnabled,
+                weeklyReportNotificationEnabled: $weeklyReportNotificationEnabled,
+                retentionSupportNotificationsEnabled: $retentionSupportNotificationsEnabled,
+                planNotificationsEnabled: $planNotificationsEnabled,
+                usageWatchSelection: $usageWatchSelection,
+                isUsageWatchPickerPresented: $isUsageWatchPickerPresented,
+                shouldEnableUsageWatchAfterPicker: $shouldEnableUsageWatchAfterPicker,
+                usageWatchAuthorizationWasDenied: $usageWatchAuthorizationWasDenied,
+                isRequestingUsageWatchAuthorization: $isRequestingUsageWatchAuthorization,
+                paywallPlacement: $paywallPlacement
+            )
+        }
+        .tint(DesignTokens.accent)
     }
 }
 

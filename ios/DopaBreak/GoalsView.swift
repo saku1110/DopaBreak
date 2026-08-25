@@ -8,12 +8,28 @@ struct GoalsView: View {
     var body: some View {
         NavigationStack {
             List {
+                if !model.goals.isEmpty {
+                    Section {
+                        lockScreenPreviewBlock
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: 4,
+                            leading: DesignTokens.horizontalPadding,
+                            bottom: 10,
+                            trailing: DesignTokens.horizontalPadding
+                        )
+                    )
+                }
+
                 Section {
                     if model.goals.isEmpty {
                         emptyRow
                     } else {
-                        ForEach(model.goals, id: \.id) { goal in
-                            goalRow(goal)
+                        ForEach(Array(model.goals.enumerated()), id: \.element.id) { index, goal in
+                            goalRow(goal, isPrimary: index == 0)
                         }
                         .onDelete(perform: deleteGoals)
                         .onMove(perform: model.moveGoal)
@@ -58,6 +74,38 @@ struct GoalsView: View {
         editorRoute != nil
     }
 
+    /// 目標がどこに出るものなのかを、画面の先頭で実物の体裁のまま見せる。
+    ///
+    /// キャラクターはカードの外（見出し行の右）に置く。理由は2つある。
+    /// 実物のロック画面にキャラクターは乗らないため、カードは再現に徹したほうが正確なこと。
+    /// もう1つは、カウンター行「今日は%lld回、開くのをやめました 開こうとした %lld回」が
+    /// カード内寸のほぼ全部を使うため、カードに重ねると375〜402ptの端末で回数が隠れること。
+    private var lockScreenPreviewBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center) {
+                SmallLabel(
+                    text: String(
+                        localized: "goals.preview.title",
+                        defaultValue: "開こうとした瞬間に見える画面"
+                    )
+                )
+                Spacer(minLength: 8)
+                CharacterView(.relief, size: 56)
+            }
+
+            LockScreenGoalPreview(
+                titles: previewTitles,
+                cancelledCount: model.todayCancelledCount,
+                attemptCount: model.todayAttemptCount
+            )
+        }
+    }
+
+    private var previewTitles: [String] {
+        // 上限はプレビュー側が実機のLive Activityと同じ値で丸めるため、ここでは絞らない。
+        model.lockScreenDisplayTitles.filter { !$0.isEmpty }
+    }
+
     private var emptyRow: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 18) {
@@ -66,51 +114,102 @@ struct GoalsView: View {
                     .dopaFont(24, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
 
-                Text(String(localized: "goals.empty.description", defaultValue: "ここで決めた一言が、開こうとした瞬間に表示されます。例：英語で話せるようになる"))
+                Text(
+                    String(
+                        localized: "goals.empty.description",
+                        defaultValue: "アプリを開こうとしたときに目標が表示されます 例 英語で話せるようになる"
+                    )
+                )
                     .dopaFont(14, weight: .medium, lineSpacing: 3)
                     .foregroundStyle(DesignTokens.secondaryText)
             }
         }
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+        .listRowInsets(
+            EdgeInsets(
+                top: 6,
+                leading: DesignTokens.horizontalPadding,
+                bottom: 6,
+                trailing: DesignTokens.horizontalPadding
+            )
+        )
     }
 
-    private func goalRow(_ goal: Goal) -> some View {
+    private func goalRow(_ goal: Goal, isPrimary: Bool) -> some View {
         Button {
             editorRoute = GoalEditorRoute(goal: goal)
         } label: {
             CardContainer {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        SmallLabel(text: goal.category.japaneseLabel)
-                        Spacer()
-                        Image(systemName: "pencil")
-                            .dopaFont(14, weight: .semibold)
-                            .foregroundStyle(DesignTokens.secondaryText)
+                HStack(spacing: 14) {
+                    GoalCategoryTile(category: goal.category, size: 44)
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        SmallLabel(text: rowLabel(for: goal, isPrimary: isPrimary))
+                        Text(goal.title)
+                            .dopaFont(18, weight: .bold)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.84)
+                            .multilineTextAlignment(.leading)
                     }
 
-                    Text(goal.title)
-                        .dopaFont(22, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.84)
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .dopaFont(13, weight: .bold)
+                        .foregroundStyle(DesignTokens.secondaryText)
                 }
             }
         }
         .buttonStyle(.plain)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+        .listRowInsets(
+            EdgeInsets(
+                top: 6,
+                leading: DesignTokens.horizontalPadding,
+                bottom: 6,
+                trailing: DesignTokens.horizontalPadding
+            )
+        )
+    }
+
+    /// カテゴリ名。先頭の目標だけはロック画面に出ていることも添える。
+    private func rowLabel(for goal: Goal, isPrimary: Bool) -> String {
+        let category = goal.category.japaneseLabel
+        guard isPrimary else {
+            return category
+        }
+        let badge = String(
+            localized: "goals.badge.on_lock_screen",
+            defaultValue: "ロック画面に表示中"
+        )
+        return "\(category) ・ \(badge)"
     }
 
     private var addButton: some View {
-        Button {
-            editorRoute = GoalEditorRoute(goal: nil)
-        } label: {
-            Text(String(localized: "goals.action.add", defaultValue: "目標を追加"))
+        VStack(spacing: 8) {
+            Button {
+                editorRoute = GoalEditorRoute(goal: nil)
+            } label: {
+                Text(String(localized: "goals.action.add", defaultValue: "目標を追加"))
+            }
+            .buttonStyle(PrimaryButtonStyle())
+
+            // 件数上限があるプランでは既存の上限文言が優先されるため、無制限のときだけ出す。
+            if model.entitlementGate.goalsLimit == nil {
+                Text(
+                    String(
+                        localized: "goals.footer.unlimited",
+                        defaultValue: "目標は何個でも追加できます"
+                    )
+                )
+                    .dopaFont(12, weight: .medium)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
-        .buttonStyle(PrimaryButtonStyle())
         .padding(.bottom, 20)
     }
 

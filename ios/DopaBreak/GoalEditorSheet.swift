@@ -55,6 +55,7 @@ struct GoalEditorSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    previewBlock
                     inputBlock
                     categoryBlock
                 }
@@ -85,6 +86,36 @@ struct GoalEditorSheet: View {
         .preferredColorScheme(.dark)
     }
 
+    /// 入力した言葉がどこに出るのかを、実物と同じ体裁で入力欄の上に見せる。
+    private var previewBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SmallLabel(
+                text: String(
+                    localized: "goals.preview.title",
+                    defaultValue: "開こうとした瞬間に見える画面"
+                )
+            )
+
+            LockScreenGoalPreview(
+                titles: [previewTitle],
+                cancelledCount: model.todayCancelledCount,
+                attemptCount: model.todayAttemptCount,
+                isDimmed: trimmedTitle.isEmpty
+            )
+        }
+    }
+
+    /// 未入力のうちは入力欄と同じ例文を薄く出し、入れた瞬間に本文へ差し替える。
+    private var previewTitle: String {
+        guard trimmedTitle.isEmpty else {
+            return trimmedTitle
+        }
+        return String(
+            localized: "goal_editor.goal.placeholder",
+            defaultValue: "例 英語で商談できる自分になる"
+        )
+    }
+
     /// 目標の題名。入力した言葉はそのままロック画面へ出るため、上限はロック面に収まる16字。
     private var inputBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -109,19 +140,51 @@ struct GoalEditorSheet: View {
         }
     }
 
+    /// カテゴリはメニューではなくアイコン付きのチップで選ぶ。
+    /// 目標一覧のタイルと同じ記号・同じ色なので、選んだ結果が一覧でどう出るかがそのまま分かる。
     private var categoryBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             SmallLabel(text: String(localized: "goal_editor.category.label", defaultValue: "カテゴリ"))
-            fieldContainer {
-                Picker(String(localized: "goal_editor.category.label", defaultValue: "カテゴリ"), selection: $category) {
-                    ForEach(GoalCategory.allCases, id: \.self) { category in
-                        Text(category.japaneseLabel).tag(category)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(GoalCategory.allCases, id: \.self) { item in
+                        Button {
+                            category = item
+                        } label: {
+                            categoryChip(item)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(item.japaneseLabel)
+                        .accessibilityAddTraits(item == category ? .isSelected : [])
                     }
                 }
-                .pickerStyle(.menu)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 2)
             }
         }
+    }
+
+    private func categoryChip(_ item: GoalCategory) -> some View {
+        let isSelected = item == category
+        return HStack(spacing: 8) {
+            GoalCategoryTile(category: item, size: 24)
+            Text(item.japaneseLabel)
+                .dopaFont(14, weight: .semibold)
+                .foregroundStyle(isSelected ? DesignTokens.accent : DesignTokens.primaryText)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: DesignTokens.minTapTarget)
+        .background(DesignTokens.card)
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    isSelected ? DesignTokens.accent : DesignTokens.hairline,
+                    lineWidth: isSelected ? 1.5 : 1
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .animation(DopaMotion.control, value: isSelected)
     }
 
     private var actionArea: some View {

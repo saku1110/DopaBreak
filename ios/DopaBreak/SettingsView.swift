@@ -76,7 +76,10 @@ struct SettingsView: View {
     @State private var deepFocusRemainingSeconds: TimeInterval?
     /// いま予定の時間帯に入っているか。入っているあいだは解除の導線を出さない。
     @State private var isScheduleWindowActive = false
-    @Environment(\.openURL) private var openURL
+    @State private var isWakeTimePickerPresented = false
+    @State private var isBedTimePickerPresented = false
+    @State private var isPlanEntryHighlighted = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// 曜日チップの並び。月曜から日曜（`Calendar` の番号では2から始まり1で終わる）。
     private static let weekdayOrder = [2, 3, 4, 5, 6, 7, 1]
@@ -84,7 +87,7 @@ struct SettingsView: View {
     private static let deepFocusTicker = Timer.publish(every: 1, on: .main, in: .common)
         .autoconnect()
 
-    /// 「いますぐ」の4択。`durationMinutes` が `nil` なら「自分で戻すまで」。
+    /// 「いますぐ」の4択。`durationMinutes` が `nil` なら「自分で解除するまで」。
     enum DeepFocusSessionOption: Hashable, CaseIterable {
         case thirtyMinutes
         case oneHour
@@ -124,7 +127,7 @@ struct SettingsView: View {
             case .untilStopped:
                 return String(
                     localized: "settings.deep_focus.session.option.until_stopped",
-                    defaultValue: "戻すまで"
+                    defaultValue: "解除するまで"
                 )
             }
         }
@@ -160,8 +163,15 @@ struct SettingsView: View {
         }
         model.pendingPlanSettingsFocus = false
         Task { @MainActor in
-            withAnimation {
-                proxy.scrollTo(Self.planSectionID, anchor: .top)
+            await Task.yield()
+            withAnimation(DopaMotion.transition) {
+                proxy.scrollTo(Self.planSectionID, anchor: .center)
+                isPlanEntryHighlighted = true
+            }
+            try? await Task.sleep(for: .seconds(1.6))
+            guard !Task.isCancelled else { return }
+            withAnimation(DopaMotion.control) {
+                isPlanEntryHighlighted = false
             }
         }
     }
@@ -170,24 +180,26 @@ struct SettingsView: View {
     private var settingsScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
-                targetSection
+                statusSection
+                modeSection
 
-                deepFocusSection
+                if isDeepFocusUnlocked, selectedMode == .deepFocus {
+                    deepFocusControlsSection
+                } else if !isDeepFocusUnlocked {
+                    deepFocusLockedSection
+                }
 
-                wakeSleepSection
+                targetLengthAutomationSection
+                wakeSleepTimelineSection
+                entrySection
+                aboutEntrySection
 
-                usageWatchSection
-
-                lockSurfaceSection
-
-                accountSection
-                    .id(Self.planSectionID)
-
-                privacySection
-
-                appSection
-
-                Text(String(localized: "settings.device_only_note", defaultValue: "SNSなどのアプリを止める機能は、iPhone実機でのみ動作します。"))
+                Text(
+                    String(
+                        localized: "settings.device_only_note",
+                        defaultValue: "SNSなどのアプリを止める機能はiPhoneでのみ使えます"
+                    )
+                )
                     .dopaFont(13, weight: .medium)
                     .foregroundStyle(DesignTokens.secondaryText)
                     .padding(.horizontal, 4)
@@ -217,10 +229,6 @@ struct SettingsView: View {
         .familyActivityPicker(
             isPresented: $isFamilyActivityPickerPresented,
             selection: $activitySelection
-        )
-        .familyActivityPicker(
-            isPresented: $isUsageWatchPickerPresented,
-            selection: $usageWatchSelection
         )
         .fullScreenCover(item: $paywallPlacement, onDismiss: {
             refreshSettingsState()
@@ -260,18 +268,6 @@ struct SettingsView: View {
                 isLockScreenCheckPresented = false
             }
         }
-        .confirmationDialog(
-            String(localized: "settings.delete_all.confirmation.title", defaultValue: "全データを削除しますか？"),
-            isPresented: $isDeleteAllDataConfirmationPresented,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "settings.delete_all.confirmation.delete", defaultValue: "削除する"), role: .destructive) {
-                deleteAllData()
-            }
-            Button(String(localized: "settings.delete_all.confirmation.cancel", defaultValue: "キャンセル"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "settings.delete_all.confirmation.message", defaultValue: "目標・記録・設定がすべて削除されます。この操作は取り消せません。"))
-        }
         .onChange(of: isAuthorizationSheetPresented) { oldValue, newValue in
             guard oldValue, !newValue else {
                 return
@@ -287,11 +283,8 @@ struct SettingsView: View {
             }
             saveActivitySelection()
         }
-        .onChange(of: isUsageWatchPickerPresented) { oldValue, newValue in
-            guard oldValue, !newValue else {
-                return
-            }
-            saveUsageWatchSelection()
+        .onReceive(Self.deepFocusTicker) { _ in
+            tickDeepFocusSession()
         }
     }
 
@@ -318,574 +311,197 @@ struct SettingsView: View {
             || isDeleteAllDataConfirmationPresented
     }
 
-    private var targetSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(
-                text: String(
-                    localized: "settings.gate.section",
-                    defaultValue: "止めるアプリ"
-                )
-            )
-
-            CardContainer {
-                if isGateUnlocked {
-                    proGateTargetRows
-                } else {
-                    freeCatalogTargetRows
-                }
-            }
-
-            if isGateUnlocked {
-                Text(
-                    String(
-                        localized: "settings.gate.description",
-                        defaultValue: "開く前に必ず一呼吸。回数や長さはアプリごとに決められます"
-                    )
-                )
-                    .dopaFont(13, weight: .medium, lineSpacing: 3)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
+    private var statusSection: some View {
+        CardContainer {
+            ViewThatFits(in: .horizontal) {
+                statusHorizontalLayout
+                statusCompactLayout
             }
         }
     }
 
-    private var proGateTargetRows: some View {
-        VStack(spacing: 0) {
-            Button {
-                handleAppSelectionTap()
-            } label: {
-                settingsRow(
-                    label: String(localized: "settings.gate.section", defaultValue: "止めるアプリ"),
-                    value: appSelectionSummary,
-                    disclosure: .navigate
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(isRequestingAuthorization)
-
-            if !selectedGateApps.isEmpty {
-                divider
-                Text(
-                    String(
-                        localized: "settings.gate.app_list",
-                        defaultValue: "アプリごとの設定"
-                    )
-                )
-                    .dopaFont(13, weight: .bold)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-                    .padding(.bottom, 6)
-
-                ForEach(Array(selectedGateApps.enumerated()), id: \.element.id) { index, target in
-                    if index > 0 {
-                        divider
-                            .padding(.leading, 16)
-                    }
-                    Button {
-                        gateAppSettingTarget = target
-                    } label: {
-                        HStack(spacing: 12) {
-                            Label(target.token)
-                                .dopaFont(16, weight: .semibold)
-                                .foregroundStyle(DesignTokens.primaryText)
-                                .lineLimit(1)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .dopaFont(13, weight: .semibold)
-                                .foregroundStyle(DesignTokens.tertiaryText)
-                                .accessibilityHidden(true)
-                        }
-                        .frame(minHeight: DesignTokens.minTapTarget)
-                        .padding(.horizontal, 16)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            divider
-            breathDurationRow
-
-            divider
-            Button {
-                isAutomationGuidePresented = true
-            } label: {
-                settingsRow(
-                    label: String(
-                        localized: "settings.target.automation",
-                        defaultValue: "自動で一呼吸を出す設定"
-                    ),
-                    value: "",
-                    disclosure: .navigate
-                )
-            }
-            .buttonStyle(.plain)
-
-            Text(
-                String(
-                    localized: "settings.gate.automation_note",
-                    defaultValue: "Proの止めるアプリではショートカットの自動化は不要です"
-                )
-            )
-                .dopaFont(13, weight: .medium, lineSpacing: 3)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-
-            Text(
-                String(
-                    localized: "settings.gate.category_note",
-                    defaultValue: "カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です"
-                )
-            )
-                .dopaFont(13, weight: .medium, lineSpacing: 3)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 14)
-        }
-    }
-
-    private var freeCatalogTargetRows: some View {
-        VStack(spacing: 0) {
-            Button {
-                isTargetPickerPresented = true
-            } label: {
-                settingsRow(
-                    label: String(localized: "settings.target.apps", defaultValue: "止めるアプリ"),
-                    value: targetAppsSummary,
-                    disclosure: .navigate
-                )
-            }
-            .buttonStyle(.plain)
-
-            if let targetAppClampNotice = model.targetAppClampNotice {
-                Text(targetAppClampNotice)
-                    .dopaFont(13, weight: .semibold)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 14)
-            }
-
-            divider
-            breathDurationRow
-
-            divider
-            Button {
-                isAutomationGuidePresented = true
-            } label: {
-                settingsRow(
-                    label: String(localized: "settings.target.automation", defaultValue: "自動で一呼吸を出す設定"),
-                    value: "",
-                    disclosure: .navigate
-                )
-            }
-            .buttonStyle(.plain)
-
-            divider
-            Button {
-                paywallPlacement = .settingsGateGate
-            } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "lock.fill")
-                        .dopaFont(14, weight: .bold)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                        .frame(width: 20)
-                    Text(
-                        String(
-                            localized: "settings.gate.locked_notice",
-                            defaultValue: "Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます"
-                        )
-                    )
-                        .dopaFont(13, weight: .semibold, lineSpacing: 3)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .dopaFont(13, weight: .semibold)
-                        .foregroundStyle(DesignTokens.tertiaryText)
-                        .accessibilityHidden(true)
-                }
-                .padding(.vertical, 14)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var wakeSleepSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: String(localized: "settings.schedule.section", defaultValue: "起床・就寝時刻"))
-
-            CardContainer {
-                VStack(spacing: 0) {
-                    timePickerRow(
-                        label: String(localized: "settings.schedule.wake_time", defaultValue: "起床時刻"),
-                        selection: wakeTimeBinding
-                    )
-
-                    divider
-                    timePickerRow(
-                        label: String(localized: "settings.schedule.bed_time", defaultValue: "就寝時刻"),
-                        selection: bedTimeBinding
-                    )
-                }
-            }
-        }
-    }
-
-    private var usageWatchSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(
-                text: String(
-                    localized: "settings.usage_watch.section.title",
-                    defaultValue: "利用時間の通知"
-                )
-            )
-
-            CardContainer {
-                VStack(spacing: 0) {
-                    toggleRow(
-                        label: String(
-                            localized: "settings.usage_watch.enable.title",
-                            defaultValue: "利用時間の通知を使う"
-                        ),
-                        isOn: usageWatchEnabledBinding
-                    )
-                    .disabled(isRequestingUsageWatchAuthorization)
-
-                    divider
-
-                    Button {
-                        beginUsageWatchSelection(enableAfterSelection: false)
-                    } label: {
-                        settingsRow(
-                            label: String(
-                                localized: "settings.usage_watch.apps.title",
-                                defaultValue: "時間をはかるアプリ"
-                            ),
-                            value: usageWatchSelectionSummary,
-                            disclosure: .navigate
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isRequestingUsageWatchAuthorization)
-
-                    if model.storeService.isPro {
-                        divider
-                        usageWatchIntervalRow
-
-                        divider
-                        toggleRow(
-                            label: String(
-                                localized: "settings.usage_watch.night_mode.title",
-                                defaultValue: "就寝前は間隔を短く"
-                            ),
-                            isOn: usageWatchNightModeBinding
-                        )
-                    } else {
-                        divider
-                        Text(
-                            String(
-                                localized: "settings.usage_watch.free_rule.description",
-                                defaultValue: "連続で2時間になったら1日1回だけお知らせします"
-                            )
-                        )
-                        .dopaFont(14, weight: .medium, lineSpacing: 4)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 14)
-
-                        divider
-                        usageWatchLockedRow(
-                            label: String(
-                                localized: "settings.usage_watch.interval.title",
-                                defaultValue: "問いかけの間隔"
-                            )
-                        )
-
-                        divider
-                        usageWatchLockedRow(
-                            label: String(
-                                localized: "settings.usage_watch.night_mode.title",
-                                defaultValue: "就寝前は間隔を短く"
-                            )
-                        )
-                    }
-                }
-            }
-
-            Text(usageWatchFootnote)
-            .dopaFont(13, weight: .medium, lineSpacing: 3)
-            .foregroundStyle(
-                usageWatchAuthorizationWasDenied || model.usageWatch.didLastMonitoringStartFail
-                    ? DesignTokens.danger
-                    : DesignTokens.secondaryText
-            )
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 4)
-        }
-    }
-
-    /// 登録に失敗するとトグルが黙って戻るだけになるため、理由をその場に出す。
-    private var usageWatchFootnote: String {
-        guard model.usageWatch.didLastMonitoringStartFail else {
-            return String(
-                localized: "settings.usage_watch.permission.description",
-                defaultValue: "スクリーンタイムの許可が必要です。利用データはこの端末の外に出ません"
-            )
-        }
-        return String(
-            localized: "settings.usage_watch.start_failed.description",
-            defaultValue: "利用時間の通知を開始できませんでした。時間をはかるアプリを選び直してからもう一度お試しください"
-        )
-    }
-
-    private var usageWatchIntervalRow: some View {
+    private var statusHorizontalLayout: some View {
         HStack(spacing: 12) {
-            Text(
-                String(
-                    localized: "settings.usage_watch.interval.title",
-                    defaultValue: "問いかけの間隔"
-                )
+            DopaRing(
+                progress: todayCancellationRate,
+                expression: statusExpression,
+                diameter: 64
             )
-            .dopaFont(16, weight: .semibold)
-            .foregroundStyle(DesignTokens.primaryText)
 
-            Spacer()
+            statusTextBlock
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Picker(
-                String(
-                    localized: "settings.usage_watch.interval.title",
-                    defaultValue: "問いかけの間隔"
-                ),
-                selection: usageWatchIntervalBinding
-            ) {
-                ForEach(UsageWatchConfiguration.allowedQuestionIntervals, id: \.self) { minutes in
-                    Text(usageWatchIntervalLabel(minutes)).tag(minutes)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(DesignTokens.secondaryText)
+            todayCancellationBlock
         }
-        .padding(.vertical, 14)
     }
 
-    private func usageWatchLockedRow(label: String) -> some View {
-        Button {
-            paywallPlacement = .settingsUsageWatchGate
-        } label: {
+    private var statusCompactLayout: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Text(label)
-                    .dopaFont(16, weight: .semibold)
-                    .foregroundStyle(DesignTokens.primaryText)
-
-                Spacer()
-
-                Label(
-                    String(localized: "settings.status.pro", defaultValue: "Pro"),
-                    systemImage: "lock.fill"
+                DopaRing(
+                    progress: todayCancellationRate,
+                    expression: statusExpression,
+                    diameter: 64
                 )
-                .dopaFont(13, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-
-                Image(systemName: "chevron.right")
-                    .dopaFont(13, weight: .semibold)
-                    .foregroundStyle(DesignTokens.tertiaryText)
-                    .accessibilityHidden(true)
+                statusTextBlock
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.vertical, 14)
+            todayCancellationBlock
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .buttonStyle(.plain)
     }
 
-    private var lockSurfaceSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: String(localized: "settings.lock_screen.section", defaultValue: "ロック画面の表示"))
+    private var statusTextBlock: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            SmallLabel(
+                text: String(localized: "settings.status.title", defaultValue: "止める設定")
+            )
 
-            CardContainer {
-                VStack(spacing: 0) {
-                    toggleRow(
-                        label: String(localized: "settings.lock_screen.morning_notification", defaultValue: "朝の目標通知"),
-                        isOn: morningNotificationBinding
-                    )
+            if canEndDeepFocusFromStatus {
+                Button {
+                    model.endDeepFocusSession()
+                    refreshDeepFocusState()
+                } label: {
+                    Text(statusSummary)
+                        .dopaFont(16, weight: .bold)
+                        .foregroundStyle(DesignTokens.primaryText)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .buttonStyle(.plain)
+                .frame(minHeight: DesignTokens.minTapTarget, alignment: .leading)
+            } else {
+                Text(statusSummary)
+                    .dopaFont(16, weight: .bold)
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                    divider
-                    timePickerRow(
-                        label: String(localized: "settings.lock_screen.notification_time", defaultValue: "通知時刻"),
-                        selection: morningNotificationTimeBinding
-                    )
-                        .disabled(!morningNotificationEnabled)
-                        .opacity(morningNotificationEnabled ? 1 : 0.45)
+            if !statusIconSources.isEmpty {
+                AppIconStack(sources: statusIconSources, size: 30, maxVisible: 4)
+            }
+        }
+    }
 
-                    divider
-                    toggleRow(
-                        label: String(localized: "settings.lock_screen.weekly_report", defaultValue: "週次レポート通知"),
-                        isOn: weeklyReportNotificationBinding
-                    )
+    private var todayCancellationBlock: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            Text(model.todayCancelledCount.formatted())
+                .dopaFont(22, weight: .black, design: .rounded)
+                .foregroundStyle(DesignTokens.accent)
+                .monospacedDigit()
+                .contentTransition(.numericText())
 
-                    divider
-                    toggleRow(
-                        label: String(
-                            localized: "settings.notifications.retention_support.title",
-                            defaultValue: "継続サポートの通知"
-                        ),
-                        isOn: retentionSupportNotificationsBinding
-                    )
+            Text(
+                "\(String(localized: "stats.period.today", defaultValue: "今日")) \(String(localized: "home.achievement.title", defaultValue: "開くのをやめた"))"
+            )
+            .dopaFont(11, weight: .semibold)
+            .foregroundStyle(DesignTokens.secondaryText)
+            .multilineTextAlignment(.trailing)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
-                    divider
-                    toggleRow(
-                        label: String(
-                            localized: "settings.notifications.plan.title",
-                            defaultValue: "プランに関する通知"
-                        ),
-                        isOn: planNotificationsBinding
-                    )
+    private var modeSection: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 12) {
+                SmallLabel(
+                    text: String(localized: "settings.mode.label", defaultValue: "止める強さ")
+                )
 
-                    divider
-                    toggleRow(
-                        label: String(localized: "settings.lock_screen.live_activity", defaultValue: "Live Activity"),
-                        isOn: liveActivityBinding
-                    )
-
-                    divider
-                    Button {
-                        isLockScreenCheckPresented = true
-                    } label: {
-                        settingsRow(
-                            label: String(localized: "settings.lock_screen.check", defaultValue: "ロック画面で確かめる"),
-                            value: "",
-                            disclosure: .navigate
-                        )
+                LazyVGrid(columns: modeColumns, alignment: .leading, spacing: 8) {
+                    ForEach(InterventionMode.selectable, id: \.self) { mode in
+                        modeCard(mode)
                     }
-                    .buttonStyle(.plain)
-
-                    divider
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(String(localized: "settings.lock_screen.theme", defaultValue: "テーマ"))
-                            .dopaFont(16, weight: .semibold)
-                            .foregroundStyle(DesignTokens.primaryText)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(LockTheme.allCases, id: \.self) { theme in
-                                    themeChip(theme)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 14)
                 }
             }
         }
     }
 
-    private func themeChip(_ theme: LockTheme) -> some View {
-        let isSelected = selectedLockTheme == theme
-        let isAllowed = model.entitlementGate.lockThemeAllowed(theme)
-        let palette = theme.palette
+    private var modeColumns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+    }
+
+    private func modeCard(_ mode: InterventionMode) -> some View {
+        let isSelected = selectedMode == mode
+        let isLocked = mode.usesShield && !isDeepFocusUnlocked
 
         return Button {
-            guard isAllowed else {
-                paywallPlacement = .settingsThemeGate
-                return
-            }
-            selectedLockTheme = theme
-            settingsStore.lockTheme = theme
-            model.refreshLockSurfaces()
+            setSelectedMode(mode)
         } label: {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Color(lockThemeColor: palette.accent))
-                    .frame(width: 8, height: 8)
-                Text(theme.displayName)
-                    .dopaFont(13, weight: .bold)
-                if theme != .e1 {
-                    Text(String(localized: "settings.status.pro", defaultValue: "Pro"))
-                        .dopaFont(9, weight: .black)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color(lockThemeColor: palette.accent).opacity(0.18))
-                        .clipShape(Capsule())
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    SettingsIconTile(
+                        systemName: modeSymbolName(mode),
+                        background: isSelected
+                            ? DesignTokens.accent.opacity(0.14)
+                            : Color(red: 44 / 255, green: 49 / 255, blue: 57 / 255),
+                        foreground: isSelected ? DesignTokens.accent : .white
+                    )
+
+                    Spacer(minLength: 4)
+
+                    if isLocked {
+                        Text(String(localized: "settings.status.pro", defaultValue: "Pro"))
+                            .dopaFont(9, weight: .black)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(DesignTokens.backgroundRaised)
+                            .clipShape(Capsule())
+                    }
                 }
+
+                // 3列だと「ディープフォーカス」が1行に収まらない。強さの名前が読めないと
+                // どれを選んでいるか分からなくなるため、名前だけは折り返して全部出す。
+                Text(mode.displayTitle)
+                    .dopaFont(13, weight: .bold)
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(mode.detailText)
+                    .dopaFont(11, weight: .medium, lineSpacing: 2)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .topLeading)
             }
-            .foregroundStyle(isSelected ? DesignTokens.background : DesignTokens.primaryText)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 38)
-            .background(isSelected ? DesignTokens.accent : DesignTokens.backgroundRaised)
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
-            )
-            .clipShape(Capsule())
-            // チップの見た目は38ptのまま、当たり判定だけHIG下限の44ptへ広げる。
-            .frame(minHeight: DesignTokens.minTapTarget)
+            .padding(10)
+            .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+            .background(isSelected ? DesignTokens.accent.opacity(0.06) : DesignTokens.backgroundRaised)
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: isSelected ? 2 : 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(4)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? DesignTokens.accent.opacity(0.12) : .clear, lineWidth: 4)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
-    private func toggleRow(label: String, isOn: Binding<Bool>) -> some View {
-        Toggle(isOn: isOn) {
-            Text(label)
-                .dopaFont(16, weight: .semibold)
-                .foregroundStyle(DesignTokens.primaryText)
+    private func modeSymbolName(_ mode: InterventionMode) -> String {
+        switch mode {
+        case .standard: return "wind"
+        case .deepFocus: return "lock.shield.fill"
+        case .nightOnly: return "moon.stars.fill"
         }
-        .tint(DesignTokens.accent)
-        .padding(.vertical, 14)
     }
 
-    /// 完全ブロック（Pro）。「止めるアプリ」＝通常の一呼吸の対象とは別物なので、区画も分ける（docs/12 §5）。
-    private var deepFocusSection: some View {
+    private var deepFocusControlsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(
-                text: String(
-                    localized: "settings.deep_focus.section",
-                    defaultValue: "完全ブロック"
-                )
-            )
-
             CardContainer {
                 VStack(spacing: 0) {
-                    if isDeepFocusUnlocked {
-                        modePickerRow
-
-                        divider
-                        screenTimeRow
-
-                        divider
-                        deepFocusTargetsRow
-
-                        // 窓を持つのはディープフォーカスだけ。夜だけ強化は就寝・起床が窓になるため、
-                        // ここに出すと同じ設定が2か所にあるように見える。
-                        if selectedMode == .deepFocus {
-                            divider
-                            deepFocusSessionBlock
-
-                            divider
-                            deepFocusScheduleBlock
-                        }
-                    } else {
-                        deepFocusLockedRow(
-                            label: String(localized: "settings.mode.label", defaultValue: "止める強さ")
-                        )
-
-                        divider
-                        deepFocusLockedRow(
-                            label: String(
-                                localized: "settings.deep_focus.targets.label",
-                                defaultValue: "完全ブロックの対象"
-                            )
-                        )
-                    }
+                    deepFocusSessionBlock
+                    SettingsDivider()
+                    deepFocusScheduleBlock
                 }
             }
 
@@ -894,6 +510,639 @@ struct SettingsView: View {
                 .foregroundStyle(DesignTokens.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 4)
+        }
+    }
+
+    private var deepFocusLockedSection: some View {
+        CardContainer {
+            Button {
+                paywallPlacement = .settingsModeGate
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    SettingsIconTile(systemName: "lock.fill")
+
+                    Text(
+                        String(
+                            localized: "settings.deep_focus.locked_notice",
+                            defaultValue: "完全ブロックでは決めた時間だけ選んだアプリを止められます"
+                        )
+                    )
+                    .dopaFont(13, weight: .semibold, lineSpacing: 3)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
+
+                    Label(
+                        String(localized: "settings.status.pro", defaultValue: "Pro"),
+                        systemImage: "lock.fill"
+                    )
+                    .dopaFont(12, weight: .bold)
+                    .foregroundStyle(DesignTokens.primaryText)
+
+                    SettingsChevron()
+                }
+                .frame(minHeight: DesignTokens.minTapTarget)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var targetLengthAutomationSection: some View {
+        CardContainer {
+            VStack(spacing: 0) {
+                appSelectionRow
+
+                if isGateUnlocked, !selectedGateApps.isEmpty {
+                    SettingsDivider()
+                    gateAppSettingsRows
+                }
+
+                if isGateUnlocked {
+                    Text(
+                        String(
+                            localized: "settings.gate.description",
+                            defaultValue: "開く前に必ず一呼吸。回数や長さはアプリごとに決められます"
+                        )
+                    )
+                    .dopaFont(13, weight: .medium, lineSpacing: 3)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 10)
+                }
+
+                if !isGateUnlocked, let targetAppClampNotice = model.targetAppClampNotice {
+                    Text(targetAppClampNotice)
+                        .dopaFont(13, weight: .semibold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.bottom, 10)
+                }
+
+                SettingsDivider()
+                breathDurationRow
+
+                SettingsDivider()
+                automationRow
+
+                // 許可がないと一呼吸そのものが出ない。許可の状態と取り直しの入口は
+                // 対象・長さと同じカードに残す（再構成前は完全ブロックの枠にあった）。
+                if isDeepFocusUnlocked {
+                    SettingsDivider()
+                    screenTimeRow
+                }
+
+                if isGateUnlocked {
+                    gateAutomationNotes
+                } else {
+                    SettingsDivider()
+                    gateLockedRow
+                }
+            }
+        }
+    }
+
+    private var appSelectionRow: some View {
+        Button {
+            if isGateUnlocked {
+                handleAppSelectionTap()
+            } else {
+                isTargetPickerPresented = true
+            }
+        } label: {
+            HStack(spacing: 12) {
+                SettingsIconTile(
+                    systemName: "square.grid.2x2.fill",
+                    background: DesignTokens.accent,
+                    foreground: .black
+                )
+
+                Text(String(localized: "settings.gate.section", defaultValue: "止めるアプリ"))
+                    .dopaFont(16, weight: .semibold)
+                    .foregroundStyle(DesignTokens.primaryText)
+
+                Spacer(minLength: 8)
+
+                if targetRowIconSources.isEmpty {
+                    Text(String(localized: "settings.value.not_set", defaultValue: "未設定"))
+                        .dopaFont(13, weight: .semibold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                } else {
+                    AppIconStack(sources: targetRowIconSources, size: 24, maxVisible: 4)
+                }
+
+                SettingsChevron()
+            }
+            .frame(minHeight: DesignTokens.minTapTarget)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isGateUnlocked && isRequestingAuthorization)
+    }
+
+    private var gateAppSettingsRows: some View {
+        VStack(spacing: 0) {
+            Text(
+                String(
+                    localized: "settings.gate.app_list",
+                    defaultValue: "アプリごとの設定"
+                )
+            )
+            .dopaFont(13, weight: .bold)
+            .foregroundStyle(DesignTokens.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
+
+            ForEach(Array(selectedGateApps.enumerated()), id: \.element.id) { index, target in
+                if index > 0 {
+                    SettingsDivider()
+                        .padding(.leading, 36)
+                }
+
+                Button {
+                    gateAppSettingTarget = target
+                } label: {
+                    HStack(spacing: 12) {
+                        AppIconView(source: .token(target.token), size: 24)
+
+                        Label(target.token)
+                            .labelStyle(.titleOnly)
+                            .dopaFont(16, weight: .semibold)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 8)
+                        SettingsChevron()
+                    }
+                    .frame(minHeight: DesignTokens.minTapTarget)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var breathDurationRow: some View {
+        HStack(spacing: 10) {
+            SettingsIconTile(systemName: "clock")
+
+            Text(String(localized: "settings.breath_duration.label", defaultValue: "一呼吸の長さ"))
+                .dopaFont(16, weight: .semibold)
+                .foregroundStyle(DesignTokens.primaryText)
+                .layoutPriority(1)
+
+            Spacer(minLength: 2)
+
+            HStack(spacing: 5) {
+                breathDurationChip(
+                    3,
+                    title: String(
+                        localized: "settings.breath_duration.three_seconds",
+                        defaultValue: "3秒"
+                    )
+                )
+                breathDurationChip(
+                    5,
+                    title: String(
+                        localized: "settings.breath_duration.five_seconds",
+                        defaultValue: "5秒"
+                    )
+                )
+                breathDurationChip(
+                    8,
+                    title: String(
+                        localized: "settings.breath_duration.eight_seconds",
+                        defaultValue: "8秒"
+                    )
+                )
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func breathDurationChip(_ seconds: Int, title: String) -> some View {
+        let isSelected = settingsStore.breathDurationSeconds == seconds
+
+        return Button {
+            settingsStore.breathDurationSeconds = seconds
+        } label: {
+            Text(title)
+                .dopaFont(12, weight: .bold)
+                .foregroundStyle(isSelected ? DesignTokens.accent : DesignTokens.secondaryText)
+                .padding(.horizontal, 8)
+                .frame(minHeight: 32)
+                .overlay {
+                    Capsule()
+                        .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
+                }
+                .frame(minHeight: DesignTokens.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
+    private var automationRow: some View {
+        Button {
+            isAutomationGuidePresented = true
+        } label: {
+            SettingsIconNavigationRow(
+                systemName: "bolt.fill",
+                label: String(
+                    localized: "settings.target.automation",
+                    defaultValue: "自動で一呼吸を出す設定"
+                ),
+                value: isAutomationConfigured
+                    ? String(
+                        localized: "settings.automation.configured",
+                        defaultValue: "設定済み"
+                    )
+                    : String(
+                        localized: "settings.automation.not_configured",
+                        defaultValue: "未設定"
+                    ),
+                valueColor: isAutomationConfigured
+                    ? DesignTokens.accent
+                    : DesignTokens.secondaryText
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var screenTimeRow: some View {
+        if screenTimeAuthorizedForDisplay {
+            HStack(spacing: 12) {
+                SettingsIconTile(systemName: "checkmark.shield.fill")
+
+                Text(
+                    String(
+                        localized: "settings.screen_time.label",
+                        defaultValue: "スクリーンタイム"
+                    )
+                )
+                .dopaFont(16, weight: .semibold)
+                .foregroundStyle(DesignTokens.primaryText)
+
+                Spacer(minLength: 8)
+
+                Text(
+                    String(
+                        localized: "settings.screen_time.authorized",
+                        defaultValue: "許可済み"
+                    )
+                )
+                .dopaFont(13, weight: .semibold)
+                .foregroundStyle(DesignTokens.secondaryText)
+            }
+            .frame(minHeight: DesignTokens.minTapTarget)
+            .padding(.vertical, 8)
+        } else {
+            Button {
+                shouldOpenPickerAfterAuthorization = false
+                authorizationWasDenied = false
+                isAuthorizationSheetPresented = true
+            } label: {
+                SettingsIconNavigationRow(
+                    systemName: "checkmark.shield.fill",
+                    label: String(
+                        localized: "settings.screen_time.label",
+                        defaultValue: "スクリーンタイム"
+                    ),
+                    value: String(
+                        localized: "settings.screen_time.not_authorized",
+                        defaultValue: "未許可"
+                    )
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// App Store素材の撮影では許可済みの見た目を固定する。本番経路は実状態のまま。
+    private var screenTimeAuthorizedForDisplay: Bool {
+        #if DEBUG
+        if let snapshotScreenTimeAuthorized {
+            return snapshotScreenTimeAuthorized
+        }
+        #endif
+        return model.screenTime.isAuthorized
+    }
+
+    private var gateAutomationNotes: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(
+                String(
+                    localized: "settings.gate.automation_note",
+                    defaultValue: "Proの止めるアプリではショートカットの自動化は不要です"
+                )
+            )
+            Text(
+                String(
+                    localized: "settings.gate.category_note",
+                    defaultValue: "カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です"
+                )
+            )
+        }
+        .dopaFont(13, weight: .medium, lineSpacing: 3)
+        .foregroundStyle(DesignTokens.secondaryText)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 2)
+        .padding(.bottom, 8)
+    }
+
+    private var gateLockedRow: some View {
+        Button {
+            paywallPlacement = .settingsGateGate
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .dopaFont(14, weight: .bold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .frame(width: 20)
+
+                Text(
+                    String(
+                        localized: "settings.gate.locked_notice",
+                        defaultValue: "Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます"
+                    )
+                )
+                .dopaFont(13, weight: .semibold, lineSpacing: 3)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+                SettingsChevron()
+            }
+            .frame(minHeight: DesignTokens.minTapTarget)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var wakeSleepTimelineSection: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    SmallLabel(
+                        text: String(
+                            localized: "settings.schedule.section",
+                            defaultValue: "起床・就寝時刻"
+                        )
+                    )
+
+                    Spacer(minLength: 8)
+
+                    if selectedMode == .nightOnly {
+                        Text(InterventionMode.nightOnly.detailText)
+                            .dopaFont(11, weight: .semibold)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .lineLimit(1)
+                    }
+                }
+
+                timelineBar
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text("0:00")
+                    Spacer()
+                    Text(
+                        "\(timelineTimeText(settingsStore.wakeTimeMinutes ?? 420)) \(String(localized: "settings.timeline.wake", defaultValue: "起床"))"
+                    )
+                    Spacer()
+                    Text(
+                        "\(timelineTimeText(settingsStore.bedTimeMinutes ?? 1_380)) \(String(localized: "settings.timeline.sleep", defaultValue: "就寝"))"
+                    )
+                }
+                .dopaFont(11, weight: .medium, design: .monospaced)
+                .foregroundStyle(DesignTokens.secondaryText)
+            }
+        }
+        .popover(isPresented: $isWakeTimePickerPresented, arrowEdge: .top) {
+            timelineTimePicker(
+                title: String(localized: "settings.timeline.wake", defaultValue: "起床"),
+                selection: wakeTimeBinding
+            )
+        }
+        .popover(isPresented: $isBedTimePickerPresented, arrowEdge: .top) {
+            timelineTimePicker(
+                title: String(localized: "settings.timeline.sleep", defaultValue: "就寝"),
+                selection: bedTimeBinding
+            )
+        }
+    }
+
+    private var timelineBar: some View {
+        GeometryReader { proxy in
+            let horizontalInset: CGFloat = 17
+            let barWidth = max(1, proxy.size.width - horizontalInset * 2)
+            let wake = CGFloat(SettingsTime.normalizedMinutes(settingsStore.wakeTimeMinutes ?? 420))
+                / 1_440
+            let bed = CGFloat(SettingsTime.normalizedMinutes(settingsStore.bedTimeMinutes ?? 1_380))
+                / 1_440
+
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Color(red: 44 / 255, green: 49 / 255, blue: 57 / 255))
+
+                if bed < wake {
+                    Rectangle()
+                        .fill(Color(red: 27 / 255, green: 42 / 255, blue: 74 / 255))
+                        .frame(width: max(1, (wake - bed) * barWidth))
+                        .offset(x: bed * barWidth)
+                } else {
+                    Rectangle()
+                        .fill(Color(red: 27 / 255, green: 42 / 255, blue: 74 / 255))
+                        .frame(width: max(1, (1 - bed) * barWidth))
+                        .offset(x: bed * barWidth)
+                    Rectangle()
+                        .fill(Color(red: 27 / 255, green: 42 / 255, blue: 74 / 255))
+                        .frame(width: max(1, wake * barWidth))
+                }
+            }
+            .frame(width: barWidth, height: 26)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .position(x: proxy.size.width / 2, y: 22)
+
+            timelineHandle(
+                systemName: "sun.max.fill",
+                label: String(localized: "settings.timeline.wake", defaultValue: "起床")
+            ) {
+                isWakeTimePickerPresented = true
+            }
+            .position(x: horizontalInset + wake * barWidth, y: 22)
+
+            timelineHandle(
+                systemName: "moon.fill",
+                label: String(localized: "settings.timeline.sleep", defaultValue: "就寝")
+            ) {
+                isBedTimePickerPresented = true
+            }
+            .position(x: horizontalInset + bed * barWidth, y: 22)
+        }
+        .frame(height: 44)
+    }
+
+    private func timelineHandle(
+        systemName: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .dopaFont(15, weight: .bold)
+                .foregroundStyle(.black)
+                .frame(width: 34, height: 34)
+                .background(.white)
+                .clipShape(Circle())
+                .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
+                .frame(width: DesignTokens.minTapTarget, height: DesignTokens.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private func timelineTimePicker(title: String, selection: Binding<Date>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .dopaFont(17, weight: .bold)
+                .foregroundStyle(DesignTokens.primaryText)
+
+            DatePicker(title, selection: selection, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(DesignTokens.accent)
+        }
+        .padding(20)
+        .frame(minWidth: 220)
+        .background(DesignTokens.card)
+        .presentationCompactAdaptation(.popover)
+    }
+
+    private func timelineTimeText(_ minutes: Int) -> String {
+        let value = SettingsTime.normalizedMinutes(minutes)
+        return String(format: "%d:%02d", value / 60, value % 60)
+    }
+
+    private var entrySection: some View {
+        CardContainer {
+            VStack(spacing: 0) {
+                NavigationLink {
+                    SettingsNotificationsView(
+                        model: model,
+                        settingsStore: settingsStore,
+                        morningNotificationEnabled: $morningNotificationEnabled,
+                        weeklyReportNotificationEnabled: $weeklyReportNotificationEnabled,
+                        retentionSupportNotificationsEnabled: $retentionSupportNotificationsEnabled,
+                        planNotificationsEnabled: $planNotificationsEnabled,
+                        usageWatchSelection: $usageWatchSelection,
+                        isUsageWatchPickerPresented: $isUsageWatchPickerPresented,
+                        shouldEnableUsageWatchAfterPicker: $shouldEnableUsageWatchAfterPicker,
+                        usageWatchAuthorizationWasDenied: $usageWatchAuthorizationWasDenied,
+                        isRequestingUsageWatchAuthorization: $isRequestingUsageWatchAuthorization,
+                        paywallPlacement: $paywallPlacement
+                    )
+                } label: {
+                    SettingsIconNavigationRow(
+                        systemName: "bell.fill",
+                        label: String(
+                            localized: "settings.entry.notifications",
+                            defaultValue: "通知"
+                        ),
+                        value: notificationSummary
+                    )
+                }
+                .buttonStyle(.plain)
+
+                SettingsDivider()
+
+                NavigationLink {
+                    SettingsLockSurfaceView(
+                        model: model,
+                        settingsStore: settingsStore,
+                        selectedLockTheme: $selectedLockTheme,
+                        liveActivityEnabled: $liveActivityEnabled,
+                        isLockScreenCheckPresented: $isLockScreenCheckPresented,
+                        paywallPlacement: $paywallPlacement
+                    )
+                } label: {
+                    SettingsIconNavigationRow(
+                        systemName: "lock.iphone",
+                        label: String(
+                            localized: "settings.entry.lock_surface",
+                            defaultValue: "ロック画面の表示"
+                        ),
+                        value: selectedLockTheme.displayName
+                    )
+                }
+                .buttonStyle(.plain)
+
+                SettingsDivider()
+
+                NavigationLink {
+                    SettingsAccountView(
+                        model: model,
+                        paywallPlacement: $paywallPlacement
+                    )
+                } label: {
+                    SettingsIconNavigationRow(
+                        systemName: "star.fill",
+                        label: String(localized: "settings.entry.pro", defaultValue: "DopaBreak Pro"),
+                        value: model.storeService.isPro
+                            ? String(localized: "settings.status.pro", defaultValue: "Pro")
+                            : String(localized: "settings.status.free", defaultValue: "Free"),
+                        tileBackground: Color(red: 245 / 255, green: 143 / 255, blue: 180 / 255),
+                        tileForeground: .black
+                    )
+                    .padding(.horizontal, 6)
+                    .background(
+                        isPlanEntryHighlighted
+                            ? DesignTokens.accent.opacity(0.12)
+                            : Color.clear
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(
+                                isPlanEntryHighlighted ? DesignTokens.accent : .clear,
+                                lineWidth: 1
+                            )
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .id(Self.planSectionID)
+            }
+        }
+    }
+
+    private var aboutEntrySection: some View {
+        CardContainer {
+            NavigationLink {
+                SettingsAboutView(
+                    model: model,
+                    onResetOnboarding: onResetOnboarding,
+                    onDataDeleted: refreshSettingsState,
+                    isDeleteAllDataConfirmationPresented: $isDeleteAllDataConfirmationPresented,
+                    isDeletionFeedbackVisible: $isDeletionFeedbackVisible
+                )
+            } label: {
+                SettingsIconNavigationRow(
+                    systemName: "info.circle",
+                    label: String(
+                        localized: "settings.entry.about",
+                        defaultValue: "プライバシーとアプリ情報"
+                    )
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -927,9 +1176,6 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 14)
-        .onReceive(Self.deepFocusTicker) { _ in
-            tickDeepFocusSession()
-        }
     }
 
     /// 予定の時間帯に入っているあいだの表示。いつまで続くかを時刻で示す。
@@ -959,7 +1205,7 @@ struct SettingsView: View {
                 Text(
                     String(
                         localized: "settings.deep_focus.schedule.active.session_notice",
-                        defaultValue: "予定の時間帯が終わったあとも、いますぐ始めた分は続きます。"
+                        defaultValue: "予定が終わっても手動で始めた分は続きます"
                     )
                 )
                 .dopaFont(13, weight: .medium, lineSpacing: 3)
@@ -977,7 +1223,7 @@ struct SettingsView: View {
                 defaultValue: "%@まで"
             ),
             Self.timeOfDayFormatter.string(
-                from: dateForTime(
+                from: SettingsTime.date(
                     minutes: deepFocusSchedule.endMinutes,
                     defaultMinutes: DeepFocusConstants.defaultScheduleEndMinutes
                 )
@@ -1008,7 +1254,7 @@ struct SettingsView: View {
                 Text(
                     String(
                         localized: "settings.deep_focus.session.stop.action",
-                        defaultValue: "いま解除"
+                        defaultValue: "いま解除する"
                     )
                 )
                 .dopaFont(15, weight: .bold)
@@ -1031,7 +1277,7 @@ struct SettingsView: View {
         guard let seconds = deepFocusRemainingSeconds else {
             return String(
                 localized: "settings.deep_focus.session.open_ended.label",
-                defaultValue: "自分で戻すまで"
+                defaultValue: "自分で解除するまで"
             )
         }
         return String(
@@ -1227,7 +1473,7 @@ struct SettingsView: View {
         if deepFocusSchedule.weekdays.isEmpty {
             return String(
                 localized: "settings.deep_focus.schedule.no_weekday_notice",
-                defaultValue: "曜日を選ぶと、その曜日の決めた時間だけ止まります。"
+                defaultValue: "選んだ曜日と時間だけアプリを止めます"
             )
         }
         guard DeepFocusWindowPolicy.hasWindow(
@@ -1236,7 +1482,7 @@ struct SettingsView: View {
         ) else {
             return String(
                 localized: "settings.deep_focus.schedule.too_short_notice",
-                defaultValue: "15分より短い時間帯は設定できません。開始と終了を離してください。"
+                defaultValue: "開始から終了まで15分以上にしてください"
             )
         }
         return nil
@@ -1265,7 +1511,7 @@ struct SettingsView: View {
     private var scheduleStartBinding: Binding<Date> {
         Binding(
             get: {
-                dateForTime(
+                SettingsTime.date(
                     minutes: deepFocusSchedule.startMinutes,
                     defaultMinutes: DeepFocusConstants.defaultScheduleStartMinutes
                 )
@@ -1275,7 +1521,7 @@ struct SettingsView: View {
                     DeepFocusSchedule(
                         isEnabled: deepFocusSchedule.isEnabled,
                         weekdays: deepFocusSchedule.weekdays,
-                        startMinutes: minutes(from: date),
+                        startMinutes: SettingsTime.minutes(from: date),
                         endMinutes: deepFocusSchedule.endMinutes
                     )
                 )
@@ -1286,7 +1532,7 @@ struct SettingsView: View {
     private var scheduleEndBinding: Binding<Date> {
         Binding(
             get: {
-                dateForTime(
+                SettingsTime.date(
                     minutes: deepFocusSchedule.endMinutes,
                     defaultMinutes: DeepFocusConstants.defaultScheduleEndMinutes
                 )
@@ -1297,7 +1543,7 @@ struct SettingsView: View {
                         isEnabled: deepFocusSchedule.isEnabled,
                         weekdays: deepFocusSchedule.weekdays,
                         startMinutes: deepFocusSchedule.startMinutes,
-                        endMinutes: minutes(from: date)
+                        endMinutes: SettingsTime.minutes(from: date)
                     )
                 )
             }
@@ -1371,19 +1617,164 @@ struct SettingsView: View {
         )
     }
 
+    private var selectedCatalogItems: [SNSAppCatalogItem] {
+        ((try? model.targetStore.selectedCatalogIDs()) ?? [])
+            .compactMap { SNSAppCatalog.app(catalogID: $0) }
+    }
+
+    /// 「止める設定」カードと「止めるアプリ」行は同じ選択を指す。別々に組むと
+    /// 片方だけ「未設定」になる食い違いが出るため、1つの並びを両方で使う。
+    private var targetIconSources: [AppIconSource] {
+        let tokenSources = selectedGateApps.map { AppIconSource.token($0.token) }
+        let catalogSources = selectedCatalogItems.map(AppIconSource.catalog)
+
+        if isGateUnlocked, !tokenSources.isEmpty {
+            return tokenSources
+        }
+        if !catalogSources.isEmpty {
+            return catalogSources
+        }
+        return tokenSources
+    }
+
+    private var statusIconSources: [AppIconSource] {
+        targetIconSources
+    }
+
+    private var targetRowIconSources: [AppIconSource] {
+        targetIconSources
+    }
+
+    private var todayCancellationRate: Double {
+        guard model.todayAttemptCount > 0 else { return 0 }
+        return Double(model.todayCancelledCount) / Double(model.todayAttemptCount)
+    }
+
+    private var statusExpression: CharacterExpression {
+        model.todayAttemptCount > 0 && model.todayCancelledCount == 0 ? .doom : .awake
+    }
+
+    private var canEndDeepFocusFromStatus: Bool {
+        deepFocusSession != nil && !isScheduleWindowActive
+    }
+
+    private var statusSummary: String {
+        if isScheduleWindowActive {
+            return "\(scheduleWindowUntilText) ・ \(String(localized: "settings.deep_focus.schedule.active.label", defaultValue: "予定の時間帯"))"
+        }
+
+        if deepFocusSession != nil {
+            return "\(remainingSessionText) ・ \(String(localized: "settings.deep_focus.session.stop.action", defaultValue: "いま解除する"))"
+        }
+
+        if selectedMode.usesShield {
+            return selectedMode.detailText
+        }
+
+        return "\(String(localized: "settings.breath_duration.label", defaultValue: "一呼吸の長さ")) \(breathDurationText)"
+    }
+
+    private var breathDurationText: String {
+        switch settingsStore.breathDurationSeconds {
+        case 3:
+            return String(
+                localized: "settings.breath_duration.three_seconds",
+                defaultValue: "3秒"
+            )
+        case 5:
+            return String(
+                localized: "settings.breath_duration.five_seconds",
+                defaultValue: "5秒"
+            )
+        default:
+            return String(
+                localized: "settings.breath_duration.eight_seconds",
+                defaultValue: "8秒"
+            )
+        }
+    }
+
+    private var isAutomationConfigured: Bool {
+        if isGateUnlocked {
+            return !selectedGateApps.isEmpty
+        }
+
+        let selectedIDs = selectedCatalogItems.map(\.catalogID)
+        guard !selectedIDs.isEmpty else { return false }
+        return AutomationVerification.unverifiedCatalogIDs(
+            selectedCatalogIDs: selectedIDs,
+            verifiedCatalogIDs: settingsStore.verifiedAutomationCatalogIDs
+        ).isEmpty
+    }
+
+    private var notificationSummary: String {
+        var labels: [String] = []
+        if morningNotificationEnabled {
+            labels.append(
+                String(
+                    localized: "settings.lock_screen.morning_notification",
+                    defaultValue: "朝の目標通知"
+                )
+            )
+        }
+        if weeklyReportNotificationEnabled {
+            labels.append(
+                String(
+                    localized: "settings.lock_screen.weekly_report",
+                    defaultValue: "毎週の記録通知"
+                )
+            )
+        }
+        if retentionSupportNotificationsEnabled {
+            labels.append(
+                String(
+                    localized: "settings.notifications.retention_support.title",
+                    defaultValue: "設定確認と記録の通知"
+                )
+            )
+        }
+        if planNotificationsEnabled {
+            labels.append(
+                String(
+                    localized: "settings.notifications.plan.title",
+                    defaultValue: "プランに関する通知"
+                )
+            )
+        }
+
+        guard !labels.isEmpty else {
+            return String(localized: "settings.value.not_set", defaultValue: "未設定")
+        }
+
+        var summary = Array(labels.prefix(2))
+        let remaining = labels.count - summary.count
+        if remaining > 0 {
+            summary.append(
+                String.localizedStringWithFormat(
+                    String(
+                        localized: "settings.summary.more",
+                        defaultValue: "ほか%lld件"
+                    ),
+                    Int64(remaining)
+                )
+            )
+        }
+        return summary.joined(separator: " ・ ")
+    }
+
     /// 選んだ強さによって、いま何が起きるのかをその場に書く。
     /// ディープフォーカス以外では対象を選んでもブロックされないため、黙って無効にしない。
     private var deepFocusFootnote: String {
         guard isDeepFocusUnlocked else {
             return String(
                 localized: "settings.deep_focus.locked_notice",
-                defaultValue: "ディープフォーカスにすると決めた時間だけ選んだアプリを止められます。"
+                defaultValue: "完全ブロックでは決めた時間だけ選んだアプリを止められます"
             )
         }
         guard selectedMode.usesShield else {
             return String(
                 localized: "settings.deep_focus.standard_notice",
-                defaultValue: "標準＝開く前に一呼吸。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
+                defaultValue: "一呼吸では開く前に待ち時間が入ります 完全ブロックでは決めた時間だけ開けなくなります"
             )
         }
         // 強さだけ選んで対象が空だと、何も止まらないまま止まっているつもりになる。
@@ -1391,7 +1782,7 @@ struct SettingsView: View {
         guard primaryRule != nil else {
             return String(
                 localized: "settings.deep_focus.empty_targets_notice",
-                defaultValue: "完全ブロックの対象を選ぶと、決めた時間だけそのアプリが開けなくなります。"
+                defaultValue: "完全ブロックするアプリを選ぶと決めた時間だけ開けなくなります"
             )
         }
         // 夜だけ強化は止まる時間帯が違う。ディープフォーカスと同じ説明を出すと、
@@ -1399,7 +1790,7 @@ struct SettingsView: View {
         if selectedMode == .nightOnly {
             return String(
                 localized: "settings.night_only.description",
-                defaultValue: "選んだアプリは就寝から起床まで開けなくなります。昼は一呼吸の確認だけが出ます。"
+                defaultValue: "選んだアプリは就寝から起床まで開けません 昼は開く前に一呼吸が入ります"
             )
         }
         // 窓を1つも持っていないディープフォーカスは、選んでいても何も止めない。
@@ -1411,116 +1802,20 @@ struct SettingsView: View {
         ) {
             return String(
                 localized: "settings.deep_focus.no_window_notice",
-                defaultValue: "いまは何も止まっていません。時間を決めると選んだアプリが開けなくなります。"
+                defaultValue: "いま止めているアプリはありません 時間を決めると選んだアプリが開けなくなります"
             )
         }
         return String(
             localized: "settings.deep_focus.description",
-            defaultValue: "選んだアプリは決めた時間だけ開けなくなります。いま始めるか毎週の予定を組むかを選べます。"
+            defaultValue: "選んだアプリは決めた時間だけ開けなくなります いますぐ始めるか毎週の予定を設定できます"
         )
-    }
-
-    private var deepFocusTargetsRow: some View {
-        Button {
-            handleAppSelectionTap()
-        } label: {
-            settingsRow(
-                label: String(
-                    localized: "settings.deep_focus.targets.label",
-                    defaultValue: "完全ブロックの対象"
-                ),
-                value: appSelectionSummary,
-                disclosure: .navigate
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(isRequestingAuthorization)
-    }
-
-    private func deepFocusLockedRow(label: String) -> some View {
-        Button {
-            paywallPlacement = .settingsModeGate
-        } label: {
-            HStack(spacing: 12) {
-                Text(label)
-                    .dopaFont(16, weight: .semibold)
-                    .foregroundStyle(DesignTokens.primaryText)
-
-                Spacer()
-
-                Label(
-                    String(localized: "settings.status.pro", defaultValue: "Pro"),
-                    systemImage: "lock.fill"
-                )
-                .dopaFont(13, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-
-                Image(systemName: "chevron.right")
-                    .dopaFont(13, weight: .semibold)
-                    .foregroundStyle(DesignTokens.tertiaryText)
-                    .accessibilityHidden(true)
-            }
-            .padding(.vertical, 14)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var targetAppsSummary: String {
-        let ids = (try? model.targetStore.selectedCatalogIDs()) ?? []
-        guard !ids.isEmpty else {
-            return String(localized: "settings.value.not_set", defaultValue: "未設定")
-        }
-        let names = ids.compactMap { SNSAppCatalog.app(catalogID: $0)?.displayName }
-        return names.joined(separator: "・")
-    }
-
-    private var breathDurationRow: some View {
-        HStack(spacing: 12) {
-            Text(String(localized: "settings.breath_duration.label", defaultValue: "一呼吸の長さ"))
-                .dopaFont(16, weight: .semibold)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            Spacer()
-
-            Picker(String(localized: "settings.breath_duration.label", defaultValue: "一呼吸の長さ"), selection: breathDurationBinding) {
-                Text(String(localized: "settings.breath_duration.three_seconds", defaultValue: "3秒")).tag(3)
-                Text(String(localized: "settings.breath_duration.five_seconds", defaultValue: "5秒")).tag(5)
-                Text(String(localized: "settings.breath_duration.eight_seconds", defaultValue: "8秒")).tag(8)
-            }
-            .pickerStyle(.menu)
-            .tint(DesignTokens.secondaryText)
-        }
-        .padding(.vertical, 14)
-    }
-
-    private var breathDurationBinding: Binding<Int> {
-        Binding(
-            get: { settingsStore.breathDurationSeconds },
-            set: { settingsStore.breathDurationSeconds = $0 }
-        )
-    }
-
-    private func timePickerRow(label: String, selection: Binding<Date>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .dopaFont(16, weight: .semibold)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            Spacer()
-
-            DatePicker(label, selection: selection, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .tint(DesignTokens.secondaryText)
-        }
-        .padding(.vertical, 14)
     }
 
     private var wakeTimeBinding: Binding<Date> {
         Binding(
-            get: { dateForTime(minutes: settingsStore.wakeTimeMinutes, defaultMinutes: 420) },
+            get: { SettingsTime.date(minutes: settingsStore.wakeTimeMinutes, defaultMinutes: 420) },
             set: {
-                settingsStore.wakeTimeMinutes = minutes(from: $0)
+                settingsStore.wakeTimeMinutes = SettingsTime.minutes(from: $0)
                 model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
                 // 夜だけ強化の窓もここで決まる。いまブロックすべきかの再計算と
                 // 監視の張り直しを同時にやる `syncShield` を通す。
@@ -1531,420 +1826,18 @@ struct SettingsView: View {
 
     private var bedTimeBinding: Binding<Date> {
         Binding(
-            get: { dateForTime(minutes: settingsStore.bedTimeMinutes, defaultMinutes: 1_380) },
+            get: { SettingsTime.date(minutes: settingsStore.bedTimeMinutes, defaultMinutes: 1_380) },
             set: {
-                settingsStore.bedTimeMinutes = minutes(from: $0)
+                settingsStore.bedTimeMinutes = SettingsTime.minutes(from: $0)
                 model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
                 model.syncShield()
             }
         )
     }
 
-    private var usageWatchEnabledBinding: Binding<Bool> {
-        Binding(
-            get: { model.usageWatch.isEnabled },
-            set: { isEnabled in
-                if isEnabled {
-                    beginUsageWatchSelection(enableAfterSelection: true)
-                } else {
-                    model.usageWatch.disable()
-                }
-            }
-        )
-    }
-
-    private var usageWatchIntervalBinding: Binding<Int> {
-        Binding(
-            get: { model.usageWatch.questionIntervalMinutes },
-            set: { minutes in
-                model.usageWatch.setQuestionIntervalMinutes(
-                    minutes,
-                    isPro: model.storeService.isPro
-                )
-            }
-        )
-    }
-
-    private var usageWatchNightModeBinding: Binding<Bool> {
-        Binding(
-            get: { model.usageWatch.nightModeEnabled },
-            set: { isEnabled in
-                model.usageWatch.setNightModeEnabled(
-                    isEnabled,
-                    isPro: model.storeService.isPro
-                )
-            }
-        )
-    }
-
-    private var morningNotificationBinding: Binding<Bool> {
-        Binding(
-            get: { morningNotificationEnabled },
-            set: { value in
-                morningNotificationEnabled = value
-                settingsStore.morningNotificationEnabled = value
-                model.refreshLockSurfaces()
-            }
-        )
-    }
-
-    private var morningNotificationTimeBinding: Binding<Date> {
-        Binding(
-            get: { dateForTime(minutes: settingsStore.morningNotificationMinutes, defaultMinutes: 420) },
-            set: { date in
-                settingsStore.morningNotificationMinutes = minutes(from: date)
-                model.refreshLockSurfaces()
-            }
-        )
-    }
-
-    private var weeklyReportNotificationBinding: Binding<Bool> {
-        Binding(
-            get: { weeklyReportNotificationEnabled },
-            set: { value in
-                weeklyReportNotificationEnabled = value
-                settingsStore.weeklyReportNotificationEnabled = value
-                model.refreshLockSurfaces()
-            }
-        )
-    }
-
-    private var retentionSupportNotificationsBinding: Binding<Bool> {
-        Binding(
-            get: { retentionSupportNotificationsEnabled },
-            set: { value in
-                retentionSupportNotificationsEnabled = value
-                settingsStore.retentionSupportNotificationsEnabled = value
-                model.refreshLockSurfaces()
-            }
-        )
-    }
-
-    private var planNotificationsBinding: Binding<Bool> {
-        Binding(
-            get: { planNotificationsEnabled },
-            set: { value in
-                planNotificationsEnabled = value
-                settingsStore.planNotificationsEnabled = value
-                model.refreshLockSurfaces()
-            }
-        )
-    }
-
-    private var liveActivityBinding: Binding<Bool> {
-        Binding(
-            get: { liveActivityEnabled },
-            set: { value in
-                liveActivityEnabled = value
-                settingsStore.liveActivityEnabled = value
-                model.refreshLockSurfaces(restartLiveActivity: value)
-            }
-        )
-    }
-
-    /// 保存してある「壁時計の分数」を、その時分そのものを指すDateへ戻す。
-    ///
-    /// 0時から分を足す形にすると、夏時間の切り替わる日（23時間・25時間の日）に
-    /// 表示が1時間ずれる。時分を直接指定して組み立てれば、日の長さに左右されない。
-    private func dateForTime(minutes: Int?, defaultMinutes: Int) -> Date {
-        let calendar = Calendar.current
-        let normalized = normalizedMinutes(minutes ?? defaultMinutes)
-        let now = Date()
-        return calendar.date(
-            bySettingHour: normalized / 60,
-            minute: normalized % 60,
-            second: 0,
-            of: now
-        ) ?? now
-    }
-
-    /// 表示側と対になる戻し。こちらも時分の成分だけを見る。
-    private func minutes(from date: Date) -> Int {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-        return ((components.hour ?? 0) * 60) + (components.minute ?? 0)
-    }
-
-    private func normalizedMinutes(_ value: Int) -> Int {
-        ((value % 1_440) + 1_440) % 1_440
-    }
-
-    private var appSection: some View {
-        CardContainer {
-            VStack(spacing: 0) {
-                settingsRow(
-                    label: String(localized: "settings.app.version", defaultValue: "バージョン"),
-                    value: versionText
-                )
-                divider
-                Button {
-                    openFeedbackEmail()
-                } label: {
-                    settingsRow(
-                        label: String(
-                            localized: "settings.feedback.title",
-                            defaultValue: "フィードバックを送る"
-                        ),
-                        value: "",
-                        disclosure: .external
-                    )
-                }
-                .buttonStyle(.plain)
-                #if DEBUG
-                divider
-                Button {
-                    onResetOnboarding()
-                } label: {
-                    settingsRow(
-                        label: String(localized: "settings.debug.replay_onboarding", defaultValue: "オンボーディングをもう一度見る"),
-                        value: "",
-                        disclosure: .navigate
-                    )
-                }
-                .buttonStyle(.plain)
-                divider
-                Button {
-                    copyFunnelEvents()
-                } label: {
-                    settingsRow(
-                        label: String(localized: "settings.debug.copy_event_log", defaultValue: "イベントログをコピー"),
-                        value: ""
-                    )
-                }
-                .buttonStyle(.plain)
-                #endif
-            }
-        }
-    }
-
-    #if DEBUG
-    private func copyFunnelEvents() {
-        guard let events = try? model.funnelEventStore.allEvents(),
-              let data = try? JSONEncoder().encode(events),
-              let json = String(data: data, encoding: .utf8) else {
-            return
-        }
-        UIPasteboard.general.string = json
-    }
-    #endif
-
-    private var accountSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: String(localized: "settings.account.section", defaultValue: "アカウント/課金"))
-
-            CardContainer {
-                VStack(spacing: 0) {
-                    if model.storeService.isPro {
-                        settingsRow(
-                            label: String(localized: "settings.account.pro_status", defaultValue: "Pro状態"),
-                            value: String(localized: "settings.status.pro", defaultValue: "Pro")
-                        )
-                    } else {
-                        Button {
-                            paywallPlacement = .settingsProStatusRow
-                        } label: {
-                            settingsRow(
-                                label: String(localized: "settings.account.pro_status", defaultValue: "Pro状態"),
-                                value: String(localized: "settings.status.free", defaultValue: "Free"),
-                                disclosure: .navigate
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    // 「Freeだから買い切りを勧める」はユーザーに見える判断のため、
-                    // 解決を試みただけの `hasResolvedEntitlement` ではなく確定済みで出し分ける。
-                    // 取得に失敗しただけの課金者に購入行を見せない。
-                    if model.storeService.hasConfirmedEntitlement && !model.storeService.isPro {
-                        divider
-
-                        Button {
-                            Task {
-                                await purchaseLifetimePlan()
-                            }
-                        } label: {
-                            ZStack(alignment: .trailing) {
-                                settingsRow(
-                                    label: String(localized: "settings.account.lifetime_plan", defaultValue: "買い切りプラン"),
-                                    value: model.storeService.lifetimeProduct?.displayPrice
-                                        ?? String(localized: "settings.value.unavailable", defaultValue: "—")
-                                )
-
-                                if model.storeService.isPurchasing {
-                                    ProgressView()
-                                        .tint(DesignTokens.secondaryText)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isBillingBusy)
-                    }
-
-                    divider
-
-                    Button {
-                        Task {
-                            await model.restorePurchases()
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(String(localized: "settings.account.restore", defaultValue: "購入を復元"))
-                                .dopaFont(16, weight: .semibold)
-                                .foregroundStyle(DesignTokens.primaryText)
-
-                            Spacer()
-
-                            if model.storeService.isRestoring {
-                                ProgressView()
-                                    .tint(DesignTokens.secondaryText)
-                            }
-                        }
-                        .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isBillingBusy)
-                }
-            }
-        }
-    }
-
-    private var isBillingBusy: Bool {
-        model.storeService.isLoadingProducts
-            || model.storeService.isPurchasing
-            || model.storeService.isRestoring
-    }
-
-    @MainActor
-    private func purchaseLifetimePlan() async {
-        if model.storeService.lifetimeProduct == nil {
-            await model.storeService.loadProducts()
-        }
-
-        guard let lifetimeProduct = model.storeService.lifetimeProduct else {
-            model.alertMessage = String(localized: "settings.error.product_load", defaultValue: "商品情報を読み込めませんでした")
-            return
-        }
-
-        guard !model.storeService.isPro else { return }
-        let didBecomePro = await model.storeService.purchase(lifetimeProduct)
-        if !didBecomePro, let message = model.storeService.alertMessage {
-            model.alertMessage = message
-        }
-    }
-
-    private var privacySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SmallLabel(text: String(localized: "settings.privacy.section", defaultValue: "プライバシー"))
-
-            CardContainer {
-                VStack(spacing: 0) {
-                    Link(destination: AppURLs.privacy) {
-                        settingsRow(
-                            label: String(localized: "settings.privacy.policy", defaultValue: "プライバシーポリシー"),
-                            value: "",
-                            disclosure: .external
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    divider
-
-                    Link(destination: AppURLs.terms) {
-                        settingsRow(
-                            label: String(localized: "settings.privacy.terms", defaultValue: "利用規約"),
-                            value: "",
-                            disclosure: .external
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    divider
-
-                    Button {
-                        isDeleteAllDataConfirmationPresented = true
-                    } label: {
-                        settingsRow(
-                            label: String(localized: "settings.privacy.delete_all", defaultValue: "全データを削除"),
-                            value: isDeletionFeedbackVisible
-                                ? String(localized: "settings.privacy.deleted", defaultValue: "削除しました")
-                                : "",
-                            labelColor: DesignTokens.danger,
-                            valueColor: DesignTokens.accent
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private func deleteAllData() {
-        guard model.deleteAllLocalData() else {
-            return
-        }
-
-        refreshSettingsState()
-        isDeletionFeedbackVisible = true
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled else { return }
-            isDeletionFeedbackVisible = false
-        }
-    }
-
-    @ViewBuilder
-    private var screenTimeRow: some View {
-        if screenTimeAuthorizedForDisplay {
-            settingsRow(
-                label: String(localized: "settings.screen_time.label", defaultValue: "スクリーンタイム"),
-                value: String(localized: "settings.screen_time.authorized", defaultValue: "許可済み")
-            )
-        } else {
-            Button {
-                shouldOpenPickerAfterAuthorization = false
-                authorizationWasDenied = false
-                isAuthorizationSheetPresented = true
-            } label: {
-                settingsRow(
-                    label: String(localized: "settings.screen_time.label", defaultValue: "スクリーンタイム"),
-                    value: String(localized: "settings.screen_time.not_authorized", defaultValue: "未許可"),
-                    disclosure: .navigate
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var screenTimeAuthorizedForDisplay: Bool {
-        #if DEBUG
-        if let snapshotScreenTimeAuthorized {
-            return snapshotScreenTimeAuthorized
-        }
-        #endif
-        return model.screenTime.isAuthorized
-    }
-
-    private var modePickerRow: some View {
-        HStack(spacing: 12) {
-            Text(String(localized: "settings.mode.label", defaultValue: "止める強さ"))
-                .dopaFont(16, weight: .semibold)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            Spacer()
-
-            Picker(String(localized: "settings.mode.label", defaultValue: "止める強さ"), selection: modeBinding) {
-                ForEach(InterventionMode.selectable, id: \.self) { mode in
-                    Text(mode.displayTitle).tag(mode)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(DesignTokens.secondaryText)
-        }
-        .padding(.vertical, 14)
-    }
-
     private var authorizationSheet: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(String(localized: "settings.authorization.title", defaultValue: "SNSの前で止める許可"))
+            Text(String(localized: "settings.authorization.title", defaultValue: "スクリーンタイムの許可"))
                 .dopaFont(28, weight: .black)
                 .foregroundStyle(DesignTokens.primaryText)
 
@@ -1972,52 +1865,11 @@ struct SettingsView: View {
 
     private var authorizationSheetBody: String {
         if authorizationWasDenied {
-            return String(localized: "settings.authorization.denied_body", defaultValue: "許可がないため、SNSを開く前の確認はまだ使えません。設定からいつでも有効にできます。")
+            return String(localized: "settings.authorization.denied_body", defaultValue: "スクリーンタイムを許可していないため開く前の一呼吸を使えません 設定からいつでも許可できます")
         }
-        return String(localized: "settings.authorization.body", defaultValue: "選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。")
+        return String(localized: "settings.authorization.body", defaultValue: "選んだアプリを開く前に一呼吸を出すためスクリーンタイムを使います 利用データは端末内に保存されます")
     }
 
-    private func settingsRow(
-        label: String,
-        value: String,
-        labelColor: Color = DesignTokens.primaryText,
-        valueColor: Color = DesignTokens.secondaryText,
-        disclosure: SettingsRowDisclosure = .none
-    ) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .dopaFont(16, weight: .semibold)
-                .foregroundStyle(labelColor)
-
-            Spacer()
-
-            Text(value)
-                .dopaFont(14, weight: .semibold)
-                .foregroundStyle(valueColor)
-                .multilineTextAlignment(.trailing)
-
-            if let symbol = disclosure.symbolName {
-                Image(systemName: symbol)
-                    .dopaFont(13, weight: .semibold)
-                    .foregroundStyle(DesignTokens.tertiaryText)
-                    .accessibilityHidden(true)
-            }
-        }
-        .padding(.vertical, 14)
-    }
-
-    private var divider: some View {
-        Rectangle()
-            .fill(DesignTokens.hairline)
-            .frame(height: 1)
-            .accessibilityHidden(true)
-    }
-
-    /// 完全ブロックの対象を持つルール。
-    ///
-    /// 通常の一呼吸で使うカタログ由来のルールは選択データが空で、この画面の
-    /// 「完全ブロックの対象」とは別物。`rules.first` で拾うとカタログのルールを
-    /// 完全ブロックの選択で上書きしてしまうため、選択データの有無で見分ける。
     private var primaryRule: TargetRule? {
         rules.first { !$0.activitySelectionData.isEmpty }
     }
@@ -2025,27 +1877,6 @@ struct SettingsView: View {
     /// 完全ブロック用のルール数。件数の上限判定はカタログのルールを数に入れない。
     private var blockRuleCount: Int {
         rules.filter { !$0.activitySelectionData.isEmpty }.count
-    }
-
-    private var appSelectionSummary: String {
-        guard let primaryRule else {
-            return String(localized: "settings.value.not_set", defaultValue: "未設定")
-        }
-
-        let counts = selectionCounts(for: primaryRule)
-        var summaries: [String] = []
-        if counts.applications > 0 {
-            summaries.append(String(localized: "settings.selection.app_count", defaultValue: "アプリ\(counts.applications)個"))
-        }
-        if counts.categories > 0 {
-            summaries.append(String(localized: "settings.selection.category_count", defaultValue: "カテゴリ\(counts.categories)個"))
-        }
-        if counts.webDomains > 0 {
-            summaries.append(String(localized: "settings.selection.website_count", defaultValue: "Webサイト\(counts.webDomains)個"))
-        }
-        return summaries.isEmpty
-            ? String(localized: "settings.value.not_set", defaultValue: "未設定")
-            : summaries.joined(separator: "・")
     }
 
     private var selectedGateApps: [GateAppSettingTarget] {
@@ -2077,28 +1908,6 @@ struct SettingsView: View {
         }
     }
 
-    private var ruleEnabledBinding: Binding<Bool> {
-        Binding(
-            get: {
-                primaryRule?.isEnabled ?? false
-            },
-            set: { isEnabled in
-                setRuleEnabled(isEnabled)
-            }
-        )
-    }
-
-    private var modeBinding: Binding<InterventionMode> {
-        Binding(
-            get: {
-                selectedMode
-            },
-            set: { mode in
-                setSelectedMode(mode)
-            }
-        )
-    }
-
     private func refreshSettingsState() {
         if settingsStore.wakeTimeMinutes == nil {
             settingsStore.wakeTimeMinutes = 420
@@ -2124,63 +1933,6 @@ struct SettingsView: View {
             selectedMode = storedMode
             model.alertMessage = String(localized: "settings.error.data_load", defaultValue: "データを読み込めませんでした")
         }
-    }
-
-    private var usageWatchSelectionSummary: String {
-        guard model.usageWatch.selectedTokenCount > 0 else {
-            return String(localized: "settings.value.not_set", defaultValue: "未設定")
-        }
-        return model.usageWatch.selectedTokenCount.formatted()
-    }
-
-    private func usageWatchIntervalLabel(_ minutes: Int) -> String {
-        String.localizedStringWithFormat(
-            String(
-                localized: "settings.usage_watch.interval.minutes_format",
-                defaultValue: "%lld分ごと"
-            ),
-            Int64(minutes)
-        )
-    }
-
-    private func beginUsageWatchSelection(enableAfterSelection: Bool) {
-        guard !isRequestingUsageWatchAuthorization else {
-            return
-        }
-
-        isRequestingUsageWatchAuthorization = true
-        Task { @MainActor in
-            defer { isRequestingUsageWatchAuthorization = false }
-            let authorized = await model.usageWatch.requestAuthorization(using: model.screenTime)
-            guard authorized else {
-                usageWatchAuthorizationWasDenied = true
-                shouldEnableUsageWatchAfterPicker = false
-                return
-            }
-
-            usageWatchAuthorizationWasDenied = false
-            shouldEnableUsageWatchAfterPicker = enableAfterSelection
-            usageWatchSelection = model.usageWatch.selection
-            isUsageWatchPickerPresented = true
-        }
-    }
-
-    private func saveUsageWatchSelection() {
-        let shouldEnable = shouldEnableUsageWatchAfterPicker
-        shouldEnableUsageWatchAfterPicker = false
-
-        if shouldEnable {
-            model.usageWatch.enable(
-                with: usageWatchSelection,
-                isPro: model.storeService.isPro
-            )
-        } else {
-            model.usageWatch.updateSelection(
-                usageWatchSelection,
-                isPro: model.storeService.isPro
-            )
-        }
-        usageWatchAuthorizationWasDenied = false
     }
 
     private func handleAppSelectionTap() {
@@ -2279,32 +2031,6 @@ struct SettingsView: View {
         return false
     }
 
-    private func setRuleEnabled(_ isEnabled: Bool) {
-        guard let rule = primaryRule else {
-            return
-        }
-
-        do {
-            if isEnabled {
-                if rule.mode == .deepFocus,
-                   model.storeService.hasConfirmedEntitlement,
-                   !model.entitlementGate.strictModeAllowed {
-                    try model.ruleStore.updateMode(id: rule.id, mode: .standard)
-                    selectedMode = .standard
-                }
-                try model.ruleStore.enableRule(id: rule.id)
-            } else {
-                try model.ruleStore.disableRule(id: rule.id)
-            }
-            refreshSettingsState()
-            model.syncShield()
-        } catch CoreError.validation(let message) {
-            model.alertMessage = message
-        } catch {
-            model.alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
-        }
-    }
-
     private func setSelectedMode(_ mode: InterventionMode) {
         // 解放判定は権利の確定を待たない。未確定でも上位の強さを勝手には開けない。
         // 夜だけ強化も同じ完全ブロックを使うため、ディープフォーカスと同じ扱いにする。
@@ -2355,20 +2081,6 @@ struct SettingsView: View {
         return selection
     }
 
-    private func selectionCounts(for rule: TargetRule) -> (applications: Int, categories: Int, webDomains: Int) {
-        guard let selection = try? JSONDecoder().decode(
-            FamilyActivitySelection.self,
-            from: rule.activitySelectionData
-        ) else {
-            return (0, 0, 0)
-        }
-        return (
-            selection.applicationTokens.count,
-            selection.categoryTokens.count,
-            selection.webDomainTokens.count
-        )
-    }
-
     private func selectedTargetTokenCount(_ selection: FamilyActivitySelection) -> Int {
         selection.applicationTokens.count
             + selection.categoryTokens.count
@@ -2385,43 +2097,4 @@ struct SettingsView: View {
         return modeAllowedForCurrentEntitlement(primaryRule?.mode ?? .standard)
     }
 
-    private var versionText: String {
-        let shortVersion = appShortVersion
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-
-        switch build {
-        case let build?:
-            return "\(shortVersion) (\(build))"
-        case nil:
-            return shortVersion
-        }
-    }
-
-    private var appShortVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-    }
-
-    private func openFeedbackEmail() {
-        guard let url = AppURLs.feedbackEmail(appVersion: appShortVersion) else { return }
-        openURL(url)
-    }
-}
-
-/// 設定行の右端に出す記号。
-/// タップして「何が起きるか」を記号で見分けられるようにする（アプリ内で開く／アプリの外へ出る）。
-/// 押すだけで完結する操作（削除・コピー・購入）には付けない。付けると遷移だと誤解されるため。
-enum SettingsRowDisclosure {
-    case none
-    /// アプリ内で画面やシートが開く。
-    case navigate
-    /// Safari等、アプリの外へ出る。
-    case external
-
-    var symbolName: String? {
-        switch self {
-        case .none: return nil
-        case .navigate: return "chevron.right"
-        case .external: return "arrow.up.right"
-        }
-    }
 }

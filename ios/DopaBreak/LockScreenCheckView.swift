@@ -306,7 +306,10 @@ enum LockScreenCheckAction {
 }
 
 /// 実際のLive Activityと同じ体裁のプレビュー。
-private struct LockScreenGoalPreview: View {
+/// ロック画面確認だけでなく、目標一覧と編集シートからも参照するため internal にしてある。
+/// 表示件数は実機のLive Activityと同じ上限（`LockSurfaceCoordinator.liveActivityGoalLimit`）に合わせる。
+/// ここを固定値で持つと実機と食い違うため、必ず同じ定数を参照する。
+struct LockScreenGoalPreview: View {
     let titles: [String]
     let cancelledCount: Int
     let attemptCount: Int
@@ -317,7 +320,10 @@ private struct LockScreenGoalPreview: View {
             SmallLabel(text: String(localized: "lock_check.preview.eyebrow", defaultValue: "あなたの目標"))
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(titles.prefix(2).enumerated()), id: \.offset) { _, title in
+                ForEach(
+                    Array(titles.prefix(LockSurfaceCoordinator.liveActivityGoalLimit).enumerated()),
+                    id: \.offset
+                ) { _, title in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Rectangle()
                             .fill(DesignTokens.accent)

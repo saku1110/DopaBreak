@@ -115,38 +115,87 @@ struct AutomationGuideView: View {
     }
 
     private var grayscaleGuideSteps: [GrayscaleGuideStep] {
-        [
+        let appsTitle = String(
+            localized: "automation_guide.grayscale.mock.apps",
+            defaultValue: "対象アプリをまとめて選択"
+        )
+        let colorFiltersTitle = String(
+            localized: "automation_guide.grayscale.mock.color_filters",
+            defaultValue: "カラーフィルタを設定"
+        )
+
+        return [
             GrayscaleGuideStep(
                 number: 1,
                 instruction: String(
                     localized: "automation_guide.grayscale.step.1",
-                    defaultValue: "「開いている」で対象アプリをまとめて全部選び、アクション「カラーフィルタを設定」をオンにする"
+                    defaultValue: "新規オートメーションで「アプリ」を選び、対象アプリをまとめて全部選んで「開いている」と「すぐに実行」を選び「次へ」"
                 ),
-                trigger: String(
-                    localized: "automation_guide.mock.opened",
-                    defaultValue: "開いている"
-                ),
-                state: String(
-                    localized: "automation_guide.grayscale.mock.on",
-                    defaultValue: "オン"
-                ),
-                isEnabled: true
+                diagram: GrayscaleAutomationDiagram(
+                    rows: [
+                        GrayscaleAutomationDiagram.Row(
+                            symbol: "square.stack.3d.up.fill",
+                            title: appsTitle,
+                            subtitle: String(
+                                localized: "automation_guide.mock.opened",
+                                defaultValue: "開いている"
+                            ),
+                            trailingSymbol: "checkmark.circle.fill"
+                        )
+                    ],
+                    showsNextButton: true
+                )
             ),
             GrayscaleGuideStep(
                 number: 2,
                 instruction: String(
                     localized: "automation_guide.grayscale.step.2",
-                    defaultValue: "もう1つ作り「閉じている」で同じアプリを選び「カラーフィルタを設定」をオフにする"
+                    defaultValue: "アクション「カラーフィルタを設定」を選び「オン」にして完了"
                 ),
-                trigger: String(
-                    localized: "automation_guide.grayscale.mock.closed",
-                    defaultValue: "閉じている"
+                diagram: GrayscaleAutomationDiagram(
+                    rows: [
+                        GrayscaleAutomationDiagram.Row(
+                            symbol: "circle.lefthalf.filled",
+                            title: colorFiltersTitle,
+                            subtitle: String(
+                                localized: "automation_guide.grayscale.mock.on",
+                                defaultValue: "オン"
+                            ),
+                            trailingSymbol: "checkmark.circle.fill"
+                        )
+                    ],
+                    showsNextButton: false
+                )
+            ),
+            GrayscaleGuideStep(
+                number: 3,
+                instruction: String(
+                    localized: "automation_guide.grayscale.step.3",
+                    defaultValue: "もう1つ作り「閉じている」で同じアプリを選び「カラーフィルタを設定」を「オフ」にする"
                 ),
-                state: String(
-                    localized: "automation_guide.grayscale.mock.off",
-                    defaultValue: "オフ"
-                ),
-                isEnabled: false
+                diagram: GrayscaleAutomationDiagram(
+                    rows: [
+                        GrayscaleAutomationDiagram.Row(
+                            symbol: "square.stack.3d.up.fill",
+                            title: appsTitle,
+                            subtitle: String(
+                                localized: "automation_guide.grayscale.mock.closed",
+                                defaultValue: "閉じている"
+                            ),
+                            trailingSymbol: "checkmark.circle.fill"
+                        ),
+                        GrayscaleAutomationDiagram.Row(
+                            symbol: "circle.lefthalf.filled",
+                            title: colorFiltersTitle,
+                            subtitle: String(
+                                localized: "automation_guide.grayscale.mock.off",
+                                defaultValue: "オフ"
+                            ),
+                            trailingSymbol: "circle"
+                        )
+                    ],
+                    showsNextButton: false
+                )
             )
         ]
     }
@@ -181,7 +230,7 @@ struct AutomationGuideView: View {
                         AutomationTutorialVideoCard(playbackController: tutorialPlayback)
                     }
 
-                    Text(String(localized: "automation_guide.guide.section", defaultValue: "着実なガイド"))
+                    Text(String(localized: "automation_guide.guide.section", defaultValue: "設定手順"))
                         .dopaFont(21, weight: .black, tracking: -0.25)
                         .foregroundStyle(DesignTokens.primaryText)
 
@@ -566,11 +615,21 @@ private struct AutomationGuideStep: Identifiable {
 private struct GrayscaleGuideStep: Identifiable {
     let number: Int
     let instruction: String
-    let trigger: String
-    let state: String
-    let isEnabled: Bool
+    let diagram: GrayscaleAutomationDiagram
 
     var id: Int { number }
+}
+
+private struct GrayscaleAutomationDiagram {
+    struct Row {
+        let symbol: String
+        let title: String
+        let subtitle: String
+        let trailingSymbol: String
+    }
+
+    let rows: [Row]
+    let showsNextButton: Bool
 }
 
 private enum AutomationMockDiagramKind {
@@ -639,12 +698,8 @@ private struct GrayscaleAutomationStepCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                GrayscaleAutomationMockDiagram(
-                    trigger: step.trigger,
-                    state: step.state,
-                    isEnabled: step.isEnabled
-                )
-                .accessibilityHidden(true)
+                GrayscaleAutomationMockDiagram(diagram: step.diagram)
+                    .accessibilityHidden(true)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -658,31 +713,30 @@ private struct GrayscaleAutomationStepCard: View {
 }
 
 private struct GrayscaleAutomationMockDiagram: View {
-    let trigger: String
-    let state: String
-    let isEnabled: Bool
+    let diagram: GrayscaleAutomationDiagram
 
     var body: some View {
         VStack(spacing: 10) {
-            MockRow(
-                symbol: "square.stack.3d.up.fill",
-                title: String(
-                    localized: "automation_guide.grayscale.mock.apps",
-                    defaultValue: "対象アプリをまとめて選択"
-                ),
-                subtitle: trigger,
-                trailingSymbol: "checkmark.circle.fill"
-            )
+            ForEach(diagram.rows.indices, id: \.self) { index in
+                let row = diagram.rows[index]
 
-            MockRow(
-                symbol: "circle.lefthalf.filled",
-                title: String(
-                    localized: "automation_guide.grayscale.mock.color_filters",
-                    defaultValue: "カラーフィルタを設定"
-                ),
-                subtitle: state,
-                trailingSymbol: isEnabled ? "checkmark.circle.fill" : "circle"
-            )
+                MockRow(
+                    symbol: row.symbol,
+                    title: row.title,
+                    subtitle: row.subtitle,
+                    trailingSymbol: row.trailingSymbol
+                )
+            }
+
+            if diagram.showsNextButton {
+                Text(String(localized: "automation_guide.mock.next", defaultValue: "次へ"))
+                    .dopaFont(12, weight: .bold)
+                    .foregroundStyle(DesignTokens.background)
+                    .frame(minWidth: 72, minHeight: 36)
+                    .background(DesignTokens.accent)
+                    .clipShape(Capsule())
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .topLeading)

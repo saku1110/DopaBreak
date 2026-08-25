@@ -536,7 +536,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今週は%lld回、開くのをやめました"
+            "value": "今週は%lld回 開くのをやめました"
           }
         },
         "ko": {
@@ -4291,6 +4291,30 @@
         }
       }
     },
+    "paywall.plan.annual.popular_badge": {
+      "comment": "Screen: Paywall",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Most popular"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一番人気"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "최고 인기"
+          }
+        }
+      }
+    },
     "paywall.plan.annual.savings_badge": {
       "comment": "Screen: Paywall",
       "extractionState": "manual",
@@ -4442,19 +4466,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pro Status"
+            "value": "Current plan"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pro状態"
+            "value": "現在のプラン"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pro 상태"
+            "value": "현재 플랜"
           }
         }
       }
@@ -4490,19 +4514,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Account & Billing"
+            "value": "Plan and purchases"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アカウント/課金"
+            "value": "プランと購入"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "계정/결제"
+            "value": "플랜 및 구매"
           }
         }
       }
@@ -4562,19 +4586,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We use iOS Screen Time to show a check-in screen the moment you go to open a chosen social app. Your usage data stays on your device."
+            "value": "We use Screen Time to show one breath before you open selected apps. Usage data stays on your device"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。"
+            "value": "選んだアプリを開く前に一呼吸を出すためスクリーンタイムを使います 利用データは端末内に保存されます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "선택한 SNS를 열려는 순간에 확인 화면을 띄우기 위해 iOS 스크린 타임을 사용합니다. 사용 데이터는 기기 안에만 저장됩니다."
+            "value": "선택한 앱을 열기 전에 한 호흡을 띄우기 위해 스크린 타임을 사용해요. 이용 데이터는 기기 안에 저장돼요"
           }
         }
       }
@@ -4586,19 +4610,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Without permission, the check-in before opening a social app isn't available yet. You can turn it on anytime in Settings."
+            "value": "One breath before opening is unavailable without Screen Time permission. You can grant permission anytime in Settings"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "許可がないため、SNSを開く前の確認はまだ使えません。設定からいつでも有効にできます。"
+            "value": "スクリーンタイムを許可していないため開く前の一呼吸を使えません 設定からいつでも許可できます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "권한이 없어 SNS를 열기 전 확인 기능을 아직 쓸 수 없습니다. 설정에서 언제든 켤 수 있습니다."
+            "value": "스크린 타임 권한이 없어 열기 전 한 호흡을 사용할 수 없어요. 설정에서 언제든 허용할 수 있어요"
           }
         }
       }
@@ -4610,19 +4634,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permission to pause before social apps"
+            "value": "Screen Time permission"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSの前で止める許可"
+            "value": "スクリーンタイムの許可"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS 열기 전 잠깐 멈추기 권한"
+            "value": "스크린 타임 권한"
           }
         }
       }
@@ -4730,19 +4754,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy event log"
+            "value": "Copy activity history"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "イベントログをコピー"
+            "value": "操作記録をコピー"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이벤트 로그 복사"
+            "value": "활동 기록 복사"
           }
         }
       }
@@ -4754,19 +4778,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Replay onboarding"
+            "value": "See the introduction again"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "オンボーディングをもう一度見る"
+            "value": "最初の説明をもう一度見る"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "온보딩 다시 보기"
+            "value": "처음 안내 다시 보기"
           }
         }
       }
@@ -4874,19 +4898,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pausing before social apps works only on a real iPhone."
+            "value": "You can pause apps such as social media only on iPhone"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSなどのアプリを止める機能は、iPhone実機でのみ動作します。"
+            "value": "SNSなどのアプリを止める機能はiPhoneでのみ使えます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS 같은 앱 앞에서 잠깐 멈추는 기능은 실제 iPhone에서만 작동합니다."
+            "value": "SNS 같은 앱을 멈추는 기능은 iPhone에서만 사용할 수 있어요"
           }
         }
       }
@@ -5018,19 +5042,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Live Activity"
+            "value": "Show goals and records on the Lock Screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Live Activity"
+            "value": "ロック画面に目標と記録を表示"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Live Activity"
+            "value": "잠금 화면에 목표와 기록 표시"
           }
         }
       }
@@ -5114,19 +5138,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Theme"
+            "value": "Display style"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "テーマ"
+            "value": "表示デザイン"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "테마"
+            "value": "화면 디자인"
           }
         }
       }
@@ -5138,19 +5162,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weekly report notification"
+            "value": "Weekly record notification"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "週次レポート通知"
+            "value": "毎週の記録通知"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "주간 리포트 알림"
+            "value": "매주 기록 알림"
           }
         }
       }
@@ -5186,19 +5210,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The apps you pick won't open from bedtime until you wake up. During the day you only get the pause check."
+            "value": "Selected apps can't be opened from bedtime to wake time. During the day one breath appears before opening"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだアプリは就寝から起床まで開けなくなります。昼は一呼吸の確認だけが出ます。"
+            "value": "選んだアプリは就寝から起床まで開けません 昼は開く前に一呼吸が入ります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기서 고른 앱은 취침 시각부터 기상 시각까지 열리지 않습니다. 낮에는 멈춤 확인만 표시됩니다."
+            "value": "선택한 앱은 취침 시각부터 기상 시각까지 열 수 없어요. 낮에는 열기 전에 한 호흡이 들어가요"
           }
         }
       }
@@ -6434,19 +6458,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The line you set here appears the moment you go to open a social app. e.g. Learn English"
+            "value": "Your goal appears when you try to open an app. Example: Learn to speak English"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここで決めた一言が、開こうとした瞬間に表示されます。例：英語で話せるようになる"
+            "value": "アプリを開こうとしたときに目標が表示されます 例 英語で話せるようになる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기서 정한 한마디가 앱을 열려는 순간에 표시돼요. 예: 영어로 말할 수 있게 되기"
+            "value": "앱을 열려고 할 때 목표가 표시돼요. 예: 영어로 말할 수 있게 되기"
           }
         }
       }
@@ -12710,19 +12734,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Progress reminders"
+            "value": "Setup checks and record notifications"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "継続サポートの通知"
+            "value": "設定確認と記録の通知"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "꾸준히 이어가기 알림"
+            "value": "설정 확인 및 기록 알림"
           }
         }
       }
@@ -12779,19 +12803,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One alert per day after 2 hours of continuous use"
+            "value": "Notify once a day after you use selected apps for 2 hours straight"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "連続で2時間になったら1日1回だけお知らせします"
+            "value": "選んだアプリを2時間続けて使うと1日1回通知します"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "연속 2시간이 되면 하루 1번만 알려드려요"
+            "value": "선택한 앱을 2시간 연속 사용하면 하루에 한 번 알려드려요"
           }
         }
       }
@@ -12848,19 +12872,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shorter intervals before bed"
+            "value": "Shorter check-in intervals before bed"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "就寝前は間隔を短く"
+            "value": "就寝前は問いかけの間隔を短く"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "취침 전에는 간격 줄이기"
+            "value": "취침 전에는 확인 간격 줄이기"
           }
         }
       }
@@ -13108,19 +13132,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The apps you pick won't open during the times you set. Start one now or set a weekly schedule."
+            "value": "Selected apps won't open for the times you set. Start now or set a weekly schedule"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだアプリは決めた時間だけ開けなくなります。いま始めるか毎週の予定を組むかを選べます。"
+            "value": "選んだアプリは決めた時間だけ開けなくなります いますぐ始めるか毎週の予定を設定できます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여기서 고른 앱은 정한 시간에만 열리지 않습니다. 지금 시작하거나 매주 예약을 걸 수 있습니다."
+            "value": "선택한 앱은 정한 시간 동안 열 수 없어요. 지금 시작하거나 매주 예약을 설정할 수 있어요"
           }
         }
       }
@@ -13132,19 +13156,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick the apps to fully block and they won't open during the times you set."
+            "value": "Choose apps to fully block and they won't open for the times you set"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "完全ブロックの対象を選ぶと、決めた時間だけそのアプリが開けなくなります。"
+            "value": "完全ブロックするアプリを選ぶと決めた時間だけ開けなくなります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "완전 차단할 앱을 고르면 정한 시간에 그 앱이 열리지 않습니다."
+            "value": "완전 차단할 앱을 고르면 정한 시간 동안 열 수 없어요"
           }
         }
       }
@@ -13156,19 +13180,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focus stops the apps you pick during the times you set."
+            "value": "Full block lets you pause selected apps for the times you set"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ディープフォーカスにすると決めた時間だけ選んだアプリを止められます。"
+            "value": "完全ブロックでは決めた時間だけ選んだアプリを止められます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "딥 포커스를 쓰면 정한 시간에만 고른 앱을 멈출 수 있습니다."
+            "value": "완전 차단에서는 정한 시간 동안 선택한 앱을 멈출 수 있어요"
           }
         }
       }
@@ -13204,19 +13228,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard = one breath before opening. Switch to Deep Focus and the apps you pick won't open during the times you set."
+            "value": "One breath adds a wait before opening. Full block keeps apps from opening for the times you set"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "標準＝開く前に一呼吸。ディープフォーカスに変えると決めた時間だけ選んだアプリが開けなくなります。"
+            "value": "一呼吸では開く前に待ち時間が入ります 完全ブロックでは決めた時間だけ開けなくなります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "표준 = 열기 전에 한 호흡. 딥 포커스로 바꾸면 정한 시간에 고른 앱이 열리지 않습니다."
+            "value": "한 호흡은 열기 전에 대기 시간을 두어요. 완전 차단은 정한 시간 동안 앱을 열 수 없게 해요"
           }
         }
       }
@@ -13234,7 +13258,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "完全ブロックの対象"
+            "value": "完全ブロックするアプリ"
           }
         },
         "ko": {
@@ -13252,19 +13276,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nothing is blocked right now. Set a time and the apps you pick won't open."
+            "value": "No apps are paused right now. Set a time and selected apps won't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いまは何も止まっていません。時間を決めると選んだアプリが開けなくなります。"
+            "value": "いま止めているアプリはありません 時間を決めると選んだアプリが開けなくなります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금은 아무것도 막히지 않습니다. 시간을 정하면 고른 앱이 열리지 않습니다."
+            "value": "지금 멈춰 둔 앱은 없어요. 시간을 정하면 선택한 앱이 열리지 않아요"
           }
         }
       }
@@ -13396,19 +13420,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After this scheduled window ends, the session you started keeps running."
+            "value": "A manually started session continues after the schedule ends"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "予定の時間帯が終わったあとも、いますぐ始めた分は続きます。"
+            "value": "予定が終わっても手動で始めた分は続きます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "예약된 시간대가 끝난 뒤에도 지금 시작한 차단은 계속됩니다."
+            "value": "예약이 끝나도 수동으로 시작한 차단은 계속돼요"
           }
         }
       }
@@ -13420,19 +13444,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick the days and the block runs at your chosen time on those days."
+            "value": "Pause apps only on selected days and times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "曜日を選ぶと、その曜日の決めた時間だけ止まります。"
+            "value": "選んだ曜日と時間だけアプリを止めます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "요일을 고르면 그 요일의 정한 시간에만 멈춥니다."
+            "value": "선택한 요일과 시간에만 앱을 멈춰요"
           }
         }
       }
@@ -13444,19 +13468,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A window shorter than 15 minutes can't be set. Move the start and end further apart."
+            "value": "Set at least 15 minutes between the start and end"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "15分より短い時間帯は設定できません。開始と終了を離してください。"
+            "value": "開始から終了まで15分以上にしてください"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "15분보다 짧은 시간대는 설정할 수 없습니다. 시작과 종료를 더 벌려 주세요."
+            "value": "시작과 종료 사이를 15분 이상 띄워 주세요"
           }
         }
       }
@@ -13564,19 +13588,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Until I stop"
+            "value": "Until you unblock it"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "戻すまで"
+            "value": "解除するまで"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "끌 때까지"
+            "value": "해제할 때까지"
           }
         }
       }
@@ -13618,13 +13642,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いま解除"
+            "value": "いま解除する"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금 해제"
+            "value": "지금 해제하기"
           }
         }
       }
@@ -13660,19 +13684,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Until you stop it"
+            "value": "Until you unblock it"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自分で戻すまで"
+            "value": "自分で解除するまで"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "직접 끌 때까지"
+            "value": "직접 해제할 때까지"
           }
         }
       }
@@ -14579,6 +14603,318 @@
           "stringUnit": {
             "state": "translated",
             "value": "무료 기간 중 해지하면 청구되지 않습니다"
+          }
+        }
+      }
+    },
+    "goals.badge.on_lock_screen": {
+      "comment": "Screen: Goals",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing on the Lock Screen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロック画面に表示中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잠금 화면에 표시 중"
+          }
+        }
+      }
+    },
+    "goals.footer.unlimited": {
+      "comment": "Screen: Goals",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add as many goals as you like"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標は何個でも追加できます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표를 원하는 만큼 추가할 수 있어요"
+          }
+        }
+      }
+    },
+    "goals.preview.title": {
+      "comment": "Screen: Goals",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen shown when you try to open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開こうとした瞬間に見える画面"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열려고 할 때 보이는 화면"
+          }
+        }
+      }
+    },
+    "settings.automation.configured": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 완료"
+          }
+        }
+      }
+    },
+    "settings.automation.not_configured": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not set up"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "미설정"
+          }
+        }
+      }
+    },
+    "settings.entry.about": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy and app info"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プライバシーとアプリ情報"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "개인정보 및 앱 정보"
+          }
+        }
+      }
+    },
+    "settings.entry.lock_surface": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock Screen display"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロック画面の表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잠금 화면 표시"
+          }
+        }
+      }
+    },
+    "settings.entry.notifications": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알림"
+          }
+        }
+      }
+    },
+    "settings.entry.pro": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak Pro"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak Pro"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak Pro"
+          }
+        }
+      }
+    },
+    "settings.status.title": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "止める設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "멈춤 설정"
+          }
+        }
+      }
+    },
+    "settings.summary.more": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld more"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほか%lld件"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "외 %lld건"
+          }
+        }
+      }
+    },
+    "settings.timeline.sleep": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedtime"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就寝"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취침"
+          }
+        }
+      }
+    },
+    "settings.timeline.wake": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wake"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起床"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기상"
           }
         }
       }

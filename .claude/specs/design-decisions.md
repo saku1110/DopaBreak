@@ -766,3 +766,72 @@
 - Home整合: 本batch開始時の「ぼかしカードが2枚とも無い場合は孤立CTAを出さない」という条件は、後発の承認済み `.claude/specs/home-stats-dedup.md` により、ぼかしカード群とそのCTA自体をHomeから削除する形で吸収された。別役割の1行統計導線は同正本どおり `!isFirstDayEmpty` で維持し、旧 `appMetrics`／`topSatisfaction` 条件やぼかし分析を再導入していない。
 - 採用方針・制約: 空状態はデータ不足を率や0値カードとして見せず、期間ピッカーだけを残して説明へ置換する。`DayBars` の意味を説明する凡例は週だけに置き、今日／全期間には再表示しない。空判定は選択期間の試行数で行い、`stats.empty.description` を削除しない。Apple HIG／Apple Designに沿い、既存NavigationStack、期間ピッカー、色・文字トークンを保った。
 - 検証・成果物: `audit-default-values.py` はcalls 759、不一致項目すべて0。`lint-display-copy.py` は既存オンボーディング要確認2件のみでexit 0。humanizer-enは6文、humanizer-koは5文で各exit 0・全ゲート通過。両xcstringsの`jq`、`validate_legacy_copy_reuse(en-US, ko)`、`xcodegen generate`、`git diff --check`が成功した。指定iPhone 16 Pro Max（`90F5A09F-D128-468C-AB02-7ABB1479B3AE`）向け署名なしbuildは `BUILD SUCCEEDED`、DopaBreakCoreは513件・失敗0、再撮影XCTestは2件・失敗0。`output/screenshots/redesign-phase1/{home,home-free}.png` と `output/screenshots/redesign-phase2/{stats-pro,stats-free,stats-empty}.png` を日本語・ダーク・各1320×2868で再生成し、5枚を目視確認した。`ios/DopaBreak/BreathingCharacterView.swift` と同テストの別セッション差分には触れていない。
+
+## 2026-08-24 — App Storeスクリーンショット ja #06 見出し重複の解消
+
+- 作成・変更: `scripts/generate-appstore-screenshots-v2.py` と承認コピー正本 `scripts/generate-appstore-screenshots.py` のja #06 headline 2行目だけを「開くのをやめた回数も記録」から「開くのをやめた回数も積み上がる」へ変更した。v2の1行目「SNSのあと本音を記録」と旧正本の読点入り1行目「SNSのあと、本音を記録」は、それぞれの現状を維持した。
+- 採用方針・却下案: 語彙統一済みの「開くのをやめた」は保持し、koの「열지 않은 횟수도 쌓여요」と揃う蓄積のニュアンスを「積み上がる」で復活させた。1行目の「記録」を言い換える案、ko／en-USを変更する案、2行目へ読点・句点を加える案は、依頼範囲と表示コピー規則に反するため採用していない。
+- Claude Code向け制約: ja #06を今後変更する場合も旧正本とv2を同時更新し、両ファイル固有の1行目は維持する。ko／en-USは本変更の対象外。機能画面リデザイン完了後にまとめて再撮影・再生成するため、今回は画像成果物を更新していない。
+- 検証: `validate_legacy_copy_reuse(en-US, ko)` は成功。`scripts/lint-display-copy.py` は今回と無関係な既存オンボーディング要確認2件のみでexit 0。対象スクリプトの`git diff --check`も成功した。
+
+## 2026-08-25 — 60fps MCP モーション改修候補の照合（8/24監査の差分検証・未実装）
+
+- 接続経路: Claude Codeに登録済みの60fps MCPは `SIXTYFPS_PRO_KEY` が起動プロセスへ渡らず接続に失敗する。`~/.zshrc:11` の鍵で `https://mcp.60fps.design/mcp` へJSON-RPCを直接投げて照合した。恒久対応はログインシェル経由での起動か、`~/.claude/settings.json` の `env` へ鍵を置くこと。アプリコードは変更していない。
+- 照合方法: 2026-08-24の提案3件を、Phase 1・2適用後の現行コード（未コミット）で再検証した。あわせて `60fps_get_motion_code` で各参照の motion_params を取得した。8/24に「具体的な時間値は提供されていない」と記録した数値が今回は取得できたため、既存 `DopaMotion` トークンとの対応まで確定させた。参照のブランド・コピー・アセットは移植しない方針は変わらない。
+- 提案1（記録・期間切替）は現存する。`selectPeriod` は `withAnimation(DopaMotion.control)` で `period` だけを包む（`StatsView.swift:231`）。`dashboard` の再代入は `.onChange(of: period)` 経由の `reloadDashboard()`（`StatsView.swift:150`・`StatsView.swift:671`）で走るため、同じトランザクションに入らない。`periodVisualization`（`StatsView.swift:305`）は週・今日・全期間で別のViewを返すが `transition` 指定がない。`DayBars`（`DayBars.swift:47`）も棒高をデータから直接引くだけで補間しない。
+- 提案1の参照を差し替える。8/24のHarveeはドット行列で、DopaBreakの棒グラフとは形が違った。今回 `go-club-steps-graph-switch-animation` を取得した。週→月の切替で棒グラフがmorphし、数値がtickerで転がる構造そのものが一致する。値は `spring(response: 0.45, dampingFraction: 0.72)`・stagger 0.04。morphできない部分には `flighty-stats-by-year` の `easeOut(duration: 0.25)` crossfadeが対応する。
+- 提案2（止めるアプリ）は現存する。`TargetAppGrid.swift:66` の枠線は色と太さが即時に切り替わり、`selectionIndicator`（`TargetAppGrid.swift:98`）の丸も補間しない。動くのは押下scaleだけである（`TargetAppGrid.swift:138`）。
+- 提案2の参照も差し替える。Outlookはアバターをチェックマークへmorphさせる例で、承認済みの「チェックを置かない」制約と噛み合わなかった。`mymind-spaces-color-picker` は選択リングの移動と中央の丸のscale popだけで選択を伝えるため、こちらが合う。値は `spring(response: 0.25, dampingFraction: 0.72)`・staggerなし。枠線側は `cred-interest-selection` の `easeOut(duration: 0.25)` による色の移り変わりが対応し、枠を跳ねさせない根拠になる。
+- 提案3（ロック画面確認）は現存する。`phase` は `start()`（`LockScreenCheckView.swift:252`）と `refreshStatus()`（`LockScreenCheckView.swift:260`）で `withAnimation` なしに代入される。手順カードと成功badgeの入れ替え（`LockScreenCheckView.swift:84`）もプレビューの減光も同時に飛ぶ。
+- 提案3の参照も差し替える。Google Todoはチェックボックスの例だった。`smallcase-wealth-office-setup-check-animation` はシステムイベントで設定完了を伝える構造で、説明文のfade outとdown、badgeのspring scale up、成功文のfade inとupという順序がこの画面に一致する。値は `spring(response: 0.45, dampingFraction: 0.72)`・stagger 0.09。
+- トークン対応（新しい数値を作らない方針の帰結）:
+  - 参照の `spring(0.25, 0.72)` は既存 `DopaMotion.momentum`（`.snappy(duration: 0.3, extraBounce: 0.1)` ≒ damping 0.75）でほぼ再現できる。提案2の丸はここに載せる。
+  - 参照の `spring(0.45, 0.72)` に対応するトークンはない。`DopaMotion.transition` は `.smooth(duration: 0.4)` で damping 1.0 のため、わずかなオーバーシュートが落ちる。`DesignTokens.swift:48` の「祝福以外で跳ねさせない」規律を優先し、提案1の棒高と提案3のbadgeは `transition` を実装値とする。オーバーシュートを入れるかはオーナー判断であり、勝手にトークンを追加しない。
+  - crossfadeの `easeOut(0.25)` は既存コードの `easeInOut(0.2)`（`PostUseReflectionSheet.swift:62`）や `easeInOut(0.24)`（`OnboardingFlow.swift:98`）と同じ帯にあるため、新規数値の追加にはあたらない。
+- 8/24監査が記録していなかった実装前提（今回の照合で判明）:
+  - ハプティクスの土台がない。アプリにあるのは呼吸用の `BreathHapticsController`（CoreHaptics）だけで、`UISelectionFeedbackGenerator` や `UINotificationFeedbackGenerator` の共通経路は存在しない。提案2の selection haptic と提案3の success haptic は、小さな共通ヘルパーの新設を伴う。
+  - Reduce Motionの分岐が対象3画面にない。`accessibilityReduceMotion` を読むのは `InterventionFlowView`・`CharacterView`・`OnboardingMotion`・`OnboardingFlow` だけである。`StatsView`・`TargetAppGrid`・`LockScreenCheckView` は環境値の追加から必要になる。
+- 8/24以降に増えた画面の確認結果: 新規の設定5ファイル（`SettingsAboutView`・`SettingsAccountView`・`SettingsComponents`・`SettingsLockSurfaceView`・`SettingsNotificationsView`）、`RootTabView` のタブ切替、ホームの統計導線には新しい改修候補は出なかった。設定の画面遷移はNavigationStackの標準挙動が担い、押下feedbackは共通ボタンスタイル（`DesignTokens.swift:262`・`DesignTokens.swift:287`）が持つ。ホームの回数は既に `DopaMotion.control` で補間している（`HomeView.swift:209`）。
+- 実装可否は未判断のまま据え置く。着手する場合の順序は、ハプティクス共通ヘルパーとReduce Motion分岐を先に用意し、そのあとで提案2、提案3、提案1の順に入れる。提案1はStatsのカード形状・実データ・Freeぼかしを保つ必要があり、影響範囲が最も広い。
+
+## 2026-08-25 — 機能画面リデザイン Phase 3（設定）の完成と検証
+
+- 引き継ぎ経緯: 別セッション（test-project-a8）が実装途中で消滅し、未コミットのまま作業ツリーに残っていた分を検証・補完した。コミットはしていない。
+- 移動対応（元 `SettingsView.swift` → 先）: `lockSurfaceSection` のトグル4つ＋通知時刻＋`usageWatchSection` → `SettingsNotificationsView`／`lockSurfaceSection` のテーマチップ・ロック画面確認・Live Activityトグル → `SettingsLockSurfaceView`／`accountSection` → `SettingsAccountView`／`privacySection`＋`appSection` → `SettingsAboutView`／`settingsRow`・`divider`・`toggleRow`・`timePickerRow`・`dateForTime`・`minutes`・`normalizedMinutes` → `SettingsComponents.swift`（`SettingsRow`・`SettingsDivider`・`SettingsIconTile`・`SettingsIconNavigationRow`・`SettingsIconToggleRow`・`SettingsIconTimePickerRow`・`SettingsTime`）。`targetSection`＋`deepFocusSection` は `statusSection`・`modeSection`・`targetLengthAutomationSection`・`wakeSleepTimelineSection`・`entrySection`・`aboutEntrySection` へ再構成した。`modePickerRow`／`modeBinding`／`appSelectionSummary`／`targetAppsSummary`／`freeCatalogTargetRows`／`proGateTargetRows`／`deepFocusTargetsRow` はブリーフどおり廃止し、選択操作は `handleAppSelectionTap()`／`isTargetPickerPresented` の既存経路のまま残した。`ruleEnabledBinding`／`setRuleEnabled` は再構成前から未使用だったため削除した。
+- 引き継ぎ時に欠けていた点と是正3件:
+  1. `screenTimeRow`（スクリーンタイムの許可状態と再要求の入口）が丸ごと落ちていた。`snapshotScreenTimeAuthorized` のDEBUG撮影initも読み手を失い、App Storeパネル08・09の「許可済み」表示が成立しなくなっていた。`targetLengthAutomationSection` の末尾へ復帰させ、表示条件は再構成前と同じ `isDeepFocusUnlocked` を維持した。`screenTimeAuthorizedForDisplay` も復元し、本番経路は実状態のままにしてある。
+  2. `modeCard` の名前が `lineLimit(1)` で、3列だと「ディープフォーカス」が「ディープフォー…」と切れていた。どの強さを選んでいるか読めなくなるため名前だけ2行折り返しにした。説明はブリーフどおり11pt2行のまま。
+  3. `statusIconSources` と `targetRowIconSources` が別々の優先順位（前者はカタログ優先、後者は `isGateUnlocked` で分岐）で組まれており、同一画面で片方だけ「未設定」になる食い違いが出ていた。`targetIconSources` に一本化した。
+- 文言: コピーシート `functional-screens-redesign-copy-sheet.md` の Settings 42行を ja/en/ko で機械照合し、`settings.gate.*` 4キーを除く38行が一致していることを確認した。`settings.gate.*` はブリーフ追記の「gate系は docs/11_ui_copy.md §6c を正とし変更しない」に従い、コピーシート案を適用していない。Phase 3 新規10キーは3言語とも投入済みで、`defaultValue` はカタログのja値と一致する。
+- 撮影: `CoreScreensSnapshotCapture.swift` に `testCaptureRedesignPhase3SettingsScreens` と `SettingsNotificationsSnapshotHost` を追加した。既存Phase 1・2と同じ実ウィンドウ＋`drawHierarchy`・ダーク・ja・1320×2868。撮影シードは Phase 1・2 と同一の `seedRedesignAttemptLogs`（今日15回中12回・週36回）で凍結値を変えていない。`output/screenshots/redesign-phase3/{settings-top,settings-top-free,settings-notifications}.png` を生成した。
+- 撮影ハーネスの制約（既知・Phase 1と共通）: `automaticallyRefreshEntitlement: false` のため `hasConfirmedEntitlement` が false のままで、`isGateUnlocked` はフェイルオープン側に倒れる。`settings-top-free.png` は強さのProバッジと完全ブロックのロック行は正しく写るが、gate関連の説明文は権利未確定時の見え方になる。確定Freeの見え方は実機で確認する。
+- 検証: DopaBreakCore 513件・失敗0。アプリ 187件・8スキップ・失敗0。`build-for-testing` は BUILD SUCCEEDED。`scripts/lint-display-copy.py` は既存オンボーディング要確認2件のみで exit 0。`scripts/audit-default-values.py` は calls 771・mismatches 0・missing 0 で exit 0。
+
+## 2026-08-25 — モーション改修 Step A・B の実装
+
+- 作成・変更: `ios/DopaBreak/DesignTokens.swift` に `DopaMotion.select` / `morph` を追加し、`ios/DopaBreak/HapticFeedback.swift` にUIKitのselection / success共通経路を新設した。`ios/DopaBreak/TargetAppGrid.swift` は選択・解除時のselection haptic、ライム丸のscale popとfill補間、カード枠の非バウンド補間、Reduce Motion分岐を追加した。`ios/DopaBreakTests/HapticFeedbackTests.swift` で両ジェネレータをテストターゲットから実行した。
+- 採用方針・却下案: 選択丸は既存のチェックなしライム塗りを維持し、`phaseAnimator` で1.0→1.08→1.0の単発popだけを `DopaMotion.select` に載せた。枠線を同じspringで跳ねさせる案、カード再配置、stagger、押下scale値の変更は仕様と高頻度操作への節度に反するため採用していない。Step C / D は未実装で、Stats・DayBars・LockScreenCheckのコードには触れていない。
+- Claude Code向け制約: `DopaMotion.control` / `transition` / `momentum` / `celebrate` の値と用途を維持し、`select` / `morph` を祝福用途へ流用しない。TargetAppGridの通常時押下scale 0.985、カード構成、複数項目の配置、ライム丸を維持する。Reduce Motionでは選択popと押下scaleを止め、色・opacity・ハプティクスを残す。
+- 検証: `xcodegen generate` と署名なしgeneric iOS Simulator向け `xcodebuild build` は成功。DopaBreakCoreは513件・失敗0、DopaBreakTestsは189件・9スキップ・失敗0で `TEST SUCCEEDED`。`git diff --check`も成功した。
+
+## 2026-08-25 — モーション改修 Step A・B レビュー指摘の是正
+
+- 変更: `ios/DopaBreak/TargetAppGrid.swift` からタップ時点のselection hapticを外し、`ios/DopaBreak/TargetAppPickerSheet.swift` と `ios/DopaBreak/OnboardingFlow.swift` の選択集合が実際に増減する経路へ `HapticFeedback.selection()` を移した。上限ゲートで拒否されてpaywallへ遷移する経路は無触覚のままで、ゲート判定・paywall placement・永続化は変更していない。
+- モーション方針: `ios/DopaBreak/TargetAppGrid.swift` の明示的な `.animation` は選択丸のfill / strokeより内側、`phaseAnimator` より前へ移し、色補間だけを担当させた。scaleは引き続き`phaseAnimator`だけが1.0→1.08→1.0を所有し、Reduce Motion時はscaleを1.0へ固定する。
+- Claude Code向け制約: ハプティクスは試行ではなく選択集合のcommit時だけ発火する。Onboardingの当該toggleでは既存`markSelectionFeedback()`との二重発火を避け、UIKit共通ヘルパーへ置換した。ライム丸、枠線、押下scale、ゲート、paywall、永続化の既存構造を維持する。
+- 検証: 署名なしgeneric iOS Simulator向け `xcodebuild build` は成功。DopaBreakCoreは513件・失敗0、DopaBreakTestsは189件・9スキップ・失敗0で `TEST SUCCEEDED`。`git diff --check`も成功した。コミットはしていない。
+
+## 2026-08-25 — モーション改修 Step C（記録の期間切替）
+
+- 作成・変更: `ios/DopaBreak/StatsView.swift` に `updatePeriod(_:)` を新設し、期間の切替と `reloadDashboard` を1つの `withAnimation(DopaMotion.morph)` トランザクションへ束ねた。二重反映を避けるため `.onChange(of: period)` は削除した。`reloadDashboard` と `fallbackDashboard` は期間を引数で受け取れるようにした。同一トランザクション内では `period` の状態がまだ更新されていない可能性があるため、状態を読まず引数で渡す。`ios/DopaBreak/DayBars.swift` は棒高を `barHeight` へ束ね、`.animation(reduceMotion ? nil : DopaMotion.morph, value: barHeight)` で補間する。
+- 採用方針・却下案: 形の違うView同士（週の棒グラフ・今日の2値・全期間の1値）は無理にmorphさせず、`.id(period)` と `.transition(.opacity)` に `easeOut(0.25)` を当てて crossfade とした。棒の高さだけが同じ面の変形にあたるため `morph` を使う。数値は既存の `.contentTransition(.numericText())`（`StatsView.swift:296`）をそのまま使い、新しい指定を足していない。
+- Claude Code向け制約: `isStatsHistoryLocked` の分岐と `paywallPlacement` の判定は不変。`.task`・シーン復帰・`weekAttemptCount` 変化からの `reloadDashboard()` は従来どおり引数なしで現在の期間を読む。空状態（`stats.empty.*`）、週だけに出す凡例、カード形状、実データ、Freeのぼかしを維持する。Reduce Motion時は棒高補間とmorphを止め、crossfadeだけ残す。
+- 検証: `xcodegen generate` と署名なしgeneric iOS Simulator向け `xcodebuild build` は Fable 側でも再実行して BUILD SUCCEEDED。Codex 実行時点で DopaBreakCore 513件・失敗0、`lint-display-copy.py` と `audit-default-values.py` はいずれも exit 0。DopaBreakTests の件数は同じ作業ツリーで並行するPhase 4が撮影ハーネスを編集中のため変動する。
+- 残: Step D（ロック画面確認）は `LockScreenCheckView.swift` をPhase 4が編集中のため未着手。
+
+## 2026-08-25 — ペイウォール年額割引バッジの根拠連動
+
+- 作成・変更: `ios/DopaBreak/PaywallView.swift` の年額割引率を `Int?` にし、両商品の価格が揃い、月額価格が正で、四捨五入後の割引率が正の場合だけ割引率を返す `AnnualDiscountPolicy` へ算出を切り出した。商品欠損時の58%フォールバックは削除し、割引率がない場合は同じCapsuleスタイルの「一番人気」だけを表示する。`ios/DopaBreak/Localizable.xcstrings` に `paywall.plan.annual.popular_badge` を既存コピー先頭セグメントのja/en/koで追加し、`ios/DopaBreakTests/AnnualDiscountPolicyTests.swift` に正常・年額欠損・月額欠損・月額0・割引0以下の回帰5件を追加した。
+- 採用方針・却下案: バッジを消す案、価格未取得時も固定58%を出す案、新しい人気訴求コピーを作る案は採用していない。人気表示は価格根拠を必要としない既存先頭セグメントに限定し、割引率の計算式・四捨五入、既存 `paywall.plan.annual.savings_badge` の値と `%lld%%`、フォント・accent背景・Capsule・paddingを維持した。
+- Claude Code向け制約: `AnnualDiscountPolicy.percent` はアプリターゲット内の純関数で、`annualPrice`／`monthlyPrice` のどちらかがnil、`monthlyPrice <= 0`、または算出整数率が0以下ならnilを返す。価格未取得時に割引率フォールバックを再導入しない。CTA、法定表示、trial reminder、plan detail／price、StoreService、購入・復元、annual＋monthly構成、StoreKitの通貨書式には触れない。
+- 検証: `xcodegen generate`成功。DopaBreakスキームのgeneric iOS Simulatorビルドはアプリ・4拡張・Core依存を含め `BUILD SUCCEEDED`。iOS 26.5 iPhone 16のDopaBreakTestsは194件・手動撮影9件skip・失敗0、DopaBreakCoreは513件・失敗0。`xcstringstool`を含むビルド、`jq`、`audit-default-values.py`（mismatch／missing／specifier-type／unknown-targetすべて0）、`lint-display-copy.py`、対象差分の`git diff --check`も成功した。

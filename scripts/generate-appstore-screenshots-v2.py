@@ -125,7 +125,6 @@ LOCK_ACTIVITY_CARD_BOX = (
 )
 LOCK_ACTIVITY_CARD_RADIUS = lock_pt_to_px(18)
 LOCK_CALLOUT_WIDTH = round(CANVAS_WIDTH * 0.894)
-LOCK_CALLOUT_TOP = 1410
 LOCK_CALLOUT_VERTICAL_CLEARANCE = 40
 LOCK_ACTIVITY_CANVAS_BOTTOM_LIMIT = 2800
 LOCK_CALLOUT_MAX_ACTUAL_WIDTH_RATIO = 1.35
@@ -2097,12 +2096,12 @@ def draw_lock_live_activity_callout(
     scaled_card.putalpha(card_mask)
 
     callout_left = round((CANVAS_WIDTH - target_width) / 2)
-    callout_top = LOCK_CALLOUT_TOP
+    clock_bounds = clock_geometry["canvas_bounds"]
+    actual_bounds = live_activity_geometry["canvas_bounds"]
+    callout_top = round((clock_bounds[3] + actual_bounds[1] - target_height) / 2)
     callout_right = callout_left + target_width
     callout_bottom = callout_top + target_height
     callout_box = (callout_left, callout_top, callout_right, callout_bottom)
-    clock_bounds = clock_geometry["canvas_bounds"]
-    actual_bounds = live_activity_geometry["canvas_bounds"]
     clock_clearance = callout_top - clock_bounds[3]
     activity_clearance = actual_bounds[1] - callout_bottom
     if (

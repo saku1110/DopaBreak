@@ -1067,3 +1067,19 @@
 - 採用方針・却下案: 幅を共通 `IPAD_STRAIGHT_PHONE_WIDTH` ごと縮小するとiPadの他パネルへ波及するため却下し、01専用の上端Yだけを調整した。Y670はコピーのsub下端Y665より下で、残り秒「4」の完全bboxをキャンバス内へ収める最小限の変更として採用した。幅下限64%への変更や、コピー・ライム面・構図の変更は行っていない。
 - Claude Code向け制約: `ipad-13` の一呼吸だけ `IPAD_BREATH_PHONE_VISUAL_TOP=670` を維持し、共通 `IPAD_PHONE_VISUAL_TOP=760`、フォン幅1480px、`BREATH_SOURCE_OFFSET_Y=400`、`SOURCE_PATHS`のpanel 10 `None` 2箇所、`MOCK_SOURCE_NAMES`、`source_for(panel == 10)`、`UPLOAD_ORDER`のgrayscale-home、`mock_home_grayscale()`／HOME定数、panel 10の3言語コピーは変更しない。01のコピー・背景・画面内リング／キャラを維持し、生成・upload-orderとも2064×2752 RGB・アルファなしにする。
 - 検証: ja/en-US/koの残り秒「4」実画素bboxは各 `[962,2572,1104,2747]`（下端余白5px）。raw bboxからの数値写像でリング `[379.60,1141.98,1685.46,2447.64]`、キャラ `[506.69,1332.59,1557.31,2312.10]`、数字 `[961.04,2570.47,1105.08,2747.31]`を確認し、全てキャンバス内。`asc screenshots validate --device-type IPAD_PRO_3GEN_129`（ja）は8/8 ready・error/warning 0。変更SHA-256はiPad 01×3、contact sheet×3、slots×3、upload-order iPad 01×3の12件だけで、iPhone全成果物とiPad他7枚は不変。保護6群、`lint-display-copy.py` exit 0、`git diff --check`を確認した。コミットは作成していない。
+- 追記（2026-08-25・追加3案）: オーナー指示で3テーマ追加し全10案体制に。**手書きノート**（罫線ノート＋手書きKlee One＋赤ペン欄外メモ）／**設計図**（青焼き製図シート＋引出線注記＋表題欄）／**レトロポップ**（70sサンバースト＋Kiwi Maru＋暖色3色）。いずれも目標主役・回数控えめルール適用。モック: `output/mockups/live-activity-themes/08-note.png / 09-blueprint.png / 10-retropop.png`。採用時は`LockTheme`に3ケース追加（パレット5色構造では表現しきれないため、テーマ別ビュー実装が前提）
+- 追記（2026-08-25・**オーナー承認**）: 全10案を「OK採用」で承認。設計正本を `.claude/specs/lock-theme-redesign-v2.md` に確定し実装へ。最終構成=黒とライム(無料)/ゲーミング/朝霧/シンプルモノクロ/リキッドグラス/K-POP/かわいいピンク/手書きノート/設計図/レトロポップ。**墨と灯・森林・夜更けは削除**（保存値はgaming/monochrome/liquidGlassへマイグレーション）。フォントはDotGothic16(2.0MB)とZen Kurenaido(4.1MB)をCoreリソースへバンドル、レトロポップ・かわいいピンクはiOS同梱HiraMaruProN-W4で追加0MB（Klee One 8.3MBは容量都合で不採用）。実装=Codex Sol(L2)／レビュー=Opus5サブエージェント。
+
+## 2026-08-25 — iPhone 6.9インチ2枚目Live Activity拡大コールアウトの中点配置
+
+- 変更: `scripts/generate-appstore-screenshots-v2.py` の iPhone `lockscreen` 経路だけで、固定 `LOCK_CALLOUT_TOP` を削除し、時計の描画下端と実Live Activityカード枠の上端からコールアウト上端を動的に算出する式へ変更した。サイズ1180×401、角丸52px、3px枠、影、実カード枠、線幅・不透明度は維持した。3ロケールの `03-lockscreen.png`、contact sheet、slots、upload-order 02、および iPhone 6.5 upload-order 02を再派生した。
+- 採用方針: コールアウト中心を `(clock_bottom_y + live_activity_top_y) / 2` に置く。生成値は時計下端Y=1365.02、実カード上端Y=2436.83、コールアウトY=1700〜2101、上余白334.98px、下余白335.83px。固定Y=1410の旧配置は時計直下へ偏り、上下余白が不均衡なため不採用。接続線は実カード上辺接線点から新コールアウト下辺接線点へ引き直した。
+- Claude Code向け制約: iPadのコールアウト経路、他パネル、コピー、フォン枠取り、マスコット、`SOURCE_PATHS` panel 10の`None` 2箇所、`MOCK_SOURCE_NAMES`、`source_for` panel 10分岐、`UPLOAD_ORDER`の`grayscale-home`、`mock_home_grayscale()`／HOME定数、panel 10の3言語コピーは変更しない。iPhone 6.5はiPhone 6.9のupload-order 02を`sips -z 2778 1284`で派生し、全対象PNGはアルファなしRGBとする。
+- 検証: 3ロケールともコールアウト中心と目標中点の差0.42px、上下余白差0.85px、時計・キャラクター・実カードとの重なり0。変更は許可した16個のv2成果物だけで、iPad・他パネル等の全139ファイルSHA-256を比較して不変を確認。保護6群のAST／明示チェック、`asc screenshots validate`（ja `IPHONE_69`／`IPHONE_65`各8/8、warning/error 0）、`lint-display-copy.py` exit 0、`git diff --check`を確認した。コミットは作成していない。
+
+## 2026-08-25 — K-POP Live Activityカード単体モック
+- 作成: `output/mockups/live-activity-themes/06-kpop.png`。1536×1024の横長キャンバス中央に、約78%幅（左右端x≈169/1367）、角丸約26pxの単一Live Activityカードを配置した。
+- 採用方針: lavender `#E1CDF7` の背景、`#F9F6FB` のカード、pink→purple→cyanのホログラフィック枠、控えめな斜め光 streak、ピンクの「あなたの目標」pill、3つの白いticket-stub目標チップ、暗いmarquee帯を採用。3つの指定目標行を最大の視覚要素にし、回数は小さな補助テキストへ限定した。
+- 却下案: iPhone筐体、手・写真表現、透かし、追加キャプション、余分なカード、大きな実績回数や目標以外の大きな数字は採用しない。
+- Claude Code向け制約: 画像をWidget実装の参照やスクリーンショット内カードとして再利用する場合も、カード単体・目標主体・小さい回数・指定日本語コピーを維持する。PNGは1536×1024 RGB、カードは左右均等余白を保つ。
+- 検証: `file` でPNG／1536×1024／RGB／非インターレースを確認した。

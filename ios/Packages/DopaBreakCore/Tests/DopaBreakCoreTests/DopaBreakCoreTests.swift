@@ -159,10 +159,31 @@ final class DopaBreakCoreTests: XCTestCase {
                 displayTitle: "Daily Study",
                 todayCancelledCount: 7,
                 todayAttemptCount: 9,
-                theme: .shinrin,
+                theme: .monochrome,
                 updatedAt: date(18)
             )
         )
+    }
+
+    func testWidgetSnapshotDecodesLegacyThemeThroughMigration() throws {
+        let json = """
+        {
+          "primaryGoalTitle": "Read",
+          "displayTitle": "Read",
+          "todayCancelledCount": 4,
+          "todayAttemptCount": 6,
+          "theme": "sumi",
+          "updatedAt": "2026-08-25T00:00:00Z",
+          "goalTitles": ["Read"],
+          "displayTitles": ["Read"]
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let snapshot = try decoder.decode(WidgetSnapshot.self, from: Data(json.utf8))
+
+        XCTAssertEqual(snapshot.theme, .gaming)
     }
 
     func testLockSurfaceStateJSONRoundTripWithNilOptionals() throws {

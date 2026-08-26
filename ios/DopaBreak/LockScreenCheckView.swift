@@ -159,6 +159,7 @@ struct LockScreenCheckContent: View {
             titles: previewTitles,
             cancelledCount: model.todayCancelledCount,
             attemptCount: model.todayAttemptCount,
+            theme: model.lockSurfaceState.theme,
             isDimmed: !phase.isPresenting
         )
     }
@@ -354,60 +355,16 @@ struct LockScreenGoalPreview: View {
     let titles: [String]
     let cancelledCount: Int
     let attemptCount: Int
+    let theme: LockTheme
     var isDimmed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SmallLabel(text: String(localized: "lock_check.preview.eyebrow", defaultValue: "あなたの目標"))
-
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(
-                    Array(titles.prefix(LockSurfaceCoordinator.liveActivityGoalLimit).enumerated()),
-                    id: \.offset
-                ) { _, title in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Rectangle()
-                            .fill(DesignTokens.accent)
-                            .frame(width: 10, height: 2)
-                        Text(title)
-                            .dopaFont(17, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .lineLimit(2)
-                    }
-                }
-            }
-
-            Rectangle()
-                .fill(DesignTokens.hairline)
-                .frame(height: 1)
-
-            HStack(spacing: 14) {
-                Text(
-                    String(
-                        localized: "lock_check.preview.cancelled",
-                        defaultValue: "今日は\(cancelledCount)回 開くのをやめた"
-                    )
-                )
-                    .foregroundStyle(DesignTokens.accent)
-                Text(
-                    String(
-                        localized: "lock_check.preview.attempted",
-                        defaultValue: "開こうとした \(attemptCount)回"
-                    )
-                )
-                    .foregroundStyle(DesignTokens.secondaryText)
-            }
-            .dopaFont(12, weight: .semibold)
-            .monospacedDigit()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DesignTokens.card)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(DesignTokens.accent)
-                .frame(width: 3)
-        }
+        LockThemeLiveActivityView(
+            theme: theme,
+            goalTitles: Array(titles.prefix(LockSurfaceCoordinator.liveActivityGoalLimit)),
+            cancelledCount: cancelledCount,
+            attemptCount: attemptCount
+        )
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(DesignTokens.hairline, lineWidth: 1)

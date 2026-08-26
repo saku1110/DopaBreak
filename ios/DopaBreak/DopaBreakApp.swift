@@ -44,6 +44,9 @@ struct DopaBreakApp: App {
     private let notificationDelegate: NotificationDelegate
 
     init() {
+        DopaBreakFontRegistrar.registerBundledFonts(
+            resourceBundleURL: Bundle.main.bundleURL
+        )
         let enablesStartupSideEffects = AppLaunchPolicy.enablesStartupSideEffects()
         let model = AppModel(
             automaticallyRefreshEntitlement: enablesStartupSideEffects,

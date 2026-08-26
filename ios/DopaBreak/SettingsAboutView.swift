@@ -136,6 +136,20 @@ struct SettingsAboutView: View {
 
                 SettingsDivider()
 
+                SettingsRow(
+                    label: "DotGothic16 / Galmuri11",
+                    value: "SIL OFL 1.1"
+                )
+
+                SettingsDivider()
+
+                SettingsRow(
+                    label: "Zen Kurenaido / Nanum Pen Script",
+                    value: "SIL OFL 1.1"
+                )
+
+                SettingsDivider()
+
                 Button {
                     openFeedbackEmail()
                 } label: {

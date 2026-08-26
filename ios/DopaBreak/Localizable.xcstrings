@@ -1,6 +1,69 @@
 {
   "sourceLanguage": "ja",
   "strings": {
+    "onboarding.lock_theme.eyebrow": {
+      "comment": "Screen: Onboarding lock theme picker",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "LOCK SCREEN DESIGN" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ロック画面のデザイン" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "잠금 화면 디자인" } }
+      }
+    },
+    "onboarding.lock_theme.title": {
+      "comment": "Screen: Onboarding lock theme picker",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose a design" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "デザインを選ぶ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "디자인 선택하기" } }
+      }
+    },
+    "onboarding.lock_theme.lead": {
+      "comment": "Screen: Onboarding lock theme picker",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "You can change it anytime" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あとから何度でも変えられます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "나중에 언제든 바꿀 수 있어요" } }
+      }
+    },
+    "onboarding.lock_theme.action": {
+      "comment": "Screen: Onboarding lock theme picker",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Continue with this design" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このデザインで進む" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 디자인으로 계속하기" } }
+      }
+    },
+    "onboarding.lock_theme.pro_note": {
+      "comment": "Screen: Onboarding lock theme picker",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "With Pro this design will appear on your Lock Screen" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proにすると このデザインで表示されます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro를 사용하면 잠금 화면에 이 디자인이 표시돼요" } }
+      }
+    },
+    "onboarding.summary.theme_note": {
+      "comment": "Screen: Onboarding pre-paywall summary",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "With Pro your Lock Screen will use this design" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proにすると このデザインになります" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro를 사용하면 잠금 화면이 이 디자인으로 바뀌어요" } }
+      }
+    },
+    "settings.lock_screen.pro_note": {
+      "comment": "Screen: Lock Screen settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "With Pro your Lock Screen will use this design" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proにすると このデザインになります" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro를 사용하면 잠금 화면이 이 디자인으로 바뀌어요" } }
+      }
+    },
     "home.reclaimed.hours_minutes": {
       "comment": "Screen: Home",
       "extractionState": "manual",
@@ -11914,76 +11977,31 @@
         }
       }
     },
-    "lock_check.preview.attempted": {
-      "comment": "Screen: Lock Screen Check",
+    "live_activity.goal.eyebrow": {
+      "comment": "Live Activity goal heading",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tried to open %lld×"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開こうとした %lld回"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열려고 함 %lld회"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Your goal" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あなたの目標" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "나의 목표" } }
       }
     },
-    "lock_check.preview.cancelled": {
-      "comment": "Screen: Lock Screen Check",
+    "live_activity.summary.attempted": {
+      "comment": "Live Activity attempted-open count",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chose not to open %lld× today"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日は%lld回 開くのをやめた"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘은 %lld번 열지 않기로 함"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Tried to open %lld×" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開こうとした %lld回" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "열려고 함 %lld회" } }
       }
     },
-    "lock_check.preview.eyebrow": {
-      "comment": "Screen: Lock Screen Check",
+    "live_activity.summary.cancelled": {
+      "comment": "Live Activity cancelled-open count",
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your goal"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あなたの目標"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "나의 목표"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Chose not to open %lld× today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日は%lld回 開くのをやめた" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘은 %lld번 열지 않기로 함" } }
       }
     },
     "lock_check.preview.goal_fallback": {
@@ -14922,26 +14940,26 @@
         }
       }
     },
-    "lock_surface.theme.sumi": {
+    "lock_surface.theme.gaming": {
       "comment": "Screen: Settings lock screen theme",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ink & Lantern"
+            "value": "Gaming"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "墨と灯"
+            "value": "ゲーミング"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "먹과 등불"
+            "value": "게이밍"
           }
         }
       }
@@ -14970,50 +14988,50 @@
         }
       }
     },
-    "lock_surface.theme.shinrin": {
+    "lock_surface.theme.monochrome": {
       "comment": "Screen: Settings lock screen theme",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Forest"
+            "value": "Simple Monochrome"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "森林"
+            "value": "シンプルモノクロ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "숲"
+            "value": "심플 모노크롬"
           }
         }
       }
     },
-    "lock_surface.theme.yozora": {
+    "lock_surface.theme.liquidGlass": {
       "comment": "Screen: Settings lock screen theme",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Late Night"
+            "value": "Liquid Glass"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "夜更け"
+            "value": "リキッドグラス"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "깊은 밤"
+            "value": "리퀴드 글래스"
           }
         }
       }
@@ -15064,6 +15082,33 @@
             "value": "귀여운 핑크"
           }
         }
+      }
+    },
+    "lock_surface.theme.note": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Handwritten Note" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "手書きノート" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "손글씨 노트" } }
+      }
+    },
+    "lock_surface.theme.blueprint": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Blueprint" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "設計図" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "설계도" } }
+      }
+    },
+    "lock_surface.theme.retroPop": {
+      "comment": "Screen: Settings lock screen theme",
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retro Pop" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "レトロポップ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "레트로 팝" } }
       }
     }
   },

@@ -181,6 +181,7 @@ final class AppModel {
         now: @escaping () -> Date = { Date() }
     ) {
         let resolvedSettingsStore = settingsStore ?? Self.makeSettingsStore()
+        resolvedSettingsStore.migrateStoredValues()
         self.settingsStore = resolvedSettingsStore
         self.clampBackupStore = clampBackupStore ?? Self.makeClampBackupStore()
         self.containerProvider = containerProvider

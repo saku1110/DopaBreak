@@ -37,6 +37,17 @@ targets:
         buildPhase: resources
       - path: DopaBreak/Resources/launch-animation.mp4
         buildPhase: resources
+      # SPMリソース製品を介さず、親アプリのCopy Bundle Resourcesへ直接1コピー同梱する。
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/DotGothic16.ttf
+        buildPhase: resources
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/ZenKurenaido.ttf
+        buildPhase: resources
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/Galmuri11.ttf
+        buildPhase: resources
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/NanumPenScript.ttf
+        buildPhase: resources
+      # アプリ内プレビューとWidgetで同一のロック画面テーマViewを共有する。
+      - path: WidgetsExtension/LockThemeLiveActivityView.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(DOPABREAK_BUNDLE_PREFIX).app

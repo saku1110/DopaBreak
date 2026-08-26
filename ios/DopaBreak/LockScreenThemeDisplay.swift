@@ -6,18 +6,24 @@ extension LockTheme {
         switch self {
         case .e1:
             return String(localized: "lock_surface.theme.e1", defaultValue: "黒とライム")
-        case .sumi:
-            return String(localized: "lock_surface.theme.sumi", defaultValue: "墨と灯")
+        case .gaming:
+            return String(localized: "lock_surface.theme.gaming", defaultValue: "ゲーミング")
         case .asagiri:
             return String(localized: "lock_surface.theme.asagiri", defaultValue: "朝霧")
-        case .shinrin:
-            return String(localized: "lock_surface.theme.shinrin", defaultValue: "森林")
-        case .yozora:
-            return String(localized: "lock_surface.theme.yozora", defaultValue: "夜更け")
+        case .monochrome:
+            return String(localized: "lock_surface.theme.monochrome", defaultValue: "シンプルモノクロ")
+        case .liquidGlass:
+            return String(localized: "lock_surface.theme.liquidGlass", defaultValue: "リキッドグラス")
         case .kpop:
             return String(localized: "lock_surface.theme.kpop", defaultValue: "K-POP")
         case .kawaiiPink:
             return String(localized: "lock_surface.theme.kawaiiPink", defaultValue: "かわいいピンク")
+        case .note:
+            return String(localized: "lock_surface.theme.note", defaultValue: "手書きノート")
+        case .blueprint:
+            return String(localized: "lock_surface.theme.blueprint", defaultValue: "設計図")
+        case .retroPop:
+            return String(localized: "lock_surface.theme.retroPop", defaultValue: "レトロポップ")
         }
     }
 }

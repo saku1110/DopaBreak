@@ -260,22 +260,22 @@ public struct ReflectionLog: Codable, Equatable, Sendable {
 
 public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
     case e1
-    case sumi
+    case gaming
     case asagiri
-    case shinrin
-    case yozora
+    case monochrome
+    case liquidGlass
     case kpop
     case kawaiiPink
+    case note
+    case blueprint
+    case retroPop
 
-    public var displayName: String {
-        switch self {
-        case .e1: return "黒とライム"
-        case .sumi: return "墨と灯"
-        case .asagiri: return "朝霧"
-        case .shinrin: return "森林"
-        case .yozora: return "夜更け"
-        case .kpop: return "K-POP"
-        case .kawaiiPink: return "かわいいピンク"
+    public init(migratingRawValue rawValue: String) {
+        switch rawValue {
+        case "sumi": self = .gaming
+        case "shinrin": self = .monochrome
+        case "yozora": self = .liquidGlass
+        default: self = LockTheme(rawValue: rawValue) ?? .e1
         }
     }
 
@@ -288,12 +288,11 @@ public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
                 primaryText: .init(244, 242, 236), secondaryText: .init(139, 146, 158),
                 accent: .init(184, 255, 61)
             )
-        case .sumi:
-            // output/mockups/notification_themes/notif_sumi.png
+        case .gaming:
             return LockThemePalette(
-                background: .init(14, 12, 9), card: .init(29, 24, 18),
-                primaryText: .init(247, 240, 225), secondaryText: .init(171, 160, 143),
-                accent: .init(229, 158, 70)
+                background: .init(10, 10, 20), card: .init(20, 20, 40),
+                primaryText: .init(234, 234, 242), secondaryText: .init(138, 143, 168),
+                accent: .init(0, 229, 255)
             )
         case .asagiri:
             // output/mockups/notification_themes/notif_asagiri.png
@@ -302,20 +301,17 @@ public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
                 primaryText: .init(31, 37, 47), secondaryText: .init(91, 105, 119),
                 accent: .init(91, 126, 153)
             )
-        case .shinrin:
-            // doc06 §9b names the forest theme but has no mock. Keep the E1 hierarchy
-            // and use a restrained evergreen palette until an approved mock exists.
+        case .monochrome:
             return LockThemePalette(
-                background: .init(8, 19, 15), card: .init(15, 37, 29),
-                primaryText: .init(238, 246, 240), secondaryText: .init(139, 164, 149),
-                accent: .init(119, 210, 139)
+                background: .init(250, 250, 250), card: .init(255, 255, 255),
+                primaryText: .init(18, 18, 18), secondaryText: .init(118, 118, 118),
+                accent: .init(18, 18, 18)
             )
-        case .yozora:
-            // output/mockups/notification_themes/notif_yozora.png
+        case .liquidGlass:
             return LockThemePalette(
-                background: .init(5, 10, 22), card: .init(13, 31, 58),
-                primaryText: .init(235, 239, 255), secondaryText: .init(159, 171, 202),
-                accent: .init(202, 213, 255)
+                background: .init(62, 91, 200), card: .init(90, 111, 216),
+                primaryText: .init(255, 255, 255), secondaryText: .init(216, 222, 245),
+                accent: .init(255, 255, 255)
             )
         case .kpop:
             // output/mockups/notification_themes/notif_kpop.png
@@ -330,6 +326,24 @@ public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
                 background: .init(255, 220, 229), card: .init(255, 253, 253),
                 primaryText: .init(68, 43, 49), secondaryText: .init(139, 91, 102),
                 accent: .init(242, 94, 137)
+            )
+        case .note:
+            return LockThemePalette(
+                background: .init(251, 247, 239), card: .init(255, 255, 255),
+                primaryText: .init(59, 52, 40), secondaryText: .init(138, 128, 112),
+                accent: .init(199, 80, 80)
+            )
+        case .blueprint:
+            return LockThemePalette(
+                background: .init(22, 65, 138), card: .init(27, 76, 158),
+                primaryText: .init(255, 255, 255), secondaryText: .init(185, 203, 232),
+                accent: .init(255, 255, 255)
+            )
+        case .retroPop:
+            return LockThemePalette(
+                background: .init(245, 233, 214), card: .init(255, 255, 255),
+                primaryText: .init(74, 51, 32), secondaryText: .init(107, 74, 50),
+                accent: .init(232, 99, 43)
             )
         }
     }
@@ -410,7 +424,9 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         displayTitle = try container.decode(String.self, forKey: .displayTitle)
         todayCancelledCount = try container.decode(Int.self, forKey: .todayCancelledCount)
         todayAttemptCount = try container.decode(Int.self, forKey: .todayAttemptCount)
-        theme = try container.decode(LockTheme.self, forKey: .theme)
+        theme = LockTheme(
+            migratingRawValue: try container.decode(String.self, forKey: .theme)
+        )
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         goalTitles = try container.decodeIfPresent([String].self, forKey: .goalTitles)
             ?? (primaryGoalTitle.isEmpty ? [] : [primaryGoalTitle])

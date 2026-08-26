@@ -17,6 +17,7 @@ let package = Package(
     targets: [
         .target(
             name: "DopaBreakCore",
+            exclude: ["Resources"],
             linkerSettings: [
                 .linkedLibrary("sqlite3")
             ]

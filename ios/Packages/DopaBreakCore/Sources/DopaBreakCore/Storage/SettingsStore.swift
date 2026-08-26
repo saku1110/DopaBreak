@@ -319,8 +319,20 @@ public final class SettingsStore: @unchecked Sendable {
     }
 
     public var lockTheme: LockTheme {
-        get { lockThemeRawValue.flatMap(LockTheme.init(rawValue:)) ?? .e1 }
+        get {
+            guard let rawValue = lockThemeRawValue else { return .e1 }
+            return LockTheme(migratingRawValue: rawValue)
+        }
         set { lockThemeRawValue = newValue == .e1 ? nil : newValue.rawValue }
+    }
+
+    /// 起動時に旧テーマ値を一度だけ正規化する。getterは読み出し専用に保つ。
+    public func migrateStoredValues() {
+        guard let rawValue = lockThemeRawValue else { return }
+        let migrated = LockTheme(migratingRawValue: rawValue)
+        let normalizedRawValue = migrated == .e1 ? nil : migrated.rawValue
+        guard rawValue != normalizedRawValue else { return }
+        lockThemeRawValue = normalizedRawValue
     }
 
     public var usageWatchEnabled: Bool {

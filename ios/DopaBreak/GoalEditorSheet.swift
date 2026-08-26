@@ -100,6 +100,7 @@ struct GoalEditorSheet: View {
                 titles: [previewTitle],
                 cancelledCount: model.todayCancelledCount,
                 attemptCount: model.todayAttemptCount,
+                theme: model.lockSurfaceState.theme,
                 isDimmed: trimmedTitle.isEmpty
             )
         }

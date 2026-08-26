@@ -54,7 +54,7 @@ final class SettingsStoreTests: XCTestCase {
         store.retentionSupportNotificationsEnabled = false
         store.planNotificationsEnabled = false
         store.liveActivityEnabled = false
-        store.lockTheme = .yozora
+        store.lockTheme = .liquidGlass
 
         let reloaded = SettingsStore(userDefaults: defaults)
         XCTAssertFalse(reloaded.morningNotificationEnabled)
@@ -63,8 +63,8 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(reloaded.retentionSupportNotificationsEnabled)
         XCTAssertFalse(reloaded.planNotificationsEnabled)
         XCTAssertFalse(reloaded.liveActivityEnabled)
-        XCTAssertEqual(reloaded.lockThemeRawValue, LockTheme.yozora.rawValue)
-        XCTAssertEqual(reloaded.lockTheme, .yozora)
+        XCTAssertEqual(reloaded.lockThemeRawValue, LockTheme.liquidGlass.rawValue)
+        XCTAssertEqual(reloaded.lockTheme, .liquidGlass)
     }
 
     func testSelectingE1RemovesStoredThemeOverride() {
@@ -80,7 +80,7 @@ final class SettingsStoreTests: XCTestCase {
         store.weeklyReportNotificationEnabled = false
         store.retentionSupportNotificationsEnabled = false
         store.planNotificationsEnabled = false
-        store.lockTheme = .shinrin
+        store.lockTheme = .monochrome
 
         let state = store.lockSurfaceState
         XCTAssertEqual(state.morningNotificationTime.hour, 7)
@@ -88,7 +88,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(state.weeklyReportEnabled)
         XCTAssertFalse(state.retentionSupportNotificationsEnabled)
         XCTAssertFalse(state.planNotificationsEnabled)
-        XCTAssertEqual(state.theme, .shinrin)
+        XCTAssertEqual(state.theme, .monochrome)
     }
 
     func testReviewPromptEventDatesPersistAsTimestampArray() {

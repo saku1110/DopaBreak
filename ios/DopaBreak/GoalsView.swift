@@ -96,7 +96,8 @@ struct GoalsView: View {
             LockScreenGoalPreview(
                 titles: previewTitles,
                 cancelledCount: model.todayCancelledCount,
-                attemptCount: model.todayAttemptCount
+                attemptCount: model.todayAttemptCount,
+                theme: model.lockSurfaceState.theme
             )
         }
     }

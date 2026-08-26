@@ -1,0 +1,799 @@
+<title>ロック画面テーマ10案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500;700;900&family=M+PLUS+Rounded+1c:wght@500;700;800&family=IBM+Plex+Mono:wght@500;600&family=Anton&family=DotGothic16&family=Klee+One:wght@400;600&family=Kiwi+Maru:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #101114;
+    --panel: #17181C;
+    --line: #24262B;
+    --text: #ECEDEF;
+    --muted: #8E939C;
+    --lime: #B8FF3D;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--text);
+    font-family: "Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    padding: 56px 20px 96px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+
+  /* ============ header ============ */
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: 0.22em;
+    color: var(--lime);
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: clamp(26px, 4.6vw, 40px);
+    font-weight: 900; line-height: 1.3;
+    text-wrap: balance;
+    margin-bottom: 18px;
+  }
+  .lede { color: var(--muted); font-size: 14.5px; max-width: 620px; }
+  .lede strong { color: var(--text); font-weight: 700; }
+
+  /* ============ current state ============ */
+  .current {
+    margin: 52px 0 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 26px 26px 22px;
+  }
+  .current h2 {
+    font-size: 15px; font-weight: 700; margin-bottom: 4px;
+  }
+  .current p { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .mini-row {
+    display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
+  }
+  .mini {
+    flex: 0 0 150px;
+    border-radius: 10px;
+    padding: 10px 10px 9px 12px;
+    position: relative; overflow: hidden;
+  }
+  .mini::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: var(--m-accent);
+  }
+  .mini .m-eyebrow { font-size: 6px; font-weight: 700; letter-spacing: 0.14em; color: var(--m-sub); margin-bottom: 5px; }
+  .mini .m-goal { font-size: 8px; font-weight: 700; color: var(--m-text); display: flex; align-items: center; gap: 4px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
+  .mini .m-goal::before { content: ""; width: 6px; height: 1.5px; background: var(--m-accent); flex: 0 0 auto; }
+  .mini .m-line { height: 1px; background: color-mix(in srgb, var(--m-sub) 25%, transparent); margin: 5px 0; }
+  .mini .m-count { font-size: 6.5px; font-weight: 600; color: var(--m-accent); }
+  .mini .m-count span { color: var(--m-sub); margin-left: 5px; }
+  .mini-name { font-size: 9px; color: var(--muted); text-align: center; margin-top: 6px; font-family: "IBM Plex Mono", monospace; letter-spacing: 0.06em; }
+
+  /* ============ proposals ============ */
+  .proposal {
+    margin-top: 64px;
+    display: grid;
+    grid-template-columns: minmax(0, 500px) 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .proposal { grid-template-columns: 1fr; } }
+
+  .stage {
+    border-radius: 22px;
+    padding: 34px 22px;
+    display: flex; justify-content: center;
+    border: 1px solid var(--line);
+  }
+  .la {
+    width: 100%; max-width: 420px;
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    line-height: 1.4;
+  }
+
+  .notes h3 { font-size: 20px; font-weight: 900; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .notes .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px; letter-spacing: 0.1em;
+    padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .notes .tag.free { color: var(--lime); border-color: color-mix(in srgb, var(--lime) 40%, transparent); }
+  .notes h3 .swap { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .notes .concept { font-size: 13px; color: var(--muted); margin: 8px 0 14px; }
+  .spec { list-style: none; display: grid; gap: 8px; }
+  .spec li {
+    font-size: 13px; color: var(--text);
+    display: grid; grid-template-columns: 74px 1fr; gap: 10px;
+    border-top: 1px solid var(--line); padding-top: 8px;
+  }
+  .spec li b { color: var(--muted); font-weight: 500; font-size: 12px; }
+
+  /* ============ 01 E1（現行維持） ============ */
+  .stage-e1 { background: linear-gradient(160deg, #17191d, #0b0d0f); }
+  .la-e1 { background: #14171B; padding: 18px 18px 16px 21px; }
+  .la-e1::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #B8FF3D; }
+  .la-e1 .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: #8B929E; margin-bottom: 10px; }
+  .la-e1 .goal { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #F4F2EC; margin-bottom: 6px; }
+  .la-e1 .goal::before { content: ""; width: 10px; height: 2px; background: #B8FF3D; flex: 0 0 auto; }
+  .la-e1 .divider { height: 1px; background: rgba(139,146,158,0.25); margin: 11px 0; }
+  .la-e1 .counts { font-size: 12px; font-weight: 600; display: flex; gap: 14px; font-variant-numeric: tabular-nums; }
+  .la-e1 .counts .a { color: #B8FF3D; }
+  .la-e1 .counts .b { color: #8B929E; }
+
+  /* ============ 02 ゲーミング ============ */
+  .stage-game { background: linear-gradient(160deg, #171129, #0a0714); }
+  .la-game-frame {
+    background: linear-gradient(120deg, #00E5FF, #7C4DFF 48%, #FF2E8A);
+    padding: 2px; border-radius: 24px;
+    box-shadow: 0 0 28px rgba(124,77,255,0.35);
+    width: 100%; max-width: 424px;
+  }
+  .la-game {
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 4px),
+      #0A0A14;
+    border-radius: 22px;
+    padding: 13px 16px 12px;
+    font-family: "DotGothic16", "Zen Kaku Gothic New", sans-serif;
+  }
+  .la-game .top { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 8px; }
+  .la-game .eyebrow { font-size: 11px; color: #00E5FF; letter-spacing: 0.18em; text-shadow: 0 0 8px rgba(0,229,255,0.6); }
+  .la-game .try { font-size: 10px; color: #8A8FA8; font-variant-numeric: tabular-nums; }
+  .la-game .q { display: flex; align-items: center; gap: 11px; margin: 9px 0 0; }
+  .la-game .box {
+    width: 13px; height: 13px; flex: 0 0 auto;
+    border: 2px solid #00E5FF;
+    box-shadow: 0 0 7px rgba(0,229,255,0.55);
+  }
+  .la-game .q span { font-size: 15.5px; color: #EAEAF2; }
+  .la-game .status {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin: 12px 0 0; padding-top: 9px;
+    border-top: 1px dashed rgba(0,229,255,0.35);
+    font-size: 11px; font-variant-numeric: tabular-nums;
+  }
+  .la-game .status .a { color: #00E5FF; }
+  .la-game .status .b { color: #8A8FA8; }
+
+  /* ============ 03 朝霧 ============ */
+  .stage-asagiri { background: linear-gradient(160deg, #dfe6ec, #c9d3dc); }
+  .la-asagiri {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 22%),
+      linear-gradient(180deg, transparent 46%, rgba(255,255,255,0.65) 56%, transparent 68%),
+      #EDF1F5;
+    padding: 20px 22px 17px;
+    text-align: center;
+    font-weight: 300;
+  }
+  .la-asagiri .eyebrow { font-size: 10px; letter-spacing: 0.32em; color: #5B6977; font-weight: 500; margin-bottom: 12px; }
+  .la-asagiri .goal { font-size: 15px; font-weight: 400; color: #1F252F; letter-spacing: 0.03em; }
+  .la-asagiri .haze { width: 26px; height: 1px; background: rgba(91,126,153,0.45); margin: 8px auto; }
+  .la-asagiri .counts { margin-top: 13px; font-size: 11px; color: #5B6977; display: flex; justify-content: center; gap: 18px; align-items: baseline; font-variant-numeric: tabular-nums; }
+  .la-asagiri .counts .n { font-size: 17px; font-weight: 500; color: #5B7E99; margin-right: 2px; }
+
+  /* ============ 04 シンプルモノクロ ============ */
+  .stage-mono { background: linear-gradient(160deg, #2b2b2f, #161618); }
+  .la-mono { background: #FAFAFA; padding: 15px 18px 13px; }
+  .la-mono .top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 10px; letter-spacing: 0.18em; color: #767676; font-weight: 500;
+  }
+  .la-mono .top { margin-bottom: 4px; }
+  .la-mono .g {
+    font-size: 19px; font-weight: 900; color: #121212; letter-spacing: -0.01em;
+    padding: 7px 0 6px; border-bottom: 1px solid #E6E6E6;
+  }
+  .la-mono .g:last-of-type { border-bottom: 0; }
+  .la-mono .rule { height: 2px; background: #121212; margin: 6px 0 7px; }
+  .la-mono .foot { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .la-mono .foot .a { color: #121212; font-weight: 700; }
+  .la-mono .foot .b { color: #767676; }
+
+  /* ============ 05 リキッドグラス ============ */
+  .stage-glass {
+    background:
+      radial-gradient(240px 200px at 18% 24%, rgba(255,255,255,0.35), transparent 65%),
+      radial-gradient(300px 240px at 85% 80%, rgba(255,184,108,0.55), transparent 70%),
+      linear-gradient(140deg, #3E7BFA 0%, #8A4DE8 45%, #FF6EC7 100%);
+  }
+  .la-glass {
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(24px) saturate(1.7);
+    -webkit-backdrop-filter: blur(24px) saturate(1.7);
+    border-radius: 28px;
+    box-shadow:
+      0 14px 34px rgba(25,20,70,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.55),
+      inset 0 -1px 0 rgba(255,255,255,0.12);
+    padding: 15px 18px 14px;
+    color: #fff;
+  }
+  .la-glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: 28px; pointer-events: none;
+    padding: 1px;
+    background: linear-gradient(120deg, rgba(255,255,255,0.75), rgba(255,255,255,0.08) 32%, rgba(255,255,255,0.08) 64%, rgba(255,255,255,0.55));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+  .la-glass::after {
+    content: ""; position: absolute; top: -46%; left: -18%; width: 64%; height: 130%;
+    background: linear-gradient(115deg, rgba(255,255,255,0.30), transparent 62%);
+    transform: rotate(9deg); pointer-events: none;
+  }
+  .la-glass .eyebrow {
+    font-size: 10px; letter-spacing: 0.2em; font-weight: 700;
+    color: rgba(255,255,255,0.8); margin-bottom: 8px;
+  }
+  .la-glass .goal {
+    font-size: 15px; font-weight: 700; color: #fff;
+    text-shadow: 0 1px 3px rgba(20,20,70,0.25);
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.26);
+  }
+  .la-glass .goal:last-of-type { border-bottom: 0; }
+  .la-glass .caps { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .la-glass .cap {
+    background: rgba(255,255,255,0.20);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 11.5px; font-weight: 700; color: #fff;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px rgba(20,20,70,0.2);
+  }
+  .la-glass .cap.sub { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.85); }
+
+  /* ============ 06 K-POP ============ */
+  .stage-kpop { background: linear-gradient(160deg, #d9c2f2, #b898dd); }
+  .la-kpop-frame {
+    background: linear-gradient(120deg, #EE3489, #8A4DE8 55%, #35C3E8);
+    padding: 2.5px; border-radius: 24px;
+    width: 100%; max-width: 425px;
+  }
+  .la-kpop {
+    background: #F9F6FB; border-radius: 21.5px;
+    padding: 14px 18px 0; overflow: hidden; position: relative;
+  }
+  .la-kpop .slash {
+    position: absolute; top: -22px; right: -46px; width: 130px; height: 210px;
+    background: linear-gradient(120deg, rgba(238,52,137,0.14), rgba(138,77,232,0.10));
+    transform: rotate(22deg);
+  }
+  .la-kpop .badge {
+    display: inline-block; background: #EE3489; color: #fff;
+    font-size: 10px; font-weight: 900; letter-spacing: 0.14em;
+    border-radius: 999px; padding: 3px 13px; margin-bottom: 9px;
+  }
+  .la-kpop .chips { display: flex; flex-direction: column; gap: 7px; margin: 0 0 12px; position: relative; }
+  .la-kpop .chip {
+    align-self: stretch;
+    display: flex; align-items: center; gap: 9px;
+    background: #fff; border: 1px solid rgba(35,31,38,0.14);
+    border-left: 5px solid #EE3489;
+    border-radius: 7px; padding: 7px 14px 7px 11px;
+    font-size: 15px; font-weight: 900; color: #231F26;
+    box-shadow: 0 2px 6px rgba(138,77,232,0.14);
+  }
+  .la-kpop .chip .st { color: #EE3489; font-size: 11px; }
+  .la-kpop .marquee {
+    margin: 0 -18px; background: #231F26;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+    color: #fff; padding: 6px 18px;
+    display: flex; gap: 14px; white-space: nowrap; overflow: hidden;
+  }
+  .la-kpop .marquee .pink { color: #FF7AB5; }
+
+  /* ============ 07 かわいいピンク ============ */
+  .stage-kawaii { background: linear-gradient(160deg, #ffd3de, #f7b9c9); }
+  .la-kawaii {
+    background:
+      radial-gradient(3px 3px at 18% 24%, rgba(242,94,137,0.14), transparent 70%),
+      radial-gradient(3px 3px at 76% 18%, rgba(242,94,137,0.12), transparent 70%),
+      radial-gradient(3px 3px at 40% 80%, rgba(242,94,137,0.10), transparent 70%),
+      radial-gradient(3px 3px at 90% 64%, rgba(242,94,137,0.12), transparent 70%),
+      #FFFDFD;
+    padding: 16px 18px 15px;
+    font-family: "M PLUS Rounded 1c", sans-serif;
+  }
+  .la-kawaii .eyebrow {
+    display: inline-block;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: #fff;
+    background: #F25E89; border-radius: 999px; padding: 2px 11px;
+    margin-bottom: 9px;
+  }
+  .la-kawaii .pill {
+    display: flex; align-items: center; gap: 8px;
+    background: #FFF0F4; border: 1.5px solid rgba(242,94,137,0.25);
+    border-radius: 999px; padding: 4px 14px 4px 10px;
+    font-size: 13px; font-weight: 700; color: #442B31;
+    margin-bottom: 6px; width: fit-content; max-width: 100%;
+  }
+  .la-kawaii .pill .hz { color: #F25E89; font-size: 11px; }
+  .la-kawaii .counts { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .la-kawaii .bubble {
+    position: relative; background: #F25E89; color: #fff;
+    font-size: 12px; font-weight: 800;
+    border-radius: 14px; padding: 5px 13px;
+  }
+  .la-kawaii .bubble::after {
+    content: ""; position: absolute; left: 16px; bottom: -5px;
+    border: 6px solid transparent; border-top-color: #F25E89;
+    border-bottom: 0; border-left-width: 4px; border-right-width: 4px;
+  }
+  .la-kawaii .sub { font-size: 11px; font-weight: 700; color: #8B5B66; font-variant-numeric: tabular-nums; }
+
+  /* ============ 08 手書きノート ============ */
+  .stage-note { background: linear-gradient(160deg, #d9d2c4, #c5bcaa); }
+  .la-note {
+    background:
+      repeating-linear-gradient(0deg, transparent 0 27px, rgba(90,130,180,0.16) 27px 28px),
+      #FBF7EF;
+    padding: 16px 18px 14px 46px;
+    font-family: "Klee One", "Zen Kaku Gothic New", cursive;
+    color: #3B3428;
+  }
+  .la-note::before {
+    content: ""; position: absolute; left: 34px; top: 0; bottom: 0; width: 1px;
+    background: rgba(199,80,80,0.4);
+  }
+  .la-note::after {
+    content: ""; position: absolute; top: -7px; left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 76px; height: 17px;
+    background: rgba(232,214,160,0.78);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+  .la-note .eyebrow {
+    font-size: 11px; font-weight: 600; margin-bottom: 8px;
+    text-decoration: underline wavy rgba(199,80,80,0.55);
+    text-underline-offset: 4px;
+  }
+  .la-note .goal { display: flex; align-items: center; gap: 10px; font-size: 15.5px; font-weight: 600; margin-bottom: 9px; }
+  .la-note .cb { width: 12px; height: 12px; border: 1.6px solid #5A5142; border-radius: 2px; transform: rotate(-1.5deg); flex: 0 0 auto; }
+  .la-note .goal:nth-of-type(2) .cb { transform: rotate(1.2deg); }
+  .la-note .memo { font-size: 11.5px; margin-top: 8px; }
+  .la-note .memo .a { color: #C75050; }
+  .la-note .memo .b { color: #8A8070; margin-left: 12px; }
+
+  /* ============ 09 設計図 ============ */
+  .stage-bp { background: linear-gradient(160deg, #142c4e, #0c1a30); }
+  .la-bp {
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 22px),
+      #16418A;
+    border: 1.5px solid rgba(255,255,255,0.75);
+    padding: 15px 18px 13px;
+    color: #fff;
+  }
+  .la-bp::before {
+    content: ""; position: absolute; inset: 7px;
+    border: 1px dashed rgba(255,255,255,0.4);
+    border-radius: 17px; pointer-events: none;
+  }
+  .la-bp .eyebrow { font-size: 10px; letter-spacing: 0.3em; color: rgba(255,255,255,0.85); font-weight: 500; margin-bottom: 10px; }
+  .la-bp .goal { display: flex; align-items: center; font-size: 14.5px; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 9px; }
+  .la-bp .node { width: 8px; height: 8px; border: 1.5px solid #fff; border-radius: 50%; flex: 0 0 auto; }
+  .la-bp .lead { width: 18px; height: 1px; background: rgba(255,255,255,0.8); margin-right: 9px; flex: 0 0 auto; }
+  .la-bp .tb {
+    margin-left: auto; margin-top: 4px;
+    display: flex; width: fit-content;
+    border: 1px solid rgba(255,255,255,0.8);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9.5px; font-variant-numeric: tabular-nums;
+  }
+  .la-bp .tb span { padding: 4px 9px; }
+  .la-bp .tb span + span { border-left: 1px solid rgba(255,255,255,0.8); color: rgba(255,255,255,0.75); }
+
+  /* ============ 10 レトロポップ ============ */
+  .stage-retro { background: linear-gradient(160deg, #EAD9BF, #dcc6a4); }
+  .la-retro {
+    background: #F5E9D6;
+    padding: 15px 18px 20px;
+    font-family: "Kiwi Maru", "Zen Kaku Gothic New", serif;
+    color: #4A3320;
+  }
+  .la-retro::before {
+    content: ""; position: absolute; top: -34px; right: -34px;
+    width: 168px; height: 168px; border-radius: 50%;
+    background: radial-gradient(circle, transparent 0 36px, #E8632B 36px 55px, #E8A33D 55px 71px, #6B4A32 71px 83px, transparent 83px);
+    opacity: 0.85; pointer-events: none;
+  }
+  .la-retro::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px;
+    background: linear-gradient(180deg, #E8632B 0 3px, #E8A33D 3px 6px, #6B4A32 6px 9px);
+  }
+  .la-retro .eyebrow {
+    display: inline-block; background: #E8A33D; color: #4A3320;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    border-radius: 999px; padding: 2px 12px; margin-bottom: 7px;
+    position: relative; z-index: 1;
+  }
+  .la-retro .goal {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 15px; font-weight: 700; padding: 5px 0;
+    border-bottom: 1px dotted #C9A87C;
+    position: relative; z-index: 1;
+  }
+  .la-retro .goal:last-of-type { border-bottom: 0; }
+  .la-retro .fl { color: #E8632B; font-size: 13px; flex: 0 0 auto; }
+  .la-retro .counts { display: flex; align-items: center; gap: 10px; margin-top: 8px; position: relative; z-index: 1; }
+  .la-retro .badge { background: #E8632B; color: #FBF3E4; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 4px 13px; }
+  .la-retro .sub { font-size: 11px; color: #6B4A32; font-variant-numeric: tabular-nums; }
+
+  /* ============ summary ============ */
+  .summary { margin-top: 72px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 26px; }
+  .summary h2 { font-size: 16px; font-weight: 900; margin-bottom: 14px; }
+  .tbl-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 11.5px; white-space: nowrap; }
+  td:first-child { font-weight: 700; white-space: nowrap; }
+  .summary p.note { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
+</style>
+
+<div class="wrap">
+  <p class="kicker">DOPABREAK / LIVE ACTIVITY</p>
+  <h1>ロック画面テーマ10案</h1>
+  <p class="lede">現行の7テーマは<strong>同じレイアウトの配色替え</strong>です。この提案では構図・書体・モチーフから別物の10案に組み直しました。3枠は<strong>テーマごと入れ替え</strong>（墨と灯→ゲーミング／森林→シンプルモノクロ／夜更け→リキッドグラス）、さらに<strong>手書きノート・設計図・レトロポップ</strong>の3テーマを追加します。表示する中身（目標3件と今日の実績2つ）は全テーマ共通で、全案とも目標が主役です。</p>
+
+  <!-- 現状 -->
+  <div class="current">
+    <h2>現行の実態</h2>
+    <p>1レイアウト × 7パレット。アクセントバーもティックも区切り線も全テーマ同一です。</p>
+    <div class="mini-row">
+      <div>
+        <div class="mini" style="--m-accent:#B8FF3D; --m-text:#F4F2EC; --m-sub:#8B929E; background:#14171B;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">黒とライム</div>
+      </div>
+      <div>
+        <div class="mini" style="--m-accent:#E59E46; --m-text:#F7F0E1; --m-sub:#ABA08F; background:#1D1812;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">墨と灯</div>
+      </div>
+      <div>
+        <div class="mini" style="--m-accent:#5B7E99; --m-text:#1F252F; --m-sub:#5B6977; background:#FAFBFC;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">朝霧</div>
+      </div>
+      <div>
+        <div class="mini" style="--m-accent:#77D28B; --m-text:#EEF6F0; --m-sub:#8BA495; background:#0F251D;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">森林</div>
+      </div>
+      <div>
+        <div class="mini" style="--m-accent:#CAD5FF; --m-text:#EBEFFF; --m-sub:#9FABCA; background:#0D1F3A;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">夜更け</div>
+      </div>
+      <div>
+        <div class="mini" style="--m-accent:#EE3489; --m-text:#231F26; --m-sub:#685E6C; background:#F9F6FB;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">K-POP</div>
+      </div>
+      <div>
+        <div class="mini" style="--m-accent:#F25E89; --m-text:#442B31; --m-sub:#8B5B66; background:#FFFDFD;">
+          <div class="m-eyebrow">あなたの目標</div>
+          <div class="m-goal">英語で商談できる自分になる</div>
+          <div class="m-goal">朝のランニングを続ける</div>
+          <div class="m-line"></div>
+          <div class="m-count">12回<span>15回</span></div>
+        </div>
+        <div class="mini-name">かわいいピンク</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 01 黒とライム -->
+  <section class="proposal">
+    <div class="stage stage-e1">
+      <div class="la la-e1">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="goal">英語で商談できる自分になる</div>
+        <div class="goal">朝のランニングを続ける</div>
+        <div class="goal">読書を30分する</div>
+        <div class="divider"></div>
+        <div class="counts"><span class="a">今日は12回 開くのをやめた</span><span class="b">開こうとした 15回</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>黒とライム <span class="tag free">無料・既定</span></h3>
+      <p class="concept">現行維持を推奨。アプリ本体・通知・ストアスクショと同じ「黒＋ライムのエディトリアル」で統一された正のデザインのため、ここだけは変えない方が全体が締まります。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>左アクセントバー＋ティック付き目標リスト</span></li>
+        <li><b>書体</b><span>ゴシック太字</span></li>
+        <li><b>数字</b><span>テキスト1行</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 02 ゲーミング -->
+  <section class="proposal">
+    <div class="stage stage-game">
+      <div class="la-game-frame"><div class="la la-game">
+        <div class="top">
+          <span class="eyebrow">あなたの目標</span>
+        </div>
+        <div class="q"><span class="box"></span><span>英語で商談できる自分になる</span></div>
+        <div class="q"><span class="box"></span><span>朝のランニングを続ける</span></div>
+        <div class="q"><span class="box"></span><span>読書を30分する</span></div>
+        <div class="status"><span class="a">今日は12回 開くのをやめた</span><span class="b">開こうとした 15回</span></div>
+      </div></div>
+    </div>
+    <div class="notes">
+      <h3>ゲーミング <span class="tag">Pro</span> <span class="swap">墨と灯と入れ替え</span></h3>
+      <p class="concept">ゲームのクエストログ。全文をドット文字で組み、ネオングラデ枠とHUDコーナー、走査線で構成します。主役はチェックボックス付きのクエスト行（目標）で、実績は下部の小さなステータス行に置きます。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>HUDフレーム＋クエストリストが主役</span></li>
+        <li><b>書体</b><span>ドット文字（DotGothic16・OFLで埋め込み可）</span></li>
+        <li><b>モチーフ</b><span>ネオン枠・コーナーブラケット・走査線</span></li>
+        <li><b>数字</b><span>小さなステータス行（大数字なし）</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 03 朝霧 -->
+  <section class="proposal">
+    <div class="stage stage-asagiri">
+      <div class="la la-asagiri">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="goal">英語で商談できる自分になる</div>
+        <div class="haze"></div>
+        <div class="goal">朝のランニングを続ける</div>
+        <div class="haze"></div>
+        <div class="goal">読書を30分する</div>
+        <div class="counts">
+          <span><span class="n">12</span>回 開くのをやめた</span>
+          <span><span class="n" style="font-size:13px;">15</span>回 開こうとした</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>朝霧 <span class="tag">Pro</span></h3>
+      <p class="concept">完全中央軸の静かな組版。細いウェイトと広い字間、横に流れる霧の帯。装飾を全て抜いて余白で見せる、7案で唯一のライト×ミニマル。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>中央揃え・縦一列</span></li>
+        <li><b>書体</b><span>細ゴシック＋広め字間</span></li>
+        <li><b>モチーフ</b><span>霧のグラデーション帯・短いヘアライン</span></li>
+        <li><b>数字</b><span>数字だけ一回り大きく中央に</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 04 シンプルモノクロ -->
+  <section class="proposal">
+    <div class="stage stage-mono">
+      <div class="la la-mono">
+        <div class="top">
+          <span>あなたの目標</span>
+        </div>
+        <div class="g">英語で商談できる自分になる</div>
+        <div class="g">朝のランニングを続ける</div>
+        <div class="g">読書を30分する</div>
+        <div class="rule"></div>
+        <div class="foot"><span class="a">今日は12回 開くのをやめた</span><span class="b">開こうとした 15回</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>シンプルモノクロ <span class="tag">Pro</span> <span class="swap">森林と入れ替え</span></h3>
+      <p class="concept">白と黒だけのタイポグラフィ。目標3行を見出しサイズの極太黒で組み、実績は黒罫の下の小さな1行に収めます。装飾はゼロ。アプリの「SNSを開くと白黒になる」体験とも地続きです。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>目標の大型タイポが主役＋小さな脚注</span></li>
+        <li><b>書体</b><span>極太ゴシック（黒1色）</span></li>
+        <li><b>モチーフ</b><span>なし（無装飾が個性）</span></li>
+        <li><b>数字</b><span>下部の小さな1行</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 05 リキッドグラス -->
+  <section class="proposal">
+    <div class="stage stage-glass">
+      <div class="la la-glass">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="goal">英語で商談できる自分になる</div>
+        <div class="goal">朝のランニングを続ける</div>
+        <div class="goal">読書を30分する</div>
+        <div class="caps">
+          <span class="cap">今日は12回 開くのをやめた</span>
+          <span class="cap sub">開こうとした 15回</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>リキッドグラス <span class="tag">Pro</span> <span class="swap">夜更けと入れ替え</span></h3>
+      <p class="concept">iOS 26のガラス素材。壁紙が透けるすりガラスに縁のスペキュラーハイライト、実績はガラスのカプセルで持たせます。固有の色を持たない唯一のテーマで、ユーザーの壁紙が毎回デザインの一部になります。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>素材が主役の透過カード＋ガラスカプセル</span></li>
+        <li><b>書体</b><span>白のゴシック＋淡い影</span></li>
+        <li><b>モチーフ</b><span>すりガラス・縁の光・壁紙の透け</span></li>
+        <li><b>実装</b><span>背景tintを外しシステム素材に任せる（iOS 26ネイティブ）</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 06 K-POP -->
+  <section class="proposal">
+    <div class="stage stage-kpop">
+      <div class="la-kpop-frame"><div class="la la-kpop">
+        <div class="slash"></div>
+        <div class="badge">あなたの目標</div>
+        <div class="chips">
+          <div class="chip"><span class="st">★</span>英語で商談できる自分になる</div>
+          <div class="chip"><span class="st">★</span>朝のランニングを続ける</div>
+          <div class="chip"><span class="st">★</span>読書を30分する</div>
+        </div>
+        <div class="marquee"><span>今日は12回 開くのをやめた</span><span class="pink">★</span><span>開こうとした 15回</span></div>
+      </div></div>
+    </div>
+    <div class="notes">
+      <h3>K-POP <span class="tag">Pro</span></h3>
+      <p class="concept">コンサートポスター。ホログラフィック枠の中でチケット半券チップの目標3枚が主役、実績は最下部の電光マーキー帯に流します。7案で最も声が大きいデザイン。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>チケットチップが主役＋電光マーキー帯</span></li>
+        <li><b>書体</b><span>極太ゴシック＋ホロの光</span></li>
+        <li><b>モチーフ</b><span>ホロ枠・斜めの光・チケット・電光帯</span></li>
+        <li><b>数字</b><span>マーキー帯内の小テキスト</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 07 かわいいピンク -->
+  <section class="proposal">
+    <div class="stage stage-kawaii">
+      <div class="la la-kawaii">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="pill"><span class="hz">♥</span>英語で商談できる自分になる</div>
+        <div class="pill"><span class="hz">♥</span>朝のランニングを続ける</div>
+        <div class="pill"><span class="hz">♥</span>読書を30分する</div>
+        <div class="counts">
+          <div class="bubble">今日は12回 開くのをやめた</div>
+          <div class="sub">開こうとした 15回</div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>かわいいピンク <span class="tag">Pro</span></h3>
+      <p class="concept">まるだけで組む。目標はハート弾のバブルピル、回数はしっぽ付きの吹き出し、背景にひかえめな水玉。丸ゴシックで角を全て落とします（キャラクターIPは不使用）。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>バブルピルの積層＋吹き出し</span></li>
+        <li><b>書体</b><span>丸ゴシック（M PLUS Rounded）</span></li>
+        <li><b>モチーフ</b><span>ハート・水玉・吹き出し</span></li>
+        <li><b>数字</b><span>吹き出しバッジ</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 08 手書きノート -->
+  <section class="proposal">
+    <div class="stage stage-note">
+      <div class="la la-note">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="goal"><span class="cb"></span>英語で商談できる自分になる</div>
+        <div class="goal"><span class="cb"></span>朝のランニングを続ける</div>
+        <div class="goal"><span class="cb"></span>読書を30分する</div>
+        <div class="memo"><span class="a">今日は12回 開くのをやめた</span><span class="b">開こうとした 15回</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>手書きノート <span class="tag">Pro</span> <span class="swap">追加</span></h3>
+      <p class="concept">紙とペン。罫線ノートに手書き文字とよれた手描きチェックボックス、実績は赤ペンの小さな欄外メモ。10案で唯一のアナログ素材です。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>罫線ノート＋欄外メモ</span></li>
+        <li><b>書体</b><span>手書き（Klee One・OFLで埋め込み可）</span></li>
+        <li><b>モチーフ</b><span>罫線・赤マージン線・マスキングテープ</span></li>
+        <li><b>数字</b><span>赤ペンの小さな欄外メモ</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 09 設計図 -->
+  <section class="proposal">
+    <div class="stage stage-bp">
+      <div class="la la-bp">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="goal"><span class="node"></span><span class="lead"></span>英語で商談できる自分になる</div>
+        <div class="goal"><span class="node"></span><span class="lead"></span>朝のランニングを続ける</div>
+        <div class="goal"><span class="node"></span><span class="lead"></span>読書を30分する</div>
+        <div class="tb"><span>今日は12回 開くのをやめた</span><span>開こうとした 15回</span></div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>設計図 <span class="tag">Pro</span> <span class="swap">追加</span></h3>
+      <p class="concept">青焼きの製図シート。白いグリッドと点線フレームの中に、目標を引出線付きの注記として置きます。実績は製図の表題欄に小さく。目標を「人生の設計図」として見せる案です。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>製図シート＋引出線の注記</span></li>
+        <li><b>書体</b><span>白レタリング＋等幅数字</span></li>
+        <li><b>モチーフ</b><span>グリッド・点線フレーム・表題欄</span></li>
+        <li><b>数字</b><span>表題欄内の小テキスト</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 10 レトロポップ -->
+  <section class="proposal">
+    <div class="stage stage-retro">
+      <div class="la la-retro">
+        <div class="eyebrow">あなたの目標</div>
+        <div class="goal"><span class="fl">✽</span>英語で商談できる自分になる</div>
+        <div class="goal"><span class="fl">✽</span>朝のランニングを続ける</div>
+        <div class="goal"><span class="fl">✽</span>読書を30分する</div>
+        <div class="counts">
+          <span class="badge">今日は12回 開くのをやめた</span>
+          <span class="sub">開こうとした 15回</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>レトロポップ <span class="tag">Pro</span> <span class="swap">追加</span></h3>
+      <p class="concept">70年代の喫茶店。サンバーストの円弧と暖色3色ストライプ、丸っこいレトロ書体で組みます。かわいいピンク（パステル）ともK-POP（ホロ）とも違う暖色レトロの枠です。</p>
+      <ul class="spec">
+        <li><b>構図</b><span>サンバースト＋ストライプ＋リスト</span></li>
+        <li><b>書体</b><span>丸いレトロ体（Kiwi Maru・OFLで埋め込み可）</span></li>
+        <li><b>モチーフ</b><span>円弧の縞・3色ストライプ・花マーク</span></li>
+        <li><b>数字</b><span>小さな丸バッジ</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- summary -->
+  <div class="summary">
+    <h2>10案の差分一覧</h2>
+    <div class="tbl-scroll">
+      <table>
+        <tr><th>テーマ</th><th>構図</th><th>書体</th><th>数字の見せ方</th></tr>
+        <tr><td>黒とライム</td><td>左バー＋リスト（現行維持）</td><td>ゴシック太字</td><td>テキスト1行</td></tr>
+        <tr><td>ゲーミング</td><td>HUD＋クエストログ主役</td><td>ドット文字</td><td>小さなステータス行</td></tr>
+        <tr><td>朝霧</td><td>中央軸ミニマル</td><td>細ゴシック</td><td>下部の小さな行</td></tr>
+        <tr><td>シンプルモノクロ</td><td>目標の大型タイポ＋脚注</td><td>極太ゴシック</td><td>下部の小さな1行</td></tr>
+        <tr><td>リキッドグラス</td><td>透過ガラス＋カプセル</td><td>白ゴシック</td><td>ガラスカプセル内</td></tr>
+        <tr><td>K-POP</td><td>チケットチップ主役＋帯</td><td>極太ゴシック</td><td>マーキー帯内</td></tr>
+        <tr><td>かわいいピンク</td><td>バブルピル＋吹き出し</td><td>丸ゴシック</td><td>吹き出しバッジ</td></tr>
+        <tr><td>手書きノート</td><td>罫線ノート＋欄外メモ</td><td>手書き</td><td>赤ペンの欄外メモ</td></tr>
+        <tr><td>設計図</td><td>製図シート＋引出線</td><td>白レタリング</td><td>表題欄内</td></tr>
+        <tr><td>レトロポップ</td><td>サンバースト＋リスト</td><td>丸レトロ体</td><td>小さな丸バッジ</td></tr>
+      </table>
+    </div>
+    <p class="note">全案とも目標3件を視覚の主役にし、実績回数は小さな扱いに統一しています。WidgetKit（SwiftUIのLive Activity）で実装できる範囲で設計しています。画像アセット不要・グラデーションと図形とテキストのみ。高さは全案ロック画面上限160pt以内。表示文言は実装済みの確定コピーをそのまま使用しています。ゲーミングのドット文字（DotGothic16）・手書きノート（Klee One）・レトロポップ（Kiwi Maru）はいずれもSIL OFLでアプリ埋め込み可。リキッドグラスはiOS 26のシステムガラス素材をそのまま使えるため、10案の中で実装コストが最も低い案です。</p>
+  </div>
+</div>

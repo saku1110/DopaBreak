@@ -1083,3 +1083,56 @@
 - 却下案: iPhone筐体、手・写真表現、透かし、追加キャプション、余分なカード、大きな実績回数や目標以外の大きな数字は採用しない。
 - Claude Code向け制約: 画像をWidget実装の参照やスクリーンショット内カードとして再利用する場合も、カード単体・目標主体・小さい回数・指定日本語コピーを維持する。PNGは1536×1024 RGB、カードは左右均等余白を保つ。
 - 検証: `file` でPNG／1536×1024／RGB／非インターレースを確認した。
+
+## 2026-08-25 — DopaBreak ロック画面テーマ再設計 v2 実装
+
+- 作成・変更: `.claude/specs/lock-theme-redesign-v2.md` と `output/mockups/live-activity-themes/01〜10*.png` を正本として、`ios/WidgetsExtension/LockThemeLiveActivityView.swift` に10テーマのLive Activityカードを実装し、`DopaBreakWidgets.swift`、`SettingsLockSurfaceView.swift`、`LockScreenCheckView.swift` から同じViewを利用する構成にした。`AppModels.swift`、`SettingsStore.swift`、`LockScreenThemeDisplay.swift`、`Localizable.xcstrings`を10ケースと旧値移行へ更新した。Home WidgetとDynamic Islandのレイアウトは変更せず、全ケースのpalette参照を維持した。
+- 採用方針・却下案: 全テーマで目標3件を視覚の主役にし、実績回数は下部の小さな補助表示に限定した。高さは固定160pt、目標は最大3件・1行・縮小可能として40文字超にも対応する。ゲーミングはDotGothic16、手書きノートはZen Kurenaido、かわいいピンク／レトロポップはiOS同梱HiraMaruProN-W4を採用し、容量超過するKlee Oneや実績回数の大数字レイアウトは採用しなかった。リキッドグラスはiOS 26のsystem glassを使い、それ以前は`ultraThinMaterial`へフォールバックする。
+- フォント配布・制約: `DopaBreakFontResources`を専用Swift Packageリソースターゲットとして追加し、親アプリだけがリンクすることでTTF/OFLをアプリ内に1コピーだけ置く。アプリは専用bundle URLを明示してCoreTextへprocess登録し、Widget Extensionは親アプリbundleを探索して同じ実体を登録する。探索・登録に失敗した場合は必ずシステムフォントへ戻しクラッシュしない。`sumi→gaming`、`shinrin→monochrome`、`yozora→liquidGlass`、未知値→`e1`を読み出し時に正規化・永続化する。
+- Claude Code向け実装制約: 生成正本は`ios/project.yml`であり、共有テーマViewと`DopaBreakFontResources`依存をここから外さない。Live Activityカードは160pt固定、目標最大3件、長文縮小を維持する。`live_activity.*`の既存確定コピー、Home Widget／Dynamic Islandの構造、無料テーマが`e1`だけというEntitlementGateの条件を変更しない。
+- 検証: generic iOS deviceの全10ターゲットで`BUILD SUCCEEDED`。SimulatorのDopaBreakTestsは210件中196件成功・14件手動撮影用skip・失敗0、DopaBreakCoreは524件成功・失敗0。必須7項目（10ケース、移行、永続化、全palette、無料ゲート、Widget状態往復、全テーマ長文160pt）を自動テスト化した。最終.app内のフォントは専用bundle内のTTF 2件だけで、合計6,372,348 bytes（6.1 MiB未満）。
+
+## 2026-08-25 — ロック画面テーマ v2 独立レビュー指摘の是正
+
+- 変更: `ios/WidgetsExtension/LockThemeLiveActivityView.swift` で10テーマ本体を160pt最小キャンバス化し、背景より前にサイズを確定した。共通本文インセットを16ptとして枠線幅の半分を差し引く導出へ統一し、朝霧の目標は専用中央揃え、K-POPの実績帯は全幅、e1は旧2行・全周16pt・実績12pt・uppercaseを復元した。`ios/WidgetsExtension/DopaBreakWidgets.swift` はK-POP／かわいいピンクのActivity tintだけ実カード色へ合わせた。
+- データ・文言・性能: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift` の`WidgetSnapshot`復元を旧テーマ移行対応にし、`ios/DopaBreak/Localizable.xcstrings`へ確定済みLive Activityコピーをja/en/koで追加した。`BundledFontRegistrar.swift`は既定探索の失敗もキャッシュし、カスタムフォント成功時にも指定weightを適用する。フォントのresources配線と登録経路は変更していない。
+- 採用方針・却下案: 外側の固定160ptだけでサイズテストを通す案はレターボックスを検知できないため却下し、`isMeasuring`で外側frame/clippedを除いたテーマ本体を測る構造を採用した。各テーマ本体が156〜160pt、160pt超過なしであることを要求し、四辺の実ピクセル描画も検証する。e1は1〜2件時の旧間隔を維持し、3件時だけ負の小間隔と詰めた2行leadingで160ptへ収める。
+- Claude Code向け制約: 各テーマ固有の`.frame(minHeight: LockThemeLiveActivityView.maximumHeight)`を背景より外へ移動・削除しない。本文インセットは`cardInset`と`contentInset(borderWidth:)`から導出し、note左46ptだけを例外とする。`isMeasuring`経路へ固定heightやclipを足さず、e1の`lineLimit(2)`、asagiri中央揃え、K-POP全幅帯を維持する。
+- 検証: DopaBreakCore 525件・失敗0、DopaBreakTests 215件（14 skip）・失敗0。monochromeのminHeightを一時削除すると137pt・23pt letterboxとしてM2テストが失敗し、復元後は全10テーマの高さ・四辺ピクセル検査が成功した。generic iOSビルドは7依存ターゲットすべて`BUILD SUCCEEDED`。生成.app内TTFはDotGothic16.ttf 1件・ZenKurenaido.ttf 1件、PlugIns内0件。
+
+## 2026-08-25 — ロック画面テーマ v2 第2独立レビュー指摘 R1〜R7 の是正
+
+- 作成・変更: `ios/WidgetsExtension/LockThemeLiveActivityView.swift` のe1を正のVStack間隔・正のlineSpacing・3件時25pt行枠＋縮小へ直し、1〜3件の短文／長文で行、区切り線、実績行が交差しない構成にした。全テーマの外側水平paddingを16ptへ統一し、note左46ptだけを維持した。朝霧の実績数字だけ17pt medium＋青、K-POPのticket notch、かわいいピンクの吹き出しtailを実装した。`DopaBreakWidgets.swift`ではe1と朝霧のActivity tintを実カード背景へ合わせた。
+- 配線・設定: `ios/DopaBreak/GoalsView.swift` と `GoalEditorSheet.swift` は`model.lockSurfaceState.theme`をプレビューへ渡す。`SettingsStore.lockTheme` getterからUserDefaults書き込みを除去し、`migrateStoredValues()`を`AppModel`初期化時に明示的に呼ぶ一度きりの正規化へ移した。getter内正規化は読み取りスレッドから副作用が出るため却下し、paletteの恒真テストは全10件の承認RGB完全一致へ置換、旧値テストの重複も整理した。
+- テスト・制約: `ios/DopaBreakTests/LockThemeLiveActivityViewTests.swift` は393×160の実ウィンドウ描画からcontent／e1各行／divider／summaryの座標を取得し、全テーマ16pt（note左46pt）とe1の正の隙間を検証する。負の`-2 / 0 / -9`へ一時復帰すると新規長文3件テストが0pt gapで失敗し、復元後は対象6件成功。今後もe1の`lineLimit(2)`、水平16pt、実績12pt、uppercase、全テーマ160pt本体と四辺描画、K-POP全幅marquee、note左46ptを維持する。
+- 検証: generic iOS Simulator向け7依存ターゲットbuildは成功。DopaBreakCoreは525件・失敗0、iOSは217件中203件成功・手動撮影14件skip・失敗0。全10テーマの160pt上限／四辺描画／水平content位置をレンダリング検証した。最終`DopaBreak.app`直下はDotGothic16.ttfとZenKurenaido.ttfが各1コピー、`PlugIns`内フォント0件。
+
+## 2026-08-26 — ロック画面テーマ v2 最終クリーンアップ
+
+- 作成・変更: `ios/DopaBreakTests/LockThemeLiveActivityViewTests.swift` に `AppModel` 初期化時の保存テーマ移行配線テストと、e1目標文字の可視インク高10pt下限テストを追加し、描画ヘルパーを `.ignoresSafeArea()` へ統一した。`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/{Models/AppModels.swift,Storage/SettingsStore.swift}` は死んだ日本語 `displayName` を削除し、保存済み文字列 `e1` もnilへ正規化する。`ios/DopaBreak/LockScreenCheckView.swift` はテーマ引数を必須化し、`Localizable.xcstrings` から参照ゼロのpreview 3キーを削除した。`.claude/specs/lock-theme-redesign-v2.md` §3.1へe1の1〜2件／3件リズムと393:160の根拠を追記した。
+- デザイン判断: `ios/WidgetsExtension/LockThemeLiveActivityView.swift` のLiquid Glass実績カプセルは各テキストの内容幅へ戻し、noteの76×17ptテープは回転後も上端を欠かないy=1へ移した。Apple系UIの階層・可読性・クラフト原則に従い、カード半幅へ伸ばす案と装飾を意図的に切る案は却下した。R1〜R7、フォント配線、Proゲート、Home Widget、Dynamic Island、全テーマ水平16pt（note左46pt例外）は変更していない。
+- 変異・回帰検証: `AppContainer.swift` の `migrateStoredValues()` 呼び出しを一時削除すると新規配線テストが `sumi` 残存で1件失敗し、e1密レイアウト行高を25ptから12ptへ一時変更すると可視インクが8ptとなり下限10ptテストが1件失敗した。双方を復元後、iOS SimulatorでDopaBreakTests 219件（14 skip）・失敗0、DopaBreakCore 526件・失敗0。generic iOS Simulatorの7依存ターゲットは`BUILD SUCCEEDED`。全10テーマの160pt四辺描画／水平content位置テストも成功し、生成`DopaBreak.app`直下のDotGothic16.ttf／ZenKurenaido.ttfは各1コピー、`PlugIns`内0コピー。
+- Claude Code向け制約: `AppModel`初期化の明示移行呼び出し、e1の3件時25pt行高と可視インク10pt以上、描画ヘルパーのsafe-area無視を維持する。テーマ名はアプリ層の`localizedDisplayName`だけを使い、Coreへ日本語表示名やプレビューtheme既定値を戻さない。Liquid Glassカプセルへ`maxWidth: .infinity`を戻さず、noteテープをカード外へ負方向offsetしない。
+- 追記（2026-08-26・**Fable受け入れ**）: ロック画面テーマ再設計v2の実装を受け入れた。Codex実装→Opus5独立レビュー3周（1回目12件差し戻し／2回目R1〜R7差し戻し／3回目受け入れ可）→最終クリーンアップ。独立検証で iOS 219件（14 skip）・Core 526件が失敗0、フォントはアプリ直下に各1コピー・Extension内0コピー。残るはオーナーの実機確認（10テーマ切替表示／無料アカウントで9テーマがロックされること）。
+  - **この作業で得た再発防止**: ①「数値だけ満たして中身が壊れる」事故が2回発生した（e1を負の行間で押し潰して高さテストを通す等）。テストは意図的に壊して落ちることを毎回確認する ②DerivedDataは名前で当たりを付けず更新時刻で最新を特定する（古い成果物を見てフォント欠陥を誤報した） ③e1の密レイアウトは設計正本 §3.1 に明文化済み。善意で「§3.1どおりに復元」するとR1が再発するため触らないこと
+
+## 2026-08-26 — ロック画面テーマの英語表示修正と3ロケール描画回帰
+
+- 作成・変更: `ios/WidgetsExtension/LockThemeLiveActivityView.swift` はblueprint表題欄の外寸285ptを維持したまま左セルを174ptへ配分し、両セルへ水平6ptの内側余白を追加した。noteの英語実績行はZen Kurenaidoを維持し、`×`だけを9.5ptのrounded systemへフォールバックして0.4pt基線補正した。テスト用にBundleとLocaleを注入できるローカライズ経路と、カード・本文・blueprintセル／文字の描画座標アンカーを追加した。`ios/DopaBreakTests/LockThemeLiveActivityViewTests.swift` は10テーマ×ja/en/ko×実運用3段階の90枚を393×160で描画し、切り詰め相当の幅不足、カード境界超過、高さを検査する。blueprint/enの枠線・仕切り線から4pt以上の余白と、note/enの実画像も個別検査・添付する。
+- 採用方針・却下案: blueprint全体の拡幅やフォント縮小は既存構図とja/koの見た目を変えるため却下し、セル配分と内側余白だけを変更した。note実績行全体をsystem fontへ替える案は手書き感を失うため却下し、問題のあるU+00D7だけを局所調整した。`Localizable.xcstrings`の確定文言は変更していない。
+- Claude Code向け制約: blueprintの表題欄は全幅285pt、左セル174pt、各セル水平6ptを維持する。noteの実績行は`×`以外をZen Kurenaidoのままにする。ロケール試験は`-testLanguage`へ依存させず、ja/en/ko各`.lproj`のBundleとLocaleを明示注入する。全10テーマの高さ160pt、四辺描画、水平16pt（note左46pt例外）を維持し、Home WidgetとDynamic Islandには波及させない。
+- 変異・実測検証: blueprintのセル内paddingを一時的に戻すと英語表題・実績の左右4箇所が実測0ptとなり、新規回帰テストが4 assertionで失敗した。復元後、393×160の実描画でblueprint/enは左右6pt、note/enの`×`は周囲の小文字に釣り合うことを画像確認し、90枚すべて高さ160pt・カード境界内・実運用目標幅内だった。iOSは222件（14 skip）・失敗0、DopaBreakCoreは526件・失敗0、generic iOS Simulator向け7依存ターゲットは`BUILD SUCCEEDED`。既存の10テーマ四辺描画と水平padding検査も成功した。
+
+## 2026-08-26 — ゲーミング／手書きノートの韓国語専用書体
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/BundledFontRegistrar.swift` にGalmuri11（`Galmuri11-Regular`）とNanum Pen Script（`NanumPen-Regular`）を追加し、`ios/project.yml`／生成Xcode projectの親アプリresources phaseへ2フォントを追加した。`ios/WidgetsExtension/LockThemeLiveActivityView.swift` は表示`Locale`のlanguage codeが`ko`なら、ゲーミングの全テキストをGalmuri11、noteの全テキストをNanum Pen Scriptへ切り替える。`ios/DopaBreak/SettingsAboutView.swift` のOFL表示を4フォントへ更新し、`BundledFontIntegrationTests.swift`、`LockThemeLiveActivityViewTests.swift`、Coreの`LockThemeV2Tests.swift`を拡張した。
+- 採用方針・却下案: 文字列のハングル有無で部分置換する案は、韓国語UIで日本語目標を書く場合に選択が揺れ、Latin・数字との混植も残すため却下した。表示ロケールだけで行全体の書体を決め、韓国語noteでは既存の英語`×`局所補正を通さない。ja/enはDotGothic16／Zen Kurenaidoと英語noteの`×`補正を維持する。登録・親アプリ探索に失敗した場合は既存`registeredName == nil`経路からsystem fontへ戻す。
+- Claude Code向け制約: 4つのTTFは親`DopaBreak.app`直下だけに1コピーずつ置き、Widget resourcesへ追加しない。書体選択は`LockThemeFontPolicy`を唯一の表示ロケール判定点とし、目標タイトルの文字種判定を追加しない。10テーマの160pt本体、全周描画、水平16pt（note左46pt例外）、blueprint/en内側余白、note/enの`×`補正、既存90描画テスト、Home Widget／Dynamic Islandは維持する。
+- 変異・実測検証: 韓国語ゲーミングを一時的にDotGothic16へ戻すと選択テストとCoreText runテストが3 assertionで失敗し、`DotGothic16-Regular`＋`AppleSDGothicNeo-Regular`の混在を検出した。復元後、韓国語のgaming/noteを各393×160で実描画して目視し、CoreTextで「30분 독서하기 × 15」の全runがそれぞれGalmuri11／NanumPenだけであることを確認した。iOSは225件（14 skip）・失敗0、Coreは526件・失敗0、generic iOS Simulatorの7依存ターゲットは`BUILD SUCCEEDED`。生成app直下TTFは4件、Widget内0件、合計14,950,440 bytes（14.257851 MiB）。既存の10テーマ四辺描画・水平padding・90描画テストも成功した。
+
+## 2026-08-26 — ロック画面テーマピッカーのオンボ・設定・ホーム導線
+
+- 作成・変更: `ios/DopaBreak/LockThemePickerView.swift` に393×160固定キャンバスを等比縮小する10テーマ共通ピッカーと単体カードを追加した。`OnboardingFlow.swift` は `lockScreenCheck` と `prePaywallSummary` の間へ17番目の `lockThemePick` を追加し、保存・テーマ別計測・Pro注記・ペイウォール直前の選択カード再掲を実装した。`SettingsLockSurfaceView.swift` はチップ列と単独プレビューを共通ピッカーへ置換し、`HomeView.swift` はLive Activity有効時だけ目標カード直後に実掲出テーマの入口と明示的に閉じられる選択シートを追加した。`PaywallView.swift`、`Localizable.xcstrings`、`MeasurementFoundationTests.swift` も導線別placement、ja/en/ko文言、§6回帰へ更新した。
+- 採用方針・却下案: 10テーマの意匠を暗転・ぼかしなしで比較できる縦1列、332pt viewport（393pt幅でちょうど2枚、狭幅では2枚超が見える）、選択枠＋チェック、未解放時だけProバッジを採用した。保存値を実掲出値へ上書きする案、オンボで未解放テーマを即ペイウォールへ送る案、設定とホームで別実装にする案は、意思保持・設計正本・一貫性に反するため却下した。Apple HIGに従い行全体を44pt以上のタップ領域とし、ホームsheetには明示的な閉じる操作を置いた。
+- Claude Code向け制約: `LockThemePickerView` のAPI、`LockTheme.allCases`順、393×160の内部固定キャンバス、332pt viewport、未解放カードを隠さない仕様を維持する。オンボでは保存値をそのまま選べるが、実掲出は既存 `AppModel.lockSurfaceState` の権利ガードを必ず通す。設定の選択枠とオンボ／ホームの選択状態は非Observableな`SettingsStore`だけへ依存せずSwiftUI Stateにも同期する。ホームカードは `settingsStore.liveActivityEnabled` がfalseなら非表示、プレビューthemeは保存値でなく `model.lockSurfaceState.theme`、未解放タップは設定=`settings_theme_gate`／ホーム=`home_theme_gate`とする。
+- 検証: `xcodegen generate --spec project.yml`、generic iOS 7依存ターゲット `BUILD SUCCEEDED`、DopaBreakCore 526件失敗0、DopaBreakTests 230件中14件手動撮影skip・失敗0、最終差分後のMeasurementFoundationTests 19件失敗0。`OnboardingMotionCapture`は実行を含め成功。`scripts/lint-display-copy.py` と `scripts/audit-default-values.py` はexit 0、`git diff --check`もexit 0。`AppContainer.lockSurfaceState`、`EntitlementGate.lockThemeAllowed`、`LockThemeLiveActivityView`、`live_activity.*`、Home Widget、Dynamic Islandは変更していない。

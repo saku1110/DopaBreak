@@ -191,11 +191,19 @@ struct DopaBreakHomeWidget: Widget {
 struct DopaBreakLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DopaBreakActivityAttributes.self) { context in
-            liveActivityView(state: context.state)
-                .activityBackgroundTint(Color(lockThemeColor: theme(for: context.state).palette.background))
-                .activitySystemActionForegroundColor(
-                    Color(lockThemeColor: theme(for: context.state).palette.primaryText)
-                )
+            let resolvedTheme = theme(for: context.state)
+            if resolvedTheme == .liquidGlass {
+                liveActivityView(state: context.state)
+                    .activitySystemActionForegroundColor(.white)
+            } else {
+                liveActivityView(state: context.state)
+                    .activityBackgroundTint(
+                        Color(lockThemeColor: activityBackgroundColor(for: resolvedTheme))
+                    )
+                    .activitySystemActionForegroundColor(
+                        Color(lockThemeColor: resolvedTheme.palette.primaryText)
+                    )
+            }
         } dynamicIsland: { context in
             let palette = theme(for: context.state).palette
             return DynamicIsland {
@@ -270,67 +278,37 @@ struct DopaBreakLiveActivity: Widget {
 
     private func liveActivityView(
         state: DopaBreakActivityAttributes.ContentState
-    ) -> some View {
-        let palette = theme(for: state).palette
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(String(localized: "live_activity.goal.eyebrow", defaultValue: "あなたの目標"))
-                .font(.system(size: 10, weight: .bold))
-                .textCase(.uppercase)
-                .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
-
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(Array(state.goalTitles.enumerated()), id: \.offset) { _, title in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Rectangle()
-                            .fill(Color(lockThemeColor: palette.accent))
-                            .frame(width: 10, height: 2)
-                        Text(title)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(Color(lockThemeColor: palette.primaryText))
-                            .lineLimit(2)
-                    }
-                }
-            }
-
-            Rectangle()
-                .fill(Color(lockThemeColor: palette.secondaryText).opacity(0.25))
-                .frame(height: 1)
-
-            HStack(spacing: 14) {
-                Text(
-                    String(
-                        localized: "live_activity.summary.cancelled",
-                        defaultValue: "今日は\(state.todayCancelledCount)回 開くのをやめた"
-                    )
-                )
-                    .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text(
-                    String(
-                        localized: "live_activity.summary.attempted",
-                        defaultValue: "開こうとした \(state.todayAttemptCount)回"
-                    )
-                )
-                    .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .monospacedDigit()
-        }
-        .padding(16)
-        .background(Color(lockThemeColor: palette.card))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(Color(lockThemeColor: palette.accent))
-                .frame(width: 3)
-        }
+    ) -> LockThemeLiveActivityView {
+        LockThemeLiveActivityView(
+            theme: theme(for: state),
+            goalTitles: state.goalTitles,
+            cancelledCount: state.todayCancelledCount,
+            attemptCount: state.todayAttemptCount
+        )
     }
 
     private func theme(for state: DopaBreakActivityAttributes.ContentState) -> LockTheme {
-        LockTheme(rawValue: state.themeRawValue) ?? .e1
+        LockTheme(migratingRawValue: state.themeRawValue)
+    }
+
+    private func activityBackgroundColor(for theme: LockTheme) -> LockThemeColor {
+        switch theme {
+        case .e1, .kpop, .kawaiiPink:
+            return theme.palette.card
+        case .asagiri:
+            return .init(237, 241, 245)
+        default:
+            return theme.palette.background
+        }
     }
 }
 
 @main
 struct DopaBreakWidgetsBundle: WidgetBundle {
+    init() {
+        DopaBreakFontRegistrar.registerBundledFonts()
+    }
+
     var body: some Widget {
         DopaBreakHomeWidget()
         DopaBreakLiveActivity()

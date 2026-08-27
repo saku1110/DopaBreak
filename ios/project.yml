@@ -240,3 +240,20 @@ targets:
           - group.com.dopabreak.shared
     dependencies:
       - package: DopaBreakCore
+
+# Sandbox実機検証用スキーム（storeKitConfiguration なし）。
+# 既定の DopaBreak スキームは DopaBreak.storekit（ローカルStoreKitテスト環境）に紐づくため、
+# そのまま実機で購入しても Apple Sandbox には到達せず証跡にならない。実機の課金検証は必ずこちらで行う。
+schemes:
+  DopaBreak-Sandbox:
+    build:
+      targets:
+        DopaBreak: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

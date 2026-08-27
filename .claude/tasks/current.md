@@ -748,3 +748,13 @@
 - [x] レビュー2（指摘3件: シート経路safe area二重計上／余白+48pt過多／`\n`注入）→ 是正バッチ2（固定幅240ptで折返し制御）→ PNG目視・実測OK → Fable受け入れ → 42/ce/5d へ確定連絡済み
 - [x] 同梱: `lock_check.preview.cancelled` を実LAと一致（ja「やめた」／ko「함」・42依頼）
 - 実機確認（オーナー）: バーの高さが手元の iPhone の物理サイドボタンと合うかは実機でしか確認できない
+
+## 2026-08-27 実機検証（Sandbox課金＋通知）の準備（✅ 準備完了・実機操作はオーナー待ち）
+- 正本: `.claude/release-check/device-verification-runbook.md`（A-0〜A-6・B-1〜B-3の手順＋記録表）
+- 発見: 既定スキーム `DopaBreak` は `DopaBreak.storekit`（ローカルStoreKit環境）に紐づき、実機購入がApple Sandboxに到達しない → `ios/project.yml` に **`DopaBreak-Sandbox` スキーム**（StoreKit構成なし）を追加・xcodegen再生成・生成xcschemeに参照が無いことを確認
+- 実機向けビルド `xcodebuild -scheme DopaBreak-Sandbox -destination generic/platform=iOS -allowProvisioningUpdates` = BUILD SUCCEEDED。Team Provisioning Profile 5件が自動生成（ブロッカー#7は開発ビルドについて解消）
+- 実機: iPhone 16 Pro / iOS 26.6 / 開発者モードON / ローカルネットワークでペアリング済み（`xcrun devicectl`）
+- Sandboxテスター: 1件（`asc sandbox list`・rebirth.sakuraya@gmail.com・JPN・月額5分レート）。Billing Grace Period はASC未設定と推定（`asc subscriptions grace-periods view` attributes空）→ A-5(d) はSandbox限定で有効化してから
+- Apple公式仕様を取得（更新レート表・最大12回更新・設定>デベロッパ>Sandbox Account の操作・請求失敗シミュレート＝Allow Purchases & Renewals OFF・返金テストは `beginRefundRequest` 経由でアプリに無いためローカルStoreKit環境で代替）
+- 有料機能→操作経路の対応表はOpus5がコードから起こした（EntitlementGate.swift・各View の file:line 付き）。デバッグ用Pro強制スイッチは無し
+- 未コミット: `ios/project.yml`（スキーム追加）・本ランブック・本エントリ

@@ -16,7 +16,9 @@
 | 2 | 実機向け署名付きビルド | ✅ BUILD SUCCEEDED | `xcodebuild -scheme DopaBreak-Sandbox -destination generic/platform=iOS -allowProvisioningUpdates`。5ターゲット分の Team Provisioning Profile が自動生成された（ブロッカー#7は開発ビルドについて解消） |
 | 3 | ASC 商品カタログ | ✅ 4商品 READY_TO_SUBMIT | `monetization-check.md` §0 |
 | 4 | Sandboxテスター | ✅ 1件 | `asc sandbox list`: `rebirth.sakuraya@gmail.com`（JPN・更新レート＝月額5分・購入中断OFF・id `fda65997-…`） |
-| 5 | Billing Grace Period（ASC） | ⚠️ 未設定と推定 | `asc subscriptions grace-periods view --id 6794221254` の attributes が空。A-5の猶予期間テストは §4-5 の手順で **Sandbox限定の猶予期間を先に有効化**する |
+| 5 | Billing Grace Period（ASC） | ✅ **Sandbox限定で有効化済み**（2026-08-28） | `asc subscriptions grace-periods update --id 6794221254 --duration THREE_DAYS --renewal-type ALL_RENEWALS --opt-in false --sandbox-opt-in true` → `sandboxOptIn: true`。本番は未有効のまま。A-5(d) の前提手順は不要 |
+| 6 | Sandboxテスターの購入履歴 | ✅ 消去済み（2026-08-28） | `asc sandbox clear-history --confirm` → `cleared: true`。端末側は初回サインイン時点で空の状態から開始できる |
+| 7 | 実機用ビルド（コミット済みHEAD 487f4e6 から生成） | ✅ | `git archive` でスクラッチへ展開→xcodegen→`DopaBreak-Sandbox` を generic/platform=iOS でビルド。未コミットのテーマピッカー差し戻し分は含めない |
 
 ### ⚠️ なぜ既定の `DopaBreak` スキームでは駄目か
 既定スキームは `DopaBreak.storekit`（Xcode内蔵のローカルStoreKitテスト環境）に紐づいている。これで実機に入れて購入しても **Apple Sandbox には到達せず、購入シートも Apple のものではない**。証跡として無効。実機の課金検証は必ず `DopaBreak-Sandbox` で行う。ローカル環境は §4-5「返金」のみで意図的に使う。
@@ -157,7 +159,7 @@
 3. Clear Purchase History → サインアウト/イン
 
 **(d) Billing Grace Period / Billing Retry**
-前提: ASC > アプリ > 機能 > サブスクリプション > Billing Grace Period > **Set Up** → 期間を選択 → **Only Sandbox Environment** にチェック → Confirm（Apple公式手順。本番には影響しない）
+前提: **2026-08-28にFableがSandbox限定で有効化済み**（3日・全更新対象・本番OFF）。追加操作は不要
 1. 月額購入 → 設定 > デベロッパ > Sandbox Account > Manage > Account Settings > **Allow Purchases & Renewals を OFF**
 2. 5分後の更新が失敗 → **猶予期間中（5分）はアプリが使える** ☐（即ロックは不合格＝5cf4eeaで修正済みの挙動を確認）
 3. 猶予期限（更新失敗から5分）経過 → **ロックされる** ☐

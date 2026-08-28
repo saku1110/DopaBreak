@@ -412,7 +412,7 @@
 - 実装: `ios/DopaBreak/StoreService.swift` に純粋enum `IntroOfferDisplayPolicy`（既存 `PaywallDismissalPolicy` と同じポリシー分離パターン）を新設。`zeroPriceText` は `product.priceFormatStyle.precision(.fractionLength(0)).format(0)`（precision指定なしだとUSDで "$0.00" になるため必須。現行SDKでそのまま通る）。`updateAnnualIntroOfferInfo` のguardで `activeAnnualProduct` を束縛し `freeTrialText(for:product:)` へ渡す。
 - 3段フォールバック: ①期間＋ゼロ価格が揃う→`store.intro_offer.zero_price`（正常系）②ゼロ価格がnil/空白/**数字を含まない**（書式崩れで記号だけになった場合）→既存 `store.intro_offer.free`（「7日間無料」）③期間も取れない→`store.intro_offer.available`（「無料期間あり」）。空文字や壊れた表示にはならない。
 - 新規キー `store.intro_offer.zero_price`（**位置指定子必須**・語順が言語で逆転するため）: ja `%1$@ %2$@`→「7日間 ¥0」／ en `%2$@ for %1$@`→「$0 for 7 days」／ ko `%1$@ %2$@`→「7일 ₩0」。%1$@=期間・%2$@=ゼロ価格。
-- Claude Code向け制約: **CTA `paywall.action.start_free`（「7日間無料で始める」）をゼロ価格化しない**（CTAに金額を入れないオーナー恒久指示・2026-07-28）。`paywall.legal.annual_intro`（自動更新の法定表示）・`paywall.plan.annual.intro_fallback`（商品未取得時の異常系のため通貨不明）・`paywall.trial_reminder.*`（散文）・`store.intro_offer.duration.*` も不変。`store.intro_offer.free` はフォールバックで現役のため削除しない。位置指定子を1つでも落とすと3言語のいずれかで表示が壊れる。
+- Claude Code向け制約: ~~CTA `paywall.action.start_free`（「7日間無料で始める」）をゼロ価格化しない~~ → **2026-08-28にオーナーが例外を承認しCTAもゼロ価格化**（下記エントリ参照）。`paywall.legal.annual_intro`（自動更新の法定表示）・`paywall.plan.annual.intro_fallback`（商品未取得時の異常系のため通貨不明）・`paywall.trial_reminder.*`（散文）・`store.intro_offer.duration.*` も不変。`store.intro_offer.free` はフォールバックで現役のため削除しない。位置指定子を1つでも落とすと3言語のいずれかで表示が壊れる。
 - 検証: xcodegen成功・署名なしgeneric Simulator build `BUILD SUCCEEDED`・Core swift test 454件/失敗0・DopaBreakTests（UDID 1DCBD618・キャプチャ除外）**142件/失敗0**（新規 `IntroOfferDisplayTests` 15件含む）`TEST SUCCEEDED`・audit-default-values 0（calls=679）・lint-display-copy exit 0・`jq empty`と3言語translated・`git diff --check` clean。**実機表示（UDID DF6A380F）で「年間$39.99を一括請求・7日間 $0」を確認し、¥が混入しないことを実査**。Fableレビューで位置指定子の語順逆転を `String(format:)` により独立検証（en→"$0 for 7 days"）。指摘0件で受け入れ。
 - 実装体制: Codex利用上限（〜8/20 13:22）のため実装=Opus5サブエージェント／レビュー=Fable。
 - 効果測定: リリース前でトラフィックがゼロのためA/B検出不能。**理論で選んで置く変更**であり、リリース後はDL→トライアル開始率（SOSA中央値5.7%・目標8%）の方向監視のみ。下振れしたら1語戻す（二方向ドア）。
@@ -1136,3 +1136,39 @@
 - 採用方針・却下案: 10テーマの意匠を暗転・ぼかしなしで比較できる縦1列、332pt viewport（393pt幅でちょうど2枚、狭幅では2枚超が見える）、選択枠＋チェック、未解放時だけProバッジを採用した。保存値を実掲出値へ上書きする案、オンボで未解放テーマを即ペイウォールへ送る案、設定とホームで別実装にする案は、意思保持・設計正本・一貫性に反するため却下した。Apple HIGに従い行全体を44pt以上のタップ領域とし、ホームsheetには明示的な閉じる操作を置いた。
 - Claude Code向け制約: `LockThemePickerView` のAPI、`LockTheme.allCases`順、393×160の内部固定キャンバス、332pt viewport、未解放カードを隠さない仕様を維持する。オンボでは保存値をそのまま選べるが、実掲出は既存 `AppModel.lockSurfaceState` の権利ガードを必ず通す。設定の選択枠とオンボ／ホームの選択状態は非Observableな`SettingsStore`だけへ依存せずSwiftUI Stateにも同期する。ホームカードは `settingsStore.liveActivityEnabled` がfalseなら非表示、プレビューthemeは保存値でなく `model.lockSurfaceState.theme`、未解放タップは設定=`settings_theme_gate`／ホーム=`home_theme_gate`とする。
 - 検証: `xcodegen generate --spec project.yml`、generic iOS 7依存ターゲット `BUILD SUCCEEDED`、DopaBreakCore 526件失敗0、DopaBreakTests 230件中14件手動撮影skip・失敗0、最終差分後のMeasurementFoundationTests 19件失敗0。`OnboardingMotionCapture`は実行を含め成功。`scripts/lint-display-copy.py` と `scripts/audit-default-values.py` はexit 0、`git diff --check`もexit 0。`AppContainer.lockSurfaceState`、`EntitlementGate.lockThemeAllowed`、`LockThemeLiveActivityView`、`live_activity.*`、Home Widget、Dynamic Islandは変更していない。
+
+## 2026-08-26 — ロック画面テーマピッカー独立レビュー F1〜F8 是正
+
+- 作成・変更: `ios/DopaBreak/SettingsLockSurfaceView.swift` は選択枠とPro注記を `SettingsStore.lockTheme` の保存値から駆動し、親の `selectedLockTheme` は実掲出テーマの行ラベル用途を維持した。`ios/DopaBreak/OnboardingFlow.swift` はテーマ選択画面とペイウォール直前の注記だけを権利判定へ切り替えた。`ios/DopaBreak/LockThemePickerView.swift` は固定332ptの内側ScrollViewを廃止して `LazyVStack` だけを返し、幅393pt上限を比率計算の外側へ置いて700pt幅でも行高160ptに収め、未解放カードのVoiceOverラベルへPro状態を加えた。`ios/DopaBreak/HomeView.swift` はlarge sheet全体をScrollView化し、保存済み未解放テーマの注記を追加した。
+- 採用方針・却下案: スクロール所有者はオンボ／設定の既存画面ScrollViewとホームsheetへ一本化し、各テーマ変更では `refreshLockSurfaces(scheduleNotifications: false)` を使う。保存値をガード後の `.e1` へ置換する案、Proユーザーにもアップセル注記を残す案、393×160カードの周囲へiPad用レターボックスを残す案は、意思保持・事実性・実描画寸法に反するため却下した。`confirmLockThemeAndAdvance()` の2件計測は正本 §2.4どおりコードを変えず、`.claude/specs/lock-theme-picker-onboarding.md` に集計上の注記だけを追加した。
+- テスト・Claude Code向け制約: `ios/DopaBreakTests/MeasurementFoundationTests.swift` は設定／ホームそれぞれの画面選択ハンドラ、free＋保存済みProの設定表示、Proオンボの2注記非表示、700pt実ウィンドウで393×160になる行箱を固定した。今後も `LockThemePickerView` 自体へScrollViewや固定viewportを戻さず、設定のピッカー選択は保存値、設定親行とホームカードの実掲出表示は `model.lockSurfaceState.theme` を使い分ける。テーマだけの変更で通知再スケジュールを有効化しない。
+- 検証: `xcodegen generate --spec project.yml`、generic iOS Simulatorの7依存ターゲット `BUILD SUCCEEDED`。DopaBreakCore 526件失敗0、DopaBreakTests 233件中14件手動撮影skip・失敗0（`OnboardingMotionCapture`実行成功）、幅700pt回帰を含むMeasurementFoundationTests 22件失敗0。`scripts/lint-display-copy.py` と `scripts/audit-default-values.py` はexit 0、`git diff --check`もexit 0。`AppContainer.lockSurfaceState`、`EntitlementGate.lockThemeAllowed`、`LockThemeLiveActivityView`、`live_activity.*`、Home Widget、Dynamic Islandは変更していない。
+
+## 2026-08-26 — ロック画面テーマピッカー第2独立レビュー ND-1／ND-1b／ND-2／ND-4 是正
+
+- 作成・変更: `ios/DopaBreak/SettingsLockSurfaceView.swift` は保存テーマを初期値に持つ `@State savedLockTheme` を追加し、設定ピッカーの選択枠とPro注記をそのStateから描画する。許可済みテーマの選択時はState・親Binding・`SettingsStore`を同時更新する。「ロック画面で確かめる」とLive Activityトグルはピッカーより上へ移した。`ios/DopaBreak/LockThemePickerView.swift` は44pt最小高と`contentShape`をButton label内へ移し、実描画テスト用の選択テーマ通知を追加した。`ios/DopaBreakTests/MeasurementFoundationTests.swift` は恒等関数テストを廃止し、`UIHostingController`で設定画面を描画してfree＋保存`.kpop`の選択表示と、ガード後Bindingが`.e1`のまま`.e1`を選ぶ同値書き込み後の追随を検証する。
+- 採用方針・却下案: 非Observableな`SettingsStore`を`body`で直接読む案は同値Binding書き込み時に再描画されないため却下し、Homeと同じ保存値State同期を採用した。恒等ヘルパーや権利判定だけの単体テストは表示回帰を検知できないため廃止し、実ビューで選択カードが描画された事実を待つ方式にした。ピッカーを機能トグルより先に置く構成は主要操作を約1,600pt下へ埋めるため、論理順も含めて操作行を先頭へ戻した。
+- Claude Code向け制約: `savedLockTheme`をガード後の`selectedLockTheme`へ置換せず、許可済み選択時のState更新を削除しない。`AppContainer.lockSurfaceState`の権利ガード、`EntitlementGate.lockThemeAllowed`、F2〜F8は変更していない。特に`LockThemePreviewCard`末尾の`.aspectRatio(393 / 160, contentMode: .fit)`→`.frame(maxWidth: 393)`順序を維持する。テスト用通知は既定nilで、本番の選択挙動を変更しない。
+- 検証: 新規UIHostingControllerテストは正常実装で成功し、`savedLockTheme = allowedTheme`を一時削除すると失敗することを確認後に復元した。DopaBreakTestsは233件中219件成功・14件skip・失敗0、DopaBreakCoreは526件失敗0。generic iOS Simulatorの7ターゲットは`BUILD SUCCEEDED`、`scripts/lint-display-copy.py`、`scripts/audit-default-values.py`、`git diff --check`はexit 0。
+
+## 2026-08-26 — ロック済みテーマの購入待ち選択を保存（ND-5）
+
+- 作成・変更: `ios/DopaBreak/SettingsLockSurfaceView.swift` と `ios/DopaBreak/HomeView.swift` のテーマ選択ハンドラを、許可判定より先に選択コールバックを必ず実行する構造へ変更した。無料ユーザーのProテーマ選択でも表示用State、`SettingsStore.lockTheme`、`refreshLockSurfaces(scheduleNotifications: false)`を更新し、その後だけ設定=`settingsThemeGate`／ホーム=`homeThemeGate`を提示する。`ios/DopaBreakTests/MeasurementFoundationTests.swift`へ設計正本の5経路をハンドラ実挙動で検証するテストを追加した。
+- 採用方針・却下案: 新しい保留フィールドやフラグは作らず、保存値と描画直前の既存権利ガードを分離する二層構造を採用した。ロック済み選択を捨てる案、ペイウォール提示後に保存する案、無料ユーザー向け描画ガードを緩める案は、購入後の選び直し、遷移中の保存欠落、権利漏れを生むため却下した。Apple系UIの即時応答と既存のシート遷移を維持し、外観やモーションは変更していない。
+- Claude Code向け制約: 両ハンドラの順序は必ず`onSelect`→未解放判定→`onLocked`とする。ホームは`onLocked`内でピッカーを閉じてから既存のonDismiss経路でペイウォールへ進む。`AppContainer.lockSurfaceState`、`EntitlementGate.lockThemeAllowed`、`LockThemeLiveActivityView`、`LockThemePreviewCard`の`.aspectRatio`→`.frame(maxWidth: 393)`順序には触れていないため今後も維持する。
+- 検証: 追加5経路を含むMeasurementFoundationTests 26件失敗0。DopaBreakCore 526件失敗0、DopaBreakTests 237件中14件手動撮影skip・失敗0、generic iOS Simulatorの7依存ターゲットは`BUILD SUCCEEDED`。`scripts/lint-display-copy.py`と`scripts/audit-default-values.py`、`git diff --check`はexit 0。
+
+## 2026-08-26 — 設定ロックテーマ行の実掲出セマンティクス修正
+
+- 作成・変更: `ios/DopaBreak/SettingsLockSurfaceView.swift` のテーマ選択処理で、保存値更新と `refreshLockSurfaces(scheduleNotifications: false)` の後に、親の `selectedLockTheme` へ権利ガード後の `model.lockSurfaceState.theme` を代入するよう修正した。`ios/DopaBreakTests/MeasurementFoundationTests.swift` は設定画面を `UIHostingController` で描画し、本番の `selectTheme` ハンドラを通してfree／Proの親Binding、選択カード描画、保存値、ペイウォールを観測する回帰テストへ更新した。
+- 採用方針・却下案: Apple系UIの予測可能性と即時応答を保つため、`savedLockTheme` と `SettingsStore.lockTheme` はユーザーが押した保存テーマ、設定親行のBindingは実機に出るガード後テーマという二層の意味を維持した。生の選択値を親行へ渡す案、保存済みProテーマを `.e1` へ戻す案、恒等関数だけを試験する案は、実機との表示不一致・購入待ち選択の喪失・ハンドラ配線の未検証を招くため却下した。
+- Claude Code向け制約: 選択処理は `savedLockTheme` 更新／`SettingsStore.lockTheme` 保存／`refreshLockSurfaces(scheduleNotifications: false)`／親Bindingへ `model.lockSurfaceState.theme` 反映の順を維持し、その後に既存ハンドラが `.settingsThemeGate` を提示する。Home側、`AppContainer.lockSurfaceState`、`EntitlementGate.lockThemeAllowed`、`LockThemePreviewCard` の `.aspectRatio`→`.frame(maxWidth: 393)` は変更していない。
+- 検証: 実ビューハンドラを通るfree／Pro回帰を含むMeasurementFoundationTests 27件失敗0。DopaBreakTests 238件中14件手動撮影skip・失敗0、DopaBreakCore 526件失敗0、generic iOS Simulatorの7依存ターゲットは `BUILD SUCCEEDED`。`scripts/lint-display-copy.py` と `scripts/audit-default-values.py`、`git diff --check` はexit 0。
+
+## 2026-08-28 — ペイウォールCTAのゼロ価格化「7日間無料で始める」→「7日間 ¥0で始める」（オーナー承認「例外を認める」）
+- 経緯: 8/18のカード側ゼロ価格採用時、CTAは「CTAに金額禁止」（7/28恒久指示）で除外していた。オーナーが「ボタンに出さないと効果なくない？」と指摘 → `/brainstorm`（議事録 `.claude/brainstorm/2026-08-28_paywall-cta-zero-price.md`）で行動経済学・心理学から検証
+- 判断根拠: ゼロ価格効果（Shampanier, Mazar & Ariely 2007）は感情由来で強いが「free vs $0」の語の差の実証は無い。効き所は単独効果より **カード「¥0」→ボタン「無料」の枠組みの切替を無くす一貫性**（説得知識モデル）。コストゼロ・可逆・法務低リスク。元ネタ（X・+35%）は根拠にしない。期待は1桁%（未確認の推定）
+- ルール改定: CLAUDE.md「CTAに金額を入れない」へ **例外: ゼロ価格のトライアル訴求のみ可** を追記（グローバル）。通貨リテラル禁止・適格時のみ表示は不変
+- 実装方針: 新キー `paywall.action.start_zero_price`（位置指定子必須 %1$@=期間・%2$@=ゼロ価格）。ゼロ価格が組めない時は既存 `paywall.action.start_free` へフォールバック。法定行・カード・リマインダー・適格false時の文言は不変。ボタンに入れる数字は¥0の1つだけ（¥4,980を併記しない）
+- 差し替え候補（未採用）: 「今日は ¥0で始める」（現在バイアス直撃）。リリース後の前後比較で検討
+- 検証: リリース後 `paywall_shown`→`trial_or_purchase_started` の前後比較（表示1,000件まで）。悪化なら3キーを戻す

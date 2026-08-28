@@ -407,7 +407,8 @@ struct PaywallView: View {
 
     private var primaryButtonTitle: String {
         if selectedPlan == .annual, storeService.isEligibleForAnnualIntroOffer {
-            return String(localized: "paywall.action.start_free", defaultValue: "\(annualIntroOfferDurationText)無料で始める")
+            return storeService.annualIntroOfferCTAText
+                ?? String(localized: "paywall.action.start_free", defaultValue: "\(annualIntroOfferDurationText)無料で始める")
         }
         return String(localized: "paywall.action.start_plan", defaultValue: "\(planTitle(selectedPlan))プランを始める")
     }

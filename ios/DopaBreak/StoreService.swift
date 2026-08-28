@@ -44,6 +44,19 @@ enum IntroOfferDisplayPolicy {
         }
     }
 
+    static func ctaText(durationText: String?, zeroPriceText: String?) -> String? {
+        guard case .durationWithZeroPrice(let duration, let zeroPrice) = planCardStyle(
+            durationText: durationText,
+            zeroPriceText: zeroPriceText
+        ) else {
+            return nil
+        }
+        return String(
+            localized: "paywall.action.start_zero_price",
+            defaultValue: "\(duration) \(zeroPrice)で始める"
+        )
+    }
+
     /// 書式化が崩れて記号だけ・空文字になった値は使わない。金額として読めるものだけ通す。
     static func normalizedZeroPriceText(_ text: String?) -> String? {
         guard let trimmed = normalizedText(text),
@@ -109,6 +122,7 @@ final class StoreService {
     private(set) var paywallProducts: [Product] = []
     private(set) var annualIntroOfferText: String?
     private(set) var annualIntroOfferDurationText: String?
+    private(set) var annualIntroOfferCTAText: String?
     private(set) var isEligibleForAnnualIntroOffer = false
     private(set) var isPro = false
     private(set) var hasResolvedEntitlement = false
@@ -712,20 +726,23 @@ final class StoreService {
               introductoryOffer.paymentMode == .freeTrial else {
             annualIntroOfferText = nil
             annualIntroOfferDurationText = nil
+            annualIntroOfferCTAText = nil
             isEligibleForAnnualIntroOffer = false
             return
         }
 
-        annualIntroOfferText = freeTrialText(for: introductoryOffer, product: product)
-        annualIntroOfferDurationText = freeTrialDurationText(for: introductoryOffer)
-        isEligibleForAnnualIntroOffer = await subscription.isEligibleForIntroOffer
-    }
-
-    private func freeTrialText(for offer: Product.SubscriptionOffer, product: Product) -> String {
-        IntroOfferDisplayPolicy.planCardText(
-            durationText: freeTrialDurationText(for: offer),
-            zeroPriceText: zeroPriceText(for: product)
+        let durationText = freeTrialDurationText(for: introductoryOffer)
+        let zeroPriceText = zeroPriceText(for: product)
+        annualIntroOfferText = IntroOfferDisplayPolicy.planCardText(
+            durationText: durationText,
+            zeroPriceText: zeroPriceText
         )
+        annualIntroOfferDurationText = durationText
+        annualIntroOfferCTAText = IntroOfferDisplayPolicy.ctaText(
+            durationText: durationText,
+            zeroPriceText: zeroPriceText
+        )
+        isEligibleForAnnualIntroOffer = await subscription.isEligibleForIntroOffer
     }
 
     /// 通貨記号はStoreKitの価格書式に決めさせる。0はJPYでもUSDでも小数部なしで見せる。

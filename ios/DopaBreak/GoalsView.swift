@@ -1,9 +1,23 @@
 import DopaBreakCore
 import SwiftUI
 
+enum GoalsAddRequestPolicy {
+    static func shouldPresent(request: UUID?, consumed: UUID?) -> Bool {
+        guard let request else { return false }
+        return request != consumed
+    }
+}
+
 struct GoalsView: View {
     let model: AppModel
+    @Binding private var addRequest: UUID?
     @State private var editorRoute: GoalEditorRoute?
+    @State private var consumedAddRequest: UUID?
+
+    init(model: AppModel, addRequest: Binding<UUID?> = .constant(nil)) {
+        self.model = model
+        _addRequest = addRequest
+    }
 
     var body: some View {
         NavigationStack {
@@ -61,9 +75,13 @@ struct GoalsView: View {
         .onAppear {
             model.refresh()
             model.isChildModalActive = isAnyChildModalPresented
+            consumeAddRequestIfNeeded()
         }
         .onChange(of: isAnyChildModalPresented) { _, isPresented in
             model.isChildModalActive = isPresented
+        }
+        .onChange(of: addRequest) { _, _ in
+            consumeAddRequestIfNeeded()
         }
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
@@ -86,7 +104,7 @@ struct GoalsView: View {
                 SmallLabel(
                     text: String(
                         localized: "goals.preview.title",
-                        defaultValue: "開こうとした瞬間に見える画面"
+                        defaultValue: "対象アプリを開く前に表示される画面"
                     )
                 )
                 Spacer(minLength: 8)
@@ -108,23 +126,30 @@ struct GoalsView: View {
     }
 
     private var emptyRow: some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 18) {
-                SmallLabel(text: String(localized: "goals.empty.label", defaultValue: "目標"))
-                Text(String(localized: "goals.empty.title", defaultValue: "目標を決める"))
-                    .dopaFont(24, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
+        Button {
+            editorRoute = GoalEditorRoute(goal: nil)
+        } label: {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 18) {
+                    SmallLabel(text: String(localized: "goals.empty.label", defaultValue: "目標"))
+                    Text(String(localized: "goals.empty.title", defaultValue: "目標を決める"))
+                        .dopaFont(24, weight: .bold)
+                        .foregroundStyle(DesignTokens.primaryText)
 
-                Text(
-                    String(
-                        localized: "goals.empty.description",
-                        defaultValue: "アプリを開こうとしたときに目標が表示されます 例 英語で話せるようになる"
+                    Text(
+                        String(
+                            localized: "goals.empty.description",
+                            defaultValue: "目標を設定すると、対象アプリを開く前に表示されます。例：英語で話せるようになる"
+                        )
                     )
-                )
-                    .dopaFont(14, weight: .medium, lineSpacing: 3)
-                    .foregroundStyle(DesignTokens.secondaryText)
+                        .dopaFont(14, weight: .medium, lineSpacing: 3)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(
@@ -161,7 +186,9 @@ struct GoalsView: View {
                         .dopaFont(13, weight: .bold)
                         .foregroundStyle(DesignTokens.secondaryText)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .listRowBackground(Color.clear)
@@ -218,6 +245,21 @@ struct GoalsView: View {
         for index in offsets {
             let goal = model.goals[index]
             model.deleteGoal(id: goal.id)
+        }
+    }
+
+    private func consumeAddRequestIfNeeded() {
+        let request = addRequest
+        guard GoalsAddRequestPolicy.shouldPresent(
+            request: request,
+            consumed: consumedAddRequest
+        ) else { return }
+
+        consumedAddRequest = request
+        DispatchQueue.main.async {
+            guard editorRoute == nil else { return }
+            editorRoute = GoalEditorRoute(goal: nil)
+            addRequest = nil
         }
     }
 }

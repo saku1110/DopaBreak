@@ -1172,3 +1172,12 @@
 - 実装方針: 新キー `paywall.action.start_zero_price`（位置指定子必須 %1$@=期間・%2$@=ゼロ価格）。ゼロ価格が組めない時は既存 `paywall.action.start_free` へフォールバック。法定行・カード・リマインダー・適格false時の文言は不変。ボタンに入れる数字は¥0の1つだけ（¥4,980を併記しない）
 - 差し替え候補（未採用）: 「今日は ¥0で始める」（現在バイアス直撃）。リリース後の前後比較で検討
 - 検証: リリース後 `paywall_shown`→`trial_or_purchase_started` の前後比較（表示1,000件まで）。悪化なら3キーを戻す
+
+## 2026-08-29 — 設定「止める強さ」カードの全幅縦積み化
+
+- 作成・変更: `ios/DopaBreak/SettingsView.swift` の `modeSection`／`modeCard` を3列 `LazyVGrid` から全幅 `VStack` の3行カードへ変更した。アイコン、タイトル、説明、Proカプセル、選択時checkmarkを横一列へ配置し、説明文は固定行数なしの自然高で描画する。`ios/DopaBreakTests/MeasurementFoundationTests.swift` に実ホスト経路でjaの3カード全文を画像OCRで確認する回帰テストと、1320×2868の `output/verify/settings-mode-cards.png` 撮影テストを追加した。
+- 採用方針・却下案: 全幅化により説明文の折り返し幅を確保し、既存の選択色・ストローク・外側リング・Pro表示・44pt以上のタップ領域を維持した。3列グリッド、`lineLimit`、固定 `minHeight: 116` は狭幅での切り詰めを残すため採用していない。文言、選択ロジック、ペイウォール分岐、String Catalogは変更していない。
+- Claude Code向け制約: `InterventionMode.selectable` の順序、`setSelectedMode`、`modeAllowedForCurrentEntitlement`、`modeSymbolName`、`SmallLabel`、`CardContainer`、既存の背景／境界／角丸／アクセシビリティtraitを維持する。日本語・英語・韓国語の各 `displayTitle`／`detailText` を省略せず、Proとcheckmarkが同時に成立する場合は両方を表示する。検証画像は `output/verify/settings-mode-cards.png` の正本とする。
+- 検証: iPhone 16 Pro Max（iOS 26.5）で追加2テストを実行し、全3タイトル・3説明文の全文認識とPNG出力を確認した。DopaBreak本体の `xcodebuild` ビルドおよび対象テストは成功した。
+- レビュー是正（Opus5指摘・同日）: `String(localized:)` はプロセス言語で解決されSwiftUIの `.environment(\.locale)` では切り替わらないため、OCR回帰テスト冒頭に日本語コピー一致の `XCTSkipUnless` を追加し非ja環境での空振り合格を防いだ。選択checkmarkへ `.accessibilityHidden(true)` を追加し `.isSelected` traitとの二重読み上げを防止。是正後も対象テストは `TEST SUCCEEDED`。カード間タップ領域の隣接（標準iOSリストと同挙動）と、並走セッションのシグネチャ変更起因でテストファイル内に足した `SettingsNotificationsView` 互換イニシャライザは許容と判断した。
+

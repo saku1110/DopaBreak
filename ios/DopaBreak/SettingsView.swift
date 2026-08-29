@@ -408,20 +408,13 @@ struct SettingsView: View {
                     text: String(localized: "settings.mode.label", defaultValue: "止める強さ")
                 )
 
-                LazyVGrid(columns: modeColumns, alignment: .leading, spacing: 8) {
+                VStack(spacing: 0) {
                     ForEach(InterventionMode.selectable, id: \.self) { mode in
                         modeCard(mode)
                     }
                 }
             }
         }
-    }
-
-    private var modeColumns: [GridItem] {
-        if dynamicTypeSize.isAccessibilitySize {
-            return [GridItem(.flexible())]
-        }
-        return Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
     }
 
     private func modeCard(_ mode: InterventionMode) -> some View {
@@ -431,45 +424,48 @@ struct SettingsView: View {
         return Button {
             setSelectedMode(mode)
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top) {
-                    SettingsIconTile(
-                        systemName: modeSymbolName(mode),
-                        background: isSelected
-                            ? DesignTokens.accent.opacity(0.14)
-                            : Color(red: 44 / 255, green: 49 / 255, blue: 57 / 255),
-                        foreground: isSelected ? DesignTokens.accent : .white
-                    )
+            HStack(alignment: .center, spacing: 12) {
+                SettingsIconTile(
+                    systemName: modeSymbolName(mode),
+                    background: isSelected
+                        ? DesignTokens.accent.opacity(0.14)
+                        : Color(red: 44 / 255, green: 49 / 255, blue: 57 / 255),
+                    foreground: isSelected ? DesignTokens.accent : .white
+                )
 
-                    Spacer(minLength: 4)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(mode.displayTitle)
+                        .dopaFont(15, weight: .bold)
+                        .foregroundStyle(DesignTokens.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    if isLocked {
-                        Text(String(localized: "settings.status.pro", defaultValue: "Pro"))
-                            .dopaFont(9, weight: .black)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(DesignTokens.backgroundRaised)
-                            .clipShape(Capsule())
-                    }
+                    Text(mode.detailText)
+                        .dopaFont(12, weight: .medium, lineSpacing: 2)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if isLocked {
+                    Text(String(localized: "settings.status.pro", defaultValue: "Pro"))
+                        .dopaFont(9, weight: .black)
+                        .foregroundStyle(DesignTokens.primaryText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(DesignTokens.backgroundRaised)
+                        .clipShape(Capsule())
                 }
 
-                // 3列だと「ディープフォーカス」が1行に収まらない。強さの名前が読めないと
-                // どれを選んでいるか分からなくなるため、名前だけは折り返して全部出す。
-                Text(mode.displayTitle)
-                    .dopaFont(13, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(mode.detailText)
-                    .dopaFont(11, weight: .medium, lineSpacing: 2)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .topLeading)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .dopaFont(16, weight: .bold)
+                        .foregroundStyle(DesignTokens.accent)
+                        .accessibilityHidden(true)
+                }
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .background(isSelected ? DesignTokens.accent.opacity(0.06) : DesignTokens.backgroundRaised)
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

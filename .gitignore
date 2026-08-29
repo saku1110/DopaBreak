@@ -1,4 +1,6 @@
 .DS_Store
+build/
+ios/build/
 ios/.deriveddata*/
 ios/**/.build/
 ios/**/xcuserdata/
@@ -19,3 +21,4 @@ creatives/
 
 # エージェント用worktree（巨大・一時作業ディレクトリ）
 .claude/worktrees/
+.asc/

@@ -32,24 +32,22 @@ public enum NotificationIdentifier {
     /// ユーザーが自分で決めた終わりなので、深夜帯の繰り延べは当てない。
     public static let deepFocusSessionEnd = "dopabreak.deepfocus.sessionend"
 
-    /// 介入セッションの中間チェックイン通知の接頭辞（着地先ではなくシート提示を持つ）。
-    public static let midSessionPrefix = "dopabreak.midsession."
-
     /// 廃止済み通知の識別子。予約が端末に残っていると古いコピーで発火するため掃除し続ける。
     /// - `dopabreak.day14warning`: 14日時限開放の撤回（2026-08-11）に伴い廃止。
     public static let legacyIdentifiers = ["dopabreak.day14warning"]
+
+    /// UUIDを末尾に持つため完全一致で消せない廃止済み通知の接頭辞。
+    /// 通常SNSの実利用時間は取得できないため、時間切れと中間チェックインを廃止した。
+    public static let legacyPrefixes = [
+        "dopabreak.timeup.",
+        "dopabreak.midsession.",
+        "dopabreak.usagewatch."
+    ]
 }
 
 /// 識別子から着地先を決める（docs/18 §2f）。
 public enum NotificationRouting {
     public static func destination(forIdentifier identifier: String) -> NotificationDestination? {
-        if identifier.hasPrefix(UsageWatchConstants.notificationIdentifierPrefix) {
-            return .stats
-        }
-        if identifier.hasPrefix(NotificationIdentifier.midSessionPrefix) {
-            return nil
-        }
-
         switch identifier {
         case NotificationIdentifier.morning,
              NotificationIdentifier.weekly,

@@ -35,9 +35,6 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(store.lockScreenCheckCompleted)
         XCTAssertNil(store.lockThemeRawValue)
         XCTAssertEqual(store.lockTheme, .e1)
-        XCTAssertFalse(store.usageWatchEnabled)
-        XCTAssertEqual(store.usageWatchQuestionIntervalMinutes, 15)
-        XCTAssertFalse(store.usageWatchNightModeEnabled)
         XCTAssertNil(store.pendingNotificationDestination)
     }
 
@@ -111,9 +108,9 @@ final class SettingsStoreTests: XCTestCase {
         store.reviewPromptEventDates = [eventDate]
         store.retentionSupportNotificationsEnabled = false
         store.planNotificationsEnabled = false
-        store.usageWatchEnabled = true
-        store.usageWatchQuestionIntervalMinutes = 60
-        store.usageWatchNightModeEnabled = true
+        defaults.set(true, forKey: "usageWatchEnabled")
+        defaults.set(60, forKey: "usageWatchQuestionIntervalMinutes")
+        defaults.set(true, forKey: "usageWatchNightModeEnabled")
         store.pendingNotificationDestination = PendingNotificationDestination(
             destination: .stats,
             writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
@@ -124,9 +121,9 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.reviewPromptEventDates, [eventDate])
         XCTAssertTrue(store.retentionSupportNotificationsEnabled)
         XCTAssertTrue(store.planNotificationsEnabled)
-        XCTAssertFalse(store.usageWatchEnabled)
-        XCTAssertEqual(store.usageWatchQuestionIntervalMinutes, 15)
-        XCTAssertFalse(store.usageWatchNightModeEnabled)
+        XCTAssertNil(defaults.object(forKey: "usageWatchEnabled"))
+        XCTAssertNil(defaults.object(forKey: "usageWatchQuestionIntervalMinutes"))
+        XCTAssertNil(defaults.object(forKey: "usageWatchNightModeEnabled"))
         XCTAssertNil(store.pendingNotificationDestination)
         XCTAssertNotNil(defaults.object(forKey: "reviewPromptEventDates"))
     }
@@ -159,46 +156,11 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "cancelSaveNotificationFireDate"))
     }
 
-    func testUsageWatchSettingsPersistAndRejectUnsupportedInterval() {
-        store.usageWatchEnabled = true
-        store.usageWatchQuestionIntervalMinutes = 60
-        store.usageWatchNightModeEnabled = true
-        store.pendingNotificationDestination = PendingNotificationDestination(
-            destination: .stats,
-            writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
-        )
+    func testMigrationRemovesLegacyMidSessionCheckIn() {
+        defaults.set(Data([0x01]), forKey: "pendingMidSessionCheckIn")
 
-        let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertTrue(reloaded.usageWatchEnabled)
-        XCTAssertEqual(reloaded.usageWatchQuestionIntervalMinutes, 60)
-        XCTAssertTrue(reloaded.usageWatchNightModeEnabled)
-        XCTAssertEqual(
-            reloaded.pendingNotificationDestination,
-            PendingNotificationDestination(
-                destination: .stats,
-                writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
-            )
-        )
+        store.migrateStoredValues()
 
-        reloaded.usageWatchQuestionIntervalMinutes = 10
-        XCTAssertEqual(store.usageWatchQuestionIntervalMinutes, 15)
-    }
-
-    func testPendingMidSessionCheckInRoundTripsAndClears() {
-        XCTAssertNil(store.pendingMidSessionCheckIn)
-
-        let pending = PendingMidSessionCheckIn(
-            catalogID: "instagram",
-            writtenAt: Date(timeIntervalSince1970: 1_800_000_000)
-        )
-        store.pendingMidSessionCheckIn = pending
-
-        let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertEqual(reloaded.pendingMidSessionCheckIn, pending)
-
-        reloaded.pendingMidSessionCheckIn = nil
-
-        XCTAssertNil(store.pendingMidSessionCheckIn)
         XCTAssertNil(defaults.object(forKey: "pendingMidSessionCheckIn"))
     }
 
@@ -310,7 +272,7 @@ final class SettingsStoreTests: XCTestCase {
 
     /// オンボーディング途中でD1通知をタップすると本体が消費できないまま残るため、
     /// 有効期限を持たせて後日オンボーディングを終えた瞬間に飛ばされないようにする。
-    func testPendingNotificationDestinationExpiresLikeTheMidSessionCheckIn() {
+    func testPendingNotificationDestinationExpiresAfterItsValidityWindow() {
         let writtenAt = Date(timeIntervalSince1970: 1_800_000_000)
         let pending = PendingNotificationDestination(
             destination: .automationGuide,

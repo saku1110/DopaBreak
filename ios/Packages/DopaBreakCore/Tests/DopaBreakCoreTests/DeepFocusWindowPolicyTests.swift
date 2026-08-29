@@ -444,11 +444,10 @@ final class DeepFocusWindowPolicyTests: XCTestCase {
         XCTAssertNil(DeepFocusConstants.scheduleWeekday(activityName: NightShieldConstants.activityName))
     }
 
-    /// 夜だけ強化と使いすぎ見守りの活動を拾ってしまうと、別機能のブロックを触ってしまう。
-    func testIsWindowActivityIgnoresOtherFeatures() {
+    /// 夜だけ強化の活動を拾ってしまうと、別機能のブロックを触ってしまう。
+    func testIsWindowActivityIgnoresNightShield() {
         XCTAssertTrue(DeepFocusConstants.isWindowActivity(DeepFocusConstants.sessionActivityName))
         XCTAssertFalse(DeepFocusConstants.isWindowActivity(NightShieldConstants.activityName))
-        XCTAssertFalse(DeepFocusConstants.isWindowActivity(UsageWatchConstants.activityName))
     }
 
     func testAllWindowActivityNamesCoverSessionAndEveryWeekday() {

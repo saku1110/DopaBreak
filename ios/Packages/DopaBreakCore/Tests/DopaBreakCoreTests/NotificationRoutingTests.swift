@@ -41,15 +41,6 @@ final class NotificationRoutingTests: XCTestCase {
         )
     }
 
-    func testUsageWatchNotificationsLandOnStats() {
-        XCTAssertEqual(
-            NotificationRouting.destination(
-                forIdentifier: "\(UsageWatchConstants.notificationIdentifierPrefix)step3"
-            ),
-            .stats
-        )
-    }
-
     func testPlanNotificationsLandOnPlanSettings() {
         XCTAssertEqual(
             NotificationRouting.destination(forIdentifier: NotificationIdentifier.trialDay5),
@@ -86,10 +77,24 @@ final class NotificationRoutingTests: XCTestCase {
         )
     }
 
-    func testMidSessionAndUnknownIdentifiersHaveNoDestination() {
+    func testLegacyTimedInterventionAndUnknownIdentifiersHaveNoDestination() {
+        XCTAssertEqual(
+            NotificationIdentifier.legacyPrefixes,
+            ["dopabreak.timeup.", "dopabreak.midsession.", "dopabreak.usagewatch."]
+        )
         XCTAssertNil(
             NotificationRouting.destination(
-                forIdentifier: "\(NotificationIdentifier.midSessionPrefix)instagram.\(UUID().uuidString)"
+                forIdentifier: "dopabreak.midsession.instagram.\(UUID().uuidString)"
+            )
+        )
+        XCTAssertNil(
+            NotificationRouting.destination(
+                forIdentifier: "dopabreak.timeup.\(UUID().uuidString)"
+            )
+        )
+        XCTAssertNil(
+            NotificationRouting.destination(
+                forIdentifier: "dopabreak.usagewatch.\(UUID().uuidString)"
             )
         )
         XCTAssertNil(NotificationRouting.destination(forIdentifier: "dopabreak.day14warning"))

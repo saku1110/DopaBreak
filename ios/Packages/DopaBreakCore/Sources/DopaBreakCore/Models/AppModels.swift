@@ -483,7 +483,6 @@ public enum InterventionStep: String, Codable, Equatable, Sendable, CaseIterable
     case shieldPresented
     case breathing
     case usageSummary
-    case goalReminder
     case intentSelection
     case decision
     case cancelled
@@ -491,6 +490,31 @@ public enum InterventionStep: String, Codable, Equatable, Sendable, CaseIterable
     case temporarilyAllowed
     case reShieldScheduled
     case postUseReflection
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+
+        // S-02/S-03統合前の保存状態。旧goalReminderは統合後のusageSummaryへ寄せ、
+        // アップデート直後にintervention_state.json全体が破損扱いになるのを防ぐ。
+        if rawValue == "goalReminder" {
+            self = .usageSummary
+            return
+        }
+
+        guard let value = Self(rawValue: rawValue) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown intervention step: \(rawValue)"
+            )
+        }
+        self = value
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public struct InterventionState: Codable, Equatable, Sendable {
@@ -530,23 +554,6 @@ public struct InterventionState: Codable, Equatable, Sendable {
             return false
         }
         return date < allowedUntil
-    }
-}
-
-public struct PendingMidSessionCheckIn: Codable, Equatable, Sendable {
-    public static let validityInterval: TimeInterval = 30 * 60
-
-    public let catalogID: String
-    public let writtenAt: Date
-
-    public init(catalogID: String, writtenAt: Date) {
-        self.catalogID = catalogID
-        self.writtenAt = writtenAt
-    }
-
-    public func isValid(at date: Date) -> Bool {
-        let age = date.timeIntervalSince(writtenAt)
-        return age >= 0 && age <= Self.validityInterval
     }
 }
 

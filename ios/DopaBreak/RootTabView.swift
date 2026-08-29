@@ -24,8 +24,8 @@ struct RootTabView: View {
     let settingsStore: SettingsStore
     let onResetOnboarding: () -> Void
     @State private var selectedTab: AppTab = .home
+    @State private var goalsAddRequest: UUID?
     @State private var pendingReflection: ReflectionLog?
-    @State private var pendingMidSessionCheckInTarget: SNSAppCatalogItem?
     @State private var pendingPaywallPlacement: PaywallPlacement?
     @State private var presentedInterventionTarget: InterventionTarget?
     @State private var isLockScreenCheckPresented = false
@@ -37,14 +37,24 @@ struct RootTabView: View {
             HomeView(
                 model: model,
                 settingsStore: settingsStore,
-                onOpenStats: { selectedTab = .stats }
+                onOpenStats: { selectedTab = .stats },
+                onOpenGoals: { addRequested in
+                    selectedTab = .goals
+                    if addRequested {
+                        goalsAddRequest = UUID()
+                    }
+                },
+                onOpenBlockSettings: {
+                    selectedTab = .settings
+                    model.pendingDeepFocusSettingsFocus = true
+                }
             )
                 .tag(AppTab.home)
                 .tabItem {
                     Label(String(localized: "root_tab.home", defaultValue: "ホーム"), systemImage: "house")
                 }
 
-            GoalsView(model: model)
+            GoalsView(model: model, addRequest: $goalsAddRequest)
                 .tag(AppTab.goals)
                 .tabItem {
                     Label(String(localized: "root_tab.goals", defaultValue: "目標"), systemImage: "flag")
@@ -95,7 +105,6 @@ struct RootTabView: View {
             checkPendingPaywalls()
         }
         .onChange(of: model.storeService.entitlementRevision) { _, _ in
-            model.syncUsageWatchEntitlement()
             model.refresh()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
@@ -111,9 +120,6 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             model.refresh()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .pendingMidSessionCheckInDidChange)) { _ in
-            checkPendingMidSessionCheckIn()
-        }
         .onReceive(NotificationCenter.default.publisher(for: .notificationDestinationDidChange)) { _ in
             consumePendingNotificationDestination()
         }
@@ -122,7 +128,6 @@ struct RootTabView: View {
         }
         .fullScreenCover(isPresented: interventionPresented, onDismiss: {
             consumePendingNotificationDestination()
-            checkPendingMidSessionCheckIn()
             checkPendingReflection()
             checkPendingLockScreenCheck()
             checkPendingPaywalls()
@@ -141,7 +146,6 @@ struct RootTabView: View {
             }
         }
         .sheet(item: $pendingReflection, onDismiss: {
-            checkPendingMidSessionCheckIn()
             checkPendingLockScreenCheck()
             checkPendingPaywalls()
         }) { reflection in
@@ -152,18 +156,10 @@ struct RootTabView: View {
                 }
             }
         }
-        .sheet(item: $pendingMidSessionCheckInTarget, onDismiss: {
-            checkPendingReflection()
-            checkPendingLockScreenCheck()
-            checkPendingPaywalls()
-        }) { _ in
-            MidSessionCheckInSheet(model: model)
-        }
         .fullScreenCover(isPresented: $isLockScreenCheckPresented, onDismiss: {
             interventionAwaitingLockDismiss = false
             consumePendingNotificationDestination()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
-            checkPendingMidSessionCheckIn()
             checkPendingReflection()
             checkPendingPaywalls()
         }) {
@@ -218,7 +214,6 @@ struct RootTabView: View {
         consumePendingNotificationDestination()
         checkPendingIntervention()
         presentPendingInterventionIfValid(model.pendingInterventionTarget)
-        checkPendingMidSessionCheckIn()
         checkPendingReflection()
         checkPendingLockScreenCheck()
         checkPendingPaywalls()
@@ -270,7 +265,6 @@ struct RootTabView: View {
               !isLockScreenCheckPresented,
               model.pendingInterventionTarget == nil,
               presentedInterventionTarget == nil,
-              pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               pendingPaywallPlacement == nil,
               !model.isChildModalActive else {
@@ -282,7 +276,6 @@ struct RootTabView: View {
 
     private func checkPendingReflection() {
         guard model.pendingInterventionTarget == nil,
-              pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               !isLockScreenCheckPresented else {
             return
@@ -293,26 +286,6 @@ struct RootTabView: View {
         pendingReflection = try? engine.pendingReflection()
     }
 
-    private func checkPendingMidSessionCheckIn() {
-        guard model.pendingInterventionTarget == nil,
-              pendingReflection == nil,
-              pendingMidSessionCheckInTarget == nil,
-              !isLockScreenCheckPresented else {
-            return
-        }
-        guard let pending = settingsStore.pendingMidSessionCheckIn else {
-            return
-        }
-
-        guard pending.isValid(at: Date()) else {
-            settingsStore.pendingMidSessionCheckIn = nil
-            return
-        }
-
-        settingsStore.pendingMidSessionCheckIn = nil
-        pendingMidSessionCheckInTarget = SNSAppCatalog.app(catalogID: pending.catalogID)
-    }
-
     private func checkPendingPaywalls() {
         checkPendingWeeklyPaywall()
     }
@@ -321,7 +294,6 @@ struct RootTabView: View {
         guard settingsStore.onboardingCompleted,
               model.pendingInterventionTarget == nil,
               presentedInterventionTarget == nil,
-              pendingMidSessionCheckInTarget == nil,
               pendingReflection == nil,
               pendingPaywallPlacement == nil,
               !isLockScreenCheckPresented,

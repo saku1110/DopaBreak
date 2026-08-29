@@ -8,7 +8,7 @@ public final class SettingsStore: @unchecked Sendable {
         static let selectedAppBrands = "selectedAppBrands"
         static let breathDurationSeconds = "breathDurationSeconds"
         static let pendingStartInterventionCatalogID = "pendingStartInterventionCatalogID"
-        static let pendingMidSessionCheckIn = "pendingMidSessionCheckIn"
+        static let pendingStartInterventionAutoResolve = "pendingStartInterventionAutoResolve"
         static let verifiedAutomationCatalogIDs = "verifiedAutomationCatalogIDs"
         static let targetAppClampKeptCatalogID = "targetAppClampKeptCatalogID"
         static let onboardingSavedGoalID = "onboardingSavedGoalID"
@@ -33,9 +33,6 @@ public final class SettingsStore: @unchecked Sendable {
         static let liveActivityEnabled = "liveActivityEnabled"
         static let lockScreenCheckCompleted = "lockScreenCheckCompleted"
         static let lockThemeRawValue = "lockThemeRawValue"
-        static let usageWatchEnabled = "usageWatchEnabled"
-        static let usageWatchQuestionIntervalMinutes = "usageWatchQuestionIntervalMinutes"
-        static let usageWatchNightModeEnabled = "usageWatchNightModeEnabled"
         static let pendingNotificationDestination = "pendingNotificationDestination"
         static let deepFocusSession = "deepFocusSession"
         static let deepFocusScheduleEnabled = "deepFocusScheduleEnabled"
@@ -56,7 +53,7 @@ public final class SettingsStore: @unchecked Sendable {
             selectedAppBrands,
             breathDurationSeconds,
             pendingStartInterventionCatalogID,
-            pendingMidSessionCheckIn,
+            pendingStartInterventionAutoResolve,
             verifiedAutomationCatalogIDs,
             targetAppClampKeptCatalogID,
             onboardingSavedGoalID,
@@ -74,9 +71,6 @@ public final class SettingsStore: @unchecked Sendable {
             liveActivityEnabled,
             lockScreenCheckCompleted,
             lockThemeRawValue,
-            usageWatchEnabled,
-            usageWatchQuestionIntervalMinutes,
-            usageWatchNightModeEnabled,
             pendingNotificationDestination,
             deepFocusSession,
             deepFocusScheduleEnabled,
@@ -94,6 +88,13 @@ public final class SettingsStore: @unchecked Sendable {
         static let legacyResettable = [
             "day14ClampKeptCatalogID",
             "pendingDay14Warning",
+            "pendingMidSessionCheckIn",
+            "usageWatchEnabled",
+            "usageWatchQuestionIntervalMinutes",
+            "usageWatchNightModeEnabled",
+            "usageWatch.configuration",
+            "usageWatch.state",
+            "usageWatch.familyActivitySelection",
             "reverseTrialStartedAt",
             "reverseTrialEndPaywallShown"
         ]
@@ -147,20 +148,9 @@ public final class SettingsStore: @unchecked Sendable {
         set { setOptional(newValue, forKey: Key.pendingStartInterventionCatalogID) }
     }
 
-    public var pendingMidSessionCheckIn: PendingMidSessionCheckIn? {
-        get {
-            guard let data = userDefaults.data(forKey: Key.pendingMidSessionCheckIn) else {
-                return nil
-            }
-            return try? JSONDecoder().decode(PendingMidSessionCheckIn.self, from: data)
-        }
-        set {
-            guard let newValue, let data = try? JSONEncoder().encode(newValue) else {
-                userDefaults.removeObject(forKey: Key.pendingMidSessionCheckIn)
-                return
-            }
-            userDefaults.set(data, forKey: Key.pendingMidSessionCheckIn)
-        }
+    public var pendingStartInterventionAutoResolve: Bool {
+        get { userDefaults.bool(forKey: Key.pendingStartInterventionAutoResolve) }
+        set { userDefaults.set(newValue, forKey: Key.pendingStartInterventionAutoResolve) }
     }
 
     public var verifiedAutomationCatalogIDs: [String] {
@@ -328,29 +318,22 @@ public final class SettingsStore: @unchecked Sendable {
 
     /// 起動時に旧テーマ値を一度だけ正規化する。getterは読み出し専用に保つ。
     public func migrateStoredValues() {
+        userDefaults.removeObject(forKey: "pendingMidSessionCheckIn")
+        for key in [
+            "usageWatchEnabled",
+            "usageWatchQuestionIntervalMinutes",
+            "usageWatchNightModeEnabled",
+            "usageWatch.configuration",
+            "usageWatch.state",
+            "usageWatch.familyActivitySelection"
+        ] {
+            userDefaults.removeObject(forKey: key)
+        }
         guard let rawValue = lockThemeRawValue else { return }
         let migrated = LockTheme(migratingRawValue: rawValue)
         let normalizedRawValue = migrated == .e1 ? nil : migrated.rawValue
         guard rawValue != normalizedRawValue else { return }
         lockThemeRawValue = normalizedRawValue
-    }
-
-    public var usageWatchEnabled: Bool {
-        get { userDefaults.bool(forKey: Key.usageWatchEnabled) }
-        set { userDefaults.set(newValue, forKey: Key.usageWatchEnabled) }
-    }
-
-    public var usageWatchQuestionIntervalMinutes: Int {
-        get {
-            let stored = userDefaults.integer(forKey: Key.usageWatchQuestionIntervalMinutes)
-            return UsageWatchConfiguration.allowedQuestionIntervals.contains(stored) ? stored : 15
-        }
-        set {
-            let normalized = UsageWatchConfiguration.allowedQuestionIntervals.contains(newValue)
-                ? newValue
-                : 15
-            userDefaults.set(normalized, forKey: Key.usageWatchQuestionIntervalMinutes)
-        }
     }
 
     /// 無料トライアル終了の何日前に知らせるか。ペイウォールで選び、終了前通知の予約日に使う。
@@ -369,13 +352,8 @@ public final class SettingsStore: @unchecked Sendable {
         }
     }
 
-    public var usageWatchNightModeEnabled: Bool {
-        get { userDefaults.bool(forKey: Key.usageWatchNightModeEnabled) }
-        set { userDefaults.set(newValue, forKey: Key.usageWatchNightModeEnabled) }
-    }
-
-    /// 書き込み時刻つきで持つ。`PendingMidSessionCheckIn` と同じく、消費されないまま
-    /// 残ったものを後から実行しないための有効期限を呼び出し側が判定できるようにする。
+    /// 書き込み時刻つきで持ち、消費されないまま残ったものを後から実行しないための
+    /// 有効期限を呼び出し側が判定できるようにする。
     public var pendingNotificationDestination: PendingNotificationDestination? {
         get {
             guard let data = userDefaults.data(forKey: Key.pendingNotificationDestination) else {

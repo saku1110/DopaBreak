@@ -100,7 +100,6 @@ final class StoreService {
     private let funnelEventStore: FunnelEventStore
     private let settingsStore: SettingsStore?
     private let now: () -> Date
-    private let usageWatchStore: UsageWatchStore?
 
     // Remote config can swap this between dopabreak.pro.annual and dopabreak.pro.annual.launch.
     var activeAnnualProductID: String {
@@ -168,7 +167,6 @@ final class StoreService {
         activeAnnualProductID: String = ProProductID.annual.rawValue,
         funnelEventStore: FunnelEventStore = FunnelEventStore(snapshotStore: JSONSnapshotStore()),
         settingsStore: SettingsStore? = nil,
-        usageWatchStore: UsageWatchStore? = nil,
         startsBackgroundTasks: Bool = true,
         now: @escaping () -> Date = { .now }
     ) {
@@ -178,7 +176,6 @@ final class StoreService {
             : ProProductID.annual.rawValue
         self.funnelEventStore = funnelEventStore
         self.settingsStore = resolvedSettingsStore
-        self.usageWatchStore = usageWatchStore
         self.now = now
 
         // Cached Pro intentionally has no TTL. A failed StoreKit lookup is not evidence of Free,
@@ -186,9 +183,6 @@ final class StoreService {
         // entitlementCachedAt is retained for future telemetry only; it is not an expiry date.
         if let cachedIsPro = resolvedSettingsStore?.entitlementCachedIsPro {
             isPro = cachedIsPro
-            usageWatchStore?.updateConfiguration { configuration in
-                configuration.isPro = cachedIsPro
-            }
         }
 
         if startsBackgroundTasks {
@@ -616,9 +610,6 @@ final class StoreService {
             settingsStore?.entitlementCachedIsPro = resolution.isPro
             // Telemetry timestamp only. Cached Pro remains fail-open without a time limit.
             settingsStore?.entitlementCachedAt = now()
-            usageWatchStore?.updateConfiguration { configuration in
-                configuration.isPro = resolution.isPro
-            }
         }
 
         entitlementRevision &+= 1

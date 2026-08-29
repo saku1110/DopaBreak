@@ -2,8 +2,7 @@ import Foundation
 
 public enum NightShieldConstants {
     /// 夜の窓を跨ぐたびに拡張を起こすためのDeviceActivity名。
-    /// 使いすぎ見守り（`UsageWatchConstants.activityName`）とは別枠で登録し、
-    /// 拡張側は活動名で分岐する。同じ名前にすると片方の登録がもう片方を上書きする。
+    /// 他のDeviceActivity監視とは別枠で登録し、拡張側は活動名で分岐する。
     public static let activityName = "dopabreak.nightwindow"
 
     /// 夜間だけの完全ブロックを置くManagedSettingsストア名。

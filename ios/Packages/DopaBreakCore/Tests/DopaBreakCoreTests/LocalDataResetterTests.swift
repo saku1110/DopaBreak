@@ -102,10 +102,7 @@ final class LocalDataResetterTests: XCTestCase {
         context.settingsStore.selectedAppBrands = ["Instagram"]
         context.settingsStore.breathDurationSeconds = 8
         context.settingsStore.pendingStartInterventionCatalogID = "instagram"
-        context.settingsStore.pendingMidSessionCheckIn = PendingMidSessionCheckIn(
-            catalogID: "youtube",
-            writtenAt: timestamp
-        )
+        context.settingsStore.pendingStartInterventionAutoResolve = true
         context.settingsStore.verifiedAutomationCatalogIDs = ["instagram"]
         context.settingsStore.firstLaunchDate = timestamp
         context.settingsStore.lastAppOpenedDateKey = "2027-01-15"
@@ -159,7 +156,7 @@ final class LocalDataResetterTests: XCTestCase {
         XCTAssertNil(context.settingsStore.selectedAppBrands)
         XCTAssertEqual(context.settingsStore.breathDurationSeconds, 3)
         XCTAssertNil(context.settingsStore.pendingStartInterventionCatalogID)
-        XCTAssertNil(context.settingsStore.pendingMidSessionCheckIn)
+        XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
         XCTAssertEqual(context.settingsStore.verifiedAutomationCatalogIDs, [])
         XCTAssertEqual(context.settingsStore.firstLaunchDate, timestamp)
         XCTAssertNil(context.settingsStore.lastAppOpenedDateKey)

@@ -86,7 +86,6 @@ final class AppModel {
     let ruleStore: RuleStore
     let targetStore: InterventionTargetStore
     let screenTime: ScreenTimeCenter
-    let usageWatch: UsageWatchController
     let shield: ShieldController
     let nightShieldScheduler: NightShieldScheduler
     let deepFocusScheduler: DeepFocusScheduler
@@ -154,6 +153,9 @@ final class AppModel {
     /// プラン欄は設定の7セクション中5番目で初期表示に入らないため、タブを変えるだけでは着地しない。
     var pendingPlanSettingsFocus = false
 
+    /// ホームの導線から設定の「止める強さ」まで送る要求。SettingsViewが消費する。
+    var pendingDeepFocusSettingsFocus = false
+
     /// オンボーディング後にはじめて目標を追加したとき、ロック画面での確認導線を出す要求。
     private(set) var pendingLockScreenCheck = false
 
@@ -168,9 +170,6 @@ final class AppModel {
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
         settingsStore: SettingsStore? = nil,
         clampBackupStore: TargetClampBackupStore? = nil,
-        usageWatchStore: UsageWatchStore? = nil,
-        usageWatchSelectionStore: UsageWatchSelectionStore? = nil,
-        usageWatchMonitoringCenter: (any UsageWatchMonitoring)? = nil,
         nightShieldMonitoringCenter: (any NightShieldMonitoring)? = nil,
         deepFocusMonitoringCenter: (any DeepFocusMonitoring)? = nil,
         deepFocusNotificationCenter: (any DeepFocusSessionNotifying)? = nil,
@@ -208,17 +207,6 @@ final class AppModel {
         self.ruleStore = resolvedRuleStore
         self.targetStore = InterventionTargetStore(snapshotStore: snapshotStore)
         self.screenTime = ScreenTimeCenter()
-        let resolvedUsageWatchStore = usageWatchStore ?? (try? UsageWatchStore())
-            ?? UsageWatchStore(userDefaults: .standard)
-        let resolvedUsageWatchSelectionStore = usageWatchSelectionStore
-            ?? (try? UsageWatchSelectionStore())
-            ?? UsageWatchSelectionStore(userDefaults: .standard)
-        self.usageWatch = UsageWatchController(
-            settingsStore: resolvedSettingsStore,
-            usageWatchStore: resolvedUsageWatchStore,
-            selectionStore: resolvedUsageWatchSelectionStore,
-            monitoringCenter: usageWatchMonitoringCenter ?? DeviceActivityCenter()
-        )
         let resolvedShield = ShieldController(ruleStore: resolvedRuleStore)
         self.shield = resolvedShield
         self.nightShieldScheduler = NightShieldScheduler(
@@ -258,7 +246,6 @@ final class AppModel {
         self.storeService = StoreService(
             funnelEventStore: funnelEventStore,
             settingsStore: resolvedSettingsStore,
-            usageWatchStore: resolvedUsageWatchStore,
             startsBackgroundTasks: automaticallyRefreshEntitlement,
             now: now
         )
@@ -298,7 +285,6 @@ final class AppModel {
             Task { [weak self] in
                 guard let self else { return }
                 await self.storeService.refreshEntitlement()
-                self.usageWatch.entitlementDidChange(isPro: self.storeService.isPro)
                 self.refresh()
             }
         }
@@ -394,6 +380,12 @@ final class AppModel {
         }
         return state
     }
+
+    /// 実機のロック画面とウィジェットに出ているテーマ（権利ガード適用後）
+    var liveLockTheme: LockTheme { lockSurfaceState.theme }
+
+    /// ユーザーが選んで保存しているテーマ（無料でもProテーマになりうる）
+    var savedLockTheme: LockTheme { settingsStore.lockTheme }
 
     func refreshLockSurfaces(
         restartLiveActivity: Bool = false,
@@ -689,10 +681,6 @@ final class AppModel {
         syncShield()
     }
 
-    func syncUsageWatchEntitlement() {
-        usageWatch.entitlementDidChange(isPro: storeService.isPro)
-    }
-
     /// フォアグラウンド復帰のたびに権利を取り直す。
     /// iOS設定での自動更新オフは `Transaction` を流さないため、これがないと
     /// `willAutoRenew == false` をプロセスが生きている間ずっと検知できず、
@@ -725,7 +713,6 @@ final class AppModel {
         try? gateUnlockRequestStore.remove()
         try? gateShieldController.clearAllData()
         shield.clearShield()
-        usageWatch.stopAndClearAllData()
         lockSurfaceCoordinator.cancelAllNotifications()
 
         do {
@@ -959,11 +946,24 @@ final class AppModel {
 
     /// AppIntentがApp Groupへ残した要求を、本体プロセスの単一消費点で処理する。
     func consumePendingInterventionRequest(from settingsStore: SettingsStore) {
-        guard let catalogID = settingsStore.pendingStartInterventionCatalogID else {
+        let requestedCatalogID = settingsStore.pendingStartInterventionCatalogID
+        let shouldAutoResolve = settingsStore.pendingStartInterventionAutoResolve
+        guard requestedCatalogID != nil || shouldAutoResolve else {
             return
         }
         settingsStore.pendingStartInterventionCatalogID = nil
-        consumeInterventionRequest(catalogID: catalogID, settingsStore: settingsStore)
+        settingsStore.pendingStartInterventionAutoResolve = false
+
+        let selectedCatalogIDs = (try? targetStore.selectedCatalogIDs()) ?? []
+        switch InterventionTargetResolutionPolicy.resolve(
+            requested: requestedCatalogID,
+            selected: selectedCatalogIDs
+        ) {
+        case .target(let catalogID):
+            consumeInterventionRequest(catalogID: catalogID, settingsStore: settingsStore)
+        case .none:
+            break
+        }
     }
 
     /// URLスキームを含む本体内の起動要求を、検収記録とともに処理する。

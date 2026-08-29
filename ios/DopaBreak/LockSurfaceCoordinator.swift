@@ -23,6 +23,7 @@ final class LockSurfaceCoordinator {
     static let annualUpgradeOfferNotificationIdentifier = NotificationIdentifier.annualUpgradeOffer
     static let cancelSaveNotificationIdentifier = NotificationIdentifier.cancelSave
     private static let legacyNotificationIdentifiers = NotificationIdentifier.legacyIdentifiers
+    private static let legacyNotificationPrefixes = NotificationIdentifier.legacyPrefixes
 
     /// 予約が実際に成立した一回きりの通知。呼び出し側が送信済みマーカーを永続化するために使う。
     /// 追加が失敗したときは呼ばれないため、権限がない端末でマーカーだけ立つことがない。
@@ -137,6 +138,7 @@ final class LockSurfaceCoordinator {
         notificationCenter.removeDeliveredNotifications(
             withIdentifiers: Self.legacyNotificationIdentifiers
         )
+        removeLegacyPrefixedNotifications()
 
         let settings = await notificationCenter.notificationSettings()
         guard isNotificationRescheduleCurrent(generation: generation) else {
@@ -186,11 +188,11 @@ final class LockSurfaceCoordinator {
             let content = UNMutableNotificationContent()
             content.title = String(
                 localized: "lock_surface.notification.weekly.title",
-                defaultValue: "今週のふりかえり"
+                defaultValue: "今週の記録"
             )
             content.body = String(
                 localized: "lock_surface.notification.weekly.body",
-                defaultValue: "開くのをやめた \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回"
+                defaultValue: "開かなかった\(weeklySummary.cancelled)回・開こうとした\(weeklySummary.attempts)回"
             )
             content.sound = .default
             let weeklyTotalMinutes = hour * 60 + minute + 30
@@ -229,7 +231,7 @@ final class LockSurfaceCoordinator {
             if trialDay5.cancelledCount > 0 {
                 content.body = String(
                     localized: "lock_surface.notification.trial_day5.body_with_count",
-                    defaultValue: "ここまでに\(trialDay5.cancelledCount)回、開くのをやめました。7日目に年額プランへ切り替わります。解約はいつでもできます。"
+                    defaultValue: "ここまでに\(trialDay5.cancelledCount)回、開かずにすみました。7日目に年額プランへ切り替わります。解約はいつでもできます。"
                 )
             } else {
                 content.body = String(
@@ -260,17 +262,17 @@ final class LockSurfaceCoordinator {
             if month1.isFirstMonthlyReport {
                 content.title = String(
                     localized: "lock_surface.notification.month1.title",
-                    defaultValue: "この1ヶ月のふりかえり"
+                    defaultValue: "この1か月の記録"
                 )
             } else {
                 content.title = String(
                     localized: "lock_surface.notification.monthly.title",
-                    defaultValue: "今月のふりかえり"
+                    defaultValue: "今月の記録"
                 )
             }
             content.body = String(
                 localized: "lock_surface.notification.month1.body",
-                defaultValue: "開くのをやめた \(month1.cancelledCount)回 / 開こうとした \(month1.attemptCount)回"
+                defaultValue: "開かなかった\(month1.cancelledCount)回・開こうとした\(month1.attemptCount)回"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -299,18 +301,18 @@ final class LockSurfaceCoordinator {
                 let content = UNMutableNotificationContent()
                 content.title = String(
                     localized: "lock_surface.notification.monthly.title",
-                    defaultValue: "今月のふりかえり"
+                    defaultValue: "今月の記録"
                 )
                 switch freeMonthly.body {
                 case .counts(let cancelled, let attempts):
                     content.body = String(
                         localized: "lock_surface.notification.month1.body",
-                        defaultValue: "開くのをやめた \(cancelled)回 / 開こうとした \(attempts)回"
+                        defaultValue: "開かなかった\(cancelled)回・開こうとした\(attempts)回"
                     )
                 case .fixed:
                     content.body = String(
                         localized: "lock_surface.notification.free_monthly.fixed_body",
-                        defaultValue: "この1ヶ月の記録がまとまりました"
+                        defaultValue: "この1か月の記録を確認できます"
                     )
                 }
                 content.sound = .default
@@ -340,7 +342,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.month12.body",
-                defaultValue: "この1年で\(month12.cancelledCount)回、開くのをやめました。更新の確認はApp Storeの設定からできます。"
+                defaultValue: "この1年で\(month12.cancelledCount)回、開かずにすみました。更新内容はApp Storeの設定から確認できます。"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -368,7 +370,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.annual_offer.body",
-                defaultValue: "ここまでに\(annualOffer.cancelledCount)回、開くのをやめました。年額プランなら月あたりの負担が下がります"
+                defaultValue: "ここまでに\(annualOffer.cancelledCount)回、開かずにすみました。年額プランなら、月額プランより1か月あたりの料金を抑えられます。"
             )
             content.sound = .default
             let trigger = oneShotTrigger(for: fireDate)
@@ -402,7 +404,7 @@ final class LockSurfaceCoordinator {
             )
             content.body = String(
                 localized: "lock_surface.notification.cancel_save.body",
-                defaultValue: "ここまでに\(cancelSave.cancelledCount)回、開くのをやめました。このまま続けるかは期限までに選べます"
+                defaultValue: "ここまでに\(cancelSave.cancelledCount)回、開かずにすみました。期限までは、このまま続けるか選べます。"
             )
             content.sound = .default
             let didSchedule = await addNotificationRequest(
@@ -434,11 +436,11 @@ final class LockSurfaceCoordinator {
             let content = UNMutableNotificationContent()
             content.title = String(
                 localized: "lock_surface.notification.activation.title",
-                defaultValue: "一呼吸の設定は終わっていますか"
+                defaultValue: "一呼吸の設定は完了していますか"
             )
             content.body = String(
                 localized: "lock_surface.notification.activation.body",
-                defaultValue: "対象アプリを開いたときに一呼吸が出れば設定完了です。設定はアプリからいつでも確認できます。"
+                defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。設定はアプリからいつでも確認できます。"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -469,11 +471,11 @@ final class LockSurfaceCoordinator {
             let content = UNMutableNotificationContent()
             content.title = String(
                 localized: "lock_surface.notification.d3.title",
-                defaultValue: "設定は動画を見ながら3分で終わります"
+                defaultValue: "動画を見ながら約3分で設定できます"
             )
             content.body = String(
                 localized: "lock_surface.notification.d3.body",
-                defaultValue: "対象アプリを開いたとき一呼吸が出れば完了です"
+                defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -505,11 +507,11 @@ final class LockSurfaceCoordinator {
             let content = UNMutableNotificationContent()
             content.title = String(
                 localized: "lock_surface.notification.d7.title",
-                defaultValue: "この1週間 一呼吸は出ていません"
+                defaultValue: "一呼吸の画面が1週間表示されていません"
             )
             content.body = String(
                 localized: "lock_surface.notification.d7.body",
-                defaultValue: "対象アプリの選び直しはいつでもできます。1つのアプリから試せます"
+                defaultValue: "対象アプリはいつでも選び直せます。まずは1つのアプリから試せます。"
             )
             content.sound = .default
             try? await notificationCenter.add(
@@ -603,6 +605,23 @@ final class LockSurfaceCoordinator {
         let identifiers = Array(invalidatedNotificationIdentifiers)
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
         notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
+    }
+
+    /// 旧バージョンがUUID付きで予約した時間経過通知を、アップデート後も発火させない。
+    private func removeLegacyPrefixedNotifications() {
+        let prefixes = Self.legacyNotificationPrefixes
+        notificationCenter.getPendingNotificationRequests { [notificationCenter] requests in
+            let identifiers = requests.map(\.identifier).filter { identifier in
+                prefixes.contains { identifier.hasPrefix($0) }
+            }
+            notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+        }
+        notificationCenter.getDeliveredNotifications { [notificationCenter] notifications in
+            let identifiers = notifications.map(\.request.identifier).filter { identifier in
+                prefixes.contains { identifier.hasPrefix($0) }
+            }
+            notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
+        }
     }
 
     /// 端末側でLive Activityが許可されているか（設定 > アプリ > ライブアクティビティ）。

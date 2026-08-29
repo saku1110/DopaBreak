@@ -7,7 +7,7 @@
 	宣言はリリースビルドのバイナリ実測に基づく（推測で足さない・使っていないものは書かない）。
 	  - NSUserDefaults: `standardUserDefaults` と `initWithSuiteName:` の両方をバイナリが参照する。
 	    自分専用の保存（LaunchSplashCoordinator の UserDefaults.standard）と
-	    App Group 共有（SettingsStore / UsageWatchStore / TargetClampBackupStore）の2用途があるため
+	    App Group 共有（SettingsStore / TargetClampBackupStore）の2用途があるため
 	    CA92.1 と 1C8F.1 の両方を宣言する。
 	  - systemUptime: 呼吸・介入フローの経過時間計測にだけ使う（InterventionFlowModel /
 	    BreathHapticsController / BreathingCharacterView）。端末外へは送らない。

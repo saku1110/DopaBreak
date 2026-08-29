@@ -70,8 +70,8 @@ iOS App (SwiftUI)
 制約:
 
 - DeviceActivityはスケジュール開始/終了、利用閾値到達、警告などを扱えるが、他社SNSアプリを閉じた瞬間のイベントは提供しない。
-- 利用後リフレクションは、選択時間終了時、再シールド時、DopaBreak復帰時、UserNotificationsで近似する。
-- UI/コピーでは「閉じた瞬間に必ず質問する」と表現しない。
+- standardでは他社SNSのリアルタイム使用時間を取得できないため、時間選択・時間経過通知・自動リフレクションを行わない。
+- シールド一時解除は、OS側で管理する解除期限・再シールド・DopaBreak復帰時だけをリフレクションの根拠にする。
 
 ## 4. データモデル
 
@@ -228,7 +228,7 @@ Idle
                  -> Closed
 ```
 
-注意: `PostUseReflection` は対象SNSを閉じた瞬間ではなく、選択時間終了/再シールド/アプリ復帰/通知のいずれかで開始する。
+注意: `TimeSelection` 以降はシールド一時解除の経路だけで使う。`PostUseReflection` は対象SNSを閉じた瞬間ではなく、実際の解除期限後の再シールドまたはDopaBreak復帰時に開始する。通常起動では時間選択・時間通知・自動リフレクションを行わない。
 
 ### InterventionState（実装済み 2026-07-02・InterventionEngineが intervention_state.json に永続化）
 
@@ -475,7 +475,7 @@ Pro:
 5. ManagedSettingsでシールド
 6. ShieldConfiguration表示
 7. ShieldActionで開かない/続ける
-8. 時間選択と一時開放
+8. シールド一時解除の時間選択と一時開放（standardは時間選択なし）
 9. 利用後リフレクション
 10. AttemptLog/ReflectionLogと統計
 11. WidgetKit
@@ -491,5 +491,5 @@ Pro:
 3. 指定時間だけ一時開放して再シールドできるか。
 4. App GroupからExtensionが目標snapshotを安定して読めるか。
 5. WidgetとShieldが同じ目標データを表示できるか。
-6. 選択時間終了時に利用後リフレクションを表示できるか。
-7. SNSを閉じた瞬間を直接検知できない制約下で、通知/アプリ復帰による代替体験が自然か。
+6. シールド一時解除の期限終了後に利用後リフレクションを表示できるか。
+7. standardで利用時間を推測せず、通知や時間選択なしでも介入からSNS復帰まで自然か。

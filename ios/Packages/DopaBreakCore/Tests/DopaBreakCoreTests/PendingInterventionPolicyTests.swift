@@ -61,19 +61,4 @@ final class PendingInterventionPolicyTests: XCTestCase {
         XCTAssertFalse(state.hasActiveTemporaryAllowance(at: now, for: ruleId))
     }
 
-    func testPendingMidSessionCheckInIsValidForThirtyMinutesOnly() {
-        let writtenAt = Date(timeIntervalSince1970: 1_800_000_000)
-        let pending = PendingMidSessionCheckIn(
-            catalogID: "instagram",
-            writtenAt: writtenAt
-        )
-
-        XCTAssertTrue(pending.isValid(at: writtenAt))
-        XCTAssertTrue(pending.isValid(at: writtenAt.addingTimeInterval(30 * 60)))
-        XCTAssertFalse(pending.isValid(at: writtenAt.addingTimeInterval(30 * 60 + 0.001)))
-        XCTAssertFalse(
-            pending.isValid(at: writtenAt.addingTimeInterval(-1)),
-            "future-dated flags must not surface later after a clock correction"
-        )
-    }
 }

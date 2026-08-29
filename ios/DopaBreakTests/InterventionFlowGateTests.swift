@@ -77,6 +77,9 @@ final class InterventionFlowGateTests: XCTestCase {
         )
 
         flow.start()
+        XCTAssertEqual(flow.stage, .breathing)
+        flow.completeBreathingForTesting()
+        XCTAssertEqual(flow.stage, .reasonSelection)
         flow.selectReason(.work)
         XCTAssertEqual(flow.stage, .durationSelection)
         flow.confirmSelectedDuration()
@@ -109,6 +112,9 @@ final class InterventionFlowGateTests: XCTestCase {
         )
 
         flow.start()
+        XCTAssertEqual(flow.stage, .breathing)
+        flow.completeBreathingForTesting()
+        XCTAssertEqual(flow.stage, .reasonSelection)
         flow.selectReason(.work)
         XCTAssertEqual(flow.stage, .durationSelection)
 

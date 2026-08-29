@@ -203,6 +203,9 @@ struct BreathingCharacterView: View {
         .onDisappear {
             haptics.stop()
         }
+        .onChange(of: totalSeconds) { _, _ in
+            restartPlayback()
+        }
         .onChange(of: scenePhase) { _, newPhase in
             guard previewLoop == nil, hasStarted else {
                 return
@@ -267,6 +270,7 @@ struct BreathingCharacterView: View {
     @MainActor
     private func beginPlaybackIfNeeded() {
         guard !hasStarted else {
+            startedAtUptime = ProcessInfo.processInfo.systemUptime
             if previewLoop == nil {
                 startHapticsAlignedToTimeline()
             }
@@ -287,5 +291,14 @@ struct BreathingCharacterView: View {
             totalSeconds: totalSeconds,
             startedAtUptime: startedAtUptime
         )
+    }
+
+    @MainActor
+    private func restartPlayback() {
+        haptics.stop()
+        hasStarted = true
+        startedAtUptime = ProcessInfo.processInfo.systemUptime
+        guard previewLoop == nil else { return }
+        startHapticsAlignedToTimeline()
     }
 }

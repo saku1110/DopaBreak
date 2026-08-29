@@ -14,7 +14,6 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertEqual(try ctx.engine.currentStep(), .shieldPresented)
         XCTAssertEqual(try ctx.engine.advanceStep(), .breathing)
         XCTAssertEqual(try ctx.engine.advanceStep(), .usageSummary)
-        XCTAssertEqual(try ctx.engine.advanceStep(), .goalReminder)
         XCTAssertEqual(try ctx.engine.advanceStep(), .intentSelection)
         XCTAssertEqual(try ctx.engine.advanceStep(), .decision)
         try ctx.engine.recordIntent(.boredom)
@@ -45,7 +44,7 @@ final class InterventionEngineTests: XCTestCase {
         let rule = uuid(901)
 
         try ctx.engine.beginIntervention(ruleId: rule)
-        for _ in 0..<5 { _ = try ctx.engine.advanceStep() }
+        for _ in 0..<4 { _ = try ctx.engine.advanceStep() }
         XCTAssertEqual(try ctx.engine.currentStep(), .decision)
         try ctx.engine.recordIntent(.unconscious)
 
@@ -88,7 +87,7 @@ final class InterventionEngineTests: XCTestCase {
     func testRecordCancelAllowedFromIntentSelection() throws {
         let ctx = try makeContext(now: { self.date(0) })
         try ctx.engine.beginIntervention(ruleId: uuid(900))
-        for _ in 0..<4 { _ = try ctx.engine.advanceStep() }
+        for _ in 0..<3 { _ = try ctx.engine.advanceStep() }
         XCTAssertEqual(try ctx.engine.currentStep(), .intentSelection)
 
         try ctx.engine.recordCancel()
@@ -111,6 +110,27 @@ final class InterventionEngineTests: XCTestCase {
         let attempt = try XCTUnwrap(ctx.log.fetchAttempts().first)
         XCTAssertEqual(attempt.intent, .workRequired)
         XCTAssertEqual(attempt.selectedDurationSeconds, 600)
+    }
+
+    func testUntimedOpenRecordsNoDurationOrReflectionAndReturnsToIdle() throws {
+        let ctx = try makeContext(now: { self.date(0) })
+        let rule = uuid(903)
+
+        try ctx.engine.beginIntervention(ruleId: rule)
+        try ctx.engine.beginIntentSelection()
+        try ctx.engine.recordIntent(.communication)
+        _ = try ctx.engine.advanceStep()
+
+        try ctx.engine.recordUntimedOpen()
+
+        XCTAssertEqual(try ctx.engine.currentStep(), .idle)
+        let attempt = try XCTUnwrap(ctx.log.fetchAttempts().first)
+        XCTAssertEqual(attempt.ruleId, rule)
+        XCTAssertEqual(attempt.decision, .opened)
+        XCTAssertEqual(attempt.intent, .communication)
+        XCTAssertTrue(attempt.opened)
+        XCTAssertNil(attempt.selectedDurationSeconds)
+        XCTAssertTrue(try ctx.log.fetchReflections().isEmpty)
     }
 
     func testBeginIntentSelectionRejectsNonStartStep() throws {
@@ -138,6 +158,15 @@ final class InterventionEngineTests: XCTestCase {
         }
     }
 
+    func testRecordUntimedOpenBeforeDecisionThrows() throws {
+        let ctx = try makeContext(now: { self.date(0) })
+        try ctx.engine.beginIntervention(ruleId: uuid(1))
+
+        XCTAssertThrowsError(try ctx.engine.recordUntimedOpen()) { error in
+            self.assertInvalidTransition(error, from: .shieldPresented, action: "recordUntimedOpen")
+        }
+    }
+
     func testRecordIntentFromBreathingThrows() throws {
         let ctx = try makeContext(now: { self.date(0) })
         try ctx.engine.beginIntervention(ruleId: uuid(1))
@@ -159,7 +188,7 @@ final class InterventionEngineTests: XCTestCase {
     func testRecordOpenWithNonPositiveDurationThrows() throws {
         let ctx = try makeContext(now: { self.date(0) })
         try ctx.engine.beginIntervention(ruleId: uuid(1))
-        for _ in 0..<5 { _ = try ctx.engine.advanceStep() }
+        for _ in 0..<4 { _ = try ctx.engine.advanceStep() }
         XCTAssertThrowsError(try ctx.engine.recordOpen(durationSeconds: 0)) { error in
             guard case CoreError.validation = error else {
                 return XCTFail("Expected validation error, got \(error)")
@@ -200,7 +229,7 @@ final class InterventionEngineTests: XCTestCase {
 
         let engineA = InterventionEngine(snapshotStore: snapshot, logStore: log, now: { self.date(0) })
         try engineA.beginIntervention(ruleId: rule)
-        for _ in 0..<4 { _ = try engineA.advanceStep() } // intentSelection
+        for _ in 0..<3 { _ = try engineA.advanceStep() } // intentSelection
         try engineA.recordIntent(.research)
 
         // 新しいプロセスの新しいエンジンインスタンスは永続スナップショットから intent を復元する。
@@ -225,7 +254,7 @@ final class InterventionEngineTests: XCTestCase {
 
         let engineA = InterventionEngine(snapshotStore: snapshot, logStore: log, now: { self.date(0) })
         try engineA.beginIntervention(ruleId: rule)
-        for _ in 0..<4 { _ = try engineA.advanceStep() } // intentSelection
+        for _ in 0..<3 { _ = try engineA.advanceStep() } // intentSelection
         try engineA.recordIntent(.posting)
         _ = try engineA.advanceStep() // decision — advanceStep must preserve intent
 
@@ -259,6 +288,21 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertEqual(state.ruleId, uuid(42))
         XCTAssertNil(state.allowedUntil)
         XCTAssertNil(state.intent, "legacy state without an intent field decodes to nil")
+    }
+
+    func testDecodesRemovedGoalReminderStepAsMergedUsageSummary() throws {
+        let container = FixedContainer(url: try makeTemporaryDirectory())
+        let snapshot = JSONSnapshotStore(containerProvider: container)
+        let log = try SQLiteLogStore(containerProvider: container)
+        let legacyJSON = """
+        {"currentStep":"goalReminder","ruleId":"00000000-0000-0000-0000-000000000042",\
+        "startedAt":"2027-01-01T00:00:00Z","updatedAt":"2027-01-01T00:00:05Z","allowedUntil":null}
+        """
+        let url = try snapshot.url(for: .interventionState)
+        try Data(legacyJSON.utf8).write(to: url)
+
+        let engine = InterventionEngine(snapshotStore: snapshot, logStore: log, now: { self.date(10) })
+        XCTAssertEqual(try engine.currentStep(), .usageSummary)
     }
 
     func testBeginInterventionAllowedFromResolvedSteps() throws {
@@ -350,7 +394,7 @@ final class InterventionEngineTests: XCTestCase {
         try ctx.log.insert(sampleAttempt(id: 4, ruleId: ruleB, startedAt: reference.addingTimeInterval(-1_800))) // other rule
 
         try ctx.engine.beginIntervention(ruleId: ruleA)
-        for _ in 0..<5 { _ = try ctx.engine.advanceStep() }
+        for _ in 0..<4 { _ = try ctx.engine.advanceStep() }
         try ctx.engine.recordCancel()
 
         let seeded: Set<UUID> = [uuid(1), uuid(2), uuid(3), uuid(4)]
@@ -364,7 +408,7 @@ final class InterventionEngineTests: XCTestCase {
         var clock = date(0)
         let ctx = try makeContext(now: { clock })
         try ctx.engine.beginIntervention(ruleId: uuid(900))
-        for _ in 0..<5 { _ = try ctx.engine.advanceStep() }
+        for _ in 0..<4 { _ = try ctx.engine.advanceStep() }
         try ctx.engine.recordOpen(durationSeconds: 300)
 
         clock = date(300)

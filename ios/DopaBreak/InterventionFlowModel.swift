@@ -2,7 +2,6 @@ import DopaBreakCore
 import Foundation
 import Observation
 import UIKit
-import UserNotifications
 
 /// 一呼吸を始める対象。カタログ起動とシールドからの一時開放を同じ流れへ載せる。
 enum InterventionTarget: Equatable {
@@ -14,9 +13,7 @@ enum InterventionTarget: Equatable {
 enum InterventionFlowStage: Equatable {
     case breathing
     case usageSummary
-    case goalReminder
     case reasonSelection
-    case decision
     case durationSelection
     case opening(fallbackMessage: String?)
     case limit(GateDenial)
@@ -91,25 +88,22 @@ final class InterventionFlowModel {
     private let model: AppModel
     private let settingsStore: SettingsStore
 
-    private(set) var stage: InterventionFlowStage = .reasonSelection
-    private(set) var breathRemainingSeconds: Int = 3
-    private(set) var breathTotalSeconds: Int = 3
+    private(set) var stage: InterventionFlowStage = .breathing
+    private(set) var breathRemainingSeconds: Int
+    private(set) var breathTotalSeconds: Int
     private(set) var todayAttemptDisplayCount = 0
     private(set) var selectedReason: InterventionReason?
     private(set) var selectedDuration: InterventionDuration = .tenMinutes
     private(set) var isAwaitingTargetOpen = false
-    private(set) var notificationsAuthorized = false
 
     private var breathTask: Task<Void, Never>?
     private var startGeneration = 0
-    private var ruleId: UUID?
-    private var lastAttemptId: UUID?
 
     private static let breathTimerTickNanoseconds: UInt64 = 250_000_000
 
     var goals: [Goal] { model.goals }
     var todayCancelledCountForDisplay: Int { model.todayCancelledCount }
-    var todayAttemptCountForDisplay: Int { model.todayAttemptCount }
+    var todayAttemptCountForDisplay: Int { todayAttemptDisplayCount }
     var dayTimeContext: DayTimeContext {
         DayTimeContext.resolve(
             now: Date(),
@@ -132,6 +126,9 @@ final class InterventionFlowModel {
         self.target = target
         self.model = model
         self.settingsStore = settingsStore
+        let breathDurationSeconds = settingsStore.breathDurationSeconds
+        self.breathRemainingSeconds = breathDurationSeconds
+        self.breathTotalSeconds = breathDurationSeconds
         if case .gateToken(let tokenData, _) = target {
             let minutes = model.gateAppSetting(for: tokenData).sessionMinutes
             selectedDuration = InterventionDuration(rawValue: minutes) ?? .tenMinutes
@@ -147,26 +144,9 @@ final class InterventionFlowModel {
     }
 
     func start() {
-        model.usageWatch.recordIntervention(at: Date())
         breathTask?.cancel()
         breathTask = nil
         startGeneration += 1
-        let generation = startGeneration
-
-        Task { [weak self] in
-            let settings = await UNUserNotificationCenter.current().notificationSettings()
-            guard let self, generation == self.startGeneration else {
-                return
-            }
-            self.notificationsAuthorized = switch settings.authorizationStatus {
-            case .authorized, .provisional, .ephemeral:
-                true
-            case .notDetermined, .denied:
-                false
-            @unknown default:
-                false
-            }
-        }
 
         guard let engine = model.interventionEngine else {
             stage = .failed(
@@ -185,17 +165,15 @@ final class InterventionFlowModel {
             case .gateToken(_, let gateRuleID):
                 resolvedRuleID = gateRuleID
             }
-            ruleId = resolvedRuleID
-
             let current = try engine.currentStep()
             let resumable: Set<InterventionStep> = [.idle, .cancelled, .postUseReflection]
             if !resumable.contains(current) {
                 try engine.resetToIdle()
             }
             try engine.beginIntervention(ruleId: resolvedRuleID)
-            try engine.beginIntentSelection() // shieldPresented -> intentSelection
             todayAttemptDisplayCount = model.todayAttemptCount(for: resolvedRuleID) + 1
-            stage = .reasonSelection
+            selectedReason = nil
+            beginBreathing()
         } catch {
             stage = .failed(String(localized: "intervention.error.preparation", defaultValue: "準備できませんでした"))
         }
@@ -204,6 +182,12 @@ final class InterventionFlowModel {
     func stop() {
         breathTask?.cancel()
         breathTask = nil
+    }
+
+    /// 画面離脱で停止した呼吸だけを再開する。進行中Taskや他ステージには触れない。
+    func resumeBreathingIfNeeded() {
+        guard stage == .breathing, breathTask == nil else { return }
+        beginBreathing()
     }
 
     private func beginBreathing() {
@@ -244,20 +228,41 @@ final class InterventionFlowModel {
                   self.stage == .breathing else {
                 return
             }
-            self.breathRemainingSeconds = 0
-            self.stage = .usageSummary
+            self.completeBreathing(generation: generation)
         }
     }
 
-    func advanceToGoalReminder() {
-        guard stage == .usageSummary else { return }
-        stage = .goalReminder
+    private func completeBreathing(generation: Int) {
+        guard generation == startGeneration, stage == .breathing else { return }
+        guard let engine = model.interventionEngine else {
+            stage = .failed(
+                String(
+                    localized: "intervention.error.record_store_unavailable",
+                    defaultValue: "記録データを準備できませんでした"
+                )
+            )
+            return
+        }
+
+        do {
+            // 呼吸中は開始状態を維持し、理由画面を表示する直前に intentSelection へ揃える。
+            try engine.beginIntentSelection()
+            breathRemainingSeconds = 0
+            stage = .reasonSelection
+        } catch {
+            stage = .failed(String(localized: "intervention.error.progression", defaultValue: "進められませんでした"))
+        }
     }
 
-    func advanceToDecision() {
-        guard stage == .goalReminder else { return }
-        stage = .decision
+    #if DEBUG
+    /// スナップショットと状態遷移テストで、実時間待機せず本番と同じ完了処理を通す。
+    func completeBreathingForTesting() {
+        guard stage == .breathing else { return }
+        breathTask?.cancel()
+        breathTask = nil
+        completeBreathing(generation: startGeneration)
     }
+    #endif
 
     func selectReason(_ reason: InterventionReason) {
         guard stage == .reasonSelection else { return }
@@ -268,9 +273,9 @@ final class InterventionFlowModel {
             try engine.advanceStep() // intentSelection -> decision
             switch reason.interventionStyle {
             case .direct:
-                stage = .durationSelection
+                proceedToOpenOrDurationSelection()
             case .reflective:
-                beginBreathing()
+                stage = .usageSummary
             }
         } catch {
             stage = .failed(String(localized: "intervention.error.progression", defaultValue: "進められませんでした"))
@@ -278,7 +283,7 @@ final class InterventionFlowModel {
     }
 
     func chooseCancel() {
-        guard stage == .decision || stage == .durationSelection else { return }
+        guard stage == .usageSummary || stage == .durationSelection else { return }
         guard let engine = model.interventionEngine else { return }
         do {
             try engine.recordCancel()
@@ -289,9 +294,9 @@ final class InterventionFlowModel {
         }
     }
 
-    func chooseOpenWithTime() {
-        guard stage == .decision else { return }
-        stage = .durationSelection
+    func chooseOpen() {
+        guard stage == .usageSummary else { return }
+        proceedToOpenOrDurationSelection()
     }
 
     func chooseDuration(_ duration: InterventionDuration) {
@@ -300,95 +305,43 @@ final class InterventionFlowModel {
     }
 
     func confirmSelectedDuration() {
-        guard stage == .durationSelection else { return }
-        open(for: selectedDuration)
+        guard stage == .durationSelection,
+              case .gateToken(let tokenData, let ruleId) = target else { return }
+        openGateTarget(
+            tokenData: tokenData,
+            ruleId: ruleId,
+            for: selectedDuration
+        )
     }
 
-    private func open(for duration: InterventionDuration) {
+    private func proceedToOpenOrDurationSelection() {
         switch target {
         case .catalog(let catalogTarget):
-            openCatalogTarget(catalogTarget, for: duration)
-        case .gateToken(let tokenData, let ruleId):
-            openGateTarget(tokenData: tokenData, ruleId: ruleId, for: duration)
+            openCatalogTarget(catalogTarget)
+        case .gateToken:
+            stage = .durationSelection
         }
     }
 
-    private func recordOpenAndScheduleNotifications(for duration: InterventionDuration) {
+    private func recordUntimedOpen() {
         guard let engine = model.interventionEngine else { return }
         do {
-            try engine.recordOpen(durationSeconds: duration.seconds)
+            try engine.recordUntimedOpen()
             model.refresh()
-            scheduleTimeUpNotification(after: duration)
-            if duration.seconds >= 600 {
-                scheduleMidSessionCheckIn(after: duration)
-            }
         } catch {
             stage = .failed(String(localized: "intervention.error.record", defaultValue: "記録できませんでした"))
         }
     }
 
-    private func scheduleTimeUpNotification(after duration: InterventionDuration) {
-        let content = UNMutableNotificationContent()
-        content.title = String(
-            localized: "intervention.notification.time_up.title",
-            defaultValue: "そろそろひと休み"
-        )
-        content.body = String(
-            localized: "intervention.notification.time_up.body",
-            defaultValue: "そろそろ\(duration.rawValue)分。見てどうだった？"
-        )
-        content.sound = .default
-
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(duration.seconds),
-            repeats: false
-        )
-        let request = UNNotificationRequest(
-            identifier: "dopabreak.timeup.\(UUID().uuidString)",
-            content: content,
-            trigger: trigger
-        )
-        UNUserNotificationCenter.current().add(request) { _ in
-        }
-    }
-
-    private func scheduleMidSessionCheckIn(after duration: InterventionDuration) {
-        let content = UNMutableNotificationContent()
-        content.title = String(
-            localized: "intervention.notification.check_in.title",
-            defaultValue: "まだ見てる？"
-        )
-        content.body = String(
-            localized: "intervention.notification.check_in.body",
-            defaultValue: "目標を思い出す時間です"
-        )
-        content.sound = .default
-
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(duration.seconds / 2),
-            repeats: false
-        )
-        let request = UNNotificationRequest(
-            identifier: "dopabreak.midsession.\(notificationTargetIdentifier).\(UUID().uuidString)",
-            content: content,
-            trigger: trigger
-        )
-        UNUserNotificationCenter.current().add(request) { _ in
-        }
-    }
-
-    private func openCatalogTarget(
-        _ catalogTarget: SNSAppCatalogItem,
-        for duration: InterventionDuration
-    ) {
+    private func openCatalogTarget(_ catalogTarget: SNSAppCatalogItem) {
         let fallbackMessage = String(
             localized: "intervention.opening.manual_fallback",
             defaultValue: "ホーム画面から\(catalogTarget.displayName)を開いてください"
         )
         guard let urlScheme = catalogTarget.urlScheme, let url = URL(string: urlScheme) else {
             stage = .opening(fallbackMessage: fallbackMessage)
-            // URLスキームがないアプリは、この案内から手動で開く前提で記録と通知を維持する。
-            recordOpenAndScheduleNotifications(for: duration)
+            // URLスキームがないアプリは、この案内から手動で開く前提で開いた事実だけを記録する。
+            recordUntimedOpen()
             return
         }
 
@@ -397,11 +350,11 @@ final class InterventionFlowModel {
         UIApplication.shared.open(url, options: [:]) { [weak self] success in
             guard let self else { return }
             if success {
-                self.recordOpenAndScheduleNotifications(for: duration)
+                self.recordUntimedOpen()
             } else {
                 self.stage = .opening(fallbackMessage: fallbackMessage)
-                // URL起動失敗時も、この案内から手動で開く前提で記録と通知を維持する。
-                self.recordOpenAndScheduleNotifications(for: duration)
+                // URL起動失敗時も、この案内から手動で開く前提で開いた事実だけを記録する。
+                self.recordUntimedOpen()
             }
             self.isAwaitingTargetOpen = false
         }
@@ -461,8 +414,6 @@ final class InterventionFlowModel {
                 minutes: duration.rawValue
             )
             model.refresh()
-            scheduleTimeUpNotification(after: duration)
-            // gateTokenは通知タップからcatalogIDへ戻せないため、中間確認は予約しない。
             showGateOpening(for: duration)
         } catch {
             stage = .failed(
@@ -475,17 +426,9 @@ final class InterventionFlowModel {
         stage = .opening(
             fallbackMessage: String(
                 localized: "intervention.gate.opening.back",
-                defaultValue: "左上の ◀ から戻ると開けます（\(duration.rawValue)分）"
+                defaultValue: "左上の◀をタップすると、\(duration.rawValue)分間開けます"
             )
         )
     }
 
-    private var notificationTargetIdentifier: String {
-        switch target {
-        case .catalog(let target):
-            return target.catalogID
-        case .gateToken(_, let ruleId):
-            return "gate-\(ruleId.uuidString)"
-        }
-    }
 }

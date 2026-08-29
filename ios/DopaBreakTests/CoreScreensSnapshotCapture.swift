@@ -382,8 +382,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             defaults: freeDefaults
         )
         freeModel.refresh(scheduleNotifications: false)
-        XCTAssertFalse(freeModel.entitlementGate.weeklyReportAllowed)
-
         try capture(
             AnyView(
                 HomeView(
@@ -400,7 +398,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         )
     }
 
-    /// Phase 2 記録画面確認用。Proの今週とFreeの今日を専用フォルダへ保存する。
+    /// Phase 2 記録画面確認用。ProとFreeの今週を専用フォルダへ保存する。
     @MainActor
     func testCaptureRedesignPhase2StatsScreens() throws {
         let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
@@ -445,7 +443,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         try seedRedesignReflections(in: logStore, ruleID: rules[0].id, now: now)
         proModel.refresh(scheduleNotifications: false)
 
-        XCTAssertTrue(proModel.entitlementGate.weeklyReportAllowed)
         XCTAssertEqual(proModel.todayAttemptCount, 15)
         XCTAssertEqual(proModel.todayCancelledCount, 12)
 
@@ -483,8 +480,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             defaults: freeDefaults
         )
         freeModel.refresh(scheduleNotifications: false)
-        XCTAssertEqual(freeModel.entitlementGate.statsDays, 1)
-
         let freeWindow = UIWindow(windowScene: captureWindowScene)
         freeWindow.frame = window.frame
         freeWindow.windowLevel = window.windowLevel + 1
@@ -498,8 +493,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             named: "stats-free",
             in: freeWindow,
             outputDirectory: outputDirectory,
-            settleTime: 1.0,
-            verticalScrollTarget: .offset(-1_000)
+            settleTime: 1.0
         )
         freeWindow.isHidden = true
         window.makeKeyAndVisible()
@@ -576,12 +570,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         let container = FixedContainer(url: containerURL)
         let selectedCatalogIDs = ["instagram", "youtube", "tiktok"]
 
-        // 利用時間の通知を「使っている」状態で撮るためのトークン。撮影専用の固定値。
-        let snapshotToken = try JSONDecoder().decode(
-            ApplicationToken.self,
-            from: Data(#"{"data":"ZG9wYWJyZWFrLXRlc3QtdG9rZW4="}"#.utf8)
-        )
-
         let proSettings = redesignSettingsStore(
             defaults: proDefaults,
             isPro: true,
@@ -589,14 +577,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         )
         proSettings.wakeTimeMinutes = 7 * 60
         proSettings.bedTimeMinutes = 23 * 60
-        proSettings.usageWatchEnabled = true
-        proSettings.usageWatchQuestionIntervalMinutes = 15
-        proSettings.usageWatchNightModeEnabled = true
-
-        var usageWatchSelection = FamilyActivitySelection()
-        usageWatchSelection.applicationTokens = [snapshotToken]
-        UsageWatchSelectionStore(userDefaults: proDefaults).save(usageWatchSelection)
-
         let proModel = redesignSnapshotModel(
             container: container,
             settingsStore: proSettings,
@@ -616,8 +596,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         XCTAssertEqual(proModel.todayAttemptCount, 15)
         XCTAssertEqual(proModel.todayCancelledCount, 12)
         XCTAssertTrue(proModel.entitlementGate.strictModeAllowed)
-        XCTAssertTrue(proModel.usageWatch.isEnabled)
-        XCTAssertEqual(proModel.usageWatch.selectedTokenCount, 1)
 
         let outputDirectory = Self.redesignPhase3OutputDirectory()
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
@@ -847,9 +825,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             settingsStore.pendingInterventionMode = InterventionMode.deepFocus.rawValue
             settingsStore.wakeTimeMinutes = 7 * 60
             settingsStore.bedTimeMinutes = 23 * 60
-            settingsStore.usageWatchEnabled = true
-            settingsStore.usageWatchQuestionIntervalMinutes = 15
-            settingsStore.usageWatchNightModeEnabled = true
             settingsStore.deepFocusSchedule = DeepFocusSchedule(
                 isEnabled: true,
                 weekdays: [2, 3, 4, 5, 6],
@@ -858,26 +833,18 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             )
         }
 
+        // Deep Focus / 夜だけ強化の撮影用に使う固定のFamilyControlsトークン。
         let snapshotToken = try JSONDecoder().decode(
             ApplicationToken.self,
             from: Data(#"{"data":"ZG9wYWJyZWFrLXRlc3QtdG9rZW4="}"#.utf8)
         )
-        let usageWatchStore = UsageWatchStore(userDefaults: defaults)
-        let usageWatchSelectionStore = UsageWatchSelectionStore(userDefaults: defaults)
+
         let monitoringCenter = SnapshotDeviceActivityMonitoringCenter()
         let notificationCenter = SnapshotDeepFocusNotificationCenter()
-        if additionalOnly {
-            var usageWatchSelection = FamilyActivitySelection()
-            usageWatchSelection.applicationTokens = [snapshotToken]
-            usageWatchSelectionStore.save(usageWatchSelection)
-        }
 
         let model = AppModel(
             containerProvider: container,
             settingsStore: settingsStore,
-            usageWatchStore: usageWatchStore,
-            usageWatchSelectionStore: usageWatchSelectionStore,
-            usageWatchMonitoringCenter: monitoringCenter,
             nightShieldMonitoringCenter: monitoringCenter,
             deepFocusMonitoringCenter: monitoringCenter,
             deepFocusNotificationCenter: notificationCenter,
@@ -977,7 +944,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         }
 
         if statsOnly {
-            XCTAssertTrue(model.entitlementGate.weeklyReportAllowed)
             try capture(
                 AnyView(StatsView(model: model, statsService: statsService)),
                 named: "stats",
@@ -1036,6 +1002,14 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                 return
             }
 
+            try captureMergedInterventionScreen(
+                target: target,
+                model: model,
+                settingsStore: settingsStore,
+                in: window,
+                outputDirectory: outputDirectory
+            )
+
             try capture(
                 AnyView(
                     InterventionFlowView(
@@ -1043,6 +1017,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                         model: model,
                         settingsStore: settingsStore,
                         selectedReason: nil,
+                        completesBreathing: true,
                         onFinished: {}
                     )
                 ),
@@ -1122,6 +1097,40 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         in window: UIWindow,
         outputDirectory: URL
     ) throws {
+        let flow = InterventionFlowModel(
+            target: target,
+            model: model,
+            settingsStore: settingsStore
+        )
+        flow.start()
+        defer { flow.stop() }
+
+        try capture(
+            AnyView(
+                InterventionFlowView(
+                    snapshotFlow: flow,
+                    model: model,
+                    settingsStore: settingsStore,
+                    // 空RangeはpreviewLoopの既存span==0経路で中間位相へ固定する。
+                    breathPreviewLoop: Self.breathSnapshotElapsed..<Self.breathSnapshotElapsed,
+                    onFinished: {}
+                )
+            ),
+            named: "breath",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 0.8
+        )
+    }
+
+    @MainActor
+    private func captureMergedInterventionScreen(
+        target: SNSAppCatalogItem,
+        model: AppModel,
+        settingsStore: SettingsStore,
+        in window: UIWindow,
+        outputDirectory: URL
+    ) throws {
         try capture(
             AnyView(
                 InterventionFlowView(
@@ -1129,12 +1138,11 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                     model: model,
                     settingsStore: settingsStore,
                     selectedReason: .boredom,
-                    // 空RangeはpreviewLoopの既存span==0経路で中間位相へ固定する。
-                    breathPreviewLoop: Self.breathSnapshotElapsed..<Self.breathSnapshotElapsed,
+                    completesBreathing: true,
                     onFinished: {}
                 )
             ),
-            named: "breath",
+            named: "intervention-merged",
             in: window,
             outputDirectory: outputDirectory,
             settleTime: 0.8
@@ -1167,9 +1175,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             XCTFail("追加パネル撮影用のPro権利を確立できなかった")
             return
         }
-        XCTAssertTrue(model.usageWatch.isEnabled)
-        XCTAssertEqual(model.usageWatch.selectedTokenCount, 1)
-        XCTAssertEqual(model.usageWatch.questionIntervalMinutes, 15)
 
         if nightmodeOnly {
             try captureNightmodeScreen(
@@ -1526,9 +1531,6 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         return AppModel(
             containerProvider: container,
             settingsStore: settingsStore,
-            usageWatchStore: UsageWatchStore(userDefaults: defaults),
-            usageWatchSelectionStore: UsageWatchSelectionStore(userDefaults: defaults),
-            usageWatchMonitoringCenter: monitoringCenter,
             nightShieldMonitoringCenter: monitoringCenter,
             deepFocusMonitoringCenter: monitoringCenter,
             deepFocusNotificationCenter: SnapshotDeepFocusNotificationCenter(),
@@ -1808,12 +1810,6 @@ private struct SettingsNotificationsSnapshotHost: View {
     @State private var weeklyReportNotificationEnabled = true
     @State private var retentionSupportNotificationsEnabled = true
     @State private var planNotificationsEnabled = true
-    @State private var usageWatchSelection = FamilyActivitySelection()
-    @State private var isUsageWatchPickerPresented = false
-    @State private var shouldEnableUsageWatchAfterPicker = false
-    @State private var usageWatchAuthorizationWasDenied = false
-    @State private var isRequestingUsageWatchAuthorization = false
-    @State private var paywallPlacement: PaywallPlacement?
 
     var body: some View {
         NavigationStack {
@@ -1823,13 +1819,7 @@ private struct SettingsNotificationsSnapshotHost: View {
                 morningNotificationEnabled: $morningNotificationEnabled,
                 weeklyReportNotificationEnabled: $weeklyReportNotificationEnabled,
                 retentionSupportNotificationsEnabled: $retentionSupportNotificationsEnabled,
-                planNotificationsEnabled: $planNotificationsEnabled,
-                usageWatchSelection: $usageWatchSelection,
-                isUsageWatchPickerPresented: $isUsageWatchPickerPresented,
-                shouldEnableUsageWatchAfterPicker: $shouldEnableUsageWatchAfterPicker,
-                usageWatchAuthorizationWasDenied: $usageWatchAuthorizationWasDenied,
-                isRequestingUsageWatchAuthorization: $isRequestingUsageWatchAuthorization,
-                paywallPlacement: $paywallPlacement
+                planNotificationsEnabled: $planNotificationsEnabled
             )
         }
         .tint(DesignTokens.accent)
@@ -1837,7 +1827,6 @@ private struct SettingsNotificationsSnapshotHost: View {
 }
 
 private final class SnapshotDeviceActivityMonitoringCenter:
-    UsageWatchMonitoring,
     NightShieldMonitoring,
     DeepFocusMonitoring
 {
@@ -1963,9 +1952,6 @@ final class CoreScreensSnapshotCapturePolicyTests: XCTestCase {
         let model = AppModel(
             containerProvider: FixedContainer(url: containerURL),
             settingsStore: settingsStore,
-            usageWatchStore: UsageWatchStore(userDefaults: defaults),
-            usageWatchSelectionStore: UsageWatchSelectionStore(userDefaults: defaults),
-            usageWatchMonitoringCenter: monitoringCenter,
             nightShieldMonitoringCenter: monitoringCenter,
             deepFocusMonitoringCenter: monitoringCenter,
             deepFocusNotificationCenter: notificationCenter,

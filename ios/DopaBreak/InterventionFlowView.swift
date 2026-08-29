@@ -10,6 +10,9 @@ struct InterventionFlowView: View {
     let onFinished: () -> Void
 
     @State private var flow: InterventionFlowModel
+    @State private var goalEditorRoute: GoalEditorRoute?
+    private let model: AppModel
+    private let settingsStore: SettingsStore
     private let startsFlowOnAppear: Bool
     private let breathPreviewLoop: Range<TimeInterval>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -24,6 +27,9 @@ struct InterventionFlowView: View {
         self.onFinished = onFinished
         self.startsFlowOnAppear = true
         self.breathPreviewLoop = nil
+        self.model = model
+        self.settingsStore = settingsStore
+        _goalEditorRoute = State(initialValue: nil)
         _flow = State(
             initialValue: InterventionFlowModel(
                 target: target,
@@ -50,6 +56,7 @@ struct InterventionFlowView: View {
         model: AppModel,
         settingsStore: SettingsStore,
         selectedReason: InterventionReason?,
+        completesBreathing: Bool = false,
         breathPreviewLoop: Range<TimeInterval>? = nil,
         onFinished: @escaping () -> Void
     ) {
@@ -59,13 +66,36 @@ struct InterventionFlowView: View {
             settingsStore: settingsStore
         )
         snapshotFlow.start()
+        if completesBreathing {
+            snapshotFlow.completeBreathingForTesting()
+        }
         if let selectedReason {
             snapshotFlow.selectReason(selectedReason)
         }
 
+        self.init(
+            snapshotFlow: snapshotFlow,
+            model: model,
+            settingsStore: settingsStore,
+            breathPreviewLoop: breathPreviewLoop,
+            onFinished: onFinished
+        )
+    }
+
+    /// 撮影側がフローの寿命を明示管理する場合に使う。
+    init(
+        snapshotFlow: InterventionFlowModel,
+        model: AppModel,
+        settingsStore: SettingsStore,
+        breathPreviewLoop: Range<TimeInterval>? = nil,
+        onFinished: @escaping () -> Void
+    ) {
         self.onFinished = onFinished
         self.startsFlowOnAppear = false
         self.breathPreviewLoop = breathPreviewLoop
+        self.model = model
+        self.settingsStore = settingsStore
+        _goalEditorRoute = State(initialValue: nil)
         _flow = State(initialValue: snapshotFlow)
     }
     #endif
@@ -73,7 +103,7 @@ struct InterventionFlowView: View {
     var body: some View {
         ZStack {
             DesignTokens.background.ignoresSafeArea()
-            content
+            flowContent
                 .transition(stageTransition)
         }
         // 段階の切り替えを瞬間差し替えからばねへ。中断・巻き戻しができる。
@@ -108,6 +138,9 @@ struct InterventionFlowView: View {
         }
         .task(id: reviewPromptTaskID) {
             await requestReviewFromWinScreenIfEligible()
+        }
+        .sheet(item: $goalEditorRoute) { route in
+            GoalEditorSheet(model: model, goal: route.goal)
         }
     }
 
@@ -152,18 +185,14 @@ struct InterventionFlowView: View {
     }
 
     @ViewBuilder
-    private var content: some View {
+    private var flowContent: some View {
         switch flow.stage {
         case .breathing:
             breathingScreen
         case .usageSummary:
             usageSummaryScreen
-        case .goalReminder:
-            goalReminderScreen
         case .reasonSelection:
             reasonSelectionScreen
-        case .decision:
-            decisionScreen
         case .durationSelection:
             durationSelectionScreen
         case .opening(let message):
@@ -177,7 +206,7 @@ struct InterventionFlowView: View {
         }
     }
 
-    // MARK: - 反射的な目的だけに入る一呼吸
+    // MARK: - 全経路共通の一呼吸
 
     private var breathingScreen: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -192,7 +221,7 @@ struct InterventionFlowView: View {
             Spacer(minLength: 4)
 
             VStack(spacing: 20) {
-                Text(String(localized: "intervention.breath.title", defaultValue: "ひと呼吸おきましょう"))
+                Text(String(localized: "intervention.breath.title", defaultValue: "まずはひと呼吸"))
                     .dopaFont(24, weight: .black)
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
@@ -208,6 +237,9 @@ struct InterventionFlowView: View {
 
             Spacer(minLength: 4)
         }
+        .onAppear {
+            flow.resumeBreathingIfNeeded()
+        }
     }
 
     @ViewBuilder
@@ -222,75 +254,99 @@ struct InterventionFlowView: View {
         }
     }
 
-    // MARK: - S-02 今日はもう N回目
+    // MARK: - 反射的な目的の利用状況 + 目標 + 判断
 
     private var usageSummaryScreen: some View {
         stepScaffold {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 24) {
                 if flow.dayTimeContext != .normal {
                     dayTimeContextBanner(for: flow.dayTimeContext)
                 }
-                SmallLabel(text: String(localized: "intervention.usage_summary.eyebrow", defaultValue: "USAGE SUMMARY"))
-                Text(
-                    String(
-                        localized: "intervention.usage_summary.attempt_count",
-                        defaultValue: "\(flow.todayAttemptDisplayCount)回"
-                    )
-                )
-                    .dopaFont(72, weight: .black, design: .rounded, tracking: -2)
-                    .monospacedDigit()
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .contentTransition(.numericText())
-                    .dopaDisplayClamp()
-                titleText(String(localized: "intervention.usage_summary.title", defaultValue: "すでに開いています"))
-                CardContainer {
-                    VStack(alignment: .leading, spacing: 7) {
-                        SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
-                        Text(
-                            flow.goals.first?.title
-                                ?? String(localized: "intervention.goal.fallback", defaultValue: "開く目的を確かめる")
+                VStack(alignment: .leading, spacing: 14) {
+                    SmallLabel(
+                        text: String(
+                            localized: "intervention.usage_summary.eyebrow_ja",
+                            defaultValue: "今日のSNS"
                         )
-                            .dopaFont(18, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
+                    )
+
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 18) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(usageAttemptCountValue)
+                                    .dopaFont(60, weight: .black, design: .rounded, tracking: -1.5)
+                                    .monospacedDigit()
+                                    .foregroundStyle(DesignTokens.primaryText)
+                                    .contentTransition(.numericText())
+                                    .dopaDisplayClamp()
+
+                                Text(usageAttemptLabel)
+                                    .dopaFont(15, weight: .semibold)
+                                    .foregroundStyle(DesignTokens.secondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(usageAttemptLine)
+
+                            Rectangle()
+                                .fill(DesignTokens.hairline)
+                                .frame(height: 1)
+
+                            usageCancelledMetric
+                        }
                     }
                 }
-            }
-        } action: {
-            primaryButton(String(localized: "intervention.usage_summary.action.continue", defaultValue: "目標を思い出す")) {
-                flow.advanceToGoalReminder()
-            }
-        }
-    }
 
-    // MARK: - S-03 あなたの目標
+                Divider()
+                    .overlay(DesignTokens.hairline)
 
-    private var goalReminderScreen: some View {
-        stepScaffold {
-            VStack(alignment: .leading, spacing: 20) {
-                if flow.goals.isEmpty {
-                    titleText(
-                        String(
-                            localized: "intervention.goal_reminder.empty_title",
-                            defaultValue: "何のために開きますか？"
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 12) {
+                        SmallLabel(
+                            text: String(
+                                localized: "intervention.goal.eyebrow_ja",
+                                defaultValue: "あなたの目標"
+                            )
                         )
-                    )
-                } else {
-                    SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
-                    titleText(String(localized: "intervention.goal_reminder.title", defaultValue: "あなたの目標"))
+                        Spacer(minLength: 0)
+                        Button {
+                            goalEditorRoute = GoalEditorRoute(goal: flow.goals.first)
+                        } label: {
+                            Label(goalActionTitle, systemImage: goalActionSymbol)
+                                .labelStyle(.titleAndIcon)
+                                .frame(minWidth: 44, minHeight: DesignTokens.minTapTarget)
+                                .contentShape(Rectangle())
+                        }
+                        .dopaFont(15, weight: .bold)
+                        .foregroundStyle(DesignTokens.accent)
+                        .buttonStyle(.plain)
+                    }
+
                     CardContainer {
-                        VStack(alignment: .leading, spacing: 14) {
-                            ForEach(flow.goals, id: \.id) { goal in
-                                HStack(alignment: .top, spacing: 10) {
-                                    Text(
-                                        String(
-                                            localized: "intervention.goal_reminder.list_separator",
-                                            defaultValue: "・"
-                                        )
-                                    )
-                                        .foregroundStyle(DesignTokens.accent)
-                                    Text(goal.title)
-                                        .dopaFont(18, weight: .bold)
-                                        .foregroundStyle(DesignTokens.primaryText)
+                        if flow.goals.isEmpty {
+                            Text(
+                                String(
+                                    localized: "intervention.goal.empty_prompt",
+                                    defaultValue: "開く目的を決める"
+                                )
+                            )
+                                .dopaFont(18, weight: .bold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            VStack(alignment: .leading, spacing: 14) {
+                                ForEach(flow.goals, id: \.id) { goal in
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Circle()
+                                            .fill(DesignTokens.accent)
+                                            .frame(width: 6, height: 6)
+                                            .padding(.top, 8)
+                                            .accessibilityHidden(true)
+                                        Text(goal.title)
+                                            .dopaFont(18, weight: .bold)
+                                            .foregroundStyle(DesignTokens.primaryText)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
                                 }
                             }
                         }
@@ -298,10 +354,128 @@ struct InterventionFlowView: View {
                 }
             }
         } action: {
-            primaryButton(String(localized: "intervention.goal_reminder.action.continue", defaultValue: "どうするか選ぶ")) {
-                flow.advanceToDecision()
+            VStack(spacing: 10) {
+                primaryButton(
+                    String(localized: "intervention.usage_summary.action.cancel", defaultValue: "開かない")
+                ) {
+                    flow.chooseCancel()
+                }
+                secondaryButton(
+                    usageSummaryOpenActionTitle
+                ) {
+                    flow.chooseOpen()
+                }
             }
         }
+    }
+
+    private var usageCancelledMetric: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                usageCancelledMetricLabel
+                Spacer(minLength: 12)
+                usageCancelledCountText
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                usageCancelledMetricLabel
+                usageCancelledCountText
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.accent.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(usageCancelledLine)
+    }
+
+    private var usageCancelledMetricLabel: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .dopaFont(19, weight: .semibold)
+                .foregroundStyle(DesignTokens.accent)
+                .accessibilityHidden(true)
+            Text(usageCancelledLabel)
+                .dopaFont(17, weight: .bold)
+                .foregroundStyle(DesignTokens.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var usageCancelledCountText: some View {
+        Text(usageCancelledCountValue)
+            .dopaFont(28, weight: .black, design: .rounded)
+            .monospacedDigit()
+            .foregroundStyle(DesignTokens.accent)
+            .contentTransition(.numericText())
+            .dopaDisplayClamp()
+    }
+
+    private var usageAttemptLabel: String {
+        String(
+            localized: "intervention.usage_summary.attempt_label",
+            defaultValue: "開こうとした回数"
+        )
+    }
+
+    private var usageCancelledLabel: String {
+        String(
+            localized: "intervention.usage_summary.cancelled_label",
+            defaultValue: "開かなかった"
+        )
+    }
+
+    private var usageAttemptCountValue: String {
+        usageCountValue(flow.todayAttemptCountForDisplay)
+    }
+
+    private var usageCancelledCountValue: String {
+        usageCountValue(flow.todayCancelledCountForDisplay)
+    }
+
+    private func usageCountValue(_ count: Int) -> String {
+        String(
+            format: String(
+                localized: "intervention.usage_summary.count_value",
+                defaultValue: "%lld回"
+            ),
+            locale: .current,
+            Int64(count)
+        )
+    }
+
+    private var usageAttemptLine: String {
+        String(
+            format: String(
+                localized: "intervention.usage_summary.attempt_line",
+                defaultValue: "今日開こうとした回数　%lld回"
+            ),
+            locale: .current,
+            Int64(flow.todayAttemptCountForDisplay)
+        )
+    }
+
+    private var usageCancelledLine: String {
+        String(
+            format: String(
+                localized: "intervention.usage_summary.cancelled_line",
+                defaultValue: "今日開かなかった回数　%lld回"
+            ),
+            locale: .current,
+            Int64(flow.todayCancelledCountForDisplay)
+        )
+    }
+
+    private var goalActionTitle: String {
+        if flow.goals.isEmpty {
+            return String(localized: "intervention.goal.action.set", defaultValue: "決める")
+        }
+        return String(localized: "intervention.goal.action.edit", defaultValue: "変える")
+    }
+
+    private var goalActionSymbol: String {
+        flow.goals.isEmpty ? "plus" : "pencil"
     }
 
     // MARK: - S-04 理由
@@ -312,7 +486,7 @@ struct InterventionFlowView: View {
             VStack(alignment: .leading, spacing: 20) {
                 SmallLabel(text: String(localized: "intervention.intent.eyebrow", defaultValue: "INTENT"))
                 titleText(String(localized: "intervention.intent.title", defaultValue: "何のために\n開きますか？"))
-                Text(String(localized: "intervention.intent.description", defaultValue: "目的が明確なら、ひと呼吸を省いてすぐ進めます"))
+                Text(String(localized: "intervention.intent.description", defaultValue: "開く理由を選んでください"))
                     .dopaFont(14, weight: .medium)
                     .foregroundStyle(DesignTokens.secondaryText)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -346,44 +520,6 @@ struct InterventionFlowView: View {
         }
     }
 
-    // MARK: - S-05 決定
-
-    private var decisionScreen: some View {
-        stepScaffold {
-            VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: String(localized: "intervention.decision.eyebrow", defaultValue: "DECISION"))
-                CharacterSwapSequence(
-                    from: .doom,
-                    to: .awake,
-                    size: DesignTokens.CharacterSize.lead,
-                    delayNanoseconds: 650_000_000
-                )
-                .frame(maxWidth: .infinity)
-                titleText(String(localized: "intervention.decision.title", defaultValue: "本当に今\n必要ですか？"))
-                if let reason = flow.selectedReason {
-                    CardContainer {
-                        HStack {
-                            Image(systemName: reasonSymbol(reason))
-                                .foregroundStyle(DesignTokens.accent)
-                            Text(reason.displayTitle)
-                                .dopaFont(16, weight: .bold)
-                                .foregroundStyle(DesignTokens.primaryText)
-                        }
-                    }
-                }
-            }
-        } action: {
-            VStack(spacing: 10) {
-                primaryButton(String(localized: "intervention.decision.action.cancel", defaultValue: "開かない")) {
-                    flow.chooseCancel()
-                }
-                secondaryButton(String(localized: "intervention.decision.action.open", defaultValue: "必要な時間だけ開く")) {
-                    flow.chooseOpenWithTime()
-                }
-            }
-        }
-    }
-
     private var durationSelectionScreen: some View {
         stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
@@ -398,16 +534,6 @@ struct InterventionFlowView: View {
                                 Text(reason.displayTitle)
                                     .dopaFont(16, weight: .bold)
                                     .foregroundStyle(DesignTokens.primaryText)
-                                if reason.interventionStyle == .direct {
-                                    Text(
-                                        String(
-                                            localized: "intervention.duration.fast_path_note",
-                                            defaultValue: "目的が明確なため、ひと呼吸を省きました"
-                                        )
-                                    )
-                                        .dopaFont(12, weight: .medium)
-                                        .foregroundStyle(DesignTokens.secondaryText)
-                                }
                             }
                         }
                     }
@@ -415,7 +541,7 @@ struct InterventionFlowView: View {
                 Text(
                     String(
                         localized: "intervention.duration.guidance",
-                        defaultValue: "必要な用事が終わる時間だけ選びましょう"
+                        defaultValue: "必要なぶんだけ時間を選んでください"
                     )
                 )
                     .dopaFont(14, weight: .medium)
@@ -449,9 +575,6 @@ struct InterventionFlowView: View {
                 // 選択の切り替えは触覚で確定を返す。ピッカーと同じ役割。
                 .sensoryFeedback(.selection, trigger: flow.selectedDuration)
 
-                Text(notificationMessage)
-                    .dopaFont(13, weight: .medium)
-                    .foregroundStyle(DesignTokens.secondaryText)
             }
         } action: {
             VStack(spacing: 4) {
@@ -476,7 +599,7 @@ struct InterventionFlowView: View {
                     .accessibilityHint(
                         String(
                             localized: "intervention.duration.action.cancel_hint",
-                            defaultValue: "SNSを開かずに達成画面へ進みます"
+                            defaultValue: "SNSは開かず、今日の記録を見ます"
                         )
                     )
                 }
@@ -500,10 +623,7 @@ struct InterventionFlowView: View {
                     )
                     if let reason = flow.selectedReason {
                         Text(
-                            String(
-                                localized: "intervention.opening.summary",
-                                defaultValue: "\(reason.displayTitle) ・ \(flow.selectedDuration.rawValue)分"
-                            )
+                            openingSummary(for: reason)
                         )
                             .dopaFont(15, weight: .bold)
                             .foregroundStyle(DesignTokens.secondaryText)
@@ -512,9 +632,6 @@ struct InterventionFlowView: View {
                         .progressViewStyle(.linear)
                         .tint(DesignTokens.accent)
                         .frame(maxWidth: 220)
-                    Text(notificationMessage)
-                        .dopaFont(13, weight: .medium)
-                        .foregroundStyle(DesignTokens.secondaryText)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -529,16 +646,28 @@ struct InterventionFlowView: View {
         }
     }
 
-    private var notificationMessage: String {
-        flow.notificationsAuthorized
-            ? String(
-                localized: "intervention.notification.enabled",
-                defaultValue: "時間になったら通知でお知らせします"
+    private var usageSummaryOpenActionTitle: String {
+        switch flow.target {
+        case .catalog:
+            String(localized: "intervention.usage_summary.action.open", defaultValue: "開く")
+        case .gateToken:
+            String(
+                localized: "intervention.usage_summary.action.choose_duration",
+                defaultValue: "開く時間を選ぶ"
             )
-            : String(
-                localized: "intervention.notification.disabled",
-                defaultValue: "通知がオフのため時間のお知らせは届きません"
+        }
+    }
+
+    private func openingSummary(for reason: InterventionReason) -> String {
+        switch flow.target {
+        case .catalog:
+            reason.displayTitle
+        case .gateToken:
+            String(
+                localized: "intervention.opening.summary",
+                defaultValue: "\(reason.displayTitle) ・ \(flow.selectedDuration.rawValue)分"
             )
+        }
     }
 
     // MARK: - 勝ち画面
@@ -559,7 +688,7 @@ struct InterventionFlowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .characterPop(.celebrate)
 
-                Text(String(localized: "intervention.success.title", defaultValue: "開くのをやめた\n自分の時間に戻る"))
+                Text(String(localized: "intervention.success.title", defaultValue: "開かずにすんだ\nそのぶん自分の時間が残った"))
                     .dopaFont(32, weight: .black, lineSpacing: 4)
                     .foregroundStyle(DesignTokens.primaryText)
                     .multilineTextAlignment(.center)
@@ -591,7 +720,7 @@ struct InterventionFlowView: View {
                         metricColumn(
                             label: String(
                                 localized: "intervention.success.metric.cancelled",
-                                defaultValue: "開くのをやめた"
+                                defaultValue: "開かなかった"
                             ),
                             value: todayCancelledCountText
                         )
@@ -696,7 +825,7 @@ struct InterventionFlowView: View {
         case .alreadyOpen:
             return String(
                 localized: "intervention.gate.already_open.body",
-                defaultValue: "このアプリはすでに開けます"
+                defaultValue: "このアプリは、すでに開ける状態です。"
             )
         }
     }
@@ -774,12 +903,12 @@ struct InterventionFlowView: View {
         case .wake:
             dayTimeContextBanner(
                 title: String(localized: "intervention.day_context.morning.title", defaultValue: "起きてすぐの数分"),
-                body: String(localized: "intervention.day_context.morning.body", defaultValue: "その日の集中を決める時間")
+                body: String(localized: "intervention.day_context.morning.body", defaultValue: "起きてすぐSNSを開く前に、今日の過ごし方を選ぶ時間です。")
             )
         case .sleep:
             dayTimeContextBanner(
                 title: String(localized: "intervention.day_context.night.title", defaultValue: "眠る前の数分"),
-                body: String(localized: "intervention.day_context.night.body", defaultValue: "その日の睡眠の質を決める時間")
+                body: String(localized: "intervention.day_context.night.body", defaultValue: "眠る前にSNSから離れるきっかけをつくる時間です。")
             )
         case .normal:
             EmptyView()

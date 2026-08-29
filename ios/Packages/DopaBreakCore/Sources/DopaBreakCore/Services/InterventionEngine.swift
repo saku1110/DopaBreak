@@ -23,12 +23,11 @@ public final class InterventionEngine {
         .temporarilyAllowed, .reShieldScheduled, .postUseReflection
     ]
 
-    /// 線形進行（doc05 §5）: shieldPresented → breathing → usageSummary → goalReminder → intentSelection → decision。
+    /// 線形進行（doc05 §5）: shieldPresented → breathing → usageSummary → intentSelection → decision。
     private static let linearNext: [InterventionStep: InterventionStep] = [
         .shieldPresented: .breathing,
         .breathing: .usageSummary,
-        .usageSummary: .goalReminder,
-        .goalReminder: .intentSelection,
+        .usageSummary: .intentSelection,
         .intentSelection: .decision
     ]
 
@@ -143,8 +142,34 @@ public final class InterventionEngine {
         try resolveToIdle(via: .cancelled, at: timestamp)
     }
 
-    /// 「時間を選択して開く」。decision からのみ。AttemptLog(opened) と未回答 ReflectionLog を作成し
-    /// timeSelection → temporarilyAllowed（allowedUntil = now + duration）へ（doc05 §6）。
+    /// 時間を計測せずに対象アプリを開く。通常のSNS起動では他社アプリの実利用時間を
+    /// 取得できないため、選択時間・終了予定・利用後リフレクションを作らず opened の事実だけを記録する。
+    public func recordUntimedOpen() throws {
+        let state = try currentState()
+        guard state.currentStep == .decision else {
+            throw InterventionEngineError.invalidTransition(from: state.currentStep, action: "recordUntimedOpen")
+        }
+        let ruleId = try requireRule(state, action: "recordUntimedOpen")
+        let timestamp = now()
+        try logStore.insert(
+            AttemptLog(
+                id: UUID(),
+                ruleId: ruleId,
+                startedAt: state.startedAt ?? timestamp,
+                completedAt: timestamp,
+                decision: .opened,
+                intent: state.intent,
+                selectedDurationSeconds: nil,
+                attemptCount24h: try attemptCount24h(ruleId: ruleId, before: timestamp),
+                opened: true
+            )
+        )
+        try persist(idleState(at: timestamp))
+    }
+
+    /// 時間を決めてシールドを一時解除する。decision からのみ。AttemptLog(opened) と
+    /// 未回答 ReflectionLog を作成し、timeSelection → temporarilyAllowed へ進める。
+    /// 通常のSNS起動には使わず、実際に解除期限を制御できるgateToken専用とする。
     public func recordOpen(durationSeconds: Int) throws {
         let state = try currentState()
         guard state.currentStep == .decision else {

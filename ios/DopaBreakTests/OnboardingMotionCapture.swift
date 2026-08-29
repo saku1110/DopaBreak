@@ -30,7 +30,8 @@ final class OnboardingMotionCapture: XCTestCase {
             ("02-goal-filled", .goalSetup, true),
             ("03-quiz-result", .quizResult, false),
             ("04-choose-mode", .chooseMode, false),
-            ("05-ready", .ready, true)
+            ("05-ready", .ready, true),
+            ("06-lock-theme-pick", .lockThemePick, true)
         ]
 
         let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")

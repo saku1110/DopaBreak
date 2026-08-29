@@ -12,12 +12,17 @@ private enum HomeStatsProvider {
     }()
 }
 
-enum HomeStatsLinkDestination: Equatable {
-    case statsTab
-    case statsHistoryGate
-
-    init(weeklyReportAllowed: Bool) {
-        self = weeklyReportAllowed ? .statsTab : .statsHistoryGate
+enum HomeLockThemeSelectionHandler {
+    static func select(
+        for theme: LockTheme,
+        isThemeAllowed: (LockTheme) -> Bool,
+        onLocked: (PaywallPlacement) -> Void,
+        onSelect: (LockTheme) -> Void
+    ) {
+        onSelect(theme)
+        if !isThemeAllowed(theme) {
+            onLocked(.homeThemeGate)
+        }
     }
 }
 
@@ -166,15 +171,32 @@ struct HomeView: View {
     let model: AppModel
     let settingsStore: SettingsStore
     let onOpenStats: () -> Void
+    let onOpenGoals: (_ addRequested: Bool) -> Void
+    let onOpenBlockSettings: () -> Void
     private let injectedStatsService: StatsService?
+    private let onThemePickerEntryActionReady: ((@escaping () -> Void) -> Void)?
+    private let onThemePickerActionReady: ((@escaping (LockTheme) -> Void) -> Void)?
+    private let onThemePickerSelectionChanged: ((LockTheme) -> Void)?
+    private let onLockScreenPreviewRendered: ((LockTheme) -> Void)?
+    private let onPaywallPresented: ((PaywallPlacement) -> Void)?
+    private let onBlockSettingsActionReady: ((@escaping () -> Void) -> Void)?
 
     @State private var editorRoute: GoalEditorRoute?
     @State private var isAutomationGuidePresented = false
     @State private var isTargetPickerPresented = false
+    @State private var isLockThemePickerPresented = false
+    @State private var savedLockTheme: LockTheme
     @State private var paywallPlacement: PaywallPlacement?
     @State private var showPaywallAfterTargetPicker = false
+    @State private var pendingThemePaywallPlacement: PaywallPlacement?
     @State private var dashboard = HomeDashboardData.empty
     @State private var clock = Date()
+    @State private var liveActivityEnabled: Bool
+    @State private var breathDurationSeconds: Int
+    @State private var verifiedAutomationCatalogIDs: [String]
+    @State private var persistedInterventionMode: InterventionMode
+    @State private var wakeTimeMinutes: Int
+    @State private var bedTimeMinutes: Int
 
     private static let dashboardTicker = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
@@ -182,12 +204,47 @@ struct HomeView: View {
         model: AppModel,
         settingsStore: SettingsStore,
         onOpenStats: @escaping () -> Void = {},
-        statsService: StatsService? = nil
+        onOpenGoals: @escaping (_ addRequested: Bool) -> Void = { _ in },
+        onOpenBlockSettings: @escaping () -> Void = {},
+        statsService: StatsService? = nil,
+        onThemePickerEntryActionReady: ((@escaping () -> Void) -> Void)? = nil,
+        onThemePickerActionReady: ((@escaping (LockTheme) -> Void) -> Void)? = nil,
+        onThemePickerSelectionChanged: ((LockTheme) -> Void)? = nil,
+        onLockScreenPreviewRendered: ((LockTheme) -> Void)? = nil,
+        onPaywallPresented: ((PaywallPlacement) -> Void)? = nil,
+        onBlockSettingsActionReady: ((@escaping () -> Void) -> Void)? = nil
     ) {
         self.model = model
         self.settingsStore = settingsStore
         self.onOpenStats = onOpenStats
+        self.onOpenGoals = onOpenGoals
+        self.onOpenBlockSettings = onOpenBlockSettings
         injectedStatsService = statsService
+        self.onThemePickerEntryActionReady = onThemePickerEntryActionReady
+        self.onThemePickerActionReady = onThemePickerActionReady
+        self.onThemePickerSelectionChanged = onThemePickerSelectionChanged
+        self.onLockScreenPreviewRendered = onLockScreenPreviewRendered
+        self.onPaywallPresented = onPaywallPresented
+        self.onBlockSettingsActionReady = onBlockSettingsActionReady
+        _savedLockTheme = State(initialValue: model.savedLockTheme)
+        _liveActivityEnabled = State(initialValue: settingsStore.liveActivityEnabled)
+        _breathDurationSeconds = State(initialValue: settingsStore.breathDurationSeconds)
+        _verifiedAutomationCatalogIDs = State(
+            initialValue: settingsStore.verifiedAutomationCatalogIDs
+        )
+        let storedMode = settingsStore.pendingInterventionMode
+            .flatMap(InterventionMode.init(rawValue:))
+            ?? (try? model.ruleStore.allRules().first?.mode)
+            ?? .standard
+        _persistedInterventionMode = State(initialValue: storedMode)
+        _wakeTimeMinutes = State(
+            initialValue: settingsStore.wakeTimeMinutes
+                ?? NightShieldConstants.defaultWakeTimeMinutes
+        )
+        _bedTimeMinutes = State(
+            initialValue: settingsStore.bedTimeMinutes
+                ?? NightShieldConstants.defaultBedTimeMinutes
+        )
     }
 
     private var statsService: StatsService? {
@@ -219,6 +276,10 @@ struct HomeView: View {
                 }
 
                 goalCard
+
+                if liveActivityEnabled {
+                    lockScreenCard
+                }
             }
             .padding(.horizontal, DesignTokens.horizontalPadding)
             .padding(.top, 18)
@@ -227,6 +288,8 @@ struct HomeView: View {
         .dopaScreenBackground()
         .onAppear {
             model.refresh()
+            savedLockTheme = model.savedLockTheme
+            refreshSettingsMirrors()
             reloadDashboard()
             model.isChildModalActive = isAnyChildModalPresented
         }
@@ -255,7 +318,7 @@ struct HomeView: View {
         .sheet(item: $editorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
         }
-        .sheet(isPresented: $isAutomationGuidePresented) {
+        .sheet(isPresented: $isAutomationGuidePresented, onDismiss: refreshSettingsMirrors) {
             AutomationGuideView(model: model, settingsStore: settingsStore)
         }
         .sheet(isPresented: $isTargetPickerPresented, onDismiss: { reloadDashboard() }) {
@@ -263,12 +326,20 @@ struct HomeView: View {
                 showPaywallAfterTargetPicker = true
             }
         }
+        .sheet(isPresented: $isLockThemePickerPresented, onDismiss: {
+            guard let placement = pendingThemePaywallPlacement else { return }
+            pendingThemePaywallPlacement = nil
+            paywallPlacement = placement
+        }) {
+            homeThemePickerSheet
+        }
         .fullScreenCover(item: $paywallPlacement) { placement in
             PaywallView(
                 storeService: model.storeService,
                 placement: placement,
                 settingsStore: settingsStore
             )
+            .onAppear { onPaywallPresented?(placement) }
         }
     }
 
@@ -276,6 +347,7 @@ struct HomeView: View {
         editorRoute != nil
             || isAutomationGuidePresented
             || isTargetPickerPresented
+            || isLockThemePickerPresented
             || paywallPlacement != nil
     }
 
@@ -326,7 +398,7 @@ struct HomeView: View {
             SmallLabel(
                 text: String(
                     localized: "home.hero.lifetime.title",
-                    defaultValue: "SNSに消えるはずだった時間"
+                    defaultValue: "SNSを開かずに取り戻した時間"
                 )
             )
 
@@ -354,7 +426,7 @@ struct HomeView: View {
                 Text(
                     String(
                         localized: "home.achievement.empty_body",
-                        defaultValue: "今日はまだ開こうとしていません"
+                        defaultValue: "今日はまだ対象アプリを開こうとしていません"
                     )
                 )
                 .dopaFont(14, weight: .semibold)
@@ -372,7 +444,7 @@ struct HomeView: View {
                 Text(
                     String(
                         localized: "home.hero.basis",
-                        defaultValue: "やめた\(dashboard.todayReclaimedCancellationCount)回 × 1回あたり約\(estimatedMinutesPerCancellation)分"
+                        defaultValue: "開かなかった\(dashboard.todayReclaimedCancellationCount)回 × 1回約\(estimatedMinutesPerCancellation)分"
                     )
                 )
                 .dopaFont(14, weight: .semibold)
@@ -414,7 +486,7 @@ struct HomeView: View {
                         SmallLabel(
                             text: String(
                                 localized: "home.targets.title",
-                                defaultValue: "止めているアプリ"
+                                defaultValue: "一呼吸をはさむアプリ"
                             )
                         )
 
@@ -439,7 +511,7 @@ struct HomeView: View {
 
                 if showsEndDeepFocusButton {
                     Button(
-                        String(localized: "home.targets.focus_end", defaultValue: "いま解除する")
+                        String(localized: "home.targets.focus_end", defaultValue: "完全ブロックを解除")
                     ) {
                         model.endDeepFocusSession()
                         clock = Date()
@@ -447,11 +519,14 @@ struct HomeView: View {
                     .buttonStyle(HomeFocusButtonStyle(kind: .secondary))
                 } else if showsStartDeepFocusButton {
                     Button(
-                        String(localized: "home.targets.focus_30", defaultValue: "30分だけ開けなくする")
+                        String(localized: "home.targets.block_settings", defaultValue: "止める強さを設定する")
                     ) {
-                        startDeepFocus()
+                        onOpenBlockSettings()
                     }
                     .buttonStyle(HomeFocusButtonStyle(kind: .primary))
+                    .onAppear {
+                        onBlockSettingsActionReady?(onOpenBlockSettings)
+                    }
                 }
             }
         }
@@ -463,7 +538,7 @@ struct HomeView: View {
             HStack(spacing: 10) {
                 plusTile
                 Text(
-                    String(localized: "home.targets.empty", defaultValue: "止めるアプリを選ぶ")
+                    String(localized: "home.targets.empty", defaultValue: "アプリを選ぶ")
                 )
                 .dopaFont(15, weight: .semibold)
                 .foregroundStyle(DesignTokens.accent)
@@ -504,7 +579,7 @@ struct HomeView: View {
                 Text(
                     String(
                         localized: "home.targets.night_line",
-                        defaultValue: "\(bedTimeText)から朝まで開けません"
+                        defaultValue: "\(bedTimeText)から起床時刻まで開けません"
                     )
                 )
                 .dopaFont(12, weight: .semibold)
@@ -520,19 +595,19 @@ struct HomeView: View {
             if let remaining = nightRemainingText {
                 return String(
                     localized: "home.targets.focus_running",
-                    defaultValue: "あと\(remaining) 開けません"
+                    defaultValue: "あと\(remaining)は開けません"
                 )
             }
             return String(
                 localized: "home.targets.night_line",
-                defaultValue: "\(bedTimeText)から朝まで開けません"
+                defaultValue: "\(bedTimeText)から起床時刻まで開けません"
             )
         }
         if isDeepFocusActive {
             if let remaining = deepFocusRemainingText {
                 return String(
                     localized: "home.targets.focus_running",
-                    defaultValue: "あと\(remaining) 開けません"
+                    defaultValue: "あと\(remaining)は開けません"
                 )
             }
             return String(
@@ -542,7 +617,7 @@ struct HomeView: View {
         }
         return String(
             localized: "home.targets.breath_line",
-            defaultValue: "開く前に\(settingsStore.breathDurationSeconds)秒の間が入ります"
+            defaultValue: "開く前に\(breathDurationSeconds)秒の一呼吸をはさみます"
         )
     }
 
@@ -564,33 +639,22 @@ struct HomeView: View {
     private var weekSummaryText: String {
         String(
             localized: "home.week.summary",
-            defaultValue: "今週は\(model.weekCancelledCount)回 開くのをやめました"
+            defaultValue: "今週は\(model.weekCancelledCount)回 開かずにすみました"
         )
     }
 
     private var statsLinkCard: some View {
-        let destination = HomeStatsLinkDestination(
-            weeklyReportAllowed: model.entitlementGate.weeklyReportAllowed
-        )
-
-        return Button {
-            switch destination {
-            case .statsTab:
-                onOpenStats()
-            case .statsHistoryGate:
-                paywallPlacement = .statsHistoryGate
-            }
+        Button {
+            onOpenStats()
         } label: {
             CardContainer {
                 HStack(spacing: 12) {
-                    if destination == .statsHistoryGate {
-                        Image(systemName: "lock.fill")
-                            .dopaFont(13, weight: .bold)
-                            .foregroundStyle(DesignTokens.secondaryText)
-                            .accessibilityHidden(true)
-                    }
-
-                    Text(statsLinkTitle(for: destination))
+                    Text(
+                        String(
+                            localized: "home.stats_link.title",
+                            defaultValue: "アプリ別の記録と振り返りを見る"
+                        )
+                    )
                         .dopaFont(15, weight: .bold)
                         .foregroundStyle(DesignTokens.primaryText)
                         .multilineTextAlignment(.leading)
@@ -598,12 +662,10 @@ struct HomeView: View {
 
                     Spacer(minLength: 8)
 
-                    if destination == .statsTab {
-                        Image(systemName: "chevron.right")
-                            .dopaFont(13, weight: .bold)
-                            .foregroundStyle(DesignTokens.secondaryText)
-                            .accessibilityHidden(true)
-                    }
+                    Image(systemName: "chevron.right")
+                        .dopaFont(13, weight: .bold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .accessibilityHidden(true)
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
@@ -611,54 +673,199 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    private func statsLinkTitle(for destination: HomeStatsLinkDestination) -> String {
-        switch destination {
-        case .statsTab:
-            return String(
-                localized: "home.stats_link.title",
-                defaultValue: "アプリごとの内訳と振り返りを見る"
-            )
-        case .statsHistoryGate:
-            return String(
-                localized: "stats.paywall.weekly_report",
-                defaultValue: "記録を全部見る"
-            )
-        }
-    }
-
     private var goalCard: some View {
-        Button {
-            editorRoute = GoalEditorRoute(goal: model.goals.first)
-        } label: {
-            CardContainer {
-                HStack(spacing: 14) {
-                    GoalCategoryTile(category: primaryGoalCategory, size: 44)
-
-                    VStack(alignment: .leading, spacing: 7) {
-                        SmallLabel(text: goalLabel)
-                        Text(primaryGoalTitle)
-                            .dopaFont(20, weight: .bold)
-                            .foregroundStyle(hasPrimaryGoal ? DesignTokens.primaryText : DesignTokens.accent)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.82)
-                            .multilineTextAlignment(.leading)
-                    }
+        CardContainer {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    SmallLabel(
+                        text: String(localized: "home.goal.label", defaultValue: "あなたの目標")
+                    )
 
                     Spacer(minLength: 8)
 
-                    Image(systemName: "chevron.right")
-                        .dopaFont(13, weight: .bold)
-                        .foregroundStyle(DesignTokens.secondaryText)
+                    goalHeaderButton(
+                        title: String(localized: "home.goal.add", defaultValue: "追加"),
+                        addRequested: true
+                    )
+                    goalHeaderButton(
+                        title: String(localized: "home.goal.edit", defaultValue: "編集"),
+                        addRequested: false
+                    )
+                }
+
+                if model.goals.isEmpty {
+                    Button {
+                        onOpenGoals(true)
+                    } label: {
+                        Text(
+                            String(
+                                localized: "home.goal.fallback",
+                                defaultValue: "目標を追加する"
+                            )
+                        )
+                        .dopaFont(17, weight: .semibold)
+                        .foregroundStyle(DesignTokens.accent)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    ForEach(model.goals, id: \.id) { goal in
+                        Button {
+                            editorRoute = GoalEditorRoute(goal: goal)
+                        } label: {
+                            HStack(spacing: 12) {
+                                GoalCategoryTile(category: goal.category, size: 32)
+
+                                Text(goal.title)
+                                    .dopaFont(17, weight: .semibold)
+                                    .foregroundStyle(DesignTokens.primaryText)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+
+                                Spacer(minLength: 8)
+
+                                Image(systemName: "chevron.right")
+                                    .dopaFont(13, weight: .bold)
+                                    .foregroundStyle(DesignTokens.secondaryText)
+                                    .accessibilityHidden(true)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
+        }
+    }
+
+    private func goalHeaderButton(title: String, addRequested: Bool) -> some View {
+        Button {
+            onOpenGoals(addRequested)
+        } label: {
+            Text(title)
+                .dopaFont(15, weight: .semibold)
+                .foregroundStyle(DesignTokens.accent)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
-    private var goalLabel: String {
-        let base = String(localized: "home.goal.label", defaultValue: "あなたの目標")
-        guard hasPrimaryGoal else { return base }
-        return "\(base) ・ \(primaryGoalCategory.japaneseLabel)"
+    private var lockScreenCard: some View {
+        Button {
+            isLockThemePickerPresented = true
+        } label: {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        SettingsIconTile(systemName: "rectangle.inset.filled.and.person.filled")
+                        Text(
+                            String(
+                                localized: "settings.entry.lock_surface",
+                                defaultValue: "ロック画面の表示"
+                            )
+                        )
+                        .dopaFont(16, weight: .semibold)
+                        .foregroundStyle(DesignTokens.primaryText)
+
+                        Spacer(minLength: 8)
+
+                        Image(systemName: "chevron.right")
+                            .dopaFont(13, weight: .bold)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .accessibilityHidden(true)
+                    }
+
+                    LockThemePreviewCard(
+                        theme: model.liveLockTheme,
+                        goalTitles: homeLockThemePreviewTitles,
+                        cancelledCount: model.todayCancelledCount,
+                        attemptCount: model.todayAttemptCount
+                    )
+                    .onAppear { onLockScreenPreviewRendered?(model.liveLockTheme) }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home-lock-theme-picker-entry")
+        .onAppear {
+            onThemePickerEntryActionReady? { isLockThemePickerPresented = true }
+        }
+    }
+
+    private var homeThemePickerSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if !model.entitlementGate.lockThemeAllowed(savedLockTheme) {
+                        Text(
+                            String(
+                                localized: "settings.lock_screen.pro_note",
+                                defaultValue: "このデザインをロック画面に表示するにはProが必要です"
+                            )
+                        )
+                        .dopaFont(13, weight: .semibold, lineSpacing: 3)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    LockThemePickerView(
+                        selectedTheme: savedLockTheme,
+                        goalTitles: homeLockThemePreviewTitles,
+                        cancelledCount: model.todayCancelledCount,
+                        attemptCount: model.todayAttemptCount,
+                        isThemeAllowed: model.entitlementGate.lockThemeAllowed,
+                        onSelect: selectHomeLockTheme
+                    )
+                    .onAppear { onThemePickerActionReady?(selectHomeLockTheme) }
+                }
+                .padding(.horizontal, DesignTokens.horizontalPadding)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
+            }
+            .dopaScreenBackground()
+            .navigationTitle(
+                String(
+                    localized: "settings.entry.lock_surface",
+                    defaultValue: "ロック画面の表示"
+                )
+            )
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "onboarding.action.close", defaultValue: "閉じる")) {
+                        isLockThemePickerPresented = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private var homeLockThemePreviewTitles: [String] {
+        let titles = model.lockScreenDisplayTitles.filter { !$0.isEmpty }
+        return titles.isEmpty
+            ? [String(localized: "lock_check.preview.goal_fallback", defaultValue: "あなたの目標")]
+            : titles
+    }
+
+    private func selectHomeLockTheme(_ theme: LockTheme) {
+        HomeLockThemeSelectionHandler.select(
+            for: theme,
+            isThemeAllowed: model.entitlementGate.lockThemeAllowed,
+            onLocked: { placement in
+                pendingThemePaywallPlacement = placement
+                isLockThemePickerPresented = false
+            },
+            onSelect: { selectedTheme in
+                settingsStore.lockTheme = selectedTheme
+                savedLockTheme = selectedTheme
+                onThemePickerSelectionChanged?(selectedTheme)
+                model.refreshLockSurfaces(scheduleNotifications: false)
+            }
+        )
     }
 
     private var firstDayEmptySection: some View {
@@ -666,7 +873,7 @@ struct HomeView: View {
             Text(
                 String(
                     localized: "home.first_day.title",
-                    defaultValue: "開こうとした瞬間に一呼吸が入ります"
+                    defaultValue: "対象アプリを開くと まず一呼吸"
                 )
             )
             .dopaFont(30, weight: .black, tracking: -0.7, lineSpacing: 4)
@@ -676,7 +883,7 @@ struct HomeView: View {
             Text(
                 String(
                     localized: "home.first_day.body",
-                    defaultValue: "開くのをやめた回数がここに残ります"
+                    defaultValue: "開かなかった回数が、ここに記録されます。"
                 )
             )
             .dopaFont(15, weight: .semibold, lineSpacing: 4)
@@ -695,7 +902,7 @@ struct HomeView: View {
                 Text(
                     String(
                         localized: "home.automation_status.body",
-                        defaultValue: "対象アプリを開いたときに一呼吸が出れば設定完了です。"
+                        defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
                     )
                 )
                 .dopaFont(14, weight: .semibold, lineSpacing: 4)
@@ -718,15 +925,8 @@ struct HomeView: View {
     }
 
     private var currentMode: InterventionMode {
-        let persistedMode: InterventionMode
-        if let rawValue = settingsStore.pendingInterventionMode,
-           let mode = InterventionMode(rawValue: rawValue) {
-            persistedMode = mode
-        } else {
-            persistedMode = (try? model.ruleStore.allRules().first?.mode) ?? .standard
-        }
         return InterventionModeResolver.resolve(
-            persistedMode,
+            persistedInterventionMode,
             hasConfirmedEntitlement: model.storeService.hasConfirmedEntitlement,
             strictModeAllowed: model.entitlementGate.strictModeAllowed
         )
@@ -735,8 +935,8 @@ struct HomeView: View {
     private var isNightBlockActive: Bool {
         currentMode == .nightOnly && NightWindowPolicy.isNight(
             now: clock,
-            bedTimeMinutes: settingsStore.bedTimeMinutes ?? NightShieldConstants.defaultBedTimeMinutes,
-            wakeTimeMinutes: settingsStore.wakeTimeMinutes ?? NightShieldConstants.defaultWakeTimeMinutes,
+            bedTimeMinutes: bedTimeMinutes,
+            wakeTimeMinutes: wakeTimeMinutes,
             calendar: .autoupdatingCurrent
         )
     }
@@ -765,15 +965,6 @@ struct HomeView: View {
         !isNightBlockActive && !isDeepFocusActive
     }
 
-    private func startDeepFocus() {
-        guard model.entitlementGate.strictModeAllowed else {
-            paywallPlacement = .settingsModeGate
-            return
-        }
-        model.startDeepFocusSession(durationMinutes: 30)
-        clock = Date()
-    }
-
     private var deepFocusRemainingText: String? {
         if isManualDeepFocusActive {
             guard let seconds = model.deepFocusSessionRemainingSeconds else { return nil }
@@ -799,8 +990,7 @@ struct HomeView: View {
 
     private var nightRemainingText: String? {
         let calendar = Calendar.autoupdatingCurrent
-        let wakeMinutes = settingsStore.wakeTimeMinutes
-            ?? NightShieldConstants.defaultWakeTimeMinutes
+        let wakeMinutes = wakeTimeMinutes
         let startOfDay = calendar.startOfDay(for: clock)
         guard var wake = calendar.date(byAdding: .minute, value: wakeMinutes, to: startOfDay) else {
             return nil
@@ -828,7 +1018,7 @@ struct HomeView: View {
 
     private var bedTimeText: String {
         let calendar = Calendar.autoupdatingCurrent
-        let minutes = settingsStore.bedTimeMinutes ?? NightShieldConstants.defaultBedTimeMinutes
+        let minutes = bedTimeMinutes
         let date = calendar.date(
             bySettingHour: minutes / 60,
             minute: minutes % 60,
@@ -858,19 +1048,6 @@ struct HomeView: View {
         )
     }
 
-    private var primaryGoalTitle: String {
-        model.goals.first?.title
-            ?? String(localized: "home.goal.fallback", defaultValue: "タップして目標を追加")
-    }
-
-    private var primaryGoalCategory: GoalCategory {
-        model.goals.first?.category ?? .other
-    }
-
-    private var hasPrimaryGoal: Bool {
-        model.goals.first != nil
-    }
-
     private var heroExpression: CharacterExpression {
         model.todayAttemptCount > 0 && model.todayCancelledCount == 0 ? .doom : .awake
     }
@@ -878,7 +1055,7 @@ struct HomeView: View {
     private var unverifiedAutomationCatalogIDs: [String] {
         AutomationVerification.unverifiedCatalogIDs(
             selectedCatalogIDs: (try? model.targetStore.selectedCatalogIDs()) ?? [],
-            verifiedCatalogIDs: settingsStore.verifiedAutomationCatalogIDs
+            verifiedCatalogIDs: verifiedAutomationCatalogIDs
         )
     }
 
@@ -891,17 +1068,31 @@ struct HomeView: View {
            let target = unverifiedAutomationTargets.first {
             return String(
                 localized: "home.automation_status.title_single",
-                defaultValue: "\(target.displayName)の一呼吸はまだ動いていません"
+                defaultValue: "\(target.displayName)で一呼吸の設定が完了していません"
             )
         }
         return String(
             localized: "home.automation_status.title_multiple",
-            defaultValue: "\(unverifiedAutomationCatalogIDs.count)個のアプリで一呼吸がまだ動いていません"
+            defaultValue: "\(unverifiedAutomationCatalogIDs.count)個のアプリで一呼吸の設定が完了していません"
         )
     }
 
     private var isFirstDayEmpty: Bool {
         model.todayAttemptCount == 0 && model.weekAttemptCount == 0
+    }
+
+    private func refreshSettingsMirrors() {
+        liveActivityEnabled = settingsStore.liveActivityEnabled
+        breathDurationSeconds = settingsStore.breathDurationSeconds
+        verifiedAutomationCatalogIDs = settingsStore.verifiedAutomationCatalogIDs
+        persistedInterventionMode = settingsStore.pendingInterventionMode
+            .flatMap(InterventionMode.init(rawValue:))
+            ?? (try? model.ruleStore.allRules().first?.mode)
+            ?? .standard
+        wakeTimeMinutes = settingsStore.wakeTimeMinutes
+            ?? NightShieldConstants.defaultWakeTimeMinutes
+        bedTimeMinutes = settingsStore.bedTimeMinutes
+            ?? NightShieldConstants.defaultBedTimeMinutes
     }
 
     private var todayText: String {

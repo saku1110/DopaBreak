@@ -1,14 +1,64 @@
 import DopaBreakCore
 import SwiftUI
 
+enum SettingsLockThemeSelectionHandler {
+    static func select(
+        for theme: LockTheme,
+        isThemeAllowed: (LockTheme) -> Bool,
+        onLocked: (PaywallPlacement) -> Void,
+        onSelect: (LockTheme) -> Void
+    ) {
+        onSelect(theme)
+        if !isThemeAllowed(theme) {
+            onLocked(.settingsThemeGate)
+        }
+    }
+}
+
+enum SettingsLockThemePresentation {
+    static func showsProNote(
+        savedTheme: LockTheme,
+        isThemeAllowed: (LockTheme) -> Bool
+    ) -> Bool {
+        !isThemeAllowed(savedTheme)
+    }
+}
+
 struct SettingsLockSurfaceView: View {
     let model: AppModel
     let settingsStore: SettingsStore
 
-    @Binding var selectedLockTheme: LockTheme
+    @Binding var liveLockTheme: LockTheme
     @Binding var liveActivityEnabled: Bool
     @Binding var isLockScreenCheckPresented: Bool
     @Binding var paywallPlacement: PaywallPlacement?
+    @State private var savedLockTheme: LockTheme
+    private let onPickerActionReady: ((@escaping (LockTheme) -> Void) -> Void)?
+    private let onPickerSelectionRendered: ((LockTheme) -> Void)?
+    private let onProNoteRendered: (() -> Void)?
+
+    init(
+        model: AppModel,
+        settingsStore: SettingsStore,
+        liveLockTheme: Binding<LockTheme>,
+        liveActivityEnabled: Binding<Bool>,
+        isLockScreenCheckPresented: Binding<Bool>,
+        paywallPlacement: Binding<PaywallPlacement?>,
+        onPickerActionReady: ((@escaping (LockTheme) -> Void) -> Void)? = nil,
+        onPickerSelectionRendered: ((LockTheme) -> Void)? = nil,
+        onProNoteRendered: (() -> Void)? = nil
+    ) {
+        self.model = model
+        self.settingsStore = settingsStore
+        _liveLockTheme = liveLockTheme
+        _liveActivityEnabled = liveActivityEnabled
+        _isLockScreenCheckPresented = isLockScreenCheckPresented
+        _paywallPlacement = paywallPlacement
+        _savedLockTheme = State(initialValue: model.savedLockTheme)
+        self.onPickerActionReady = onPickerActionReady
+        self.onPickerSelectionRendered = onPickerSelectionRendered
+        self.onProNoteRendered = onProNoteRendered
+    }
 
     var body: some View {
         ScrollView {
@@ -22,31 +72,6 @@ struct SettingsLockSurfaceView: View {
 
                 CardContainer {
                     VStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(spacing: 12) {
-                                SettingsIconTile(systemName: "paintpalette.fill")
-                                Text(
-                                    String(
-                                        localized: "settings.lock_screen.theme",
-                                        defaultValue: "表示デザイン"
-                                    )
-                                )
-                                .dopaFont(16, weight: .semibold)
-                                .foregroundStyle(DesignTokens.primaryText)
-                            }
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(LockTheme.allCases, id: \.self) { theme in
-                                        themeChip(theme)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.vertical, 8)
-
-                        SettingsDivider()
-
                         Button {
                             isLockScreenCheckPresented = true
                         } label: {
@@ -70,6 +95,50 @@ struct SettingsLockSurfaceView: View {
                             ),
                             isOn: liveActivityBinding
                         )
+
+                        SettingsDivider()
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 12) {
+                                SettingsIconTile(systemName: "paintpalette.fill")
+                                Text(
+                                    String(
+                                        localized: "settings.lock_screen.theme",
+                                        defaultValue: "表示デザイン"
+                                    )
+                                )
+                                .dopaFont(16, weight: .semibold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                            }
+
+                            if SettingsLockThemePresentation.showsProNote(
+                                savedTheme: savedLockTheme,
+                                isThemeAllowed: model.entitlementGate.lockThemeAllowed
+                            ) {
+                                Text(
+                                    String(
+                                        localized: "settings.lock_screen.pro_note",
+                                        defaultValue: "このデザインをロック画面に表示するにはProが必要です"
+                                    )
+                                )
+                                .dopaFont(13, weight: .semibold, lineSpacing: 3)
+                                .foregroundStyle(DesignTokens.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .onAppear { onProNoteRendered?() }
+                            }
+
+                            LockThemePickerView(
+                                selectedTheme: savedLockTheme,
+                                goalTitles: previewTitles,
+                                cancelledCount: model.todayCancelledCount,
+                                attemptCount: model.todayAttemptCount,
+                                isThemeAllowed: model.entitlementGate.lockThemeAllowed,
+                                onSelect: selectTheme,
+                                onSelectedThemeRendered: onPickerSelectionRendered
+                            )
+                            .onAppear { onPickerActionReady?(selectTheme) }
+                        }
+                        .padding(.vertical, 8)
                     }
                 }
             }
@@ -87,49 +156,25 @@ struct SettingsLockSurfaceView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func themeChip(_ theme: LockTheme) -> some View {
-        let isSelected = selectedLockTheme == theme
-        let isAllowed = model.entitlementGate.lockThemeAllowed(theme)
-        let palette = theme.palette
+    private var previewTitles: [String] {
+        let titles = model.lockScreenDisplayTitles.filter { !$0.isEmpty }
+        return titles.isEmpty
+            ? [String(localized: "lock_check.preview.goal_fallback", defaultValue: "あなたの目標")]
+            : titles
+    }
 
-        return Button {
-            guard isAllowed else {
-                paywallPlacement = .settingsThemeGate
-                return
+    private func selectTheme(_ theme: LockTheme) {
+        SettingsLockThemeSelectionHandler.select(
+            for: theme,
+            isThemeAllowed: model.entitlementGate.lockThemeAllowed,
+            onLocked: { paywallPlacement = $0 },
+            onSelect: { selectedTheme in
+                savedLockTheme = selectedTheme
+                settingsStore.lockTheme = selectedTheme
+                model.refreshLockSurfaces(scheduleNotifications: false)
+                liveLockTheme = model.liveLockTheme
             }
-            selectedLockTheme = theme
-            settingsStore.lockTheme = theme
-            model.refreshLockSurfaces()
-        } label: {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Color(lockThemeColor: palette.accent))
-                    .frame(width: 8, height: 8)
-                Text(theme.localizedDisplayName)
-                    .dopaFont(13, weight: .bold)
-                if theme != .e1 {
-                    Text(String(localized: "settings.status.pro", defaultValue: "Pro"))
-                        .dopaFont(9, weight: .black)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color(lockThemeColor: palette.accent).opacity(0.18))
-                        .clipShape(Capsule())
-                }
-            }
-            .foregroundStyle(isSelected ? DesignTokens.background : DesignTokens.primaryText)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 38)
-            .background(isSelected ? DesignTokens.accent : DesignTokens.backgroundRaised)
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? DesignTokens.accent : DesignTokens.hairline, lineWidth: 1)
-            )
-            .clipShape(Capsule())
-            .frame(minHeight: DesignTokens.minTapTarget)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        )
     }
 
     private var liveActivityBinding: Binding<Bool> {

@@ -19,6 +19,7 @@ enum OnboardingStep: Int, CaseIterable {
     case permission
     case notificationGuide
     case lockScreenCheck
+    case lockThemePick
     case prePaywallSummary
     case ready
 
@@ -50,6 +51,7 @@ enum OnboardingStep: Int, CaseIterable {
         case .permission: return "permission"
         case .notificationGuide: return "notification_guide"
         case .lockScreenCheck: return "lock_screen_check"
+        case .lockThemePick: return "lock_theme_pick"
         case .prePaywallSummary: return "pre_paywall_summary"
         case .ready: return "ready"
         }
@@ -242,6 +244,7 @@ struct OnboardingFlow: View {
     @State private var lockScreenMarkerBlockBottomY: CGFloat = 0
     @State private var lockScreenSideButtonGeometry = DeviceSideButtonGeometry.current()
     @State private var progressHeaderBottomY: CGFloat = 0
+    @State private var savedLockTheme: LockTheme
     @State private var paywallPlacement: PaywallPlacement?
     @State private var flowAlert: OnboardingAlert?
     /// 選択の触感トークン。画面と一緒に消えない位置で監視する
@@ -274,6 +277,7 @@ struct OnboardingFlow: View {
         // 中断して入り直しても、次へで同じ目標がもう1件増えることはない。
         _draftGoals = State(initialValue: OnboardingGoalList.restore(from: model.goals))
         _goalBaseline = State(initialValue: OnboardingGoalBaseline(goals: model.goals))
+        _savedLockTheme = State(initialValue: model.savedLockTheme)
     }
 
     var body: some View {
@@ -437,6 +441,8 @@ struct OnboardingFlow: View {
             notificationGuideContent
         case .lockScreenCheck:
             lockScreenCheckContent
+        case .lockThemePick:
+            lockThemePickContent
         case .prePaywallSummary:
             prePaywallSummaryContent
         case .ready:
@@ -470,7 +476,7 @@ struct OnboardingFlow: View {
         switch step {
         case .welcome:
             VStack(spacing: 10) {
-                primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "どれだけ溶けているか見る")) { advance(from: .welcome) }
+                primaryButton(String(localized: "onboarding.welcome.action", defaultValue: "SNSに使っている時間を知る")) { advance(from: .welcome) }
                 Text(String(localized: "onboarding.welcome.action_note", defaultValue: "質問3つ・30秒"))
                     .dopaFont(13, weight: .medium, lineSpacing: 3)
                     .foregroundStyle(DesignTokens.secondaryText)
@@ -500,11 +506,11 @@ struct OnboardingFlow: View {
         case .preview:
             primaryButton(String(localized: "onboarding.preview.action", defaultValue: "この仕組みを使う")) { advance(from: .preview) }
         case .whyScience:
-            primaryButton(String(localized: "onboarding.science.action", defaultValue: "仕組みに任せる")) { advance(from: .whyScience) }
+            primaryButton(String(localized: "onboarding.science.action", defaultValue: "仕組みを使って減らす")) { advance(from: .whyScience) }
         case .permission:
             VStack(spacing: 10) {
                 primaryButton(String(localized: "onboarding.automation.action", defaultValue: "ショートカットを開く")) { openShortcutsAndAdvance() }
-                Text(String(localized: "onboarding.automation.action_note", defaultValue: "設定できたかどうかは 対象アプリを開いたときに自動で確認されます"))
+                Text(String(localized: "onboarding.automation.action_note", defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です"))
                     .dopaFont(13, weight: .medium, lineSpacing: 3)
                     .foregroundStyle(DesignTokens.secondaryText)
                     .multilineTextAlignment(.center)
@@ -531,6 +537,31 @@ struct OnboardingFlow: View {
             case .starting, .waiting, .confirmed, .noGoal:
                 primaryButton(String(localized: "onboarding.action.next", defaultValue: "次に進む")) {
                     completeLockScreenCheckAndAdvance()
+                }
+            }
+        case .lockThemePick:
+            VStack(spacing: 10) {
+                if OnboardingThemeSummaryPolicy.showsPickerProNote(
+                    for: savedLockTheme,
+                    isThemeAllowed: model.entitlementGate.lockThemeAllowed
+                ) {
+                    Text(
+                        String(
+                            localized: "onboarding.lock_theme.pro_note",
+                            defaultValue: "このデザインをロック画面に表示するにはProが必要です"
+                        )
+                    )
+                    .dopaFont(13, weight: .medium, lineSpacing: 3)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .multilineTextAlignment(.center)
+                }
+                primaryButton(
+                    String(
+                        localized: "onboarding.lock_theme.action",
+                        defaultValue: "このデザインで進む"
+                    )
+                ) {
+                    confirmLockThemeAndAdvance()
                 }
             }
         case .prePaywallSummary:
@@ -587,9 +618,9 @@ private extension OnboardingFlow {
                     .minimumScaleFactor(0.74)
                     .multilineTextAlignment(.center)
 
-                centeredLead(String(localized: "onboarding.welcome.lead", defaultValue: "なんとなく開くだけで1日が終わる"))
+                centeredLead(String(localized: "onboarding.welcome.lead", defaultValue: "気づけばSNSを開き 何時間も過ぎている"))
 
-                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "ブロックしない 開く直前のひと呼吸"))
+                Text(String(localized: "onboarding.welcome.tagline", defaultValue: "SNSを開く直前に ひと呼吸"))
                     .dopaFont(17, weight: .bold)
                     .foregroundStyle(DesignTokens.accent)
             }
@@ -603,7 +634,7 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.self_check.eyebrow", defaultValue: "質問 1 / 3"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.self_check.title", defaultValue: "SNSを見ている時間は 1日どれくらいですか？"))
+                centeredTitle(String(localized: "onboarding.self_check.title", defaultValue: "1日にSNSを見る時間は どのくらいですか？"))
                     .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.self_check.hint", defaultValue: "ざっくりでOKです"))
                     .onboardingStagger(2)
@@ -624,7 +655,7 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.aimless.eyebrow", defaultValue: "質問 2 / 3"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.aimless.title", defaultValue: "気づけば目的もなく スクロールしている"))
+                centeredTitle(String(localized: "onboarding.aimless.title", defaultValue: "目的もないのに 気づけばスクロールしている"))
                     .onboardingStagger(1)
                 centeredLead(String(localized: "onboarding.aimless.lead", defaultValue: "この2週間でどれくらい当てはまりましたか？"))
                     .onboardingStagger(2)
@@ -644,7 +675,7 @@ private extension OnboardingFlow {
                     .onboardingStagger(0)
                 centeredTitle(String(localized: "onboarding.regret.title", defaultValue: "「時間を溶かした」と 感じることがある"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.regret.lead", defaultValue: "SNSを閉じたあと どれくらい当てはまりますか？"))
+                centeredLead(String(localized: "onboarding.regret.lead", defaultValue: "SNSを閉じたあと、どのくらい当てはまりますか？"))
                     .onboardingStagger(2)
                 frequencyButtons(selection: regretBucket) { option in
                     regretBucket = option
@@ -685,7 +716,7 @@ private extension OnboardingFlow {
                 VStack(alignment: .center, spacing: resultSpacing) {
                     centeredEyebrow(String(localized: "onboarding.result.eyebrow", defaultValue: "推計結果 / YOUR RESULT"))
                         .onboardingStagger(0)
-                    centeredLead(String(localized: "onboarding.result.lead", defaultValue: "あなたの回答にもとづく推計では"))
+                    centeredLead(String(localized: "onboarding.result.lead", defaultValue: "回答から計算すると"))
                         .onboardingStagger(1)
 
                     // 結果画面だけheader寸法へ下げ、6.1インチでも人生グリッドまで初期表示する。
@@ -739,7 +770,7 @@ private extension OnboardingFlow {
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(Text(verbatim: heroAccessibilityText))
 
-                        centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "がSNSに溶けています"))
+                        centeredLead(String(localized: "onboarding.result.daily_body", defaultValue: "をSNSに使っている計算です"))
 
                         HStack(alignment: .lastTextBaseline, spacing: 8) {
                             Text(threeYearPrefix)
@@ -822,7 +853,7 @@ private extension OnboardingFlow {
             VStack(alignment: .center, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.recovery.eyebrow", defaultValue: "取り戻せる時間 / GOOD NEWS"))
                     .onboardingStagger(0)
-                centeredLead(String(localized: "onboarding.recovery.lead", defaultValue: "開く回数を半分にできた場合の試算では"))
+                centeredLead(String(localized: "onboarding.recovery.lead", defaultValue: "開く回数が半分になったとすると"))
                     .onboardingStagger(1)
 
                 // 損失側の doom→worse と対にする。数字が出そろった直後に目を覚ました表情へ替える。
@@ -876,14 +907,14 @@ private extension OnboardingFlow {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(verbatim: heroAccessibilityText))
 
-                    centeredLead(String(localized: "onboarding.recovery.daily_body", defaultValue: "が自分の時間に戻ります"))
+                    centeredLead(String(localized: "onboarding.recovery.daily_body", defaultValue: "を自分のために使える計算です"))
                 }
                 .onboardingStagger(2)
 
                 centeredLead(
                     String(
                         localized: "onboarding.recovery.disclaimer",
-                        defaultValue: "※質問1の回答をもとに 開く回数が半分になった場合を計算した試算値です。"
+                        defaultValue: "※質問1の回答をもとに、開く回数が半分になった場合を計算した推計値です。"
                     )
                 )
                     .padding(.top, 8)
@@ -900,7 +931,7 @@ private extension OnboardingFlow {
                     .onboardingStagger(0)
                 centeredTitle(String(localized: "onboarding.apps.title", defaultValue: "止めたいアプリを選ぶ"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.apps.lead", defaultValue: "いつでも変更できます。"))
+                centeredLead(String(localized: "onboarding.apps.lead", defaultValue: "選んだアプリはあとから変えられます。"))
                     .onboardingStagger(2)
                 centeredLead(String(localized: "onboarding.apps.free_limit_note", defaultValue: "無料プランでは1つまで"))
                     .onboardingStagger(3)
@@ -924,11 +955,11 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.goal.eyebrow", defaultValue: "あなたの目標 / GOAL"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.goal.title", defaultValue: "空いたこの時間で 何をしますか？"))
+                centeredTitle(String(localized: "onboarding.goal.title", defaultValue: "取り戻した時間で\n何をしたいですか？"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.goal.lead", defaultValue: "なりたい姿でも やることでもいい"))
+                centeredLead(String(localized: "onboarding.goal.lead", defaultValue: "大きな目標でも、今日から始めたいことでもOKです。"))
                     .onboardingStagger(2)
-                centeredLead(String(localized: "onboarding.goal.multi_note", defaultValue: "目標は複数追加できます。無料プランでは1つまで"))
+                centeredLead(String(localized: "onboarding.goal.multi_note", defaultValue: "目標はあとから追加・変更できます"))
                     .onboardingStagger(3)
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -963,7 +994,7 @@ private extension OnboardingFlow {
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(String(localized: "onboarding.goal.helper", defaultValue: "そのままロック画面に表示されます"))
+                        Text(String(localized: "onboarding.goal.helper", defaultValue: "入力した目標はロック画面にも表示されます"))
                             .dopaFont(13, weight: .medium)
                             .foregroundStyle(DesignTokens.secondaryText)
                         Spacer(minLength: 8)
@@ -996,9 +1027,9 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.mode.eyebrow", defaultValue: "STRENGTH"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.mode.title", defaultValue: "どのくらい強く 止めますか？"))
+                centeredTitle(String(localized: "onboarding.mode.title", defaultValue: "SNSとの距離の置き方を選ぶ"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.mode.lead", defaultValue: "生活に合う強さを選べます。"))
+                centeredLead(String(localized: "onboarding.mode.lead", defaultValue: "生活に合った止め方を選べます。"))
                     .onboardingStagger(2)
 
                 VStack(spacing: 12) {
@@ -1018,9 +1049,9 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.preview.eyebrow", defaultValue: "PREVIEW"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.preview.title", defaultValue: "SNSを開こうとすると こうなります"))
+                centeredTitle(String(localized: "onboarding.preview.title", defaultValue: "SNSを開く前に こう立ち止まります"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.preview.lead", defaultValue: "目的を確かめて、必要なときだけ意図して開けるようにします。"))
+                centeredLead(String(localized: "onboarding.preview.lead", defaultValue: "開く理由を確かめ、必要なときだけ時間を決めて使えるようにします。"))
                     .onboardingStagger(2)
 
                 CharacterSwapSequence(
@@ -1035,7 +1066,7 @@ private extension OnboardingFlow {
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
                         numberedLine(String(localized: "onboarding.preview.step1", defaultValue: "1. 何のために開くか確認する"))
-                        numberedLine(String(localized: "onboarding.preview.step2", defaultValue: "2. 仕事や連絡なら、すぐ時間を選ぶ"))
+                        numberedLine(String(localized: "onboarding.preview.step2", defaultValue: "2. 仕事や連絡なら、そのまま開く"))
                         numberedLine(String(localized: "onboarding.preview.step3", defaultValue: "3. 暇つぶしなら、一呼吸して選び直す"))
                         numberedLine(String(localized: "onboarding.preview.step4", defaultValue: "4. 使った後の満足感を振り返る"))
                     }
@@ -1061,45 +1092,45 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.science.eyebrow", defaultValue: "WHY IT WORKS / 科学的背景"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.science.title", defaultValue: "意志の力では 勝てない"))
+                centeredTitle(String(localized: "onboarding.science.title", defaultValue: "意志だけでは 止めにくい理由"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.science.lead", defaultValue: "つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。"))
+                centeredLead(String(localized: "onboarding.science.lead", defaultValue: "つい開いてしまうのは、あなたが弱いからではありません。SNSは、考える前に開きたくなる仕組みでできています。"))
                     .onboardingStagger(2)
 
                 centeredLead(
-                    String(localized: "onboarding.science.dopamine", defaultValue: "SNSは次に何が出るかわからない報酬でドーパミンの回路を刺激し続けます。スロットマシンと同じ変動報酬という設計です。この反射は意志の力では止められません。")
+                    String(localized: "onboarding.science.dopamine", defaultValue: "SNSでは、次に何が出るかわからない仕組みが、つい続きを見たくなる気持ちを生みます。スロットマシンと同じ「変動報酬」です。だから、意志だけで開かないようにするのは簡単ではありません。")
                 )
                 .onboardingStagger(3)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 14) {
                         principleLine(
-                            String(localized: "onboarding.science.principle1.title", defaultValue: "1. 摩擦"),
-                            String(localized: "onboarding.science.principle1.detail", defaultValue: "反射的な起動に一拍置く")
+                            String(localized: "onboarding.science.principle1.title", defaultValue: "1. 一呼吸"),
+                            String(localized: "onboarding.science.principle1.detail", defaultValue: "開く前に数秒立ち止まる")
                         )
                         principleLine(
-                            String(localized: "onboarding.science.principle2.title", defaultValue: "2. 実行意図"),
-                            String(localized: "onboarding.science.principle2.detail", defaultValue: "開く前に理由を言語化する")
+                            String(localized: "onboarding.science.principle2.title", defaultValue: "2. 目的を確認"),
+                            String(localized: "onboarding.science.principle2.detail", defaultValue: "開く理由を選ぶ")
                         )
                         principleLine(
-                            String(localized: "onboarding.science.principle3.title", defaultValue: "3. 自己モニタリング"),
+                            String(localized: "onboarding.science.principle3.title", defaultValue: "3. 回数を確認"),
                             String(localized: "onboarding.science.principle3.detail", defaultValue: "今日何回目かを見る")
                         )
                         principleLine(
-                            String(localized: "onboarding.science.principle4.title", defaultValue: "4. 自己観察"),
-                            String(localized: "onboarding.science.principle4.detail", defaultValue: "見た後の満足感を記録する")
+                            String(localized: "onboarding.science.principle4.title", defaultValue: "4. 振り返り"),
+                            String(localized: "onboarding.science.principle4.detail", defaultValue: "見たあとの気持ちを記録する")
                         )
                     }
                 }
                 .onboardingStagger(4)
 
                 centeredLead(
-                    String(localized: "onboarding.science.mechanism", defaultValue: "DopaBreakはこの回路が自動で回り出す入口に割り込み、ひと呼吸ぶんの間を差し込みます。")
+                    String(localized: "onboarding.science.mechanism", defaultValue: "DopaBreakはSNSが開く直前に一呼吸をはさみ、無意識の動きを自分で選び直すきっかけをつくります。")
                 )
                 .onboardingStagger(5)
 
                 centeredLead(
-                    String(localized: "onboarding.science.research", defaultValue: "開く前にワンクッション置く手法は、査読付き研究（PNAS, 2023）でSNS利用を平均57%減らすことが示されています。")
+                    String(localized: "onboarding.science.research", defaultValue: "SNSを開く前に一呼吸をはさむ手法は、査読付き研究（PNAS, 2023）で、SNSの利用時間を平均57%減らしました。")
                 )
                 .onboardingStagger(6)
 
@@ -1118,18 +1149,18 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.automation.eyebrow", defaultValue: "SETUP"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.automation.title", defaultValue: "自動で一呼吸を出す設定"))
+                centeredTitle(String(localized: "onboarding.automation.title", defaultValue: "アプリを開く前の一呼吸を設定"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.automation.lead", defaultValue: "ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。設定は一度だけ・約2分です。"))
+                centeredLead(String(localized: "onboarding.automation.lead", defaultValue: "ショートカットを使い、選んだアプリを開くとDopaBreakが自動で起動するようにします。設定は最初の1回だけで、約2分です。"))
                     .onboardingStagger(2)
 
                 CardContainer {
                     VStack(alignment: .leading, spacing: 12) {
-                        numberedLine(String(localized: "onboarding.automation.step1", defaultValue: "1. オートメーションを開く"))
-                        numberedLine(String(localized: "onboarding.automation.step2", defaultValue: "2. ＋を押してAppを選ぶ"))
-                        numberedLine(String(localized: "onboarding.automation.step3", defaultValue: "3. 対象アプリを選び「開かれたとき」を選ぶ"))
-                        numberedLine(String(localized: "onboarding.automation.step4", defaultValue: "4. すぐに実行を選ぶ"))
-                        numberedLine(String(localized: "onboarding.automation.step5", defaultValue: "5. アクションで「DopaBreakで一呼吸」を選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step1", defaultValue: "1. ショートカットで「オートメーション」を開く"))
+                        numberedLine(String(localized: "onboarding.automation.step2", defaultValue: "2. 右上の＋を押し「アプリ」を選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step3", defaultValue: "3. 対象アプリと「開かれたとき」を選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step4", defaultValue: "4. 「すぐに実行」を選ぶ"))
+                        numberedLine(String(localized: "onboarding.automation.step5", defaultValue: "5. アクションから「DopaBreakで一呼吸」を選ぶ"))
                     }
                 }
                 .onboardingStagger(3)
@@ -1194,9 +1225,9 @@ private extension OnboardingFlow {
             VStack(alignment: .leading, spacing: 24) {
                 centeredEyebrow(String(localized: "onboarding.notification.eyebrow", defaultValue: "NOTIFICATION"))
                     .onboardingStagger(0)
-                centeredTitle(String(localized: "onboarding.notification.title", defaultValue: "ロック画面に 目標を"))
+                centeredTitle(String(localized: "onboarding.notification.title", defaultValue: "目標をロック画面に表示"))
                     .onboardingStagger(1)
-                centeredLead(String(localized: "onboarding.notification.lead", defaultValue: "朝の通知とLive Activityで、目標を毎日思い出します。"))
+                centeredLead(String(localized: "onboarding.notification.lead", defaultValue: "朝の通知とライブアクティビティで、目標を毎日ロック画面で確認できます。"))
                     .onboardingStagger(2)
 
                 VStack(spacing: 0) {
@@ -1218,7 +1249,7 @@ private extension OnboardingFlow {
                                 .foregroundStyle(DesignTokens.secondaryText)
                             Text(String(localized: "onboarding.notification.preview.count", defaultValue: "\(model.todayCancelledCount)回"))
                                 .foregroundStyle(DesignTokens.accent)
-                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開くのをやめた"))
+                            Text(String(localized: "onboarding.notification.preview.cancelled", defaultValue: "開かなかった"))
                                 .foregroundStyle(DesignTokens.secondaryText)
                         }
                         .dopaFont(14, weight: .bold)
@@ -1279,6 +1310,50 @@ private extension OnboardingFlow {
         }
     }
 
+    var lockThemePickContent: some View {
+        screenScroll {
+            VStack(alignment: .leading, spacing: 16) {
+                centeredEyebrow(
+                    String(
+                        localized: "onboarding.lock_theme.eyebrow",
+                        defaultValue: "ロック画面のデザイン"
+                    )
+                )
+                .onboardingStagger(0)
+
+                centeredTitle(
+                    String(
+                        localized: "onboarding.lock_theme.title",
+                        defaultValue: "デザインを選ぶ"
+                    )
+                )
+                .onboardingStagger(1)
+
+                centeredLead(
+                    String(
+                        localized: "onboarding.lock_theme.lead",
+                        defaultValue: "あとから設定で変更できます"
+                    )
+                )
+                .onboardingStagger(2)
+
+                LockThemePickerView(
+                    selectedTheme: savedLockTheme,
+                    goalTitles: model.lockScreenDisplayTitles,
+                    cancelledCount: model.todayCancelledCount,
+                    attemptCount: model.todayAttemptCount,
+                    isThemeAllowed: model.entitlementGate.lockThemeAllowed
+                ) { theme in
+                    savedLockTheme = theme
+                    settingsStore.lockTheme = theme
+                    model.refreshLockSurfaces(scheduleNotifications: false)
+                    markSelectionFeedback()
+                }
+                .onboardingStagger(3)
+            }
+        }
+    }
+
     var prePaywallSummaryContent: some View {
         screenScroll {
             VStack(alignment: .leading, spacing: 24) {
@@ -1289,7 +1364,7 @@ private extension OnboardingFlow {
                     .onboardingStagger(1)
                 centeredTitle(String(localized: "onboarding.summary.title", defaultValue: "準備が整いました"))
                     .onboardingStagger(2)
-                centeredLead(String(localized: "onboarding.summary.lead", defaultValue: "この設定で、開く前の一呼吸が増えます。"))
+                centeredLead(String(localized: "onboarding.summary.lead", defaultValue: "この設定で、SNSを開く前に一呼吸をはさみます。"))
                     .onboardingStagger(3)
 
                 CardContainer {
@@ -1314,8 +1389,36 @@ private extension OnboardingFlow {
                 }
                 .onboardingStagger(4)
 
-                centeredLead(String(localized: "onboarding.summary.footer", defaultValue: "今日から、開く前に選べるようになります。"))
+                if OnboardingThemeSummaryPolicy.showsThemeCard(for: savedLockTheme) {
+                    VStack(spacing: 10) {
+                        LockThemePreviewCard(
+                            theme: savedLockTheme,
+                            goalTitles: lockThemePreviewTitles,
+                            cancelledCount: model.todayCancelledCount,
+                            attemptCount: model.todayAttemptCount
+                        )
+
+                        if OnboardingThemeSummaryPolicy.showsSummaryProNote(
+                            for: savedLockTheme,
+                            isThemeAllowed: model.entitlementGate.lockThemeAllowed
+                        ) {
+                            Text(
+                                String(
+                                    localized: "onboarding.summary.theme_note",
+                                    defaultValue: "このデザインをロック画面に表示するにはProが必要です"
+                                )
+                            )
+                            .dopaFont(13, weight: .semibold, lineSpacing: 3)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
                     .onboardingStagger(5)
+                }
+
+                centeredLead(String(localized: "onboarding.summary.footer", defaultValue: "今日から、SNSを開く前に立ち止まって選べます。"))
+                    .onboardingStagger(6)
             }
         }
     }
@@ -1331,7 +1434,7 @@ private extension OnboardingFlow {
                 VStack(spacing: 12) {
                     titleText(String(localized: "onboarding.ready.title", defaultValue: "準備完了"))
                         .multilineTextAlignment(.center)
-                    bodyText(String(localized: "onboarding.ready.body", defaultValue: "今日から 開く前に選び直す"))
+                    bodyText(String(localized: "onboarding.ready.body", defaultValue: "今日から SNSを開く前に立ち止まって選べます"))
                         .multilineTextAlignment(.center)
                 }
                 .onboardingStagger(0)
@@ -1353,12 +1456,12 @@ private extension OnboardingFlow {
                    firstTarget.urlScheme != nil {
                     CardContainer {
                         VStack(alignment: .leading, spacing: 12) {
-                            Button(String(localized: "onboarding.ready.test_action", defaultValue: "最初のテストをする")) {
+                            Button(String(localized: "onboarding.ready.test_action", defaultValue: "設定をテストする")) {
                                 testFirstAutomation(firstTarget)
                             }
                             .buttonStyle(SecondaryButtonStyle())
 
-                            Text(String(localized: "onboarding.ready.test_body", defaultValue: "\(firstTarget.displayName)を開いて一呼吸が出れば成功です。"))
+                            Text(String(localized: "onboarding.ready.test_body", defaultValue: "\(firstTarget.displayName)を開き、一呼吸の画面が表示されれば設定完了です。"))
                                 .dopaFont(14, weight: .semibold, lineSpacing: 4)
                                 .foregroundStyle(DesignTokens.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1790,6 +1893,13 @@ private extension OnboardingFlow {
             : localGoal
     }
 
+    var lockThemePreviewTitles: [String] {
+        let titles = model.lockScreenDisplayTitles.filter { !$0.isEmpty }
+        return titles.isEmpty
+            ? [String(localized: "lock_check.preview.goal_fallback", defaultValue: "あなたの目標")]
+            : titles
+    }
+
     var summaryYearlyDays: Int {
         selfCheckSnapshot?.estimatedYearlyDays ?? currentEstimate.yearlyDays
     }
@@ -1881,6 +1991,15 @@ private extension OnboardingFlow {
         advance(from: .lockScreenCheck)
     }
 
+    func confirmLockThemeAndAdvance() {
+        let theme = savedLockTheme
+        model.recordFunnelEvent(
+            .onboardingStepCompleted,
+            detail: "lock_theme_pick:\(theme.rawValue)"
+        )
+        advance(from: .lockThemePick)
+    }
+
     func persistSelfCheckSnapshot() -> Bool {
         guard let usageBucket, let aimlessScrollBucket, let regretBucket else {
             showSaveError()
@@ -1924,7 +2043,7 @@ private extension OnboardingFlow {
 
     func persistSelectedAppsAndAdvance() {
         guard !selectedCatalogIDs.isEmpty else {
-            appSelectionMessage = String(localized: "onboarding.apps.empty_selection_message", defaultValue: "まずは1つだけ選びましょう。\n\n一番無意識に開いてしまうSNSから始めるのがおすすめです。")
+            appSelectionMessage = String(localized: "onboarding.apps.empty_selection_message", defaultValue: "まずは、無意識に開くことが多いSNSを1つ選んでください。")
             return
         }
         do {

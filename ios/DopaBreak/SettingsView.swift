@@ -4,6 +4,14 @@ import ManagedSettings
 import SwiftUI
 import UIKit
 
+enum SettingsFocusRequestConsumption {
+    static func consume(isSettingsVisible: Bool, pendingRequest: inout Bool) -> Bool {
+        guard isSettingsVisible, pendingRequest else { return false }
+        pendingRequest = false
+        return true
+    }
+}
+
 struct SettingsView: View {
     let model: AppModel
     let settingsStore: SettingsStore
@@ -33,12 +41,14 @@ struct SettingsView: View {
         snapshotModel model: AppModel,
         settingsStore: SettingsStore,
         screenTimeAuthorized: Bool,
+        timelineDragPreview: Bool = false,
         onResetOnboarding: @escaping () -> Void
     ) {
         self.model = model
         self.settingsStore = settingsStore
         self.onResetOnboarding = onResetOnboarding
         self.snapshotScreenTimeAuthorized = screenTimeAuthorized
+        _draggingTimelineHandle = State(initialValue: timelineDragPreview ? .wake : nil)
     }
     #endif
 
@@ -50,11 +60,6 @@ struct SettingsView: View {
     @State private var authorizationWasDenied = false
     @State private var isRequestingAuthorization = false
     @State private var shouldOpenPickerAfterAuthorization = false
-    @State private var usageWatchSelection = FamilyActivitySelection()
-    @State private var isUsageWatchPickerPresented = false
-    @State private var shouldEnableUsageWatchAfterPicker = false
-    @State private var usageWatchAuthorizationWasDenied = false
-    @State private var isRequestingUsageWatchAuthorization = false
     @State private var paywallPlacement: PaywallPlacement?
     @State private var isTargetPickerPresented = false
     @State private var shouldPresentTargetAppPaywallAfterDismiss = false
@@ -63,12 +68,17 @@ struct SettingsView: View {
     @State private var isLockScreenCheckPresented = false
     @State private var isDeleteAllDataConfirmationPresented = false
     @State private var isDeletionFeedbackVisible = false
+    @State private var breathDurationSeconds = 3
+    @State private var wakeTimeMinutes = 420
+    @State private var bedTimeMinutes = 1_380
+    @State private var morningNotificationMinutes = 420
+    @State private var verifiedAutomationCatalogIDs: [String] = []
     @State private var morningNotificationEnabled = true
     @State private var weeklyReportNotificationEnabled = true
     @State private var retentionSupportNotificationsEnabled = true
     @State private var planNotificationsEnabled = true
     @State private var liveActivityEnabled = true
-    @State private var selectedLockTheme: LockTheme = .e1
+    @State private var liveLockTheme: LockTheme = .e1
     @State private var selectedSessionOption: DeepFocusSessionOption = .oneHour
     @State private var deepFocusSchedule: DeepFocusSchedule = .disabled
     /// 進行中の回。1秒ごとの再描画で残り時間を出し、0になった瞬間に同期へ回す。
@@ -78,8 +88,18 @@ struct SettingsView: View {
     @State private var isScheduleWindowActive = false
     @State private var isWakeTimePickerPresented = false
     @State private var isBedTimePickerPresented = false
+    @State private var timelineAdjustmentMessage: String?
+    @State private var draggingTimelineHandle: TimelineHandle?
+    @State private var timelineDragStartMinutes: Int?
+    @State private var timelineDragGestureID: UUID?
+    @State private var timelineDragAnchorGestureID: UUID?
+    @State private var didDragTimelineHandle = false
+    @State private var timelineDragCleanupTask: Task<Void, Never>?
+    @State private var timelineShieldSyncTask: Task<Void, Never>?
+    @State private var isTimelineShieldSyncPending = false
+    @State private var isSettingsVisible = false
     @State private var isPlanEntryHighlighted = false
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var isDeepFocusEntryHighlighted = false
 
     /// 曜日チップの並び。月曜から日曜（`Calendar` の番号では2から始まり1で終わる）。
     private static let weekdayOrder = [2, 3, 4, 5, 6, 7, 1]
@@ -133,8 +153,14 @@ struct SettingsView: View {
         }
     }
 
+    private enum TimelineHandle {
+        case wake
+        case bed
+    }
+
     /// プラン系通知のタップで送り込む先（docs/18 §2f）。
     private static let planSectionID = "settings.section.account"
+    private static let deepFocusSectionID = "settings.section.deep_focus"
 
     var body: some View {
         NavigationStack {
@@ -142,10 +168,22 @@ struct SettingsView: View {
             ScrollViewReader { proxy in
                 settingsScroll
                     .onAppear {
+                        isSettingsVisible = true
                         scrollToPlanSectionIfRequested(proxy: proxy)
+                        scrollToDeepFocusSectionIfRequested(proxy: proxy)
+                    }
+                    .onDisappear {
+                        isSettingsVisible = false
+                        flushPendingTimelineShieldSync()
+                        timelineDragCleanupTask?.cancel()
+                        timelineShieldSyncTask?.cancel()
+                        clearTimelineDragState(resetTapGuard: true)
                     }
                     .onChange(of: model.pendingPlanSettingsFocus) { _, _ in
                         scrollToPlanSectionIfRequested(proxy: proxy)
+                    }
+                    .onChange(of: model.pendingDeepFocusSettingsFocus) { _, _ in
+                        scrollToDeepFocusSectionIfRequested(proxy: proxy)
                     }
             }
             // 自前のScreenHeaderをやめ、システムの大見出しへ寄せた。
@@ -176,12 +214,44 @@ struct SettingsView: View {
         }
     }
 
+    /// ホームからの要求があれば、完全ブロックを選ぶ「止める強さ」まで送る。
+    private func scrollToDeepFocusSectionIfRequested(proxy: ScrollViewProxy) {
+        guard isSettingsVisible, model.pendingDeepFocusSettingsFocus else {
+            return
+        }
+        Task { @MainActor in
+            await Task.yield()
+            await Task.yield()
+            guard SettingsFocusRequestConsumption.consume(
+                isSettingsVisible: isSettingsVisible,
+                pendingRequest: &model.pendingDeepFocusSettingsFocus
+            ) else { return }
+            withAnimation(DopaMotion.transition) {
+                proxy.scrollTo(Self.deepFocusSectionID, anchor: .center)
+                isDeepFocusEntryHighlighted = true
+            }
+            try? await Task.sleep(for: .seconds(1.6))
+            guard !Task.isCancelled else { return }
+            withAnimation(DopaMotion.control) {
+                isDeepFocusEntryHighlighted = false
+            }
+        }
+    }
+
     /// シート提示や状態同期はスクロール本体に付けたまま、NavigationStackで包むだけにする。
     private var settingsScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.sectionSpacing) {
                 statusSection
                 modeSection
+                    .overlay {
+                        RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous)
+                            .stroke(
+                                isDeepFocusEntryHighlighted ? DesignTokens.accent : .clear,
+                                lineWidth: 1
+                            )
+                    }
+                    .id(Self.deepFocusSectionID)
 
                 if isDeepFocusUnlocked, selectedMode == .deepFocus {
                     deepFocusControlsSection
@@ -197,7 +267,7 @@ struct SettingsView: View {
                 Text(
                     String(
                         localized: "settings.device_only_note",
-                        defaultValue: "SNSなどのアプリを止める機能はiPhoneでのみ使えます"
+                        defaultValue: "開く前の一呼吸と完全ブロックはiPhoneでのみ使えます。"
                     )
                 )
                     .dopaFont(13, weight: .medium)
@@ -254,7 +324,7 @@ struct SettingsView: View {
                 shouldPresentTargetAppPaywallAfterDismiss = true
             }
         }
-        .sheet(isPresented: $isAutomationGuidePresented) {
+        .sheet(isPresented: $isAutomationGuidePresented, onDismiss: refreshSettingsState) {
             AutomationGuideView(model: model, settingsStore: settingsStore)
         }
         .sheet(item: $gateAppSettingTarget) { target in
@@ -302,7 +372,6 @@ struct SettingsView: View {
     private var isAnyChildModalPresented: Bool {
         isAuthorizationSheetPresented
             || isFamilyActivityPickerPresented
-            || isUsageWatchPickerPresented
             || paywallPlacement != nil
             || isTargetPickerPresented
             || isAutomationGuidePresented
@@ -520,7 +589,7 @@ struct SettingsView: View {
                     Text(
                         String(
                             localized: "settings.deep_focus.locked_notice",
-                            defaultValue: "完全ブロックでは決めた時間だけ選んだアプリを止められます"
+                            defaultValue: "Proでは、選んだアプリを決めた時間だけ開けないようにできます。"
                         )
                     )
                     .dopaFont(13, weight: .semibold, lineSpacing: 3)
@@ -559,7 +628,7 @@ struct SettingsView: View {
                     Text(
                         String(
                             localized: "settings.gate.description",
-                            defaultValue: "開く前に必ず一呼吸。回数や長さはアプリごとに決められます"
+                            defaultValue: "アプリを開く前に必ず一呼吸をはさみます。1日の回数や、1回に使える時間もアプリごとに設定できます。"
                         )
                     )
                     .dopaFont(13, weight: .medium, lineSpacing: 3)
@@ -722,10 +791,11 @@ struct SettingsView: View {
     }
 
     private func breathDurationChip(_ seconds: Int, title: String) -> some View {
-        let isSelected = settingsStore.breathDurationSeconds == seconds
+        let isSelected = breathDurationSeconds == seconds
 
         return Button {
             settingsStore.breathDurationSeconds = seconds
+            breathDurationSeconds = seconds
         } label: {
             Text(title)
                 .dopaFont(12, weight: .bold)
@@ -751,7 +821,7 @@ struct SettingsView: View {
                 systemName: "bolt.fill",
                 label: String(
                     localized: "settings.target.automation",
-                    defaultValue: "自動で一呼吸を出す設定"
+                    defaultValue: "開く前の一呼吸を設定"
                 ),
                 value: isAutomationConfigured
                     ? String(
@@ -835,13 +905,13 @@ struct SettingsView: View {
             Text(
                 String(
                     localized: "settings.gate.automation_note",
-                    defaultValue: "Proの止めるアプリではショートカットの自動化は不要です"
+                    defaultValue: "Proでは、ショートカットを設定しなくても一呼吸の画面を表示できます。"
                 )
             )
             Text(
                 String(
                     localized: "settings.gate.category_note",
-                    defaultValue: "カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です"
+                    defaultValue: "カテゴリ単位の選択は、完全ブロックにだけ適用されます。開く前の一呼吸はアプリごとに設定してください。"
                 )
             )
         }
@@ -866,7 +936,7 @@ struct SettingsView: View {
                 Text(
                     String(
                         localized: "settings.gate.locked_notice",
-                        defaultValue: "Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます"
+                        defaultValue: "Proでは、ショートカットなしで開く前に一呼吸をはさめます。1日の回数や、次に開けるまでの時間も設定できます。"
                     )
                 )
                 .dopaFont(13, weight: .semibold, lineSpacing: 3)
@@ -910,11 +980,11 @@ struct SettingsView: View {
                     Text("0:00")
                     Spacer()
                     Text(
-                        "\(timelineTimeText(settingsStore.wakeTimeMinutes ?? 420)) \(String(localized: "settings.timeline.wake", defaultValue: "起床"))"
+                        "\(timelineTimeText(wakeTimeMinutes)) \(String(localized: "settings.timeline.wake", defaultValue: "起床"))"
                     )
                     Spacer()
                     Text(
-                        "\(timelineTimeText(settingsStore.bedTimeMinutes ?? 1_380)) \(String(localized: "settings.timeline.sleep", defaultValue: "就寝"))"
+                        "\(timelineTimeText(bedTimeMinutes)) \(String(localized: "settings.timeline.sleep", defaultValue: "就寝"))"
                     )
                 }
                 .dopaFont(11, weight: .medium, design: .monospaced)
@@ -939,10 +1009,16 @@ struct SettingsView: View {
         GeometryReader { proxy in
             let horizontalInset: CGFloat = 17
             let barWidth = max(1, proxy.size.width - horizontalInset * 2)
-            let wake = CGFloat(SettingsTime.normalizedMinutes(settingsStore.wakeTimeMinutes ?? 420))
-                / 1_440
-            let bed = CGFloat(SettingsTime.normalizedMinutes(settingsStore.bedTimeMinutes ?? 1_380))
-                / 1_440
+            let wakeOffset = WakeSleepTimelinePolicy.offset(
+                forTime: wakeTimeMinutes,
+                trackWidth: Double(barWidth)
+            )
+            let bedOffset = WakeSleepTimelinePolicy.offset(
+                forTime: bedTimeMinutes,
+                trackWidth: Double(barWidth)
+            )
+            let wake = CGFloat(wakeOffset) / barWidth
+            let bed = CGFloat(bedOffset) / barWidth
 
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
@@ -965,45 +1041,232 @@ struct SettingsView: View {
             }
             .frame(width: barWidth, height: 26)
             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-            .position(x: proxy.size.width / 2, y: 22)
+            .position(x: proxy.size.width / 2, y: 42)
 
             timelineHandle(
+                handle: .wake,
                 systemName: "sun.max.fill",
-                label: String(localized: "settings.timeline.wake", defaultValue: "起床")
+                label: String(localized: "settings.timeline.wake", defaultValue: "起床"),
+                minutes: wakeTimeMinutes,
+                trackWidth: barWidth
             ) {
+                timelineAdjustmentMessage = nil
                 isWakeTimePickerPresented = true
             }
-            .position(x: horizontalInset + wake * barWidth, y: 22)
+            .position(x: horizontalInset + wake * barWidth, y: 42)
 
             timelineHandle(
+                handle: .bed,
                 systemName: "moon.fill",
-                label: String(localized: "settings.timeline.sleep", defaultValue: "就寝")
+                label: String(localized: "settings.timeline.sleep", defaultValue: "就寝"),
+                minutes: bedTimeMinutes,
+                trackWidth: barWidth
             ) {
+                timelineAdjustmentMessage = nil
                 isBedTimePickerPresented = true
             }
-            .position(x: horizontalInset + bed * barWidth, y: 22)
+            .position(x: horizontalInset + bed * barWidth, y: 42)
         }
-        .frame(height: 44)
+        .frame(height: 76)
     }
 
     private func timelineHandle(
+        handle: TimelineHandle,
         systemName: String,
         label: String,
+        minutes: Int,
+        trackWidth: CGFloat,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .dopaFont(15, weight: .bold)
-                .foregroundStyle(.black)
-                .frame(width: 34, height: 34)
-                .background(.white)
-                .clipShape(Circle())
-                .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
-                .frame(width: DesignTokens.minTapTarget, height: DesignTokens.minTapTarget)
-                .contentShape(Rectangle())
+        ZStack {
+            if draggingTimelineHandle == handle {
+                Text(timelineTimeText(minutes))
+                    .dopaFont(11, weight: .bold, design: .monospaced)
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(DesignTokens.card)
+                    .clipShape(Capsule())
+                    .offset(y: -34)
+                    .allowsHitTesting(false)
+            }
+
+            Button {
+                guard !didDragTimelineHandle else { return }
+                action()
+            } label: {
+                Image(systemName: systemName)
+                    .dopaFont(15, weight: .bold)
+                    .foregroundStyle(.black)
+                    .frame(width: 34, height: 34)
+                    .background(.white)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
+                    .frame(width: DesignTokens.minTapTarget, height: DesignTokens.minTapTarget)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
+        .accessibilityValue(timelineTimeText(minutes))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
+        .accessibilityAction(named: Text(label), action)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                updateTimeline(handle: handle, proposedMinutes: minutes + 15, source: .accessibility)
+            case .decrement:
+                updateTimeline(handle: handle, proposedMinutes: minutes - 15, source: .accessibility)
+            @unknown default:
+                return
+            }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 6)
+                .onChanged { value in
+                    didDragTimelineHandle = true
+                    let gestureID: UUID
+                    if let activeGestureID = timelineDragGestureID {
+                        gestureID = activeGestureID
+                    } else {
+                        gestureID = UUID()
+                        timelineDragGestureID = gestureID
+                        scheduleTimelineDragFailsafe(for: gestureID)
+                    }
+                    if timelineDragAnchorGestureID != gestureID {
+                        draggingTimelineHandle = handle
+                        timelineDragStartMinutes = minutes
+                        timelineDragAnchorGestureID = gestureID
+                    }
+                    let startMinutes = timelineDragStartMinutes ?? minutes
+                    let startOffset = WakeSleepTimelinePolicy.offset(
+                        forTime: startMinutes,
+                        trackWidth: Double(trackWidth)
+                    )
+                    let proposed = WakeSleepTimelinePolicy.time(
+                        forOffset: startOffset + Double(value.translation.width),
+                        trackWidth: Double(trackWidth)
+                    )
+                    updateTimeline(handle: handle, proposedMinutes: proposed, source: .drag)
+                }
+                .onEnded { _ in
+                    flushPendingTimelineShieldSync()
+                    clearTimelineDragState(resetTapGuard: false)
+                    scheduleTimelineTapGuardCleanup(after: .milliseconds(120))
+                }
+        )
+    }
+
+    private enum TimelineUpdateSource {
+        case drag
+        case picker
+        case accessibility
+
+        var snapsToStep: Bool { self == .drag }
+        var providesHapticFeedback: Bool { self == .drag }
+    }
+
+    private func updateTimeline(
+        handle: TimelineHandle,
+        proposedMinutes: Int,
+        source: TimelineUpdateSource
+    ) {
+        let nextMinutes: Int
+        switch handle {
+        case .wake:
+            nextMinutes = WakeSleepTimelinePolicy.clampedWake(
+                proposedMinutes,
+                bed: bedTimeMinutes,
+                snapToStep: source.snapsToStep
+            )
+        case .bed:
+            nextMinutes = WakeSleepTimelinePolicy.clampedBed(
+                proposedMinutes,
+                wake: wakeTimeMinutes,
+                snapToStep: source.snapsToStep
+            )
+        }
+        let currentMinutes = handle == .wake ? wakeTimeMinutes : bedTimeMinutes
+        if source == .picker {
+            timelineAdjustmentMessage = nextMinutes == WakeSleepTimelinePolicy.normalized(proposedMinutes)
+                ? nil
+                : String(
+                    localized: "settings.timeline.minimum_gap_notice",
+                    defaultValue: "起床と就寝は1時間以上離して設定します。"
+                )
+        }
+        guard nextMinutes != currentMinutes else { return }
+
+        if handle == .wake {
+            wakeTimeMinutes = nextMinutes
+            settingsStore.wakeTimeMinutes = nextMinutes
+        } else {
+            bedTimeMinutes = nextMinutes
+            settingsStore.bedTimeMinutes = nextMinutes
+        }
+        if source.providesHapticFeedback {
+            HapticFeedback.selection()
+        }
+        scheduleTimelineShieldSync()
+    }
+
+    /// ScrollViewなどに終了通知を奪われた場合だけを救う。ドラッグ中の停止を終了扱いしないよう、
+    /// ジェスチャ開始時に一度だけ十分長い期限を置き、onChangedごとの再設定はしない。
+    private func scheduleTimelineDragFailsafe(for gestureID: UUID) {
+        timelineDragCleanupTask?.cancel()
+        timelineDragCleanupTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled else { return }
+            guard timelineDragGestureID == gestureID else { return }
+            flushPendingTimelineShieldSync()
+            clearTimelineDragState(resetTapGuard: true)
+        }
+    }
+
+    /// 終了直後のButton再発火だけを抑え、ジェスチャ状態は保持しない。
+    private func scheduleTimelineTapGuardCleanup(after delay: Duration) {
+        timelineDragCleanupTask?.cancel()
+        timelineDragCleanupTask = Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            didDragTimelineHandle = false
+            timelineDragCleanupTask = nil
+        }
+    }
+
+    private func clearTimelineDragState(resetTapGuard: Bool) {
+        timelineDragCleanupTask?.cancel()
+        timelineDragCleanupTask = nil
+        draggingTimelineHandle = nil
+        timelineDragStartMinutes = nil
+        timelineDragGestureID = nil
+        timelineDragAnchorGestureID = nil
+        if resetTapGuard {
+            didDragTimelineHandle = false
+        }
+    }
+
+    private func scheduleTimelineShieldSync() {
+        isTimelineShieldSyncPending = true
+        timelineShieldSyncTask?.cancel()
+        timelineShieldSyncTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            guard isTimelineShieldSyncPending else { return }
+            isTimelineShieldSyncPending = false
+            timelineShieldSyncTask = nil
+            model.syncShield()
+        }
+    }
+
+    private func flushPendingTimelineShieldSync() {
+        timelineShieldSyncTask?.cancel()
+        timelineShieldSyncTask = nil
+        guard isTimelineShieldSyncPending else { return }
+        isTimelineShieldSyncPending = false
+        model.syncShield()
     }
 
     private func timelineTimePicker(title: String, selection: Binding<Date>) -> some View {
@@ -1016,6 +1279,13 @@ struct SettingsView: View {
                 .labelsHidden()
                 .datePickerStyle(.compact)
                 .tint(DesignTokens.accent)
+
+            if let timelineAdjustmentMessage {
+                Text(timelineAdjustmentMessage)
+                    .dopaFont(12, weight: .semibold, lineSpacing: 2)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(20)
         .frame(minWidth: 220)
@@ -1036,15 +1306,10 @@ struct SettingsView: View {
                         model: model,
                         settingsStore: settingsStore,
                         morningNotificationEnabled: $morningNotificationEnabled,
+                        morningNotificationMinutes: $morningNotificationMinutes,
                         weeklyReportNotificationEnabled: $weeklyReportNotificationEnabled,
                         retentionSupportNotificationsEnabled: $retentionSupportNotificationsEnabled,
-                        planNotificationsEnabled: $planNotificationsEnabled,
-                        usageWatchSelection: $usageWatchSelection,
-                        isUsageWatchPickerPresented: $isUsageWatchPickerPresented,
-                        shouldEnableUsageWatchAfterPicker: $shouldEnableUsageWatchAfterPicker,
-                        usageWatchAuthorizationWasDenied: $usageWatchAuthorizationWasDenied,
-                        isRequestingUsageWatchAuthorization: $isRequestingUsageWatchAuthorization,
-                        paywallPlacement: $paywallPlacement
+                        planNotificationsEnabled: $planNotificationsEnabled
                     )
                 } label: {
                     SettingsIconNavigationRow(
@@ -1064,7 +1329,7 @@ struct SettingsView: View {
                     SettingsLockSurfaceView(
                         model: model,
                         settingsStore: settingsStore,
-                        selectedLockTheme: $selectedLockTheme,
+                        liveLockTheme: $liveLockTheme,
                         liveActivityEnabled: $liveActivityEnabled,
                         isLockScreenCheckPresented: $isLockScreenCheckPresented,
                         paywallPlacement: $paywallPlacement
@@ -1076,7 +1341,7 @@ struct SettingsView: View {
                             localized: "settings.entry.lock_surface",
                             defaultValue: "ロック画面の表示"
                         ),
-                        value: selectedLockTheme.localizedDisplayName
+                        value: liveLockTheme.localizedDisplayName
                     )
                 }
                 .buttonStyle(.plain)
@@ -1201,7 +1466,7 @@ struct SettingsView: View {
                 Text(
                     String(
                         localized: "settings.deep_focus.schedule.active.session_notice",
-                        defaultValue: "予定が終わっても手動で始めた分は続きます"
+                        defaultValue: "予定の終了後も、手動で始めた完全ブロックは続きます。"
                     )
                 )
                 .dopaFont(13, weight: .medium, lineSpacing: 3)
@@ -1331,14 +1596,23 @@ struct SettingsView: View {
 
     private var startSessionButton: some View {
         Button {
-            model.startDeepFocusSession(durationMinutes: selectedSessionOption.durationMinutes)
-            refreshDeepFocusState()
+            if primaryRule == nil {
+                handleAppSelectionTap()
+            } else {
+                model.startDeepFocusSession(durationMinutes: selectedSessionOption.durationMinutes)
+                refreshDeepFocusState()
+            }
         } label: {
             Text(
-                String(
-                    localized: "settings.deep_focus.session.start.action",
-                    defaultValue: "開始"
-                )
+                primaryRule == nil
+                    ? String(
+                        localized: "settings.deep_focus.choose_apps",
+                        defaultValue: "完全ブロックするアプリを選ぶ"
+                    )
+                    : String(
+                        localized: "settings.deep_focus.session.start.action",
+                        defaultValue: "開始"
+                    )
             )
             .dopaFont(16, weight: .bold)
             .foregroundStyle(DesignTokens.background)
@@ -1349,8 +1623,6 @@ struct SettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(primaryRule == nil)
-        .opacity(primaryRule == nil ? 0.45 : 1)
     }
 
     /// 毎週の予定。曜日と時間帯を1本だけ持つ。
@@ -1469,7 +1741,7 @@ struct SettingsView: View {
         if deepFocusSchedule.weekdays.isEmpty {
             return String(
                 localized: "settings.deep_focus.schedule.no_weekday_notice",
-                defaultValue: "選んだ曜日と時間だけアプリを止めます"
+                defaultValue: "選んだ曜日と時間だけ、対象アプリを開けないようにします。"
             )
         }
         guard DeepFocusWindowPolicy.hasWindow(
@@ -1671,7 +1943,7 @@ struct SettingsView: View {
     }
 
     private var breathDurationText: String {
-        switch settingsStore.breathDurationSeconds {
+        switch breathDurationSeconds {
         case 3:
             return String(
                 localized: "settings.breath_duration.three_seconds",
@@ -1699,7 +1971,7 @@ struct SettingsView: View {
         guard !selectedIDs.isEmpty else { return false }
         return AutomationVerification.unverifiedCatalogIDs(
             selectedCatalogIDs: selectedIDs,
-            verifiedCatalogIDs: settingsStore.verifiedAutomationCatalogIDs
+            verifiedCatalogIDs: verifiedAutomationCatalogIDs
         ).isEmpty
     }
 
@@ -1761,24 +2033,12 @@ struct SettingsView: View {
     /// 選んだ強さによって、いま何が起きるのかをその場に書く。
     /// ディープフォーカス以外では対象を選んでもブロックされないため、黙って無効にしない。
     private var deepFocusFootnote: String {
-        guard isDeepFocusUnlocked else {
-            return String(
-                localized: "settings.deep_focus.locked_notice",
-                defaultValue: "完全ブロックでは決めた時間だけ選んだアプリを止められます"
-            )
-        }
-        guard selectedMode.usesShield else {
-            return String(
-                localized: "settings.deep_focus.standard_notice",
-                defaultValue: "一呼吸では開く前に待ち時間が入ります 完全ブロックでは決めた時間だけ開けなくなります"
-            )
-        }
         // 強さだけ選んで対象が空だと、何も止まらないまま止まっているつもりになる。
         // 効いていない状態を「効いています」と読める文言で覆わない。
         guard primaryRule != nil else {
             return String(
                 localized: "settings.deep_focus.empty_targets_notice",
-                defaultValue: "完全ブロックするアプリを選ぶと決めた時間だけ開けなくなります"
+                defaultValue: "対象アプリを選ぶと、決めた時間だけ開けないようにできます。"
             )
         }
         // 夜だけ強化は止まる時間帯が違う。ディープフォーカスと同じ説明を出すと、
@@ -1786,7 +2046,7 @@ struct SettingsView: View {
         if selectedMode == .nightOnly {
             return String(
                 localized: "settings.night_only.description",
-                defaultValue: "選んだアプリは就寝から起床まで開けません 昼は開く前に一呼吸が入ります"
+                defaultValue: "選んだアプリは就寝時刻から起床時刻まで開けません。日中は、開く前に一呼吸をはさみます。"
             )
         }
         // 窓を1つも持っていないディープフォーカスは、選んでいても何も止めない。
@@ -1798,35 +2058,37 @@ struct SettingsView: View {
         ) {
             return String(
                 localized: "settings.deep_focus.no_window_notice",
-                defaultValue: "いま止めているアプリはありません 時間を決めると選んだアプリが開けなくなります"
+                defaultValue: "いま完全ブロック中のアプリはありません。時間を決めると、その間は選んだアプリを開けません。"
             )
         }
         return String(
             localized: "settings.deep_focus.description",
-            defaultValue: "選んだアプリは決めた時間だけ開けなくなります いますぐ始めるか毎週の予定を設定できます"
+            defaultValue: "選んだアプリを、決めた時間だけ開けないようにします。今すぐ始めることも、毎週の予定を設定することもできます。"
         )
     }
 
     private var wakeTimeBinding: Binding<Date> {
         Binding(
-            get: { SettingsTime.date(minutes: settingsStore.wakeTimeMinutes, defaultMinutes: 420) },
+            get: { SettingsTime.date(minutes: wakeTimeMinutes, defaultMinutes: 420) },
             set: {
-                settingsStore.wakeTimeMinutes = SettingsTime.minutes(from: $0)
-                model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
-                // 夜だけ強化の窓もここで決まる。いまブロックすべきかの再計算と
-                // 監視の張り直しを同時にやる `syncShield` を通す。
-                model.syncShield()
+                updateTimeline(
+                    handle: .wake,
+                    proposedMinutes: SettingsTime.minutes(from: $0),
+                    source: .picker
+                )
             }
         )
     }
 
     private var bedTimeBinding: Binding<Date> {
         Binding(
-            get: { SettingsTime.date(minutes: settingsStore.bedTimeMinutes, defaultMinutes: 1_380) },
+            get: { SettingsTime.date(minutes: bedTimeMinutes, defaultMinutes: 1_380) },
             set: {
-                settingsStore.bedTimeMinutes = SettingsTime.minutes(from: $0)
-                model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
-                model.syncShield()
+                updateTimeline(
+                    handle: .bed,
+                    proposedMinutes: SettingsTime.minutes(from: $0),
+                    source: .picker
+                )
             }
         )
     }
@@ -1861,13 +2123,14 @@ struct SettingsView: View {
 
     private var authorizationSheetBody: String {
         if authorizationWasDenied {
-            return String(localized: "settings.authorization.denied_body", defaultValue: "スクリーンタイムを許可していないため開く前の一呼吸を使えません 設定からいつでも許可できます")
+            return String(localized: "settings.authorization.denied_body", defaultValue: "スクリーンタイムが許可されていないため、開く前の一呼吸を利用できません。iPhoneの設定からいつでも許可できます。")
         }
-        return String(localized: "settings.authorization.body", defaultValue: "選んだアプリを開く前に一呼吸を出すためスクリーンタイムを使います 利用データは端末内に保存されます")
+        return String(localized: "settings.authorization.body", defaultValue: "選んだアプリを開く前に一呼吸の画面を表示するため、スクリーンタイムを使います。利用データはこの端末だけに保存されます。")
     }
 
     private var primaryRule: TargetRule? {
-        rules.first { !$0.activitySelectionData.isEmpty }
+        guard DeepFocusTargetGuard.hasTargets(in: rules) else { return nil }
+        return rules.first { !$0.activitySelectionData.isEmpty }
     }
 
     /// 完全ブロック用のルール数。件数の上限判定はカタログのルールを数に入れない。
@@ -1911,14 +2174,18 @@ struct SettingsView: View {
         if settingsStore.bedTimeMinutes == nil {
             settingsStore.bedTimeMinutes = 1_380
         }
+        breathDurationSeconds = settingsStore.breathDurationSeconds
+        wakeTimeMinutes = settingsStore.wakeTimeMinutes ?? 420
+        bedTimeMinutes = settingsStore.bedTimeMinutes ?? 1_380
+        morningNotificationMinutes = settingsStore.morningNotificationMinutes
+        verifiedAutomationCatalogIDs = settingsStore.verifiedAutomationCatalogIDs
         morningNotificationEnabled = settingsStore.morningNotificationEnabled
         weeklyReportNotificationEnabled = settingsStore.weeklyReportNotificationEnabled
         retentionSupportNotificationsEnabled = settingsStore.retentionSupportNotificationsEnabled
         planNotificationsEnabled = settingsStore.planNotificationsEnabled
         liveActivityEnabled = settingsStore.liveActivityEnabled
-        selectedLockTheme = model.lockSurfaceState.theme
+        liveLockTheme = model.liveLockTheme
         refreshDeepFocusState()
-        model.usageWatch.configurationDidChange(isPro: model.storeService.isPro)
 
         model.screenTime.refresh()
         do {

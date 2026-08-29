@@ -94,7 +94,7 @@ struct DayBars: View {
             : day.date.formatted(.dateTime.month(.abbreviated).day())
         let cancelledLabel = String(
             localized: "stats.metric.cancelled",
-            defaultValue: "開くのをやめた"
+            defaultValue: "開かなかった"
         )
         let attemptedLabel = String(
             localized: "stats.metric.attempted",

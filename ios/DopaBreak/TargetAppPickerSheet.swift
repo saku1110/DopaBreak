@@ -19,7 +19,7 @@ struct TargetAppPickerSheet: View {
                         .dopaFont(28, weight: .black)
                         .foregroundStyle(DesignTokens.primaryText)
 
-                    Text(String(localized: "target_app_picker.description", defaultValue: "開こうとした瞬間に一呼吸を出したいアプリを選びます。"))
+                    Text(String(localized: "target_app_picker.description", defaultValue: "開く前に一呼吸はさみたいアプリを選びます。"))
                         .dopaFont(15, weight: .semibold, lineSpacing: 4)
                         .foregroundStyle(DesignTokens.secondaryText)
 

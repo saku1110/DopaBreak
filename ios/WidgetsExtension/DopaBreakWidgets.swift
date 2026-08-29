@@ -100,7 +100,7 @@ struct DopaBreakHomeWidgetView: View {
                 .monospacedDigit()
                 .foregroundStyle(Color(lockThemeColor: palette.accent))
 
-            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開くのをやめた"))
+            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かなかった回数"))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
 
@@ -147,7 +147,7 @@ struct DopaBreakHomeWidgetView: View {
                     .font(.system(size: 32, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開くのをやめた"))
+                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かなかった回数"))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
                 Spacer(minLength: 0)
@@ -182,7 +182,7 @@ struct DopaBreakHomeWidget: Widget {
             String(localized: "widget.configuration.name", defaultValue: "DopaBreak")
         )
         .description(
-            String(localized: "widget.configuration.description", defaultValue: "目標と今日の実績を表示します")
+            String(localized: "widget.configuration.description", defaultValue: "目標と、今日開かなかった回数を表示します")
         )
         .supportedFamilies([.systemSmall, .systemMedium])
     }
@@ -250,7 +250,7 @@ struct DopaBreakLiveActivity: Widget {
                         Text(
                             String(
                                 localized: "live_activity.summary.cancelled",
-                                defaultValue: "今日は\(context.state.todayCancelledCount)回 開くのをやめた"
+                                defaultValue: "今日は\(context.state.todayCancelledCount)回 開かなかった"
                             )
                         )
                     )
@@ -267,7 +267,7 @@ struct DopaBreakLiveActivity: Widget {
                         Text(
                             String(
                                 localized: "live_activity.summary.cancelled",
-                                defaultValue: "今日は\(context.state.todayCancelledCount)回 開くのをやめた"
+                                defaultValue: "今日は\(context.state.todayCancelledCount)回 開かなかった"
                             )
                         )
                     )

@@ -18,17 +18,17 @@ extension InterventionMode {
         case .deepFocus:
             return String(
                 localized: "intervention_mode.deep_focus.detail",
-                defaultValue: "決めた時間は選んだアプリを完全ブロック"
+                defaultValue: "決めた時間だけアプリを開けなくする"
             )
         case .standard:
             return String(
                 localized: "intervention_mode.standard.detail",
-                defaultValue: "SNSを開く前にひと呼吸と理由確認"
+                defaultValue: "開く前に一呼吸して理由を確かめる"
             )
         case .nightOnly:
             return String(
                 localized: "intervention_mode.night_only.detail",
-                defaultValue: "就寝から起床まで完全ブロックする"
+                defaultValue: "就寝時刻から起床時刻までアプリを開けなくする"
             )
         }
     }

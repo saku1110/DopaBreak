@@ -59,7 +59,7 @@ struct AutomationGuideView: View {
                 number: 1,
                 instruction: String(
                     localized: "automation_guide.step.1",
-                    defaultValue: "ショートカットApp下部の「オートメーション」を選ぶ"
+                    defaultValue: "ショートカットを開き、画面下部の「オートメーション」を選ぶ"
                 ),
                 diagram: .automationTab
             ),
@@ -67,7 +67,7 @@ struct AutomationGuideView: View {
                 number: 2,
                 instruction: String(
                     localized: "automation_guide.step.2",
-                    defaultValue: "右上の＋で新規オートメーションを作る"
+                    defaultValue: "右上の＋を押し、新規オートメーションを作る"
                 ),
                 diagram: .newAutomation
             ),
@@ -83,7 +83,7 @@ struct AutomationGuideView: View {
                 number: 4,
                 instruction: String(
                     localized: "automation_guide.step.4",
-                    defaultValue: "対象アプリを選び、「開いている」と「すぐに実行」を選び、「実行時に通知」はオフのまま「次へ」"
+                    defaultValue: "対象アプリと「開いている」「すぐに実行」を選ぶ。「実行時に通知」はオフのまま「次へ」をタップ"
                 ),
                 diagram: .triggerOptions
             ),
@@ -99,7 +99,7 @@ struct AutomationGuideView: View {
                 number: 6,
                 instruction: String(
                     localized: "automation_guide.step.6",
-                    defaultValue: "シート下部のアプリ一覧で「DopaBreak」→「DopaBreakで一呼吸」を選ぶ（検索でも可）"
+                    defaultValue: "シート下部のアプリ一覧から「DopaBreak」を開き、「DopaBreakで一呼吸」を選ぶ。見つからない場合は検索できます。"
                 ),
                 diagram: .dopabreakAction
             ),
@@ -107,7 +107,7 @@ struct AutomationGuideView: View {
                 number: 7,
                 instruction: String(
                     localized: "automation_guide.step.7",
-                    defaultValue: "アクション内の「アプリ」で対象アプリを選び、右上のチェックで完了"
+                    defaultValue: "アクションの「アプリ」で対象アプリを選び、右上のチェックマークをタップすれば完了です。対象が1つだけなら、アプリは選ばなくても動きます。"
                 ),
                 diagram: .finishAction
             )
@@ -129,7 +129,7 @@ struct AutomationGuideView: View {
                 number: 1,
                 instruction: String(
                     localized: "automation_guide.grayscale.step.1",
-                    defaultValue: "新規オートメーションで「アプリ」を選び、対象アプリをまとめて全部選んで「開いている」と「すぐに実行」を選び「次へ」"
+                    defaultValue: "新規オートメーションで「アプリ」を選び、白黒にしたいアプリをすべて選びます。次に「開いている」と「すぐに実行」を選び、「次へ」をタップします。"
                 ),
                 diagram: GrayscaleAutomationDiagram(
                     rows: [
@@ -150,7 +150,7 @@ struct AutomationGuideView: View {
                 number: 2,
                 instruction: String(
                     localized: "automation_guide.grayscale.step.2",
-                    defaultValue: "アクション「カラーフィルタを設定」を選び「オン」にして完了"
+                    defaultValue: "アクションから「カラーフィルタを設定」を選び、「オン」にして完了します。"
                 ),
                 diagram: GrayscaleAutomationDiagram(
                     rows: [
@@ -171,7 +171,7 @@ struct AutomationGuideView: View {
                 number: 3,
                 instruction: String(
                     localized: "automation_guide.grayscale.step.3",
-                    defaultValue: "もう1つ作り「閉じている」で同じアプリを選び「カラーフィルタを設定」を「オフ」にする"
+                    defaultValue: "同じアプリで、もう1つオートメーションを作ります。「閉じている」を選び、カラーフィルタを「オフ」にします。"
                 ),
                 diagram: GrayscaleAutomationDiagram(
                     rows: [
@@ -204,7 +204,7 @@ struct AutomationGuideView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    Text(String(localized: "automation_guide.title", defaultValue: "自動で一呼吸を出す設定"))
+                    Text(String(localized: "automation_guide.title", defaultValue: "アプリを開く前の一呼吸を設定"))
                         .dopaFont(28, weight: .black, tracking: -0.5, lineSpacing: 3)
                         .foregroundStyle(DesignTokens.primaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -288,7 +288,7 @@ struct AutomationGuideView: View {
             Text(
                 String(
                     localized: "automation_guide.shortcuts_missing.message",
-                    defaultValue: "App Storeから再インストールしてください。"
+                    defaultValue: "App Storeからショートカットを再インストールしてください。"
                 )
             )
         }
@@ -419,7 +419,7 @@ struct AutomationGuideView: View {
                     Text(
                         String(
                             localized: "automation_guide.final.body",
-                            defaultValue: "対象アプリを開いて一呼吸が出れば設定完了です"
+                            defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
                         )
                     )
                     .dopaFont(15, weight: .semibold, lineSpacing: 4)
@@ -454,7 +454,7 @@ struct AutomationGuideView: View {
                 Text(
                     String(
                         localized: "automation_guide.grayscale.lead",
-                        defaultValue: "SNSから色を消すと刺激が減り、見続ける力が弱まります。Deep Focusと相性のいい追加設定です。"
+                        defaultValue: "画面を白黒にすると、色による刺激を減らせます。完全ブロックと組み合わせて使える任意の設定です。"
                     )
                 )
                 .dopaFont(15, weight: .semibold, lineSpacing: 4)
@@ -479,7 +479,7 @@ struct AutomationGuideView: View {
                     Text(
                         String(
                             localized: "automation_guide.grayscale.manual",
-                            defaultValue: "自動化しない場合: 設定→アクセシビリティ→ショートカット→カラーフィルタをオン。以後サイドボタン（ホームボタンがある機種はホームボタン）を3回押すと、白黒とカラーを切り替えられます。"
+                            defaultValue: "自動化しない場合は、設定→アクセシビリティ→ショートカット→カラーフィルタをオンにします。以後はサイドボタン（ホームボタンがある機種ではホームボタン）を3回押すと、白黒表示を切り替えられます。"
                         )
                     )
                     .dopaFont(14, weight: .semibold, lineSpacing: 4)
@@ -1215,7 +1215,7 @@ private struct AutomationTutorialVideoCard: View {
                     .dopaFont(16, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
 
-                Text(String(localized: "automation_guide.video.body", defaultValue: "iOS 26の動画を見ながら設定できます"))
+                Text(String(localized: "automation_guide.video.body", defaultValue: "iOS 26の操作動画を見ながら、同じ手順で設定できます"))
                     .dopaFont(14, weight: .semibold, lineSpacing: 4)
                     .foregroundStyle(DesignTokens.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

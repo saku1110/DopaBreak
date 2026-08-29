@@ -28,12 +28,12 @@ struct DopaRing: View {
         .animation(DopaMotion.transition, value: clampedProgress)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            String(localized: "stats.rate.title", defaultValue: "開くのをやめた割合")
+            String(localized: "stats.rate.title", defaultValue: "開かなかった割合")
         )
         .accessibilityValue(
             String(
                 localized: "stats.rate.percentage",
-                defaultValue: "\(Int((clampedProgress * 100).rounded()))%"
+                defaultValue: "\(Int((clampedProgress * 100).rounded()))%%"
             )
         )
     }

@@ -108,7 +108,7 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.goal.placeholder.aspiration | 例: 英語で話せるようになる | Onboarding |
 | onboarding.goal.placeholder.habit | 例: 寝る前に本を読む | Onboarding |
 | onboarding.goal.remove | %@を削除 | Onboarding |
-| onboarding.goal.title | 空いたこの時間で\n何をしますか？ | Onboarding |
+| onboarding.goal.title | 取り戻した時間で\n何をしたいですか？ | Onboarding |
 | onboarding.mode.action | この設定で進む | Onboarding |
 | onboarding.mode.deep_focus.confirmation.message | 集中時間中は、簡単にはSNSを開けません。 | Onboarding |
 | onboarding.mode.deep_focus.confirmation.standard | 通常モードにする | Onboarding |

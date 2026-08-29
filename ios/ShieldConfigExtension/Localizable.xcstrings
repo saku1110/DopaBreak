@@ -16,7 +16,7 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Take a breath to open" } },
         "ja": { "stringUnit": { "state": "translated", "value": "一呼吸して開く" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "한 호흡 후 열기" } }
+        "ko": { "stringUnit": { "state": "translated", "value": "숨 고르고 열기" } }
       }
     },
     "shield.gate.action.cancel": {
@@ -42,7 +42,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Take a short break" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "少し間をあける" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "まだ開けません" } },
         "ko": { "stringUnit": { "state": "translated", "value": "잠시 쉬어가기" } }
       }
     },
@@ -51,8 +51,8 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Daily limit of %lld reached · resets at midnight" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "今日の上限 %lld回に達しました 0時にリセット" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "오늘 상한 %lld회 도달 · 자정에 초기화" } }
+        "ja": { "stringUnit": { "state": "translated", "value": "今日の上限（%lld回）に達しました。0時にリセットされます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘 제한 %lld회 도달 · 자정에 초기화" } }
       }
     },
     "shield.gate.limit.title": {
@@ -86,9 +86,9 @@
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "One breath before you open" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Pause before you open" } },
         "ja": { "stringUnit": { "state": "translated", "value": "開く前にひと呼吸" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 한 호흡" } }
+        "ko": { "stringUnit": { "state": "translated", "value": "열기 전 숨 고르기" } }
       }
     },
     "shield.gate.waiting.denied": {
@@ -96,7 +96,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Turn on notifications to continue" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "通知をオンにすると開けます" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "通知をオンにすると、このアプリを開けます" } },
         "ko": { "stringUnit": { "state": "translated", "value": "알림을 켜면 열 수 있어요" } }
       }
     },
@@ -113,9 +113,9 @@
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Use the banner above to breathe in DopaBreak" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "上に出た通知からDopaBreakで一呼吸" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "위 알림에서 DopaBreak로 한 호흡" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Tap the banner above to take a breath in DopaBreak" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "画面上部の通知をタップすると、DopaBreakで一呼吸できます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "위 알림을 눌러 DopaBreak에서 숨 고르기" } }
       }
     },
     "shield.gate.waiting.title": {
@@ -140,8 +140,8 @@
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Bedtime now" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "いまは就寝の時間" } },
+        "en": { "stringUnit": { "state": "translated", "value": "It's bedtime" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "就寝時間中です" } },
         "ko": { "stringUnit": { "state": "translated", "value": "지금은 취침 시간" } }
       }
     },
@@ -149,7 +149,7 @@
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Time to stay off" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Not right now" } },
         "ja": { "stringUnit": { "state": "translated", "value": "いまは開かない時間" } },
         "ko": { "stringUnit": { "state": "translated", "value": "지금은 열지 않는 시간" } }
       }
@@ -158,18 +158,18 @@
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Protecting %@" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Your goal: %@" } },
         "ja": { "stringUnit": { "state": "translated", "value": "守っている目標 %@" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "지키는 목표 %@" } }
+        "ko": { "stringUnit": { "state": "translated", "value": "지키고 있는 목표 %@" } }
       }
     },
     "shield.title": {
       "comment": "Screen: Shield",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Deep Focus on" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "ディープフォーカス中" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "딥 포커스 중" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Full Block is on" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "完全ブロック中" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "완전 차단 중" } }
       }
     }
   },

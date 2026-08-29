@@ -38,7 +38,7 @@ enum QuickActionType: String, CaseIterable, Sendable {
     var localizedTitle: String {
         switch self {
         case .intervene:
-            return String(localized: "quick_action.intervene.title", defaultValue: "いま一呼吸")
+            return String(localized: "quick_action.intervene.title", defaultValue: "いま一呼吸する")
         case .offer:
             return String(localized: "quick_action.offer.title", defaultValue: "オファーを使う")
         case .support:

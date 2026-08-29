@@ -184,7 +184,7 @@ struct LockScreenCheckContent: View {
         case .confirmed:
             return String(
                 localized: "lock_check.lead.confirmed",
-                defaultValue: "開こうとするたび この言葉が先に目に入ります。"
+                defaultValue: "対象アプリを開こうとするたび、目標が先に目に入ります。"
             )
         case .blocked(.systemDisabled):
             return String(
@@ -199,7 +199,7 @@ struct LockScreenCheckContent: View {
         case .noGoal:
             return String(
                 localized: "lock_check.lead.no_goal",
-                defaultValue: "目標を決めると ロック画面に出せます。"
+                defaultValue: "目標を設定すると、ロック画面に表示できます。"
             )
         }
     }
@@ -218,7 +218,7 @@ struct LockScreenCheckContent: View {
                 number: 2,
                 title: String(
                     localized: "lock_check.step2.title",
-                    defaultValue: "画面をタップして点けるとロック画面に目標が出ています"
+                    defaultValue: "画面を点けると ロック画面に目標が表示されます"
                 )
             )
         }
@@ -228,7 +228,7 @@ struct LockScreenCheckContent: View {
         Text(
             String(
                 localized: "lock_check.permission_note",
-                defaultValue: "はじめて出るときは「許可しますか」と聞かれます。「許可」を選ぶとロック画面に残ります。"
+                defaultValue: "初回はライブアクティビティの許可を求められます。「許可」を選ぶと、目標がロック画面に表示されます。"
             )
         )
             .dopaFont(14, weight: .semibold, lineSpacing: 4)

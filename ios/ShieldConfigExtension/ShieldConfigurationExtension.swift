@@ -196,11 +196,11 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             let subtitle = notificationUnavailable
                 ? String(
                     localized: "shield.gate.waiting.denied",
-                    defaultValue: "通知をオンにすると開けます"
+                    defaultValue: "通知をオンにすると、このアプリを開けます"
                 )
                 : String(
                     localized: "shield.gate.waiting.subtitle",
-                    defaultValue: "上に出た通知からDopaBreakで一呼吸"
+                    defaultValue: "画面上部の通知をタップすると、DopaBreakで一呼吸できます"
                 )
             return baseConfiguration(
                 title: String(
@@ -226,7 +226,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 ),
                 subtitle: String(
                     localized: "shield.gate.limit.subtitle",
-                    defaultValue: "今日の上限 \(value)回に達しました 0時にリセット"
+                    defaultValue: "今日の上限（\(value)回）に達しました。0時にリセットされます。"
                 ),
                 primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
                 secondaryAction: nil
@@ -236,7 +236,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             return baseConfiguration(
                 title: String(
                     localized: "shield.gate.cooldown.title",
-                    defaultValue: "少し間をあける"
+                    defaultValue: "まだ開けません"
                 ),
                 subtitle: String(
                     localized: "shield.gate.cooldown.subtitle",
@@ -263,9 +263,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     private func hardWindowTitle(_ kind: HardKind) -> String {
         switch kind {
         case .deepFocus:
-            return String(localized: "shield.title", defaultValue: "ディープフォーカス中")
+            return String(localized: "shield.title", defaultValue: "完全ブロック中")
         case .night:
-            return String(localized: "shield.night.title", defaultValue: "いまは就寝の時間")
+            return String(localized: "shield.night.title", defaultValue: "就寝時間中です")
         }
     }
 
@@ -364,7 +364,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
     private func minimalConfiguration() -> ShieldConfiguration {
         baseConfiguration(
-            title: String(localized: "shield.title", defaultValue: "ディープフォーカス中"),
+            title: String(localized: "shield.title", defaultValue: "完全ブロック中"),
             subtitle: nil,
             primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
             secondaryAction: nil

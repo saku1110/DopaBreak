@@ -92,7 +92,7 @@ struct GoalEditorSheet: View {
             SmallLabel(
                 text: String(
                     localized: "goals.preview.title",
-                    defaultValue: "開こうとした瞬間に見える画面"
+                    defaultValue: "対象アプリを開く前に表示される画面"
                 )
             )
 
@@ -113,7 +113,7 @@ struct GoalEditorSheet: View {
         }
         return String(
             localized: "goal_editor.goal.placeholder",
-            defaultValue: "例 英語で商談できる自分になる"
+            defaultValue: "例：英語で商談できるようになる"
         )
     }
 
@@ -130,7 +130,7 @@ struct GoalEditorSheet: View {
             // ここでは切り詰めない。上限超過は赤いカウンタと保存の無効化で示す
             fieldContainer {
                 TextField(
-                    String(localized: "goal_editor.goal.placeholder", defaultValue: "例 英語で商談できる自分になる"),
+                    String(localized: "goal_editor.goal.placeholder", defaultValue: "例：英語で商談できるようになる"),
                     text: $title,
                     axis: .vertical
                 )

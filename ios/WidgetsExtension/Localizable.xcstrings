@@ -32,7 +32,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tried to open %lld×"
+            "value": "Tried to open · %lld"
           }
         },
         "ja": {
@@ -44,7 +44,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 함 %lld회"
+            "value": "열려고 함 · %lld회"
           }
         }
       }
@@ -56,19 +56,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open %lld× today"
+            "value": "Didn't open · %lld today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日は%lld回 開くのをやめた"
+            "value": "今日は%lld回 開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘은 %lld번 열지 않기로 함"
+            "value": "오늘 열지 않음 · %lld회"
           }
         }
       }
@@ -104,19 +104,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shows your goal and today's progress"
+            "value": "Shows your goal and how many times you didn't open today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目標と今日の実績を表示します"
+            "value": "目標と、今日開かなかった回数を表示します"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목표와 오늘의 기록을 표시합니다"
+            "value": "목표와 오늘 열지 않은 횟수를 표시합니다"
           }
         }
       }
@@ -272,19 +272,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open today"
+            "value": "Didn't open today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 開くのをやめた"
+            "value": "今日 開かなかった回数"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 열지 않기로 함"
+            "value": "오늘 열지 않음"
           }
         }
       }

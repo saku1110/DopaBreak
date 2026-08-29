@@ -77,11 +77,11 @@ struct PostUseReflectionSheet: View {
 
     private var satisfactionStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(String(localized: "reflection.satisfaction.title", defaultValue: "SNSを見てどうだった？"))
+            Text(String(localized: "reflection.satisfaction.title", defaultValue: "SNSを見たあとの気持ちは？"))
                 .dopaFont(34, weight: .black, tracking: -0.8)
                 .foregroundStyle(DesignTokens.primaryText)
 
-            Text(String(localized: "reflection.satisfaction.description", defaultValue: "必要な時間を使い終えました。次の選択のために記録します。"))
+            Text(String(localized: "reflection.satisfaction.description", defaultValue: "使い終えた今の気持ちを記録しておくと、次に開くか選ぶときの参考になります。"))
                 .dopaFont(14, weight: .medium)
                 .foregroundStyle(DesignTokens.secondaryText)
 

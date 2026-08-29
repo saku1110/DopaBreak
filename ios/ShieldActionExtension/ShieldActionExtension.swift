@@ -160,12 +160,12 @@ final class ShieldActionExtension: ShieldActionDelegate {
         let content = UNMutableNotificationContent()
         content.title = String(
             localized: "gate.notification.unlock.title",
-            defaultValue: "タップして一呼吸",
+            defaultValue: "タップして一呼吸する",
             bundle: .main
         )
         content.body = String(
             localized: "gate.notification.unlock.body",
-            defaultValue: "DopaBreakで一呼吸してから開きます",
+            defaultValue: "DopaBreakで一呼吸すると、このアプリを開けます",
             bundle: .main
         )
         content.sound = .default

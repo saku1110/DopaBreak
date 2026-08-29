@@ -24,7 +24,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "You can change it anytime" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "あとから何度でも変えられます" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あとから設定で変更できます" } },
         "ko": { "stringUnit": { "state": "translated", "value": "나중에 언제든 바꿀 수 있어요" } }
       }
     },
@@ -41,27 +41,27 @@
       "comment": "Screen: Onboarding lock theme picker",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "With Pro this design will appear on your Lock Screen" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "Proにすると このデザインで表示されます" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "Pro를 사용하면 잠금 화면에 이 디자인이 표시돼요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Pro is required to use this design on your Lock Screen" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このデザインをロック画面に表示するにはProが必要です" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 디자인을 잠금 화면에 쓰려면 Pro가 필요해요" } }
       }
     },
     "onboarding.summary.theme_note": {
       "comment": "Screen: Onboarding pre-paywall summary",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "With Pro your Lock Screen will use this design" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "Proにすると このデザインになります" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "Pro를 사용하면 잠금 화면이 이 디자인으로 바뀌어요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Pro is required to use this design on your Lock Screen" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このデザインをロック画面に表示するにはProが必要です" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 디자인을 잠금 화면에 쓰려면 Pro가 필요해요" } }
       }
     },
     "settings.lock_screen.pro_note": {
       "comment": "Screen: Lock Screen settings",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "With Pro your Lock Screen will use this design" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "Proにすると このデザインになります" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "Pro를 사용하면 잠금 화면이 이 디자인으로 바뀌어요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Pro is required to use this design on your Lock Screen" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このデザインをロック画面に表示するにはProが必要です" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 디자인을 잠금 화면에 쓰려면 Pro가 필요해요" } }
       }
     },
     "home.reclaimed.hours_minutes": {
@@ -149,9 +149,9 @@
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Time social media didn't take" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "SNSに消えるはずだった時間" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "SNS에 뺏기지 않은 시간" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Time reclaimed from social media" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "SNSを開かずに取り戻した時間" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "SNS에서 되찾은 시간" } }
       }
     },
     "home.hero.today_delta": {
@@ -167,17 +167,17 @@
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%1$lld skipped × about %2$lld min each" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "やめた%1$lld回 × 1回あたり約%2$lld分" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "%1$lld번 참음 × 1번에 약 %2$lld분" } }
+        "en": { "stringUnit": { "state": "translated", "value": "%1$lld times you didn't open × about %2$lld min each" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開かなかった%1$lld回 × 1回約%2$lld分" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%1$lld번 열지 않음 × 한 번에 약 %2$lld분" } }
       }
     },
     "home.stats_link.title": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "See app details and reflections" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "アプリごとの内訳と振り返りを見る" } },
+        "en": { "stringUnit": { "state": "translated", "value": "See records and reflections by app" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "アプリ別の記録と振り返りを見る" } },
         "ko": { "stringUnit": { "state": "translated", "value": "앱별 내역과 돌아보기" } }
       }
     },
@@ -194,27 +194,27 @@
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "A %lld-second pause comes before they open" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "開く前に%lld秒の間が入ります" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 %lld초 간격이 생겨요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Pause for %lld seconds before opening" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "開く前に%lld秒の一呼吸をはさみます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 %lld초 동안 숨을 골라요" } }
       }
     },
     "home.targets.empty": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Choose apps to pause" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "止めるアプリを選ぶ" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "멈출 앱 고르기" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Choose apps" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "アプリを選ぶ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "앱 고르기" } }
       }
     },
-    "home.targets.focus_30": {
+    "home.targets.block_settings": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Close them for 30 minutes" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "30分だけ開けなくする" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "30분만 열 수 없게 하기" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Set limit level" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "止める強さを設定する" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "제한 강도 설정하기" } }
       }
     },
     "home.targets.focus_end": {
@@ -222,7 +222,7 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Unlock now" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "いま解除する" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "完全ブロックを解除" } },
         "ko": { "stringUnit": { "state": "translated", "value": "지금 해제하기" } }
       }
     },
@@ -230,8 +230,8 @@
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Closed for another %@" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "あと%@ 開けません" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Blocked for %@ more" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あと%@は開けません" } },
         "ko": { "stringUnit": { "state": "translated", "value": "앞으로 %@ 동안 열 수 없어요" } }
       }
     },
@@ -239,18 +239,18 @@
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Closed from %@ until morning" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "%@から朝まで開けません" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "%@부터 아침까지 열 수 없어요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Blocked from %@ until wake-up time" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%@から起床時刻まで開けません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%@부터 기상 시각까지 열 수 없어요" } }
       }
     },
     "home.targets.title": {
       "comment": "Screen: Home",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Apps you're pausing" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "止めているアプリ" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "멈춰 둔 앱" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Apps with a pause" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "一呼吸をはさむアプリ" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "숨 고르기를 설정한 앱" } }
       }
     },
     "home.achievement.empty_body": {
@@ -260,19 +260,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You haven't tried to open yet today"
+            "value": "You haven't tried to open a selected app yet today"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日はまだ開こうとしていません"
+            "value": "今日はまだ対象アプリを開こうとしていません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘은 아직 열려고 하지 않았어요"
+            "value": "오늘은 아직 대상 앱을 열려고 하지 않았어요"
           }
         }
       }
@@ -284,19 +284,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open"
+            "value": "Didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた"
+            "value": "開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함"
+            "value": "열지 않음"
           }
         }
       }
@@ -332,19 +332,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Setup is done once a breath appears when you open a target app."
+            "value": "Setup is complete when the pause screen appears after you open a selected app."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを開いたときに一呼吸が出れば設定完了です。"
+            "value": "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "대상 앱을 열 때 숨 고르기가 뜨면 설정 완료예요."
+            "value": "대상 앱을 열었을 때 숨 고르기 화면이 뜨면 설정 완료예요."
           }
         }
       }
@@ -356,19 +356,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The breath isn't showing up yet for %lld apps"
+            "value": "The pause screen isn't set up for %lld apps yet"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld個のアプリで一呼吸がまだ動いていません"
+            "value": "%lld個のアプリで一呼吸の設定が完了していません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld개 앱에서 아직 숨 고르기가 작동하지 않아요"
+            "value": "%lld개 앱에 아직 숨 고르기가 설정되지 않았어요"
           }
         }
       }
@@ -380,19 +380,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The breath for %@ isn't showing up yet"
+            "value": "The pause screen isn't set up for %@ yet"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@の一呼吸はまだ動いていません"
+            "value": "%@で一呼吸の設定が完了していません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@의 숨 고르기가 아직 작동하지 않아요"
+            "value": "%@에 아직 숨 고르기가 설정되지 않았어요"
           }
         }
       }
@@ -404,19 +404,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The times you choose not to open are recorded here"
+            "value": "Each time you don't open is recorded here"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた回数がここに残ります"
+            "value": "開かなかった回数が、ここに記録されます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 한 횟수가 여기에 남아요"
+            "value": "열지 않은 횟수가 여기에 기록돼요"
           }
         }
       }
@@ -428,19 +428,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A breath appears when you try to open"
+            "value": "A quick pause before a selected app opens"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとした瞬間に一呼吸が入ります"
+            "value": "対象アプリを開くと まず一呼吸"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 하면 숨 고르기가 떠요"
+            "value": "대상 앱을 열기 전에 잠깐 숨을 골라요"
           }
         }
       }
@@ -458,13 +458,61 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タップして目標を追加"
+            "value": "目標を追加する"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "탭해서 목표 추가"
+          }
+        }
+      }
+    },
+    "home.goal.add": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추가"
+          }
+        }
+      }
+    },
+    "home.goal.edit": {
+      "comment": "Screen: Home",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "편집"
           }
         }
       }
@@ -587,13 +635,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Chose not to open %lld time this week"
+                  "value": "Didn't open %lld time this week"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Chose not to open %lld times this week"
+                  "value": "Didn't open %lld times this week"
                 }
               }
             }
@@ -602,13 +650,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今週は%lld回 開くのをやめました"
+            "value": "今週は%lld回 開かずにすみました"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이번 주에는 %lld번 열지 않기로 했어요"
+            "value": "이번 주에는 %lld번 열지 않았어요"
           }
         }
       }
@@ -746,7 +794,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "気づけば目的もなく スクロールしている"
+            "value": "目的もないのに 気づけばスクロールしている"
           }
         },
         "ko": {
@@ -788,7 +836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start with these %lld"
+            "value": "Continue with %lld selected"
           }
         },
         "ja": {
@@ -818,7 +866,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まずは1つだけ選びましょう。\n\n一番無意識に開いてしまうSNSから始めるのがおすすめです。"
+            "value": "まずは、無意識に開くことが多いSNSを1つ選んでください。"
           }
         },
         "ko": {
@@ -866,7 +914,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いつでも変更できます。"
+            "value": "選んだアプリはあとから変えられます。"
           }
         },
         "ko": {
@@ -932,19 +980,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Setup is checked automatically when you open one of your selected apps"
+            "value": "Setup is complete when the pause screen appears after you open a selected app"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "設定できたかどうかは 対象アプリを開いたときに自動で確認されます"
+            "value": "対象アプリを開き、一呼吸の画面が表示されれば設定完了です"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "설정이 됐는지는 대상 앱을 열 때 자동으로 확인돼요"
+            "value": "대상 앱을 열었을 때 숨 고르기 화면이 뜨면 설정 완료예요"
           }
         }
       }
@@ -1010,13 +1058,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ショートカットのオートメーションで、選んだアプリを開いたときにDopaBreakを起動します。設定は一度だけ・約2分です。"
+            "value": "ショートカットを使い、選んだアプリを開くとDopaBreakが自動で起動するようにします。設定は最初の1回だけで、約2分です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "단축어 자동화로, 선택한 앱을 열면 DopaBreak가 실행돼요. 설정은 한 번만 하면 되고 약 2분 걸려요."
+            "value": "단축어 자동화를 설정하면 선택한 앱을 열 때 DopaBreak가 실행돼요. 한 번만 설정하면 되고 약 2분 걸려요."
           }
         }
       }
@@ -1034,7 +1082,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. オートメーションを開く"
+            "value": "1. ショートカットで「オートメーション」を開く"
           }
         },
         "ko": {
@@ -1058,13 +1106,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. ＋を押してAppを選ぶ"
+            "value": "2. 右上の＋を押し「アプリ」を選ぶ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. ＋를 눌러 '앱' 선택"
+            "value": "2. ＋를 눌러 ‘앱’ 선택"
           }
         }
       }
@@ -1082,13 +1130,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "3. 対象アプリを選び「開かれたとき」を選ぶ"
+            "value": "3. 対象アプリと「開かれたとき」を選ぶ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "3. 대상 앱을 고르고 '열림' 선택"
+            "value": "3. 대상 앱을 고르고 ‘열림’ 선택"
           }
         }
       }
@@ -1106,13 +1154,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. すぐに実行を選ぶ"
+            "value": "4. 「すぐに実行」を選ぶ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. '즉시 실행' 선택"
+            "value": "4. ‘즉시 실행’ 선택"
           }
         }
       }
@@ -1130,13 +1178,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "5. アクションで「DopaBreakで一呼吸」を選ぶ"
+            "value": "5. アクションから「DopaBreakで一呼吸」を選ぶ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "5. 동작에서 'DopaBreak로 숨 고르기' 선택"
+            "value": "5. 동작에서 ‘DopaBreak로 숨 고르기’ 선택"
           }
         }
       }
@@ -1148,19 +1196,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make the break automatic"
+            "value": "Set up a pause before apps open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動で一呼吸を出す設定"
+            "value": "アプリを開く前の一呼吸を設定"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열 때 자동으로 숨 고르기 띄우기"
+            "value": "앱을 열기 전 숨 고르기 설정"
           }
         }
       }
@@ -1388,19 +1436,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A big dream or a small habit. Either works."
+            "value": "A big goal or one small thing you want to start today—either works."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "なりたい姿でも やることでもいい"
+            "value": "大きな目標でも、今日から始めたいことでもOKです。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "되고 싶은 모습도 할 일도 좋아요"
+            "value": "큰 목표도, 오늘부터 해보고 싶은 일도 좋아요."
           }
         }
       }
@@ -1412,19 +1460,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can add multiple goals. Up to 1 on the free plan"
+            "value": "You can add or change goals later"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目標は複数追加できます。無料プランでは1つまで"
+            "value": "目標はあとから追加・変更できます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목표는 여러 개 추가할 수 있어요. 무료 플랜은 1개까지"
+            "value": "목표는 나중에 추가하거나 바꿀 수 있어요"
           }
         }
       }
@@ -1436,7 +1484,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "e.g. Pass my exam"
+            "value": "e.g. Study for a certification"
           }
         },
         "ja": {
@@ -1460,7 +1508,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "e.g. Learn English"
+            "value": "e.g. Speak English confidently"
           }
         },
         "ja": {
@@ -1514,13 +1562,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "空いたこの時間で 何をしますか？"
+            "value": "取り戻した時間で\n何をしたいですか？"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이렇게 생긴 시간에 무엇을 할까요?"
+            "value": "생긴 시간으로 무엇을 하고 싶나요?"
           }
         }
       }
@@ -1616,7 +1664,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focus로 시작하기"
+            "value": "딥 포커스로 시작하기"
           }
         }
       }
@@ -1640,7 +1688,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focus는 강한 설정이에요"
+            "value": "딥 포커스는 강한 설정이에요"
           }
         }
       }
@@ -1652,19 +1700,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick the strength that fits your life."
+            "value": "Choose what fits your routine."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "生活に合う強さを選べます。"
+            "value": "生活に合った止め方を選べます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "생활에 맞는 강도를 고를 수 있어요."
+            "value": "내 생활에 맞는 방식을 골라 보세요."
           }
         }
       }
@@ -1676,19 +1724,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How strong should the break be?"
+            "value": "How much do you want to limit social media?"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "どのくらい強く 止めますか？"
+            "value": "SNSとの距離の置き方を選ぶ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "얼마나 세게 브레이크를 걸까요?"
+            "value": "SNS를 어느 정도로 제한할까요?"
           }
         }
       }
@@ -1778,13 +1826,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "朝の通知とLive Activityで、目標を毎日思い出します。"
+            "value": "朝の通知とライブアクティビティで、目標を毎日ロック画面で確認できます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "아침 알림과 Live Activity로 목표를 매일 떠올려요."
+            "value": "아침 알림과 실시간 현황으로 매일 잠금 화면에서 목표를 확인할 수 있어요."
           }
         }
       }
@@ -1820,19 +1868,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open"
+            "value": "Didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた"
+            "value": "開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함"
+            "value": "열지 않음"
           }
         }
       }
@@ -1946,7 +1994,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ロック画面に 目標を"
+            "value": "目標をロック画面に表示"
           }
         },
         "ko": {
@@ -2084,19 +2132,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You check your purpose first, then open only when you truly mean to."
+            "value": "First, check why you're opening. If you still need the app, choose how long to use it."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目的を確かめて、必要なときだけ意図して開けるようにします。"
+            "value": "開く理由を確かめ、必要なときだけ時間を決めて使えるようにします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목적을 먼저 확인해요. 필요할 때만 의도적으로 열 수 있게 도와줘요."
+            "value": "먼저 왜 여는지 확인해요. 그래도 필요하면 얼마나 쓸지 정해요."
           }
         }
       }
@@ -2132,19 +2180,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. Work or messages? Pick your time right away"
+            "value": "2. Work or messages? Open right away"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. 仕事や連絡なら、すぐ時間を選ぶ"
+            "value": "2. 仕事や連絡なら、そのまま開く"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. 일이나 연락이면 바로 시간 선택"
+            "value": "2. 일이나 연락이면 바로 열기"
           }
         }
       }
@@ -2180,7 +2228,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. Reflect on how satisfied you felt after"
+            "value": "4. Reflect on how you felt afterward"
           }
         },
         "ja": {
@@ -2192,7 +2240,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. 사용 후 만족감 돌아보기"
+            "value": "4. 본 뒤의 기분 돌아보기"
           }
         }
       }
@@ -2204,19 +2252,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When you reach for a social app, here's what happens"
+            "value": "Here's what happens before a social app opens"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを開こうとすると こうなります"
+            "value": "SNSを開く前に こう立ち止まります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS를 열려고 하면 이렇게 됩니다"
+            "value": "SNS를 열기 전에 이렇게 잠깐 멈춰요"
           }
         }
       }
@@ -2252,19 +2300,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Starting today, choose again before you open."
+            "value": "Starting today, you can pause and choose before you open."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日から 開く前に選び直す"
+            "value": "今日から SNSを開く前に立ち止まって選べます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘부터 열기 전에 다시 골라요."
+            "value": "오늘부터 앱을 열기 전에 잠깐 멈추고 다시 고를 수 있어요."
           }
         }
       }
@@ -2306,7 +2354,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "最初のテストをする"
+            "value": "設定をテストする"
           }
         },
         "ko": {
@@ -2324,19 +2372,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open %@. If the break kicks in, it worked."
+            "value": "Open %@. If the pause screen appears, setup is complete."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@を開いて一呼吸が出れば成功です。"
+            "value": "%@を開き、一呼吸の画面が表示されれば設定完了です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 앱을 열었을 때 숨 고르기가 뜨면 성공이에요."
+            "value": "%@ 앱을 열었을 때 숨 고르기 화면이 뜨면 설정 완료예요."
           }
         }
       }
@@ -2402,7 +2450,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを閉じたあと どれくらい当てはまりますか？"
+            "value": "SNSを閉じたあと、どのくらい当てはまりますか？"
           }
         },
         "ko": {
@@ -2420,7 +2468,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sometimes I feel like I let the time slip away"
+            "value": "Sometimes I feel like I wasted time"
           }
         },
         "ja": {
@@ -2432,7 +2480,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "'시간이 순삭됐다'고 느낄 때가 있다"
+            "value": "시간을 날렸다고 느낄 때가 있다"
           }
         }
       }
@@ -2468,19 +2516,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "lost to your feed"
+            "value": "spent on social media"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "がSNSに溶けています"
+            "value": "をSNSに使っている計算です"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 SNS에 녹고 있어요"
+            "value": "을 SNS에 쓰고 있어요"
           }
         }
       }
@@ -2618,7 +2666,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "あなたの回答にもとづく推計では"
+            "value": "回答から計算すると"
           }
         },
         "ko": {
@@ -2780,19 +2828,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Social apps run on unpredictable rewards, the same variable-reward design slot machines use. That loop keeps your dopamine circuit firing. Willpower alone can't stop a reflex."
+            "value": "Social apps use unpredictable rewards—the same basic loop as a slot machine. Because you never know what comes next, checking can become automatic. Willpower alone isn't always enough to stop the reflex."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSは次に何が出るかわからない報酬でドーパミンの回路を刺激し続けます。スロットマシンと同じ変動報酬という設計です。この反射は意志の力では止められません。"
+            "value": "SNSでは、次に何が出るかわからない仕組みが、つい続きを見たくなる気持ちを生みます。スロットマシンと同じ「変動報酬」です。だから、意志だけで開かないようにするのは簡単ではありません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS는 무엇이 나올지 모르는 보상으로 도파민 회로를 계속 자극해요. 슬롯머신과 같은 변동 보상 설계죠. 이 반사는 의지만으로 멈추기 어려워요."
+            "value": "SNS는 다음에 무엇이 나올지 모르는 보상 구조를 써요. 슬롯머신과 같은 ‘변동 보상’이에요. 그래서 의지만으로 무심코 여는 습관을 멈추기는 쉽지 않아요."
           }
         }
       }
@@ -2834,13 +2882,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "つい開いてしまうのは、あなたが弱いからではありません。SNSは無意識の起動を狙って設計されています。"
+            "value": "つい開いてしまうのは、あなたが弱いからではありません。SNSは、考える前に開きたくなる仕組みでできています。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "무심코 열게 되는 건 당신이 약해서가 아니에요. SNS는 무의식적인 실행을 노리도록 설계돼 있어요."
+            "value": "무심코 앱을 여는 건 당신이 약해서가 아니에요. SNS는 생각하기도 전에 손이 가도록 설계돼 있어요."
           }
         }
       }
@@ -2852,19 +2900,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "DopaBreak steps in right where that reflex starts and adds one breath of space before the loop takes over."
+            "value": "DopaBreak adds a brief pause right before social media opens, giving you a chance to choose instead of acting automatically."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "DopaBreakはこの回路が自動で回り出す入口に割り込み、ひと呼吸ぶんの間を差し込みます。"
+            "value": "DopaBreakはSNSが開く直前に一呼吸をはさみ、無意識の動きを自分で選び直すきっかけをつくります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "DopaBreak은 반사가 시작되는 순간에 끼어들어 한 호흡만큼의 틈을 만들어요."
+            "value": "DopaBreak는 SNS가 열리기 직전에 잠깐 숨을 고를 시간을 만들어, 무심코 열던 행동을 다시 선택하게 도와줘요."
           }
         }
       }
@@ -2876,19 +2924,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add a beat before the reflex tap"
+            "value": "Pause for a few seconds before opening"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "反射的な起動に一拍置く"
+            "value": "開く前に数秒立ち止まる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "반사적인 실행에 한 박자 두기"
+            "value": "열기 전에 몇 초 멈추기"
           }
         }
       }
@@ -2900,19 +2948,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Friction"
+            "value": "1. Pause"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. 摩擦"
+            "value": "1. 一呼吸"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. 마찰"
+            "value": "1. 잠깐 멈춤"
           }
         }
       }
@@ -2930,7 +2978,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開く前に理由を言語化する"
+            "value": "開く理由を選ぶ"
           }
         },
         "ko": {
@@ -2948,19 +2996,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. Implementation intention"
+            "value": "2. Check your reason"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. 実行意図"
+            "value": "2. 目的を確認"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "2. 실행 의도"
+            "value": "2. 목적 확인"
           }
         }
       }
@@ -2996,19 +3044,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "3. Self-monitoring"
+            "value": "3. Check the count"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "3. 自己モニタリング"
+            "value": "3. 回数を確認"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "3. 자기 모니터링"
+            "value": "3. 횟수 확인"
           }
         }
       }
@@ -3020,19 +3068,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Log how satisfied you felt after"
+            "value": "Note how you felt afterward"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "見た後の満足感を記録する"
+            "value": "見たあとの気持ちを記録する"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "본 뒤의 만족감 기록하기"
+            "value": "본 뒤의 기분 기록하기"
           }
         }
       }
@@ -3044,19 +3092,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. Self-observation"
+            "value": "4. Reflect"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. 自己観察"
+            "value": "4. 振り返り"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "4. 자기 관찰"
+            "value": "4. 돌아보기"
           }
         }
       }
@@ -3074,7 +3122,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開く前にワンクッション置く手法は、査読付き研究（PNAS, 2023）でSNS利用を平均57%減らすことが示されています。"
+            "value": "SNSを開く前に一呼吸をはさむ手法は、査読付き研究（PNAS, 2023）で、SNSの利用時間を平均57%減らしました。"
           }
         },
         "ko": {
@@ -3092,19 +3140,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "It's a slot machine in your pocket"
+            "value": "Why willpower isn't enough"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "意志の力では 勝てない"
+            "value": "意志だけでは 止めにくい理由"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "의지력 문제가 아니라 설계 문제예요"
+            "value": "의지만으로 멈추기 어려운 이유"
           }
         }
       }
@@ -3266,7 +3314,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを見ている時間は 1日どれくらいですか？"
+            "value": "1日にSNSを見る時間は どのくらいですか？"
           }
         },
         "ko": {
@@ -3308,7 +3356,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apps to pause"
+            "value": "Apps with a pause"
           }
         },
         "ja": {
@@ -3320,7 +3368,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "브레이크 걸 앱"
+            "value": "숨 고르기를 설정할 앱"
           }
         }
       }
@@ -3362,7 +3410,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日から、開く前に選べるようになります。"
+            "value": "今日から、SNSを開く前に立ち止まって選べます。"
           }
         },
         "ko": {
@@ -3404,19 +3452,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "From now on, every open hits a break first."
+            "value": "This setup adds a pause before social media opens."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この設定で、開く前の一呼吸が増えます。"
+            "value": "この設定で、SNSを開く前に一呼吸をはさみます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이제 열 때마다 브레이크가 먼저 걸려요."
+            "value": "이 설정을 마치면 SNS를 열기 전에 잠깐 숨을 골라요."
           }
         }
       }
@@ -3524,19 +3572,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "See the time you're losing"
+            "value": "See where your time goes"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "どれだけ溶けているか見る"
+            "value": "SNSに使っている時間を知る"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "1년에 며칠 녹는지 보기"
+            "value": "SNS에 쓰는 시간 확인하기"
           }
         }
       }
@@ -3596,19 +3644,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not another blocker. DopaBreak puts a break in the loop, right before the app opens."
+            "value": "You open social media without thinking. Suddenly, hours are gone."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "なんとなく開くだけで1日が終わる"
+            "value": "気づけばSNSを開き 何時間も過ぎている"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "막지 않아요. 열기 전에 브레이크만 걸어요."
+            "value": "무심코 SNS를 열었다가 몇 시간이 훌쩍 지나가요."
           }
         }
       }
@@ -3716,19 +3764,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose again before you open"
+            "value": "Take a breath before social media opens"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ブロックしない 開く直前のひと呼吸"
+            "value": "SNSを開く直前に ひと呼吸"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열기 전에 다시 고르기"
+            "value": "SNS를 열기 전에 잠깐 숨 고르기"
           }
         }
       }
@@ -3740,7 +3788,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your feed is engineered to never let go."
+            "value": "You can't get that time back"
           }
         },
         "ja": {
@@ -3752,7 +3800,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "시간 순삭의 정체는 도파민 루프예요"
+            "value": "한 번 지난 시간은 돌아오지 않아요"
           }
         }
       }
@@ -3836,7 +3884,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start %@ free"
+            "value": "Try free for %@"
           }
         },
         "ja": {
@@ -3968,31 +4016,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "상품 정보를 불러오지 못했습니다"
-          }
-        }
-      }
-    },
-    "paywall.feature.full_history": {
-      "comment": "Screen: Paywall",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Full history and weekly reports"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録と週次レポートを全期間"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "전체 기록과 주간 리포트"
+            "value": "상품 정보를 불러오지 못했어요"
           }
         }
       }
@@ -4004,19 +4028,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Customize lock screen themes"
+            "value": "Choose your Lock Screen design"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ロック画面テーマを着せ替え"
+            "value": "ロック画面のデザインを選べる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "잠금화면 테마 바꾸기"
+            "value": "잠금 화면 디자인 선택"
           }
         }
       }
@@ -4052,7 +4076,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add unlimited apps to pause"
+            "value": "Pause as many apps as you want"
           }
         },
         "ja": {
@@ -4064,31 +4088,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "브레이크 걸 앱 무제한 추가"
-          }
-        }
-      }
-    },
-    "paywall.feature.usage_watch": {
-      "comment": "Screen: Paywall",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check-ins as often as every 15 minutes"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使いすぎたら15分ごとに声かけ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "15분마다 확인 알림 받기"
+            "value": "원하는 만큼 앱에 숨 고르기 설정"
           }
         }
       }
@@ -4100,19 +4100,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This isn't a willpower app. It just adds one breath before you open. Every time you choose not to open, it stacks up on your Home."
+            "value": "This isn't about forcing yourself to resist. DopaBreak adds a quick pause before social media opens and records each time you decide not to open."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開くのをやめた回数が毎日ホームに積み上がります。"
+            "value": "ずっと我慢するためのアプリではありません。SNSを開く前に一呼吸はさみ、開かずにすんだ回数をホームに残します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "억지로 참는 앱이 아닙니다. 열기 전에 매번 잠깐 브레이크가 걸릴 뿐입니다. 열지 않기로 한 횟수가 매일 홈에 쌓입니다."
+            "value": "억지로 참게 하는 앱이 아니에요. SNS를 열기 전에 잠깐 숨을 고를 시간을 만들고, 열지 않은 횟수를 홈에 기록해요."
           }
         }
       }
@@ -4130,7 +4130,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「あと5分だけ」が年"
+            "value": "「あと5分」が1年で"
           }
         },
         "ko": {
@@ -4172,7 +4172,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A break before you open"
+            "value": "Pause before you open"
           }
         },
         "ja": {
@@ -4184,7 +4184,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열기 전에 브레이크"
+            "value": "열기 전 잠깐 멈춤"
           }
         }
       }
@@ -4196,7 +4196,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After %@ free, it auto-renews at %@/year. Cancel anytime. Billed to your Apple ID"
+            "value": "Free for %@, then %@/year. Renews automatically. Cancel anytime. Billed to your Apple ID"
           }
         },
         "ja": {
@@ -4400,7 +4400,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "최고 인기"
+            "value": "가장 인기"
           }
         }
       }
@@ -4424,7 +4424,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "최고 인기 · %lld%% 할인"
+            "value": "가장 인기 · %lld%% 할인"
           }
         }
       }
@@ -4676,19 +4676,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We use Screen Time to show one breath before you open selected apps. Usage data stays on your device"
+            "value": "DopaBreak uses Screen Time to show a pause before selected apps open. Usage data stays on your device."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだアプリを開く前に一呼吸を出すためスクリーンタイムを使います 利用データは端末内に保存されます"
+            "value": "選んだアプリを開く前に一呼吸の画面を表示するため、スクリーンタイムを使います。利用データはこの端末だけに保存されます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "선택한 앱을 열기 전에 한 호흡을 띄우기 위해 스크린 타임을 사용해요. 이용 데이터는 기기 안에 저장돼요"
+            "value": "선택한 앱을 열기 전에 숨 고르기 화면을 띄우기 위해 스크린 타임을 사용해요. 이용 데이터는 기기에만 저장돼요."
           }
         }
       }
@@ -4700,19 +4700,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One breath before opening is unavailable without Screen Time permission. You can grant permission anytime in Settings"
+            "value": "The pause before opening won't work without Screen Time permission. You can allow it anytime in Settings."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スクリーンタイムを許可していないため開く前の一呼吸を使えません 設定からいつでも許可できます"
+            "value": "スクリーンタイムが許可されていないため、開く前の一呼吸を利用できません。iPhoneの設定からいつでも許可できます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "스크린 타임 권한이 없어 열기 전 한 호흡을 사용할 수 없어요. 설정에서 언제든 허용할 수 있어요"
+            "value": "스크린 타임 권한이 없으면 열기 전 숨 고르기를 사용할 수 없어요. 설정에서 언제든 허용할 수 있어요."
           }
         }
       }
@@ -4796,7 +4796,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Breath length"
+            "value": "Pause length"
           }
         },
         "ja": {
@@ -4808,7 +4808,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 호흡의 길이"
+            "value": "숨 고르기 시간"
           }
         }
       }
@@ -4988,19 +4988,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can pause apps such as social media only on iPhone"
+            "value": "Pausing and fully blocking apps works only on iPhone."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSなどのアプリを止める機能はiPhoneでのみ使えます"
+            "value": "開く前の一呼吸と完全ブロックはiPhoneでのみ使えます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS 같은 앱을 멈추는 기능은 iPhone에서만 사용할 수 있어요"
+            "value": "열기 전 숨 고르기와 완전 차단은 iPhone에서만 사용할 수 있어요."
           }
         }
       }
@@ -5024,7 +5024,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "데이터를 불러오지 못했습니다"
+            "value": "데이터를 불러오지 못했어요"
           }
         }
       }
@@ -5048,7 +5048,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "데이터를 저장하지 못했습니다"
+            "value": "데이터를 저장하지 못했어요"
           }
         }
       }
@@ -5072,7 +5072,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "상품 정보를 불러오지 못했습니다"
+            "value": "상품 정보를 불러오지 못했어요"
           }
         }
       }
@@ -5204,7 +5204,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lock screen display"
+            "value": "Lock Screen display"
           }
         },
         "ja": {
@@ -5276,7 +5276,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pause strength"
+            "value": "Limit level"
           }
         },
         "ja": {
@@ -5288,7 +5288,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "멈춤 강도"
+            "value": "제한 강도"
           }
         }
       }
@@ -5300,19 +5300,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selected apps can't be opened from bedtime to wake time. During the day one breath appears before opening"
+            "value": "Selected apps won't open from bedtime to wake-up time. During the day, you'll pause before opening."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだアプリは就寝から起床まで開けません 昼は開く前に一呼吸が入ります"
+            "value": "選んだアプリは就寝時刻から起床時刻まで開けません。日中は、開く前に一呼吸をはさみます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "선택한 앱은 취침 시각부터 기상 시각까지 열 수 없어요. 낮에는 열기 전에 한 호흡이 들어가요"
+            "value": "선택한 앱은 취침 시각부터 기상 시각까지 열 수 없어요. 낮에는 열기 전에 잠깐 숨을 골라요."
           }
         }
       }
@@ -5708,7 +5708,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apps to pause"
+            "value": "Selected apps"
           }
         },
         "ja": {
@@ -5720,7 +5720,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "멈출 앱"
+            "value": "대상 앱"
           }
         }
       }
@@ -5732,19 +5732,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Set up an automatic pause"
+            "value": "Set up a pause before opening"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動で一呼吸を出す設定"
+            "value": "開く前の一呼吸を設定"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "숨 고르기 자동 실행 설정"
+            "value": "열기 전 숨 고르기 설정"
           }
         }
       }
@@ -6068,7 +6068,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Select the apps to pause first."
+            "value": "Select your target apps first."
           }
         },
         "ja": {
@@ -6080,7 +6080,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "먼저 멈출 앱을 선택해 주세요."
+            "value": "먼저 대상 앱을 골라 주세요."
           }
         }
       }
@@ -6140,19 +6140,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Set up an automatic pause"
+            "value": "Set up a pause before apps open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動で一呼吸を出す設定"
+            "value": "アプリを開く前の一呼吸を設定"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "숨 고르기 자동 실행 설정"
+            "value": "앱을 열기 전 숨 고르기 설정"
           }
         }
       }
@@ -6452,19 +6452,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "e.g. Become someone who can do business in English"
+            "value": "e.g. Handle a business meeting in English"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "例 英語で商談できる自分になる"
+            "value": "例：英語で商談できるようになる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "예: 영어로 비즈니스 미팅을 할 수 있는 내가 되기"
+            "value": "예: 영어로 비즈니스 미팅하기"
           }
         }
       }
@@ -6554,7 +6554,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリを開こうとしたときに目標が表示されます 例 英語で話せるようになる"
+            "value": "目標を設定すると、対象アプリを開く前に表示されます。例：英語で話せるようになる"
           }
         },
         "ko": {
@@ -6770,13 +6770,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ひと呼吸おきましょう"
+            "value": "まずはひと呼吸"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "숨 한 번 고르고 가요"
+            "value": "먼저 숨을 한번 골라요"
           }
         }
       }
@@ -6788,19 +6788,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This shapes your focus for the day"
+            "value": "Before opening social media first thing, take a moment to choose how you want to spend your day."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "その日の集中を決める時間"
+            "value": "起きてすぐSNSを開く前に、今日の過ごし方を選ぶ時間です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "하루의 집중을 좌우하는 시간"
+            "value": "일어나자마자 SNS를 열기 전에, 오늘을 어떻게 보낼지 잠깐 생각해 봐요."
           }
         }
       }
@@ -6836,19 +6836,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This shapes how well you sleep tonight"
+            "value": "Take a moment to step away from social media before bed."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "その日の睡眠の質を決める時間"
+            "value": "眠る前にSNSから離れるきっかけをつくる時間です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 밤 수면의 질을 좌우하는 시간"
+            "value": "잠들기 전, SNS에서 잠깐 벗어나는 시간이에요."
           }
         }
       }
@@ -6873,102 +6873,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "잠들기 전 몇 분"
-          }
-        }
-      }
-    },
-    "intervention.decision.action.cancel": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Don't open"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開かない"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열지 않기"
-          }
-        }
-      }
-    },
-    "intervention.decision.action.open": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open only for what I need"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "必要な時間だけ開く"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "필요한 만큼만 열기"
-          }
-        }
-      }
-    },
-    "intervention.decision.eyebrow": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DECISION"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DECISION"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DECISION"
-          }
-        }
-      }
-    },
-    "intervention.decision.title": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do you really\nneed this now?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本当に今\n必要ですか？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "지금 정말\n필요한가요?"
           }
         }
       }
@@ -7004,19 +6908,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to your win screen without opening"
+            "value": "Skip the app and go to today's record"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを開かずに達成画面へ進みます"
+            "value": "SNSは開かず、今日の記録を見ます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS를 열지 않고 성공 화면으로 넘어가요"
+            "value": "SNS는 열지 않고 오늘의 기록을 봐요"
           }
         }
       }
@@ -7069,30 +6973,6 @@
         }
       }
     },
-    "intervention.duration.fast_path_note": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your purpose is clear, so we skipped the breath"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目的が明確なため、ひと呼吸を省きました"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "목적이 분명해서 숨 고르기는 건너뛰었어요"
-          }
-        }
-      }
-    },
     "intervention.duration.guidance": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
@@ -7100,19 +6980,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick just enough time to finish what you need"
+            "value": "Choose only the time you need"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "必要な用事が終わる時間だけ選びましょう"
+            "value": "必要なぶんだけ時間を選んでください"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "필요한 일이 끝날 만큼만 골라요"
+            "value": "필요한 만큼만 골라요"
           }
         }
       }
@@ -7261,6 +7141,102 @@
         }
       }
     },
+    "intervention.goal.action.edit": {
+      "comment": "Screen: Intervention merged usage and goal summary",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変える"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "바꾸기"
+          }
+        }
+      }
+    },
+    "intervention.goal.action.set": {
+      "comment": "Screen: Intervention merged usage and goal summary, empty state",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "決める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "정하기"
+          }
+        }
+      }
+    },
+    "intervention.goal.empty_prompt": {
+      "comment": "Screen: Intervention merged usage and goal summary, empty state",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decide why you're opening"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く目的を決める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여는 목적 정하기"
+          }
+        }
+      }
+    },
+    "intervention.goal.eyebrow_ja": {
+      "comment": "Screen: Intervention merged usage and goal summary",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your goal"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたの目標"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "나의 목표"
+          }
+        }
+      }
+    },
     "intervention.goal.eyebrow": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
@@ -7292,7 +7268,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check why you're opening"
+            "value": "Remember why you're opening"
           }
         },
         "ja": {
@@ -7304,103 +7280,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여는 목적 확인하기"
-          }
-        }
-      }
-    },
-    "intervention.goal_reminder.action.continue": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose what to do"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "どうするか選ぶ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "어떻게 할지 고르기"
-          }
-        }
-      }
-    },
-    "intervention.goal_reminder.empty_title": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "What are you opening for?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "何のために開きますか？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "무엇을 위해 여나요?"
-          }
-        }
-      }
-    },
-    "intervention.goal_reminder.list_separator": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": " · "
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "・"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "·"
-          }
-        }
-      }
-    },
-    "intervention.goal_reminder.title": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your goal"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あなたの目標"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "나의 목표"
+            "value": "왜 여는지 떠올리기"
           }
         }
       }
@@ -7412,19 +7292,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If your purpose is clear, skip the breath and go straight in"
+            "value": "Choose why you're opening."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目的が明確なら、ひと呼吸を省いてすぐ進めます"
+            "value": "開く理由を選んでください"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목적이 분명하면 숨 고르기를 건너뛰고 바로 진행해요"
+            "value": "여는 이유를 골라요."
           }
         }
       }
@@ -7473,150 +7353,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "무엇을 위해\n여나요?"
-          }
-        }
-      }
-    },
-    "intervention.notification.check_in.body": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time to remember your goal"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目標を思い出す時間です"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "목표를 떠올릴 시간이에요"
-          }
-        }
-      }
-    },
-    "intervention.notification.check_in.title": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Still scrolling?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだ見てる？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 보고 있나요?"
-          }
-        }
-      }
-    },
-    "intervention.notification.disabled": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notifications are off, so you won't get time alerts"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通知がオフのため時間のお知らせは届きません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "알림이 꺼져 있어 시간 안내를 받을 수 없어요"
-          }
-        }
-      }
-    },
-    "intervention.notification.enabled": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "We'll notify you when time's up"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "時間になったら通知でお知らせします"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "시간이 되면 알림으로 알려드려요"
-          }
-        }
-      }
-    },
-    "intervention.notification.time_up.body": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That's about %lld min. How was it?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "そろそろ%lld分。見てどうだった？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이제 %lld분이에요. 보고 나니 어때요?"
-          }
-        }
-      }
-    },
-    "intervention.notification.time_up.title": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time for a break"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "そろそろひと休み"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이제 잠깐 쉬어가요"
           }
         }
       }
@@ -7964,19 +7700,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open"
+            "value": "Didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた"
+            "value": "開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함"
+            "value": "열지 않음"
           }
         }
       }
@@ -7988,43 +7724,139 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open\nBack to your time"
+            "value": "Didn't open\nThat's time you kept for yourself"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた\n自分の時間に戻る"
+            "value": "開かずにすんだ\nそのぶん自分の時間が残った"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함\n내 시간으로 돌아가기"
+            "value": "열지 않았어요\n그만큼 내 시간이 남았어요"
           }
         }
       }
     },
-    "intervention.usage_summary.action.continue": {
+    "intervention.usage_summary.action.cancel": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remember your goal"
+            "value": "Don't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目標を思い出す"
+            "value": "開かない"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목표 떠올리기"
+            "value": "열지 않기"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.action.choose_duration": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose access time"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く時間を選ぶ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열어 둘 시간 선택"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.action.open": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열기"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.attempt_line": {
+      "comment": "Screen: Intervention merged usage and goal summary; %lld is today's attempted open count",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tried to open today · %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日開こうとした回数　%lld回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 열려고 한 횟수 · %lld회"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.cancelled_line": {
+      "comment": "Screen: Intervention merged usage and goal summary; %lld is today's cancelled open count",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't open today · %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日開かなかった回数　%lld回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘 열지 않은 횟수 · %lld회"
           }
         }
       }
@@ -8049,6 +7881,102 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld회"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.attempt_label": {
+      "comment": "Screen: Intervention merged usage and goal summary; visual label shown below today's attempt count",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tried to open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開こうとした回数"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열려고 한 횟수"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.cancelled_label": {
+      "comment": "Screen: Intervention merged usage and goal summary; visual label for today's cancelled open count",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Didn't open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開かなかった"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열지 않음"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.count_value": {
+      "comment": "Screen: Intervention merged usage and goal summary; %lld is a count displayed separately from its label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld times"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld回"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld회"
+          }
+        }
+      }
+    },
+    "intervention.usage_summary.eyebrow_ja": {
+      "comment": "Screen: Intervention merged usage and goal summary",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日のSNS"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘"
           }
         }
       }
@@ -8084,7 +8012,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You've already opened this"
+            "value": "You've already opened this app"
           }
         },
         "ja": {
@@ -8096,7 +8024,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이미 열어 봤어요"
+            "value": "이미 이 앱을 열었어요"
           }
         }
       }
@@ -8108,19 +8036,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fully blocks your chosen apps during the times you set"
+            "value": "Blocks your chosen apps during the times you set"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "決めた時間は選んだアプリを完全ブロック"
+            "value": "決めた時間だけアプリを開けなくする"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "정한 시간에는 고른 앱을 완전 차단"
+            "value": "정한 시간에는 선택한 앱을 완전히 차단해요"
           }
         }
       }
@@ -8156,19 +8084,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Blocks the apps completely from bedtime until you wake up"
+            "value": "Blocks your chosen apps from bedtime until you wake up"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "就寝から起床まで完全ブロックする"
+            "value": "就寝時刻から起床時刻までアプリを開けなくする"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "취침 시각부터 기상 시각까지 앱을 완전히 차단해요"
+            "value": "취침 시각부터 기상 시각까지 선택한 앱을 완전히 차단해요"
           }
         }
       }
@@ -8204,19 +8132,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One breath and a quick reason check before you open social apps"
+            "value": "Pause and check your reason before social media opens"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを開く前にひと呼吸と理由確認"
+            "value": "開く前に一呼吸して理由を確かめる"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS를 열기 전에 한 번 숨을 고르고 이유를 확인해요"
+            "value": "SNS를 열기 전에 잠깐 숨을 고르고 이유를 확인해요"
           }
         }
       }
@@ -8258,7 +8186,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを開いたときに一呼吸が出れば設定完了です。設定はアプリからいつでも確認できます。"
+            "value": "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。設定はアプリからいつでも確認できます。"
           }
         },
         "ko": {
@@ -8282,7 +8210,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "一呼吸の設定は終わっていますか"
+            "value": "一呼吸の設定は完了していますか"
           }
         },
         "ko": {
@@ -8300,19 +8228,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You chose not to open %lld times. The annual plan lowers your monthly cost"
+            "value": "You didn't open %lld times. The annual plan lowers your monthly cost."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまでに%lld回、開くのをやめました。年額プランなら月あたりの負担が下がります"
+            "value": "ここまでに%lld回、開かずにすみました。年額プランなら、月額プランより1か月あたりの料金を抑えられます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 %lld번 열지 않기로 했어요. 연간 플랜이면 월 부담이 줄어요"
+            "value": "지금까지 %lld번 열지 않았어요. 연간 플랜을 선택하면 월 부담을 줄일 수 있어요."
           }
         }
       }
@@ -8348,19 +8276,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You chose not to open %lld times. You can choose whether to keep going before it ends"
+            "value": "You didn't open %lld times. Before access ends, you can choose whether to keep going."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまでに%lld回、開くのをやめました。このまま続けるかは期限までに選べます"
+            "value": "ここまでに%lld回、開かずにすみました。期限までは、このまま続けるか選べます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 %lld번 열지 않기로 했어요. 계속할지는 끝나기 전에 정할 수 있어요"
+            "value": "지금까지 %lld번 열지 않았어요. 이용 기간이 끝나기 전에 계속할지 정할 수 있어요."
           }
         }
       }
@@ -8402,7 +8330,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを開いたとき一呼吸が出れば完了です"
+            "value": "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
           }
         },
         "ko": {
@@ -8420,19 +8348,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Setup takes 3 minutes with the video"
+            "value": "Set it up in about 3 minutes with the video"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "設定は動画を見ながら3分で終わります"
+            "value": "動画を見ながら約3分で設定できます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "영상 보면서 3분이면 설정 끝나요"
+            "value": "영상을 보면서 약 3분 만에 설정할 수 있어요"
           }
         }
       }
@@ -8450,7 +8378,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリの選び直しはいつでもできます。1つのアプリから試せます"
+            "value": "対象アプリはいつでも選び直せます。まずは1つのアプリから試せます。"
           }
         },
         "ko": {
@@ -8468,19 +8396,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No pauses this week"
+            "value": "The pause screen hasn't appeared this week"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この1週間 一呼吸は出ていません"
+            "value": "一呼吸の画面が1週間表示されていません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이번 주에는 숨 고르기가 없었어요"
+            "value": "이번 주에는 숨 고르기 화면이 뜨지 않았어요"
           }
         }
       }
@@ -8492,19 +8420,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open %lld times / Tried to open %lld times"
+            "value": "Didn't open %lld times / Tried to open %lld times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた %lld回 / 開こうとした %lld回"
+            "value": "開かなかった%lld回・開こうとした%lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함 %lld번 / 열려고 함 %lld번"
+            "value": "열지 않음 %lld회 / 열려고 함 %lld회"
           }
         }
       }
@@ -8522,7 +8450,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この1ヶ月のふりかえり"
+            "value": "この1か月の記録"
           }
         },
         "ko": {
@@ -8540,19 +8468,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You chose not to open %lld times this year. You can review your renewal in App Store settings."
+            "value": "You didn't open %lld times this year. You can review your renewal in App Store settings."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この1年で%lld回、開くのをやめました。更新の確認はApp Storeの設定からできます。"
+            "value": "この1年で%lld回、開かずにすみました。更新内容はApp Storeの設定から確認できます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지난 1년 동안 %lld번 열지 않기로 했어요. 갱신 확인은 App Store 설정에서 할 수 있어요."
+            "value": "지난 1년 동안 %lld번 열지 않았어요. 갱신 내용은 App Store 설정에서 확인할 수 있어요."
           }
         }
       }
@@ -8660,19 +8588,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You've chosen not to open %lld times so far. On day 7 you'll switch to the yearly plan. You can cancel anytime."
+            "value": "You didn't open %lld times so far. On day 7, you'll switch to the yearly plan. You can cancel anytime."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまでに%lld回、開くのをやめました。7日目に年額プランへ切り替わります。解約はいつでもできます。"
+            "value": "ここまでに%lld回、開かずにすみました。7日目に年額プランへ切り替わります。解約はいつでもできます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 %lld번 열지 않기로 했어요. 7일째에 연간 플랜으로 전환돼요. 해지는 언제든 할 수 있어요."
+            "value": "지금까지 %lld번 열지 않았어요. 7일째에 연간 플랜으로 전환되며, 언제든 해지할 수 있어요."
           }
         }
       }
@@ -8708,19 +8636,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open %lld times / Tried to open %lld times"
+            "value": "Didn't open %lld times / Tried to open %lld times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた %lld回 / 開こうとした %lld回"
+            "value": "開かなかった%lld回・開こうとした%lld回"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함 %lld번 / 열려고 함 %lld번"
+            "value": "열지 않음 %lld회 / 열려고 함 %lld회"
           }
         }
       }
@@ -8738,109 +8666,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今週のふりかえり"
+            "value": "今週の記録"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "이번 주 돌아보기"
-          }
-        }
-      }
-    },
-    "mid_session_check_in.action.close": {
-      "comment": "Screen: Mid-session Check-in",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じる"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "닫기"
-          }
-        }
-      }
-    },
-    "mid_session_check_in.reminder.goal": {
-      "comment": "Screen: Mid-session Check-in",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Goal: %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目標　%@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "목표: %@"
-          }
-        }
-      }
-    },
-    "mid_session_check_in.reminder.no_goal": {
-      "comment": "Screen: Mid-session Check-in",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Can you remember why you opened this?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "何のために開いたか思い出せますか"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "무엇을 하려고 열었는지 기억나세요?"
-          }
-        }
-      }
-    },
-    "mid_session_check_in.title": {
-      "comment": "Screen: Mid-session Check-in",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Still scrolling?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだ見てる？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 보고 있나요?"
           }
         }
       }
@@ -8924,19 +8756,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You've used the time you needed. Let's note it for your next choice."
+            "value": "Note how you feel now. It may help the next time you choose whether to open."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "必要な時間を使い終えました。次の選択のために記録します。"
+            "value": "使い終えた今の気持ちを記録しておくと、次に開くか選ぶときの参考になります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "필요한 시간을 다 썼어요. 다음 선택을 위해 기록해요."
+            "value": "지금 기분을 기록해 두면 다음에 열지 말지 고를 때 도움이 돼요."
           }
         }
       }
@@ -9068,19 +8900,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How did it feel after scrolling?"
+            "value": "How do you feel after using social media?"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSを見てどうだった？"
+            "value": "SNSを見たあとの気持ちは？"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS를 보고 나서 어땠나요?"
+            "value": "SNS를 보고 난 지금 기분은 어떤가요?"
           }
         }
       }
@@ -9452,7 +9284,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shows the DopaBreak pause flow before you open the app."
+            "value": "Shows a DopaBreak pause before the selected app opens."
           }
         },
         "ja": {
@@ -9464,7 +9296,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "대상 앱을 열기 전에 DopaBreak의 숨 고르기 흐름을 보여줍니다."
+            "value": "대상 앱을 열기 전에 DopaBreak 숨 고르기를 표시합니다."
           }
         }
       }
@@ -9524,19 +9356,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Total times you chose not to open"
+            "value": "Total times you didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "これまでに開くのをやめた回数"
+            "value": "これまで開かなかった回数"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금까지 열지 않기로 한 횟수"
+            "value": "지금까지 열지 않은 횟수"
           }
         }
       }
@@ -9620,19 +9452,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open"
+            "value": "Didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた"
+            "value": "開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함"
+            "value": "열지 않음"
           }
         }
       }
@@ -9644,19 +9476,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The times you tried to open and chose not to open are recorded here"
+            "value": "Your attempts to open selected apps—and the times you didn't—are recorded here"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとした回数と、開くのをやめた回数がここに残ります"
+            "value": "対象アプリを開こうとした回数と、開かなかった回数がここに記録されます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 한 횟수와 열지 않기로 한 횟수가 여기에 남아요"
+            "value": "대상 앱을 열려고 한 횟수와 열지 않은 횟수가 여기에 기록돼요"
           }
         }
       }
@@ -9764,19 +9596,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chose not to open"
+            "value": "Didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた"
+            "value": "開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 함"
+            "value": "열지 않음"
           }
         }
       }
@@ -9920,19 +9752,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How often you chose not to open"
+            "value": "How often you didn't open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開くのをやめた割合"
+            "value": "開かなかった割合"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않기로 한 비율"
+            "value": "열지 않은 비율"
           }
         }
       }
@@ -9968,7 +9800,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How you felt after scrolling"
+            "value": "How you felt afterward"
           }
         },
         "ja": {
@@ -9980,7 +9812,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "보고 난 뒤의 기분"
+            "value": "앱을 본 뒤의 기분"
           }
         }
       }
@@ -10352,19 +10184,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick the apps where you'd like a pause the moment you go to open them."
+            "value": "Choose the apps that should show the pause screen."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとした瞬間に一呼吸を出したいアプリを選びます。"
+            "value": "開く前に一呼吸はさみたいアプリを選びます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려는 순간 잠깐 숨을 고르고 싶은 앱을 골라요."
+            "value": "열기 전에 숨 고르기 화면을 띄울 앱을 골라요."
           }
         }
       }
@@ -10424,7 +10256,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose apps to pause"
+            "value": "Choose apps"
           }
         },
         "ja": {
@@ -10436,7 +10268,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "멈출 앱 선택"
+            "value": "앱 고르기"
           }
         }
       }
@@ -10568,19 +10400,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open a target app and confirm that the breathing pause appears to finish setup"
+            "value": "Open a selected app. If the pause screen appears, setup is complete."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを開いて一呼吸が出れば設定完了です"
+            "value": "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "대상 앱을 열어 숨 고르기가 나타나면 설정 완료입니다"
+            "value": "대상 앱을 열었을 때 숨 고르기 화면이 뜨면 설정 완료예요."
           }
         }
       }
@@ -10628,7 +10460,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deep Focus용"
+            "value": "딥 포커스용"
           }
         }
       }
@@ -10640,19 +10472,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Removing color from social media reduces stimulation and weakens its pull to keep you watching. This optional setting pairs well with Deep Focus."
+            "value": "Grayscale reduces color-based stimulation. It's an optional setting that works well with Full Block."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNSから色を消すと刺激が減り、見続ける力が弱まります。Deep Focusと相性のいい追加設定です。"
+            "value": "画面を白黒にすると、色による刺激を減らせます。完全ブロックと組み合わせて使える任意の設定です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SNS에서 색을 없애면 자극이 줄어 계속 보고 싶은 마음도 약해집니다. Deep Focus와 잘 맞는 추가 설정이에요."
+            "value": "화면을 흑백으로 바꾸면 색에서 오는 자극을 줄일 수 있어요. 완전 차단과 함께 쓸 수 있는 선택 설정이에요."
           }
         }
       }
@@ -10670,7 +10502,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動化しない場合: 設定→アクセシビリティ→ショートカット→カラーフィルタをオン。以後サイドボタン（ホームボタンがある機種はホームボタン）を3回押すと、白黒とカラーを切り替えられます。"
+            "value": "自動化しない場合は、設定→アクセシビリティ→ショートカット→カラーフィルタをオンにします。以後はサイドボタン（ホームボタンがある機種ではホームボタン）を3回押すと、白黒表示を切り替えられます。"
           }
         },
         "ko": {
@@ -10862,7 +10694,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "新規オートメーションで「アプリ」を選び、対象アプリをまとめて全部選んで「開いている」と「すぐに実行」を選び「次へ」"
+            "value": "新規オートメーションで「アプリ」を選び、白黒にしたいアプリをすべて選びます。次に「開いている」と「すぐに実行」を選び、「次へ」をタップします。"
           }
         },
         "ko": {
@@ -10886,7 +10718,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アクション「カラーフィルタを設定」を選び「オン」にして完了"
+            "value": "アクションから「カラーフィルタを設定」を選び、「オン」にして完了します。"
           }
         },
         "ko": {
@@ -10910,7 +10742,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "もう1つ作り「閉じている」で同じアプリを選び「カラーフィルタを設定」を「オフ」にする"
+            "value": "同じアプリで、もう1つオートメーションを作ります。「閉じている」を選び、カラーフィルタを「オフ」にします。"
           }
         },
         "ko": {
@@ -11414,7 +11246,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "App Storeから再インストールしてください。"
+            "value": "App Storeからショートカットを再インストールしてください。"
           }
         },
         "ko": {
@@ -11486,7 +11318,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ショートカットApp下部の「オートメーション」を選ぶ"
+            "value": "ショートカットを開き、画面下部の「オートメーション」を選ぶ"
           }
         },
         "ko": {
@@ -11510,7 +11342,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "右上の＋で新規オートメーションを作る"
+            "value": "右上の＋を押し、新規オートメーションを作る"
           }
         },
         "ko": {
@@ -11558,7 +11390,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "対象アプリを選び、「開いている」と「すぐに実行」を選び、「実行時に通知」はオフのまま「次へ」"
+            "value": "対象アプリと「開いている」「すぐに実行」を選ぶ。「実行時に通知」はオフのまま「次へ」をタップ"
           }
         },
         "ko": {
@@ -11606,7 +11438,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "シート下部のアプリ一覧で「DopaBreak」→「DopaBreakで一呼吸」を選ぶ（検索でも可）"
+            "value": "シート下部のアプリ一覧から「DopaBreak」を開き、「DopaBreakで一呼吸」を選ぶ。見つからない場合は検索できます。"
           }
         },
         "ko": {
@@ -11624,19 +11456,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "In the action, tap “App” to choose the target app, then tap the checkmark in the top right"
+            "value": "In the action, choose your target under “App,” then tap the checkmark in the top right. If you have only one target app, you can leave “App” blank."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アクション内の「アプリ」で対象アプリを選び、右上のチェックで完了"
+            "value": "アクションの「アプリ」で対象アプリを選び、右上のチェックマークをタップすれば完了です。対象が1つだけなら、アプリは選ばなくても動きます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "동작 안의 ‘앱’에서 대상 앱을 선택한 다음 오른쪽 상단의 체크 표시를 탭하세요"
+            "value": "동작의 ‘앱’에서 대상 앱을 고른 뒤 오른쪽 위 체크 표시를 누르면 끝나요. 대상 앱이 하나뿐이라면 앱을 선택하지 않아도 작동해요."
           }
         }
       }
@@ -11696,19 +11528,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Follow along with the verified iOS 26 steps"
+            "value": "Follow the video to set it up on iOS 26"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "iOS 26の動画を見ながら設定できます"
+            "value": "iOS 26の操作動画を見ながら、同じ手順で設定できます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "확인된 iOS 26 단계를 영상으로 보며 설정할 수 있어요"
+            "value": "iOS 26 설정 영상을 보면서 그대로 따라 할 수 있어요"
           }
         }
       }
@@ -11900,7 +11732,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기기 설정에서 라이브 액티비티를 켜면 띄울 수 있어요."
+            "value": "기기 설정에서 실시간 현황을 켜면 표시할 수 있어요."
           }
         }
       }
@@ -11912,19 +11744,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now these words meet you before the app does."
+            "value": "Your goal is the first thing you see whenever you try to open a selected app."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとするたび この言葉が先に目に入ります。"
+            "value": "対象アプリを開こうとするたび、目標が先に目に入ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 할 때마다 이 말이 먼저 눈에 들어와요."
+            "value": "대상 앱을 열려고 할 때마다 목표가 먼저 보여요."
           }
         }
       }
@@ -11936,7 +11768,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trying once more usually works."
+            "value": "Try again—it may appear this time."
           }
         },
         "ja": {
@@ -11948,7 +11780,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 번 더 시도하면 표시되는 경우가 많아요."
+            "value": "한 번 더 시도하면 표시될 수 있어요."
           }
         }
       }
@@ -11966,7 +11798,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目標を決めると ロック画面に出せます。"
+            "value": "目標を設定すると、ロック画面に表示できます。"
           }
         },
         "ko": {
@@ -11990,13 +11822,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "はじめて出るときは「許可しますか」と聞かれます。「許可」を選ぶとロック画面に残ります。"
+            "value": "初回はライブアクティビティの許可を求められます。「許可」を選ぶと、目標がロック画面に表示されます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "처음 뜰 때 허용할지 물어봐요. '허용'을 고르면 잠금 화면에 남아요."
+            "value": "처음 표시될 때 iOS에서 허용 여부를 물어봐요. ‘허용’을 고르면 잠금 화면에 계속 표시돼요."
           }
         }
       }
@@ -12014,18 +11846,18 @@
       "comment": "Live Activity attempted-open count",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Tried to open %lld×" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Tried to open · %lld" } },
         "ja": { "stringUnit": { "state": "translated", "value": "開こうとした %lld回" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "열려고 함 %lld회" } }
+        "ko": { "stringUnit": { "state": "translated", "value": "열려고 함 · %lld회" } }
       }
     },
     "live_activity.summary.cancelled": {
       "comment": "Live Activity cancelled-open count",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Chose not to open %lld× today" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "今日は%lld回 開くのをやめた" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "오늘은 %lld번 열지 않기로 함" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Didn't open · %lld today" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "今日は%lld回 開かなかった" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오늘 열지 않음 · %lld회" } }
       }
     },
     "lock_check.preview.goal_fallback": {
@@ -12095,7 +11927,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "설정 > DopaBreak > 라이브 액티비티"
+            "value": "설정 > DopaBreak > 실시간 현황"
           }
         }
       }
@@ -12185,13 +12017,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画面をタップして点けるとロック画面に目標が出ています"
+            "value": "画面を点けると ロック画面に目標が表示されます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "화면을 탭해 켜면 잠금 화면에 목표가 표시됩니다"
+            "value": "화면을 탭해 켜면 잠금 화면에 목표가 표시돼요"
           }
         }
       }
@@ -12305,7 +12137,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今月のふりかえり"
+            "value": "今月の記録"
           }
         },
         "ko": {
@@ -12443,19 +12275,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shown on your Lock Screen as is"
+            "value": "It will appear exactly as entered on your Lock Screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "そのままロック画面に表示されます"
+            "value": "入力した目標はロック画面にも表示されます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "잠금 화면에 그대로 표시됩니다"
+            "value": "입력한 목표가 잠금 화면에도 그대로 표시돼요"
           }
         }
       }
@@ -12563,19 +12395,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automate the pause"
+            "value": "Use the pause to cut back"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "仕組みに任せる"
+            "value": "仕組みを使って減らす"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "자동 설정 시작하기"
+            "value": "숨 고르기로 줄이기"
           }
         }
       }
@@ -12772,236 +12604,6 @@
         }
       }
     },
-    "settings.usage_watch.apps.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apps to measure"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "時間をはかるアプリ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "시간을 잴 앱"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.enable.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use usage time alerts"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用時間の通知を使う"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "사용 시간 알림 사용"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.free_rule.description": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notify once a day after you use selected apps for 2 hours straight"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選んだアプリを2時間続けて使うと1日1回通知します"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "선택한 앱을 2시간 연속 사용하면 하루에 한 번 알려드려요"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.interval.minutes_format": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Every %lld min"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld分ごと"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld분마다"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.interval.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check-in interval"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "問いかけの間隔"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "확인 간격"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.night_mode.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shorter check-in intervals before bed"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "就寝前は問いかけの間隔を短く"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "취침 전에는 확인 간격 줄이기"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.permission.description": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Requires Screen Time permission. Usage data never leaves this device"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スクリーンタイムの許可が必要です。利用データはこの端末の外に出ません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "스크린 타임 권한이 필요해요. 사용 데이터는 이 기기 밖으로 나가지 않아요"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.section.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usage time alerts"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用時間の通知"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "사용 시간 알림"
-          }
-        }
-      }
-    },
-    "settings.usage_watch.start_failed.description": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not start usage time alerts. Pick the apps again and try once more"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用時間の通知を開始できませんでした。時間をはかるアプリを選び直してからもう一度お試しください"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "사용 시간 알림을 시작하지 못했어요. 앱을 다시 고른 뒤 한 번 더 시도해 주세요"
-          }
-        }
-      }
-    },
-    "usage_watch.notification.action.mute_today": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mute for today"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日は止める"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘은 그만 알리기"
-          }
-        }
-      }
-    },
     "lock_surface.notification.free_monthly.fixed_body": {
       "comment": "Screen: Lock Surface",
       "extractionState": "manual",
@@ -13015,7 +12617,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この1ヶ月の記録がまとまりました"
+            "value": "この1か月の記録を確認できます"
           }
         },
         "ko": {
@@ -13033,7 +12635,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We couldn't save the pause strength. Please try again."
+            "value": "Couldn't save this setting. Try again."
           }
         },
         "ja": {
@@ -13045,7 +12647,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "멈춤 강도를 저장하지 못했습니다. 다시 시도해 주세요."
+            "value": "이 설정을 저장하지 못했어요. 다시 시도해 주세요."
           }
         }
       }
@@ -13159,7 +12761,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだアプリは決めた時間だけ開けなくなります いますぐ始めるか毎週の予定を設定できます"
+            "value": "選んだアプリを、決めた時間だけ開けないようにします。今すぐ始めることも、毎週の予定を設定することもできます。"
           }
         },
         "ko": {
@@ -13183,7 +12785,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "完全ブロックするアプリを選ぶと決めた時間だけ開けなくなります"
+            "value": "対象アプリを選ぶと、決めた時間だけ開けないようにできます。"
           }
         },
         "ko": {
@@ -13201,19 +12803,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Full block lets you pause selected apps for the times you set"
+            "value": "With Pro, selected apps won't open during the times you set."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "完全ブロックでは決めた時間だけ選んだアプリを止められます"
+            "value": "Proでは、選んだアプリを決めた時間だけ開けないようにできます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "완전 차단에서는 정한 시간 동안 선택한 앱을 멈출 수 있어요"
+            "value": "Pro에서는 정한 시간 동안 선택한 앱을 열 수 없어요."
           }
         }
       }
@@ -13238,30 +12840,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "완전 차단"
-          }
-        }
-      }
-    },
-    "settings.deep_focus.standard_notice": {
-      "comment": "Screen: Settings",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "One breath adds a wait before opening. Full block keeps apps from opening for the times you set"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一呼吸では開く前に待ち時間が入ります 完全ブロックでは決めた時間だけ開けなくなります"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "한 호흡은 열기 전에 대기 시간을 두어요. 완전 차단은 정한 시간 동안 앱을 열 수 없게 해요"
           }
         }
       }
@@ -13297,19 +12875,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No apps are paused right now. Set a time and selected apps won't open"
+            "value": "No apps are fully blocked right now. Set a time to keep selected apps closed during that window."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いま止めているアプリはありません 時間を決めると選んだアプリが開けなくなります"
+            "value": "いま完全ブロック中のアプリはありません。時間を決めると、その間は選んだアプリを開けません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금 멈춰 둔 앱은 없어요. 시간을 정하면 선택한 앱이 열리지 않아요"
+            "value": "지금 완전 차단 중인 앱은 없어요. 시간을 정하면 그동안 선택한 앱을 열 수 없어요."
           }
         }
       }
@@ -13447,7 +13025,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "予定が終わっても手動で始めた分は続きます"
+            "value": "予定の終了後も、手動で始めた完全ブロックは続きます。"
           }
         },
         "ko": {
@@ -13465,19 +13043,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pause apps only on selected days and times"
+            "value": "Block apps only on selected days and times"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "選んだ曜日と時間だけアプリを止めます"
+            "value": "選んだ曜日と時間だけ、対象アプリを開けないようにします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "선택한 요일과 시간에만 앱을 멈춰요"
+            "value": "선택한 요일과 시간에만 앱을 차단해요"
           }
         }
       }
@@ -13626,6 +13204,30 @@
         }
       }
     },
+    "settings.deep_focus.choose_apps": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose apps to block"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完全ブロックするアプリを選ぶ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "완전 차단할 앱 선택"
+          }
+        }
+      }
+    },
     "settings.deep_focus.session.start.action": {
       "comment": "Screen: Settings",
       "extractionState": "manual",
@@ -13765,31 +13367,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "고른 앱을 다시 열 수 있습니다."
-          }
-        }
-      }
-    },
-    "stats.paywall.weekly_report": {
-      "comment": "Screen: Stats / Home",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "See all your stats"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録を全部見る"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기록 전부 보기"
+            "value": "선택한 앱을 다시 열 수 있어요."
           }
         }
       }
@@ -13903,13 +13481,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "いま一呼吸"
+            "value": "いま一呼吸する"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금 한 호흡"
+            "value": "지금 숨 고르기"
           }
         }
       }
@@ -13921,7 +13499,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not open the offer screen"
+            "value": "Couldn't open the offer"
           }
         },
         "ja": {
@@ -13933,7 +13511,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오퍼 화면을 열지 못했습니다"
+            "value": "혜택 화면을 열지 못했어요"
           }
         }
       }
@@ -13945,7 +13523,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use an offer"
+            "value": "View offer"
           }
         },
         "ja": {
@@ -13957,7 +13535,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오퍼 사용하기"
+            "value": "혜택 보기"
           }
         }
       }
@@ -14023,7 +13601,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開く回数を半分にできた場合の試算では"
+            "value": "開く回数が半分になったとすると"
           }
         },
         "ko": {
@@ -14095,13 +13673,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "が自分の時間に戻ります"
+            "value": "を自分のために使える計算です"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 내 시간으로 돌아옵니다"
+            "value": "을 내 시간으로 되찾을 수 있어요"
           }
         }
       }
@@ -14119,7 +13697,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "※質問1の回答をもとに 開く回数が半分になった場合を計算した試算値です。"
+            "value": "※質問1の回答をもとに、開く回数が半分になった場合を計算した推計値です。"
           }
         },
         "ko": {
@@ -14149,7 +13727,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "되찾기 설정 시작하기"
+            "value": "시간 되찾기 시작"
           }
         }
       }
@@ -14341,7 +13919,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "DopaBreak가 아는 건 선택한 앱을 열었다는 사실뿐입니다. 그 밖의 조작이나 화면 내용은 전송되지 않습니다."
+            "value": "DopaBreak가 아는 건 선택한 앱을 열었다는 사실뿐이에요. 그 밖의 조작이나 화면 내용은 전송되지 않아요."
           }
         }
       }
@@ -14383,7 +13961,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "無料期間が終わる前に通知でお知らせします"
+            "value": "無料期間が終わる前に通知します。"
           }
         },
         "ko": {
@@ -14446,18 +14024,18 @@
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Go back with ◀ in the top-left to open it (%lld min)" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "左上の ◀ から戻ると開けます（%lld分）" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "왼쪽 위 ◀로 돌아가면 열 수 있어요(%lld분)" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Tap ◀ in the top left to open it for %lld min" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "左上の◀をタップすると、%lld分間開けます" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "왼쪽 위 ◀를 누르면 %lld분 동안 열 수 있어요" } }
       }
     },
     "intervention.gate.already_open.body": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This app is already open" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "このアプリはすでに開けます" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "이 앱은 이미 열려 있어요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "This app is already unlocked" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このアプリは、すでに開ける状態です。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "이 앱은 이미 열 수 있어요" } }
       }
     },
     "intervention.gate.limit.title": {
@@ -14473,9 +14051,9 @@
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "This app has reached today's limit. You can change the limit in Settings." } },
+        "en": { "stringUnit": { "state": "translated", "value": "You've reached today's open limit for this app. You can change it in Settings." } },
         "ja": { "stringUnit": { "state": "translated", "value": "このアプリは今日の上限に達しました。上限は設定で変えられます。" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "이 앱은 오늘 상한에 도달했어요. 설정에서 상한을 바꿀 수 있어요." } }
+        "ko": { "stringUnit": { "state": "translated", "value": "이 앱은 오늘 허용된 횟수를 다 썼어요. 설정에서 바꿀 수 있어요." } }
       }
     },
     "intervention.gate.cooldown.body": {
@@ -14510,8 +14088,8 @@
       "extractionState": "manual",
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Always pause before opening. Set the number of opens and duration for each app." } },
-        "ja": { "stringUnit": { "state": "translated", "value": "開く前に必ず一呼吸。回数や長さはアプリごとに決められます" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "열기 전에 꼭 한 호흡. 횟수와 시간은 앱마다 정할 수 있어요" } }
+        "ja": { "stringUnit": { "state": "translated", "value": "アプリを開く前に必ず一呼吸をはさみます。1日の回数や、1回に使える時間もアプリごとに設定できます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "앱을 열기 전에 꼭 숨을 골라요. 앱마다 하루 허용 횟수와 한 번에 쓸 시간을 정할 수 있어요." } }
       }
     },
     "settings.gate.app_list": {
@@ -14538,7 +14116,7 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "No limit" } },
         "ja": { "stringUnit": { "state": "translated", "value": "上限なし" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "상한 없음" } }
+        "ko": { "stringUnit": { "state": "translated", "value": "제한 없음" } }
       }
     },
     "settings.gate.session_minutes": {
@@ -14547,7 +14125,7 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Time per open" } },
         "ja": { "stringUnit": { "state": "translated", "value": "1回の長さ" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "한 번 열 때의 시간" } }
+        "ko": { "stringUnit": { "state": "translated", "value": "한 번에 쓸 시간" } }
       }
     },
     "settings.gate.cooldown": {
@@ -14572,27 +14150,27 @@
       "comment": "Screen: Settings",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Pro's paused apps don't need a Shortcuts automation." } },
-        "ja": { "stringUnit": { "state": "translated", "value": "Proの止めるアプリではショートカットの自動化は不要です" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "Pro의 멈출 앱에는 단축어 자동화가 필요하지 않아요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Pro can show the pause screen without a Shortcuts automation." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proでは、ショートカットを設定しなくても一呼吸の画面を表示できます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro에서는 단축어 자동화 없이 숨 고르기 화면을 띄울 수 있어요." } }
       }
     },
     "settings.gate.category_note": {
       "comment": "Screen: Settings",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Category selections are used only for full blocking. The pause before opening works per app." } },
-        "ja": { "stringUnit": { "state": "translated", "value": "カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "카테고리 선택은 완전 차단에만 사용돼요. 열기 전 한 호흡은 앱 단위로 작동해요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Category selections apply only to Full Block. Set the pause separately for each app." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "カテゴリ単位の選択は、完全ブロックにだけ適用されます。開く前の一呼吸はアプリごとに設定してください。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "카테고리 선택은 완전 차단에만 적용돼요. 열기 전 숨 고르기는 앱마다 따로 설정해 주세요." } }
       }
     },
     "settings.gate.locked_notice": {
       "comment": "Screen: Settings",
       "extractionState": "manual",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "With Pro you can always pause before opening without a Shortcuts setup and set limits and wait times." } },
-        "ja": { "stringUnit": { "state": "translated", "value": "Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます" } },
-        "ko": { "stringUnit": { "state": "translated", "value": "Pro에서는 단축어 설정 없이 열기 전에 항상 멈추고 횟수와 대기 시간도 정할 수 있어요" } }
+        "en": { "stringUnit": { "state": "translated", "value": "With Pro, you can pause before opening without Shortcuts. You can also set daily limits and wait times." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "Proでは、ショートカットなしで開く前に一呼吸をはさめます。1日の回数や、次に開けるまでの時間も設定できます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "Pro에서는 단축어 없이 열기 전에 숨을 고를 수 있어요. 하루 허용 횟수와 다시 열기까지의 시간도 정할 수 있어요." } }
       }
     },
     "settings.gate.times_format": {
@@ -14617,7 +14195,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "無料期間中に解約すれば請求はありません"
+            "value": "無料期間中に解約すれば、料金はかかりません。"
           }
         },
         "ko": {
@@ -14683,19 +14261,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen shown when you try to open"
+            "value": "What you'll see before a selected app opens"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとした瞬間に見える画面"
+            "value": "対象アプリを開く前に表示される画面"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 할 때 보이는 화면"
+            "value": "대상 앱을 열기 전에 보이는 화면"
           }
         }
       }
@@ -14887,7 +14465,31 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "외 %lld건"
+            "value": "외 %lld개"
+          }
+        }
+      }
+    },
+    "settings.timeline.minimum_gap_notice": {
+      "comment": "Screen: Settings",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep wake-up and bedtime at least 1 hour apart."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起床と就寝は1時間以上離して設定します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기상과 취침 시각은 1시간 이상 간격을 두고 설정합니다."
           }
         }
       }

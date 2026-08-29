@@ -1,5 +1,7 @@
 # ペイウォール実体化C: Deep Focus本実装＋週次詳細レポート 設計契約（2026-08-14・Fable設計・オーナー決定「C・Opus並列実装」）
 
+> **2026-08-29 追記（オーナー決定）**: WS-Dの週次詳細レポートProゲート（`weeklyReportAllowed`・統計ロックカード）は廃止。記録・週次レポートはFree全期間化した（docs/15 §3.2b・design-decisions.md 2026-08-29）。本書のWS-D §3ゲート記述は歴史記録であり、統計系にProゲートを再導入しないこと。WS-C（Deep Focus）は引き続き有効。
+
 背景: 2026-08-14監査でペイウォール6行中2行（Deep Focus・週次詳細）の実体不在が判明。オーナー決定=両方とも本実装。
 正本: docs/12_hybrid_intervention.md（方式C・§5既存実装への影響・H3シールド再配置）。UI着手前に .claude/specs/design-decisions.md を必ず読むこと。
 

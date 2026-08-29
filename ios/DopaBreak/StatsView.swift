@@ -106,16 +106,13 @@ struct StatsView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @State private var paywallPlacement: PaywallPlacement?
     @State private var period: StatsPeriod
     @State private var dashboard = StatsDashboardData.empty
 
     init(model: AppModel, statsService: StatsService? = nil) {
         self.model = model
         self.injectedStatsService = statsService
-        _period = State(
-            initialValue: model.entitlementGate.statsDays == 1 ? .today : .week
-        )
+        _period = State(initialValue: .week)
     }
 
     private var statsService: StatsService? {
@@ -131,7 +128,7 @@ struct StatsView: View {
                         emptyRecords
                     } else {
                         heroCard
-                        proContentSection
+                        detailContentSection
                     }
                 }
                 .padding(.horizontal, DesignTokens.horizontalPadding)
@@ -145,18 +142,11 @@ struct StatsView: View {
         .tint(DesignTokens.accent)
         .onAppear {
             model.refresh()
-            model.isChildModalActive = isAnyChildModalPresented
+            model.isChildModalActive = false
             reloadDashboard()
         }
         .onChange(of: model.weekAttemptCount) { _, _ in
             reloadDashboard()
-        }
-        .onChange(of: isStatsHistoryLocked) { _, isLocked in
-            if isLocked && period != .today {
-                updatePeriod(.today)
-            } else {
-                reloadDashboard()
-            }
         }
         .onReceive(StatsTimeChange.publisher) { _ in
             model.refresh()
@@ -167,20 +157,6 @@ struct StatsView: View {
             model.refresh()
             reloadDashboard()
         }
-        .onChange(of: isAnyChildModalPresented) { _, isPresented in
-            model.isChildModalActive = isPresented
-        }
-        .fullScreenCover(item: $paywallPlacement) { placement in
-            PaywallView(storeService: model.storeService, placement: placement)
-        }
-    }
-
-    private var isAnyChildModalPresented: Bool {
-        paywallPlacement != nil
-    }
-
-    private var isStatsHistoryLocked: Bool {
-        model.entitlementGate.statsDays == 1
     }
 
     // MARK: - 期間
@@ -189,49 +165,28 @@ struct StatsView: View {
         HStack(spacing: 8) {
             ForEach(StatsPeriod.allCases) { item in
                 Button {
-                    selectPeriod(item)
+                    updatePeriod(item)
                 } label: {
-                    HStack(spacing: 5) {
-                        Text(item.title)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-
-                        if isStatsHistoryLocked && item != .today {
-                            Text(verbatim: "Pro")
-                                .dopaFont(9, weight: .black, design: .rounded)
-                                .foregroundStyle(DesignTokens.secondaryText)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(DesignTokens.backgroundRaised)
-                                .overlay { Capsule().stroke(DesignTokens.strongHairline, lineWidth: 1) }
-                                .clipShape(Capsule())
+                    Text(item.title)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .dopaFont(13, weight: .bold)
+                        .foregroundStyle(period == item ? DesignTokens.accent : DesignTokens.primaryText)
+                        .frame(maxWidth: .infinity, minHeight: DesignTokens.minTapTarget)
+                        .background(DesignTokens.backgroundRaised)
+                        .overlay {
+                            Capsule()
+                                .stroke(
+                                    period == item ? DesignTokens.accent : DesignTokens.hairline,
+                                    lineWidth: period == item ? 1.5 : 1
+                                )
                         }
-                    }
-                    .dopaFont(13, weight: .bold)
-                    .foregroundStyle(period == item ? DesignTokens.accent : DesignTokens.primaryText)
-                    .frame(maxWidth: .infinity, minHeight: DesignTokens.minTapTarget)
-                    .background(DesignTokens.backgroundRaised)
-                    .overlay {
-                        Capsule()
-                            .stroke(
-                                period == item ? DesignTokens.accent : DesignTokens.hairline,
-                                lineWidth: period == item ? 1.5 : 1
-                            )
-                    }
-                    .clipShape(Capsule())
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(period == item ? .isSelected : [])
             }
         }
-    }
-
-    private func selectPeriod(_ selectedPeriod: StatsPeriod) {
-        guard !isStatsHistoryLocked || selectedPeriod == .today else {
-            paywallPlacement = .statsHistoryGate
-            return
-        }
-        updatePeriod(selectedPeriod)
     }
 
     private func updatePeriod(_ selectedPeriod: StatsPeriod) {
@@ -249,7 +204,7 @@ struct StatsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     SmallLabel(
-                        text: String(localized: "stats.rate.title", defaultValue: "開くのをやめた割合")
+                        text: String(localized: "stats.rate.title", defaultValue: "開かなかった割合")
                     )
                     Spacer(minLength: 8)
                     if period == .week, let report = dashboard.weeklyDetail {
@@ -320,7 +275,7 @@ struct StatsView: View {
                 MetricBlock(
                     label: String(
                         localized: "stats.all_time.cancelled",
-                        defaultValue: "これまでに開くのをやめた回数"
+                        defaultValue: "これまで開かなかった回数"
                     ),
                     value: countText(dashboard.summary.cancelled),
                     accent: true
@@ -336,7 +291,7 @@ struct StatsView: View {
         HStack(spacing: 14) {
             legendItem(
                 color: DesignTokens.accent,
-                label: String(localized: "stats.behavior.cancelled", defaultValue: "開くのをやめた"),
+                label: String(localized: "stats.behavior.cancelled", defaultValue: "開かなかった"),
                 count: dashboard.summary.cancelled
             )
             Text("\(attemptedMetricLabel) \(countText(dashboard.summary.attempts))")
@@ -369,7 +324,7 @@ struct StatsView: View {
     }
 
     private func percentageText(_ value: Int) -> String {
-        String(localized: "stats.rate.percentage", defaultValue: "\(value)%")
+        String(localized: "stats.rate.percentage", defaultValue: "\(value)%%")
     }
 
     private func comparisonAttributedText(_ report: WeeklyDetailReport) -> AttributedString {
@@ -409,22 +364,16 @@ struct StatsView: View {
 
     // MARK: - アプリごと
 
-    private var proContentSection: some View {
-        ZStack {
-            VStack(spacing: DesignTokens.sectionSpacing) {
-                appsCard
-                reflectionCard
-                intentCard
-            }
-
-            if isStatsHistoryLocked {
-                weeklyReviewButton
-            }
+    private var detailContentSection: some View {
+        VStack(spacing: DesignTokens.sectionSpacing) {
+            appsCard
+            reflectionCard
+            intentCard
         }
     }
 
     private var appsCard: some View {
-        proContentCard {
+        CardContainer {
             VStack(alignment: .leading, spacing: 10) {
                 SmallLabel(text: String(localized: "stats.apps.title", defaultValue: "アプリごと"))
 
@@ -492,7 +441,7 @@ struct StatsView: View {
     // MARK: - 見たあとの気持ち
 
     private var reflectionCard: some View {
-        proContentCard {
+        CardContainer {
             VStack(alignment: .leading, spacing: 14) {
                 SmallLabel(
                     text: String(
@@ -544,7 +493,7 @@ struct StatsView: View {
     // MARK: - 開こうとした理由
 
     private var intentCard: some View {
-        proContentCard {
+        CardContainer {
             VStack(alignment: .leading, spacing: 14) {
                 SmallLabel(
                     text: String(
@@ -580,49 +529,6 @@ struct StatsView: View {
         return String(format: "%d%%", locale: Locale.autoupdatingCurrent, percentage)
     }
 
-    // MARK: - Freeオーバーレイ
-
-    private func proContentCard<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        ZStack {
-            CardContainer {
-                content()
-            }
-            .blur(radius: isStatsHistoryLocked ? 10 : 0)
-            .accessibilityHidden(isStatsHistoryLocked)
-
-            if isStatsHistoryLocked {
-                DesignTokens.backgroundRaised.opacity(0.6)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
-    }
-
-    private var weeklyReviewButton: some View {
-        Button {
-            paywallPlacement = .statsHistoryGate
-        } label: {
-            Text(
-                String(
-                    localized: "stats.paywall.weekly_report",
-                    defaultValue: "記録を全部見る"
-                )
-            )
-            .dopaFont(13, weight: .bold)
-            .foregroundStyle(DesignTokens.primaryText)
-            .lineLimit(1)
-            .minimumScaleFactor(0.72)
-            .padding(.horizontal, 14)
-            .frame(minHeight: DesignTokens.minTapTarget)
-            .background(DesignTokens.backgroundRaised)
-            .overlay { Capsule().stroke(DesignTokens.strongHairline, lineWidth: 1) }
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 12)
-    }
-
     // MARK: - 共通表示
 
     private var emptyTitle: some View {
@@ -641,7 +547,7 @@ struct StatsView: View {
             Text(
                 String(
                     localized: "stats.empty.description",
-                    defaultValue: "開こうとした回数と、開くのをやめた回数がここに残ります"
+                    defaultValue: "対象アプリを開こうとした回数と、開かなかった回数がここに記録されます。"
                 )
             )
             .dopaFont(14, weight: .medium, lineSpacing: 4)
@@ -664,7 +570,7 @@ struct StatsView: View {
     }
 
     private var cancelledMetricLabel: String {
-        String(localized: "stats.metric.cancelled", defaultValue: "開くのをやめた")
+        String(localized: "stats.metric.cancelled", defaultValue: "開かなかった")
     }
 
     private var attemptedMetricLabel: String {

@@ -98,20 +98,6 @@ public struct EntitlementGate: Equatable, Sendable {
         }
     }
 
-    public var statsDays: Int? {
-        switch tier {
-        case .free:
-            return 1
-        case .pro:
-            return nil
-        }
-    }
-
-    /// Pro向けの週次レポート詳細分析に使用する。基本件数の週次通知はFreeでも利用可能。
-    public var weeklyReportAllowed: Bool {
-        tier == .pro
-    }
-
     public var strictModeAllowed: Bool {
         tier == .pro
     }

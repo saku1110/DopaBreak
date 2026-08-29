@@ -7,6 +7,10 @@ import XCTest
 
 @MainActor
 final class LockThemeLiveActivityViewTests: XCTestCase {
+    private let markerThemes: [LockTheme] = [
+        .e1, .gaming, .kpop, .kawaiiPink, .note, .blueprint, .retroPop
+    ]
+
     private struct LocaleFixture {
         let identifier: String
         let goalSets: [[String]]
@@ -83,6 +87,141 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                 LockThemeLiveActivityView.maximumHeight - 4,
                 "\(theme) leaves a \(LockThemeLiveActivityView.maximumHeight - measured.height)pt letterbox"
             )
+        }
+    }
+
+    func testAdaptiveDensityUsesApprovedTypographyIncreases() {
+        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 1), 5)
+        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 2), 4)
+        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 3), 2)
+        XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 1), 1.5)
+        XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 2), 1.5)
+        XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 3), 1)
+        XCTAssertGreaterThanOrEqual(LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 1), 60)
+        XCTAssertEqual(LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 2), 46.34375, accuracy: 0.01)
+        XCTAssertEqual(LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 3), 40.57421875, accuracy: 0.01)
+    }
+
+    func testEveryThemeUsesAtLeast120PointsOfTypographyAndFitsWithOneGoal() throws {
+        try assertEveryThemeFitsSupportedDensity(
+            titles: ["英語で商談できる自分になる"]
+        )
+    }
+
+    func testEveryThemeUsesAtLeast120PointsOfTypographyAndFitsWithTwoGoals() throws {
+        try assertEveryThemeFitsSupportedDensity(
+            titles: [
+                "英語で商談できる自分になる",
+                "朝のランニングを習慣にする"
+            ]
+        )
+    }
+
+    func testEveryGoalMarkerAlignsWithRenderedCapHeightCenterForAllSupportedDensities() throws {
+        let title = "HHHHHHHH"
+
+        for theme in markerThemes {
+            for count in 1...LockThemeLiveActivityView.maximumGoals {
+                var renderedImage: UIImage?
+                let frames = try renderedLayoutFrames(
+                    theme: theme,
+                    titles: Array(repeating: title, count: count),
+                    locale: Locale(identifier: "en_US"),
+                    imageObserver: { renderedImage = $0 }
+                )
+                let image = try XCTUnwrap(renderedImage)
+                let colors = markerTestColors(for: theme)
+
+                for index in 0..<count {
+                    let markerFrame = try XCTUnwrap(
+                        frames[.goalMarker(index)],
+                        "Missing goal marker for \(theme), count \(count), row \(index)"
+                    )
+                    let textFrame = try XCTUnwrap(
+                        frames[.goal(index)],
+                        "Missing goal text for \(theme), count \(count), row \(index)"
+                    )
+                    let markerCrop = independentMarkerCrop(
+                        theme: theme,
+                        markerFrame: markerFrame,
+                        goalCount: count
+                    )
+                    let markerInk = try XCTUnwrap(
+                        inkBounds(in: image, crop: markerCrop, matching: colors.marker),
+                        "Missing rendered marker ink for \(theme), count \(count), row \(index)"
+                    )
+                    let expectedFont = goalUIFont(for: theme, goalCount: count, locale: Locale(identifier: "en_US"))
+                    let capInk = try XCTUnwrap(
+                        inkBounds(
+                            in: image,
+                            crop: textFrame,
+                            matching: colors.text,
+                            minimumInkHeight: expectedFont.capHeight * 0.6,
+                            channelTolerance: 96
+                        ),
+                        "Missing rendered cap ink for \(theme), count \(count), row \(index)"
+                    )
+                    let delta = markerInk.midY - capInk.midY
+                    print("MARKER_DELTA latin theme=\(theme.rawValue) count=\(count) row=\(index) delta=\(delta)")
+                    XCTAssertEqual(
+                        markerInk.midY,
+                        capInk.midY,
+                        accuracy: 0.75,
+                        "Marker ink is not cap-height centered for \(theme), count \(count), row \(index): marker=\(markerInk), cap=\(capInk)"
+                    )
+                }
+            }
+        }
+    }
+
+    func testLongJapaneseThreeGoalMarkersAlignAfterTextScaling() throws {
+        let titles = [
+            "通知に反応する前に深呼吸して本当に必要な行動か落ち着いて考える",
+            "英語で自分の考えを説明できるよう毎日声に出して練習を続ける",
+            "夜はスマートフォンを別の部屋に置いて明日の予定を紙に書いて眠る"
+        ]
+        let locale = Locale(identifier: "ja_JP")
+
+        for theme in markerThemes {
+            var renderedImage: UIImage?
+            let frames = try renderedLayoutFrames(
+                theme: theme,
+                titles: titles,
+                locale: locale,
+                imageObserver: { renderedImage = $0 }
+            )
+            let image = try XCTUnwrap(renderedImage)
+            let colors = markerTestColors(for: theme)
+            let expectedFont = goalUIFont(for: theme, goalCount: titles.count, locale: locale)
+
+            for index in titles.indices {
+                let markerFrame = try XCTUnwrap(frames[.goalMarker(index)])
+                let textFrame = try XCTUnwrap(frames[.goal(index)])
+                let markerInk = try XCTUnwrap(
+                    inkBounds(
+                        in: image,
+                        crop: independentMarkerCrop(theme: theme, markerFrame: markerFrame, goalCount: titles.count),
+                        matching: colors.marker
+                    )
+                )
+                let textInk = try XCTUnwrap(
+                    inkBounds(
+                        in: image,
+                        crop: referenceTextCrop(theme: theme, textFrame: textFrame),
+                        matching: colors.text,
+                        minimumInkHeight: expectedFont.capHeight * 0.6,
+                        channelTolerance: 96
+                    )
+                )
+                let delta = markerInk.midY - textInk.midY
+                print("MARKER_DELTA japanese theme=\(theme.rawValue) count=3 row=\(index) delta=\(delta)")
+                XCTAssertEqual(
+                    markerInk.midY,
+                    textInk.midY,
+                    accuracy: 0.75,
+                    "Scaled Japanese marker is not visually centered for \(theme), row \(index): marker=\(markerInk), text=\(textInk)"
+                )
+            }
         }
     }
 
@@ -310,7 +449,10 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         ]
         let frames = try renderedLayoutFrames(theme: .e1, titles: longGoals)
         let goalFrames = try (0..<3).map { index in
-            try XCTUnwrap(frames[.e1Goal(index)], "Missing rendered frame for e1 goal \(index)")
+            try XCTUnwrap(frames[.goal(index)], "Missing rendered text frame for e1 goal \(index)")
+        }
+        let rowFrames = try (0..<3).map { index in
+            try XCTUnwrap(frames[.e1Goal(index)], "Missing rendered row frame for e1 goal \(index)")
         }
         let dividerFrame = try XCTUnwrap(frames[.e1Divider], "Missing rendered e1 divider frame")
         let summaryFrame = try XCTUnwrap(frames[.e1Summary], "Missing rendered e1 summary frame")
@@ -326,6 +468,11 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
             dividerFrame.minY - goalFrames[2].maxY,
             1,
             "Rendered e1 divider intersects the final goal: \(goalFrames[2]), \(dividerFrame)"
+        )
+        XCTAssertGreaterThanOrEqual(
+            dividerFrame.minY - rowFrames[2].maxY,
+            1,
+            "Rendered e1 divider intersects the final row frame: \(rowFrames[2]), \(dividerFrame)"
         )
         XCTAssertGreaterThanOrEqual(
             summaryFrame.minY - dividerFrame.maxY,
@@ -345,7 +492,10 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                     titles: Array(repeating: title, count: count)
                 )
                 let goals = try (0..<count).map { index in
-                    try XCTUnwrap(frames[.e1Goal(index)], "Missing e1 goal \(index) for count \(count)")
+                    try XCTUnwrap(frames[.goal(index)], "Missing e1 goal text \(index) for count \(count)")
+                }
+                let rows = try (0..<count).map { index in
+                    try XCTUnwrap(frames[.e1Goal(index)], "Missing e1 goal row \(index) for count \(count)")
                 }
                 let divider = try XCTUnwrap(frames[.e1Divider])
                 let summary = try XCTUnwrap(frames[.e1Summary])
@@ -354,6 +504,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                     XCTAssertGreaterThanOrEqual(next.minY - current.maxY, 1)
                 }
                 XCTAssertGreaterThanOrEqual(divider.minY - goals[count - 1].maxY, 1)
+                XCTAssertGreaterThanOrEqual(divider.minY - rows[count - 1].maxY, 1)
                 XCTAssertGreaterThanOrEqual(summary.minY - divider.maxY, 1)
             }
         }
@@ -366,7 +517,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         let image = try XCTUnwrap(renderedImage)
 
         for index in goals.indices {
-            let row = try XCTUnwrap(frames[.e1Goal(index)])
+            let row = try XCTUnwrap(frames[.goal(index)])
             let inkHeight = textInkHeight(in: image, row: row)
             XCTAssertGreaterThanOrEqual(
                 inkHeight,
@@ -443,6 +594,186 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         }
     }
 
+    private struct MarkerTestColors {
+        let marker: UIColor
+        let text: UIColor
+    }
+
+    private func markerTestColors(for theme: LockTheme) -> MarkerTestColors {
+        switch theme {
+        case .e1:
+            return MarkerTestColors(marker: UIColor(red: 184 / 255, green: 1, blue: 61 / 255, alpha: 1),
+                                    text: UIColor(red: 244 / 255, green: 242 / 255, blue: 236 / 255, alpha: 1))
+        case .gaming:
+            return MarkerTestColors(marker: UIColor(red: 0, green: 229 / 255, blue: 1, alpha: 1),
+                                    text: UIColor(red: 234 / 255, green: 234 / 255, blue: 242 / 255, alpha: 1))
+        case .kpop:
+            return MarkerTestColors(marker: UIColor(red: 238 / 255, green: 52 / 255, blue: 137 / 255, alpha: 1),
+                                    text: UIColor(red: 35 / 255, green: 31 / 255, blue: 38 / 255, alpha: 1))
+        case .kawaiiPink:
+            return MarkerTestColors(marker: UIColor(red: 242 / 255, green: 94 / 255, blue: 137 / 255, alpha: 1),
+                                    text: UIColor(red: 68 / 255, green: 43 / 255, blue: 49 / 255, alpha: 1))
+        case .note:
+            return MarkerTestColors(marker: UIColor(red: 90 / 255, green: 81 / 255, blue: 66 / 255, alpha: 1),
+                                    text: UIColor(red: 59 / 255, green: 52 / 255, blue: 40 / 255, alpha: 1))
+        case .blueprint:
+            return MarkerTestColors(marker: .white, text: .white)
+        case .retroPop:
+            return MarkerTestColors(marker: UIColor(red: 232 / 255, green: 99 / 255, blue: 43 / 255, alpha: 1),
+                                    text: UIColor(red: 74 / 255, green: 51 / 255, blue: 32 / 255, alpha: 1))
+        default:
+            XCTFail("Unexpected marker theme \(theme)")
+            return MarkerTestColors(marker: .clear, text: .clear)
+        }
+    }
+
+    private func inkBounds(
+        in image: UIImage,
+        crop: CGRect,
+        matching color: UIColor,
+        minimumInkHeight: CGFloat? = nil,
+        channelTolerance: Int = 48
+    ) -> CGRect? {
+        guard let cgImage = image.cgImage else {
+            XCTFail("Unable to inspect rendered marker image")
+            return nil
+        }
+        var targetRed: CGFloat = 0
+        var targetGreen: CGFloat = 0
+        var targetBlue: CGFloat = 0
+        var targetAlpha: CGFloat = 0
+        guard color.getRed(&targetRed, green: &targetGreen, blue: &targetBlue, alpha: &targetAlpha) else {
+            XCTFail("Unable to resolve marker test color")
+            return nil
+        }
+
+        var bytes = [UInt8](repeating: 0, count: cgImage.width * cgImage.height * 4)
+        guard let context = CGContext(
+            data: &bytes,
+            width: cgImage.width,
+            height: cgImage.height,
+            bitsPerComponent: 8,
+            bytesPerRow: cgImage.width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            XCTFail("Unable to normalize rendered marker image")
+            return nil
+        }
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+
+        let target = [targetRed, targetGreen, targetBlue].map { UInt8(round($0 * 255)) }
+        let minX = max(0, Int(floor(crop.minX)))
+        let maxX = min(cgImage.width - 1, Int(ceil(crop.maxX)) - 1)
+        let minY = max(0, Int(floor(crop.minY)))
+        let maxY = min(cgImage.height - 1, Int(ceil(crop.maxY)) - 1)
+        guard minX <= maxX, minY <= maxY else { return nil }
+
+        var inkMinX = cgImage.width
+        var inkMaxX = -1
+        var inkMinY = cgImage.height
+        var inkMaxY = -1
+        for y in minY...maxY {
+            for x in minX...maxX {
+                let offset = (y * cgImage.width + x) * 4
+                guard bytes[offset + 3] >= 128 else { continue }
+                let matches = (0..<3).allSatisfy {
+                    abs(Int(bytes[offset + $0]) - Int(target[$0])) <= channelTolerance
+                }
+                guard matches else { continue }
+                inkMinX = min(inkMinX, x)
+                inkMaxX = max(inkMaxX, x)
+                inkMinY = min(inkMinY, y)
+                inkMaxY = max(inkMaxY, y)
+            }
+        }
+        guard inkMaxX >= inkMinX, inkMaxY >= inkMinY else { return nil }
+        let bounds = CGRect(
+            x: inkMinX,
+            y: inkMinY,
+            width: inkMaxX - inkMinX + 1,
+            height: inkMaxY - inkMinY + 1
+        )
+        if let minimumInkHeight, bounds.height < minimumInkHeight {
+            XCTFail("Rendered reference ink is too short to be valid: height=\(bounds.height), minimum=\(minimumInkHeight), crop=\(crop)")
+            return nil
+        }
+        return bounds
+    }
+
+    private func referenceTextCrop(theme: LockTheme, textFrame: CGRect) -> CGRect {
+        guard theme == .e1 else { return textFrame }
+        return CGRect(
+            x: textFrame.minX,
+            y: textFrame.minY,
+            width: textFrame.width,
+            height: textFrame.height / 2
+        )
+    }
+
+    private func independentMarkerCrop(
+        theme: LockTheme,
+        markerFrame: CGRect,
+        goalCount: Int
+    ) -> CGRect {
+        let cropFrame: CGRect
+        switch theme {
+        case .gaming, .note, .blueprint:
+            cropFrame = markerFrame.insetBy(dx: 0, dy: -6)
+        default:
+            cropFrame = markerFrame
+        }
+        guard theme == .kpop else { return cropFrame }
+        let goalSize = 15 + LockThemeLiveActivityView.goalFontIncrease(forGoalCount: goalCount)
+        let barWidth = 5 * goalSize / 15
+        let starMinX = cropFrame.minX + barWidth + 5
+        return CGRect(
+            x: starMinX,
+            y: cropFrame.minY,
+            width: max(0, cropFrame.maxX - starMinX),
+            height: cropFrame.height
+        )
+    }
+
+    private func goalUIFont(for theme: LockTheme, goalCount: Int, locale: Locale) -> UIFont {
+        let increase = LockThemeLiveActivityView.goalFontIncrease(forGoalCount: goalCount)
+        switch theme {
+        case .e1:
+            return .systemFont(ofSize: 15 + increase, weight: .bold)
+        case .gaming:
+            return bundledUIFont(for: .gaming, size: 15.5 + increase, locale: locale, fallbackWeight: .regular)
+        case .kpop:
+            return .systemFont(ofSize: 15 + increase, weight: .black)
+        case .kawaiiPink:
+            return UIFont(name: "HiraMaruProN-W4", size: 13 + increase)
+                ?? .systemFont(ofSize: 13 + increase, weight: .bold)
+        case .note:
+            return bundledUIFont(for: .note, size: 15.5 + increase, locale: locale, fallbackWeight: .semibold)
+        case .blueprint:
+            return .systemFont(ofSize: 14.5 + increase, weight: .bold)
+        case .retroPop:
+            return UIFont(name: "HiraMaruProN-W4", size: 15 + increase)
+                ?? .systemFont(ofSize: 15 + increase, weight: .bold)
+        default:
+            XCTFail("Unexpected marker theme \(theme)")
+            return .systemFont(ofSize: 15)
+        }
+    }
+
+    private func bundledUIFont(
+        for theme: LockTheme,
+        size: CGFloat,
+        locale: Locale,
+        fallbackWeight: UIFont.Weight
+    ) -> UIFont {
+        guard let font = LockThemeFontPolicy.bundledFont(for: theme, locale: locale),
+              let name = DopaBreakFontRegistrar.registeredName(for: font),
+              let registeredFont = UIFont(name: name, size: size) else {
+            return .systemFont(ofSize: size, weight: fallbackWeight)
+        }
+        return registeredFont
+    }
+
     private func alpha(at point: CGPoint, in image: UIImage) -> UInt8 {
         guard let cgImage = image.cgImage else {
             XCTFail("Unable to inspect rendered image")
@@ -467,6 +798,69 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         return bytes[(y * cgImage.width + x) * 4 + 3]
     }
 
+    private func assertEveryThemeFitsSupportedDensity(titles: [String]) throws {
+        let card = CGRect(
+            x: 0,
+            y: 0,
+            width: 393,
+            height: LockThemeLiveActivityView.maximumHeight
+        )
+        let conservativeGoalFont = UIFont.monospacedSystemFont(ofSize: 24, weight: .black)
+
+        for theme in LockTheme.allCases {
+            let frames = try renderedLayoutFrames(theme: theme, titles: titles)
+            let cardBounds = try XCTUnwrap(frames[.cardBounds], "Missing card bounds for \(theme)")
+            XCTAssertEqual(cardBounds.minX, card.minX, accuracy: 0.5, "\(theme)")
+            XCTAssertEqual(cardBounds.minY, card.minY, accuracy: 0.5, "\(theme)")
+            XCTAssertEqual(cardBounds.width, card.width, accuracy: 0.5, "\(theme)")
+            XCTAssertEqual(cardBounds.height, card.height, accuracy: 0.5, "\(theme)")
+
+            let textElements = [.eyebrow]
+                + titles.indices.map { LockThemeLayoutElement.goal($0) }
+                + [.cancelledSummary, .attemptedSummary]
+            let textFrames = try textElements.map { element in
+                let frame = try XCTUnwrap(frames[element], "Missing \(element) for \(theme)")
+                XCTAssertGreaterThan(frame.width, 0, "Collapsed \(element) for \(theme)")
+                XCTAssertGreaterThan(frame.height, 0, "Collapsed \(element) for \(theme)")
+                XCTAssertTrue(
+                    card.insetBy(dx: -0.5, dy: -0.5).contains(frame),
+                    "Text crossed card for \(theme): \(element)=\(frame)"
+                )
+                return frame
+            }
+            let typographicSpan = try XCTUnwrap(textFrames.map(\.maxY).max())
+                - XCTUnwrap(textFrames.map(\.minY).min())
+            let minimumTypographicSpan: CGFloat = theme == .gaming && titles.count == 1 ? 122 : 120
+            XCTAssertGreaterThanOrEqual(
+                typographicSpan,
+                minimumTypographicSpan,
+                "\(theme) uses only \(typographicSpan)pt of typographic vertical span with \(titles.count) goals"
+            )
+
+            for (index, title) in titles.enumerated() {
+                let frame = try XCTUnwrap(frames[.goal(index)])
+                let minimumUntruncatedWidth = singleLineWidth(title, font: conservativeGoalFont) * 0.5
+                XCTAssertGreaterThanOrEqual(
+                    frame.width,
+                    minimumUntruncatedWidth,
+                    "Goal would exceed its 0.5 minimum scale for \(theme): \(title)"
+                )
+            }
+
+            let measured = UIHostingController(
+                rootView: LockThemeLiveActivityView(
+                    theme: theme,
+                    goalTitles: titles,
+                    cancelledCount: 12,
+                    attemptCount: 15,
+                    isMeasuring: true
+                )
+                .frame(width: card.width)
+            ).sizeThatFits(in: CGSize(width: card.width, height: .greatestFiniteMagnitude))
+            XCTAssertEqual(measured.height, card.height, accuracy: 0.5, "\(theme) measured \(measured.height)pt")
+        }
+    }
+
     private func renderedLayoutFrames(
         theme: LockTheme,
         titles: [String],
@@ -488,12 +882,18 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
             layoutObserver: { frames in
                 observedFrames = frames
                 let expectedGoalCount = min(titles.count, LockThemeLiveActivityView.maximumGoals)
+                let expectsMarkers = self.markerThemes.contains(theme)
+                let hasMarkerFrames = !expectsMarkers || (0..<expectedGoalCount).allSatisfy {
+                    frames[.goalMarker($0)] != nil && frames[.goal($0)] != nil
+                }
                 let hasExpectedFrames = theme == .e1
                     ? frames[.contentBounds] != nil
                         && (0..<expectedGoalCount).allSatisfy { frames[.e1Goal($0)] != nil }
+                        && (0..<expectedGoalCount).allSatisfy { frames[.goal($0)] != nil }
                         && frames[.e1Divider] != nil
                         && frames[.e1Summary] != nil
-                    : frames[.contentBounds] != nil
+                        && hasMarkerFrames
+                    : frames[.contentBounds] != nil && hasMarkerFrames
                 guard !didFulfill, hasExpectedFrames else { return }
                 didFulfill = true
                 rendered.fulfill()

@@ -1,11 +1,13 @@
 import DopaBreakCore
 import SwiftUI
+import UIKit
 
 enum LockThemeLayoutElement: Hashable {
     case contentBounds
     case cardBounds
     case eyebrow
     case goal(Int)
+    case goalMarker(Int)
     case cancelledSummary
     case attemptedSummary
     case blueprintCancelledCell
@@ -38,6 +40,30 @@ struct LockThemeLiveActivityView: View {
     static let maximumGoals = 3
     static let cardInset: CGFloat = 16
 
+    static func goalFontIncrease(forGoalCount count: Int) -> CGFloat {
+        switch count {
+        case ...1: 5
+        case 2: 4
+        default: 2
+        }
+    }
+
+    static func summaryFontIncrease(forGoalCount count: Int) -> CGFloat {
+        count >= maximumGoals ? 1 : 1.5
+    }
+
+    static func e1GoalMinimumHeight(forGoalCount count: Int) -> CGFloat {
+        let lineSpacing: CGFloat = count >= maximumGoals ? 0 : 1
+        let lineHeight = e1GoalLineHeight(forGoalCount: count)
+        let twoLineTextHeight = lineHeight * 2 + lineSpacing
+        return max(count <= 1 ? 60 : 0, twoLineTextHeight)
+    }
+
+    static func e1GoalLineHeight(forGoalCount count: Int) -> CGFloat {
+        let fontSize = 15 + goalFontIncrease(forGoalCount: count)
+        return UIFont.systemFont(ofSize: fontSize, weight: .bold).lineHeight
+    }
+
     let theme: LockTheme
     let goalTitles: [String]
     let cancelledCount: Int
@@ -48,7 +74,9 @@ struct LockThemeLiveActivityView: View {
     var layoutObserver: (([LockThemeLayoutElement: CGRect]) -> Void)? = nil
 
     private var titles: [String] { Array(goalTitles.prefix(Self.maximumGoals)) }
-    private var usesDenseE1Layout: Bool { titles.count == Self.maximumGoals }
+    private var goalCount: Int { max(titles.count, 1) }
+    private var goalFontIncrease: CGFloat { Self.goalFontIncrease(forGoalCount: goalCount) }
+    private var summaryFontIncrease: CGFloat { Self.summaryFontIncrease(forGoalCount: goalCount) }
     private var eyebrow: String {
         localizationBundle.localizedString(
             forKey: "live_activity.goal.eyebrow",
@@ -113,24 +141,32 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var blackLime: some View {
-        VStack(alignment: .leading, spacing: usesDenseE1Layout ? 6 : 10) {
+        let goalSize = adaptiveGoalSize(15)
+        let goalUIFont = UIFont.systemFont(ofSize: goalSize, weight: .bold)
+        let markerScale = goalSize / 15
+        let markerHeight = 2 * markerScale
+        return VStack(alignment: .leading, spacing: densityValue(one: 14, two: 4, three: 1)) {
             eyebrowText(color: rgb(139, 146, 158), tracking: 1.5)
                 .textCase(.uppercase)
-            VStack(alignment: .leading, spacing: usesDenseE1Layout ? 3 : 5) {
+            VStack(alignment: .leading, spacing: densityValue(one: 5, two: 3, three: 1.5)) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Rectangle().fill(rgb(184, 255, 61)).frame(width: 10, height: 2)
+                        Rectangle()
+                            .fill(rgb(184, 255, 61))
+                            .frame(width: 10 * markerScale, height: markerHeight)
+                            .layoutAnchor(.goalMarker(index))
+                            .markerCenterAlignedToCapHeight(of: goalUIFont)
                         Text(title)
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.system(size: goalSize, weight: .bold))
                             .foregroundStyle(rgb(244, 242, 236))
                             .lineLimit(2)
-                            .lineSpacing(1)
+                            .lineSpacing(densityValue(one: 1, two: 1, three: 0))
                             .minimumScaleFactor(0.6)
                             .allowsTightening(true)
                             .accessibilityLabel(title)
                             .layoutAnchor(.goal(index))
                     }
-                    .frame(height: usesDenseE1Layout ? 25 : nil)
+                    .frame(minHeight: Self.e1GoalMinimumHeight(forGoalCount: goalCount))
                     .layoutAnchor(.e1Goal(index))
                 }
             }
@@ -140,7 +176,7 @@ struct LockThemeLiveActivityView: View {
                 Text(cancelled).foregroundStyle(rgb(184, 255, 61)).layoutAnchor(.cancelledSummary)
                 Text(attempted).foregroundStyle(rgb(139, 146, 158)).layoutAnchor(.attemptedSummary)
             }
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: adaptiveSummarySize(12), weight: .semibold))
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.62)
@@ -149,7 +185,7 @@ struct LockThemeLiveActivityView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .layoutAnchor(.contentBounds)
         .padding(.horizontal, Self.cardInset)
-        .padding(.vertical, usesDenseE1Layout ? 10 : Self.cardInset)
+        .padding(.vertical, densityValue(one: 8, two: 6, three: 0))
         .frame(minHeight: Self.maximumHeight)
         .background(rgb(20, 23, 27))
         .overlay(alignment: .leading) { Rectangle().fill(rgb(184, 255, 61)).frame(width: 3) }
@@ -157,31 +193,46 @@ struct LockThemeLiveActivityView: View {
 
     private var gaming: some View {
         let font = LockThemeFontPolicy.bundledFont(for: .gaming, locale: locale) ?? .dotGothic16
+        let goalSize = adaptiveGoalSize(15.5)
+        let goalUIFont = uiFont(font, size: goalSize, fallbackWeight: .regular)
+        let markerSize = 12 * goalSize / 15
         return ZStack {
             rgb(10, 10, 20)
             RepeatingLines(spacing: 4).stroke(.white.opacity(0.035), lineWidth: 1)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: densityValue(one: 13, two: 8, three: 5)) {
                 Text(eyebrow)
                     .font(customFont(font, size: 11, fallbackWeight: .regular))
                     .tracking(1.2)
                     .foregroundStyle(rgb(0, 229, 255))
                     .shadow(color: rgb(0, 229, 255).opacity(0.65), radius: 3)
                     .layoutAnchor(.eyebrow)
-                VStack(spacing: 2) {
+                VStack(spacing: densityValue(one: 4, two: 3, three: 2)) {
                     ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                        HStack(spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Rectangle()
                                 .stroke(rgb(0, 229, 255), lineWidth: 1.5)
-                                .frame(width: 12, height: 12)
+                                .frame(width: markerSize, height: markerSize)
+                                .offset(
+                                    y: (goalCount >= Self.maximumGoals ? 0.5 : 0)
+                                        + scaledGoalCapCenterOffset(
+                                            title: title,
+                                            font: goalUIFont,
+                                            availableWidth: 339
+                                        )
+                                )
                                 .shadow(color: rgb(0, 229, 255).opacity(0.8), radius: 2)
+                                .layoutAnchor(.goalMarker(index))
+                                .markerCenterAlignedToCapHeight(of: goalUIFont)
                             goalText(
                                 title,
-                                font: customFont(font, size: 15.5, fallbackWeight: .regular),
+                                font: customFont(font, size: goalSize, fallbackWeight: .regular),
                                 color: rgb(234, 234, 242)
                             )
                             .layoutAnchor(.goal(index))
                         }
-                        .frame(height: 21)
+                        // The 52pt one-goal row keeps a stable >2pt margin over the 120pt
+                        // typography-span floor while preserving the 160pt card height.
+                        .frame(height: densityValue(one: 52, two: 34, three: 24))
                     }
                 }
                 RepeatingDashes().stroke(rgb(0, 229, 255).opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [5, 5])).frame(height: 1)
@@ -190,11 +241,11 @@ struct LockThemeLiveActivityView: View {
                     Spacer(minLength: 4)
                     Text(attempted).foregroundStyle(rgb(138, 143, 168)).layoutAnchor(.attemptedSummary)
                 }
-                .font(customFont(font, size: 10.5, fallbackWeight: .regular))
+                .font(customFont(font, size: adaptiveSummarySize(10.5), fallbackWeight: .regular))
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutAnchor(.contentBounds)
             .padding(.horizontal, Self.cardInset)
@@ -216,13 +267,13 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var asagiri: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: densityValue(one: 11, two: 7, three: 4)) {
             eyebrowText(color: rgb(91, 105, 119), tracking: 3.2)
-            VStack(spacing: 2) {
+            VStack(spacing: densityValue(one: 4, two: 3, three: 2)) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    centeredGoalText(title, size: 15, weight: .light, color: rgb(31, 37, 47))
+                    centeredGoalText(title, size: adaptiveGoalSize(15), weight: .light, color: rgb(31, 37, 47))
                         .tracking(0.45)
-                        .frame(height: 20)
+                        .frame(height: densityValue(one: 46, two: 33, three: 23))
                         .layoutAnchor(.goal(index))
                     if index < titles.count - 1 {
                         Rectangle().fill(rgb(91, 126, 153).opacity(0.45)).frame(width: 26, height: 1)
@@ -233,14 +284,14 @@ struct LockThemeLiveActivityView: View {
                 .lineLimit(1)
                 .layoutAnchor(.cancelledSummary)
             Text(attempted)
-                .font(.system(size: 10.5, weight: .regular))
+                .font(.system(size: adaptiveSummarySize(10.5), weight: .regular))
                 .foregroundStyle(rgb(91, 105, 119))
                 .lineLimit(1)
                 .layoutAnchor(.attemptedSummary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .layoutAnchor(.contentBounds)
-        .padding(.vertical, 9)
+        .padding(.vertical, 8)
         .padding(.horizontal, Self.cardInset)
         .frame(minHeight: Self.maximumHeight)
         .background {
@@ -253,12 +304,12 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var monochrome: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: densityValue(one: 15, two: 7, three: 4)) {
             eyebrowText(color: rgb(118, 118, 118), tracking: 1.8)
             VStack(spacing: 0) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    goalText(title, size: 19, weight: .black, color: rgb(18, 18, 18))
-                        .frame(height: 26)
+                    goalText(title, size: adaptiveGoalSize(19), weight: .black, color: rgb(18, 18, 18))
+                        .frame(height: densityValue(one: 48, two: 35, three: 27))
                         .layoutAnchor(.goal(index))
                     if index < titles.count - 1 {
                         Rectangle().fill(rgb(230, 230, 230)).frame(height: 1)
@@ -266,11 +317,11 @@ struct LockThemeLiveActivityView: View {
                 }
             }
             Rectangle().fill(rgb(18, 18, 18)).frame(height: 2)
-            summaryRow(primary: rgb(18, 18, 18), secondary: rgb(118, 118, 118), size: 10.5)
+            summaryRow(primary: rgb(18, 18, 18), secondary: rgb(118, 118, 118), size: adaptiveSummarySize(10.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .layoutAnchor(.contentBounds)
-        .padding(.vertical, 9)
+        .padding(.vertical, 8)
         .padding(.horizontal, Self.cardInset)
         .frame(minHeight: Self.maximumHeight)
         .background(rgb(250, 250, 250))
@@ -278,13 +329,13 @@ struct LockThemeLiveActivityView: View {
 
     @ViewBuilder
     private var liquidGlass: some View {
-        let content = VStack(alignment: .leading, spacing: 5) {
+        let content = VStack(alignment: .leading, spacing: densityValue(one: 19, two: 9, three: 5)) {
             eyebrowText(color: .white.opacity(0.8), tracking: 2)
             VStack(spacing: 0) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    goalText(title, size: 15, weight: .bold, color: .white)
+                    goalText(title, size: adaptiveGoalSize(15), weight: .bold, color: .white)
                         .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-                        .frame(height: 23)
+                        .frame(height: densityValue(one: 46, two: 33, three: 25))
                         .layoutAnchor(.goal(index))
                     if index < titles.count - 1 {
                         Rectangle().fill(.white.opacity(0.26)).frame(height: 1)
@@ -298,7 +349,7 @@ struct LockThemeLiveActivityView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .layoutAnchor(.contentBounds)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .padding(.horizontal, Self.cardInset)
         .frame(minHeight: Self.maximumHeight)
         .overlay(alignment: .top) {
@@ -318,23 +369,46 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var kpop: some View {
-        VStack(spacing: 5) {
+        let goalSize = adaptiveGoalSize(15)
+        let goalUIFont = UIFont.systemFont(ofSize: goalSize, weight: .black)
+        let markerScale = goalSize / 15
+        let markerSize = 9 * markerScale
+        let markerUIFont = UIFont.systemFont(ofSize: markerSize, weight: .bold)
+        return VStack(spacing: densityValue(one: 8, two: 6, three: 4)) {
             Text(eyebrow)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 15).frame(height: 22)
                 .background(rgb(238, 52, 137)).clipShape(Capsule())
                 .layoutAnchor(.eyebrow)
-            VStack(spacing: 3) {
+            VStack(spacing: densityValue(one: 4, two: 3, three: 2)) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    HStack(spacing: 7) {
-                        Rectangle().fill(rgb(238, 52, 137)).frame(width: 5)
-                        Text("★").font(.system(size: 9, weight: .bold)).foregroundStyle(rgb(238, 52, 137))
-                        goalText(title, size: 15, weight: .black, color: rgb(35, 31, 38))
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        HStack(spacing: 7) {
+                            Rectangle().fill(rgb(238, 52, 137)).frame(width: 5 * markerScale)
+                            Text("★")
+                                .font(.system(size: markerSize, weight: .bold))
+                                .foregroundStyle(rgb(238, 52, 137))
+                                .baselineOffset(
+                                    glyphCapCenterOffset(markerFont: markerUIFont, goalFont: goalUIFont) - 1.5
+                                )
+                        }
+                        .frame(height: goalUIFont.capHeight)
+                        .offset(
+                            y: (goalCount == 2 ? 1 : 0)
+                                + scaledGoalCapCenterOffset(
+                                    title: title,
+                                    font: goalUIFont,
+                                    availableWidth: 324
+                                )
+                        )
+                        .layoutAnchor(.goalMarker(index))
+                        .markerCenterAlignedToCapHeight(of: goalUIFont)
+                        goalText(title, size: goalSize, weight: .black, color: rgb(35, 31, 38))
                             .layoutAnchor(.goal(index))
                     }
                     .padding(.trailing, 8)
-                    .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: densityValue(one: 64, two: 33, three: 26), alignment: .leading)
                     .background {
                         TicketStubShape(notchRadius: 4)
                             .fill(.white, style: FillStyle(eoFill: true))
@@ -347,15 +421,15 @@ struct LockThemeLiveActivityView: View {
                 Text("★").foregroundStyle(rgb(238, 52, 137))
                 Text(attempted).layoutAnchor(.attemptedSummary)
             }
-            .font(.system(size: 9.5, weight: .bold))
+            .font(.system(size: adaptiveSummarySize(9.5), weight: .bold))
             .tracking(0.8)
             .foregroundStyle(.white)
             .lineLimit(1).minimumScaleFactor(0.65)
-            .frame(maxWidth: .infinity, minHeight: 21)
+            .frame(maxWidth: .infinity, minHeight: 24)
             .background(rgb(35, 31, 38))
             .padding(.horizontal, -Self.cardInset)
         }
-        .padding(.top, 5)
+        .padding(.top, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .layoutAnchor(.contentBounds)
         .padding(.horizontal, Self.cardInset)
@@ -371,22 +445,35 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var kawaiiPink: some View {
-        VStack(spacing: 5) {
+        let goalSize = adaptiveGoalSize(13)
+        let markerSize = 10 * goalSize / 15
+        let goalUIFont = roundUIFont(size: goalSize)
+        let markerUIFont = UIFont.systemFont(ofSize: markerSize, weight: .bold)
+        return VStack(spacing: densityValue(one: 15, two: 6, three: 4)) {
             Text(eyebrow)
                 .font(roundFont(size: 10, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14).frame(height: 22)
                 .background(rgb(242, 94, 137)).clipShape(Capsule())
                 .layoutAnchor(.eyebrow)
-            VStack(spacing: 3) {
+            VStack(spacing: densityValue(one: 4, two: 3, three: 2)) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    HStack(spacing: 7) {
-                        Text("♥").font(.system(size: 10, weight: .bold)).foregroundStyle(rgb(242, 94, 137))
-                        goalText(title, font: roundFont(size: 13, weight: .bold), color: rgb(68, 43, 49))
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text("♥").font(.system(size: markerSize, weight: .bold)).foregroundStyle(rgb(242, 94, 137))
+                            .baselineOffset(glyphCapCenterOffset(markerFont: markerUIFont, goalFont: goalUIFont))
+                            .offset(
+                                y: scaledGoalCapCenterOffset(
+                                    title: title,
+                                    font: goalUIFont,
+                                    availableWidth: 321
+                                )
+                            )
+                            .layoutAnchor(.goalMarker(index))
+                        goalText(title, font: roundFont(size: goalSize, weight: .bold), color: rgb(68, 43, 49))
                             .layoutAnchor(.goal(index))
                     }
                     .padding(.horizontal, 12)
-                    .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: densityValue(one: 44, two: 32, three: 25), alignment: .leading)
                     .background(rgb(255, 240, 244))
                     .overlay { Capsule().stroke(rgb(242, 94, 137).opacity(0.25), lineWidth: 1.5) }
                     .clipShape(Capsule())
@@ -394,50 +481,63 @@ struct LockThemeLiveActivityView: View {
             }
             HStack(spacing: 8) {
                 Text(cancelled)
-                    .font(roundFont(size: 11, weight: .bold)).foregroundStyle(.white)
+                    .font(roundFont(size: adaptiveSummarySize(11), weight: .bold)).foregroundStyle(.white)
                     .padding(.horizontal, 10).padding(.bottom, 3).frame(height: 25)
                     .background { SpeechBubbleShape().fill(rgb(242, 94, 137)) }
                     .layoutAnchor(.cancelledSummary)
                 Text(attempted)
-                    .font(roundFont(size: 10.5, weight: .bold)).foregroundStyle(rgb(139, 91, 102))
+                    .font(roundFont(size: adaptiveSummarySize(10.5), weight: .bold)).foregroundStyle(rgb(139, 91, 102))
                     .lineLimit(1).minimumScaleFactor(0.7)
                     .layoutAnchor(.attemptedSummary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .layoutAnchor(.contentBounds)
-        .padding(.vertical, 5).padding(.horizontal, Self.cardInset)
+        .padding(.vertical, 4).padding(.horizontal, Self.cardInset)
         .frame(minHeight: Self.maximumHeight)
         .background { ZStack { rgb(255, 253, 253); DotPattern().fill(rgb(242, 94, 137).opacity(0.16)) } }
     }
 
     private var note: some View {
         let font = LockThemeFontPolicy.bundledFont(for: .note, locale: locale) ?? .zenKurenaido
+        let goalSize = adaptiveGoalSize(15.5)
+        let goalUIFont = uiFont(font, size: goalSize, fallbackWeight: .semibold)
+        let markerSize = 12 * goalSize / 15
         return ZStack(alignment: .leading) {
             rgb(251, 247, 239)
             RepeatingLines(spacing: 28).stroke(rgb(108, 130, 153).opacity(0.16), lineWidth: 1)
             Rectangle().fill(rgb(199, 80, 80).opacity(0.4)).frame(width: 1).padding(.leading, 34)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: densityValue(one: 10, two: 7, three: 4)) {
                 Text(eyebrow)
                     .font(customFont(font, size: 11, fallbackWeight: .semibold))
                     .foregroundStyle(rgb(59, 52, 40))
                     .overlay(alignment: .bottom) { WavyLine().stroke(rgb(199, 80, 80), lineWidth: 1).frame(height: 3).offset(y: 3) }
                     .layoutAnchor(.eyebrow)
-                VStack(spacing: 2) {
+                VStack(spacing: densityValue(one: 4, two: 3, three: 2)) {
                     ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                        HStack(spacing: 9) {
+                        HStack(alignment: .firstTextBaseline, spacing: 9) {
                             RoundedRectangle(cornerRadius: 2)
                                 .stroke(rgb(90, 81, 66), lineWidth: 1.6)
-                                .frame(width: 12, height: 12)
+                                .frame(width: markerSize, height: markerSize)
                                 .rotationEffect(.degrees([-1.5, 1.2, -0.8][index % 3]))
-                            goalText(title, font: customFont(font, size: 15.5, fallbackWeight: .semibold), color: rgb(59, 52, 40))
+                                .offset(
+                                    y: scaledGoalCapCenterOffset(
+                                        title: title,
+                                        font: goalUIFont,
+                                        availableWidth: 308,
+                                        unscaledOffset: goalCount >= Self.maximumGoals ? 0.5 : 0
+                                    )
+                                )
+                                .layoutAnchor(.goalMarker(index))
+                                .markerCenterAlignedToCapHeight(of: goalUIFont)
+                            goalText(title, font: customFont(font, size: goalSize, fallbackWeight: .semibold), color: rgb(59, 52, 40))
                                 .layoutAnchor(.goal(index))
-                        }.frame(height: 22)
+                        }.frame(height: densityValue(one: 65, two: 34, three: 24))
                     }
                 }
                 HStack(spacing: 12) {
                     Text(cancelled)
-                        .font(customFont(font, size: 11.5, fallbackWeight: .regular))
+                        .font(customFont(font, size: adaptiveSummarySize(11.5), fallbackWeight: .regular))
                         .foregroundStyle(rgb(199, 80, 80))
                         .layoutAnchor(.cancelledSummary)
                     Spacer(minLength: 3)
@@ -449,7 +549,7 @@ struct LockThemeLiveActivityView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutAnchor(.contentBounds)
-            .padding(.vertical, 11).padding(.leading, 46).padding(.trailing, Self.cardInset)
+            .padding(.vertical, 8).padding(.leading, 46).padding(.trailing, Self.cardInset)
         }
         .frame(minHeight: Self.maximumHeight)
         .overlay(alignment: .top) {
@@ -458,19 +558,33 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var blueprint: some View {
-        ZStack {
+        let goalSize = adaptiveGoalSize(14.5)
+        let goalUIFont = UIFont.systemFont(ofSize: goalSize, weight: .bold)
+        let markerScale = goalSize / 15
+        return ZStack {
             rgb(22, 65, 138)
             GridPattern(spacing: 22).stroke(.white.opacity(0.08), lineWidth: 1)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: densityValue(one: 13, two: 10, three: 4)) {
                 eyebrowText(color: .white.opacity(0.85), tracking: 3)
-                VStack(spacing: 1) {
+                VStack(spacing: densityValue(one: 4, two: 3, three: 1)) {
                     ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                        HStack(spacing: 0) {
-                            Circle().stroke(.white, lineWidth: 1.5).frame(width: 8, height: 8)
-                            Rectangle().fill(.white).frame(width: 18, height: 1)
-                            goalText(title, size: 14.5, weight: .bold, color: .white).tracking(0.45).padding(.leading, 7)
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            HStack(spacing: 0) {
+                                Circle().stroke(.white, lineWidth: 1.5).frame(width: 8 * markerScale, height: 8 * markerScale)
+                                Rectangle().fill(.white).frame(width: 18 * markerScale, height: max(1, markerScale))
+                            }
+                            .offset(
+                                y: scaledGoalCapCenterOffset(
+                                    title: title,
+                                    font: goalUIFont,
+                                    availableWidth: 326
+                                )
+                            )
+                            .layoutAnchor(.goalMarker(index))
+                            .markerCenterAlignedToCapHeight(of: goalUIFont)
+                            goalText(title, size: goalSize, weight: .bold, color: .white).tracking(0.45).padding(.leading, 7)
                                 .layoutAnchor(.goal(index))
-                        }.frame(height: 22)
+                        }.frame(height: densityValue(one: 63, two: 33, three: 24))
                     }
                 }
                 HStack(spacing: 0) {
@@ -489,17 +603,17 @@ struct LockThemeLiveActivityView: View {
                         .padding(.horizontal, 6)
                         .layoutAnchor(.blueprintAttemptedCell)
                 }
-                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                .font(.system(size: adaptiveSummarySize(9.5), weight: .medium, design: .monospaced))
                 .foregroundStyle(.white)
                 .lineLimit(1).minimumScaleFactor(0.55)
-                .frame(height: 22)
+                .frame(height: 25)
                 .overlay { Rectangle().stroke(.white, lineWidth: 1) }
                 .frame(maxWidth: 285, alignment: .trailing)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutAnchor(.contentBounds)
-            .padding(.vertical, 12).padding(.horizontal, Self.cardInset)
+            .padding(.vertical, 8).padding(.horizontal, Self.cardInset)
         }
         .frame(minHeight: Self.maximumHeight)
         .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white, lineWidth: 1.5).padding(1) }
@@ -508,22 +622,40 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var retroPop: some View {
-        ZStack(alignment: .topTrailing) {
+        let goalSize = adaptiveGoalSize(15)
+        let markerSize = 16 * goalSize / 15
+        let goalUIFont = roundUIFont(size: goalSize)
+        let markerUIFont = UIFont.systemFont(ofSize: markerSize, weight: .bold)
+        return ZStack(alignment: .topTrailing) {
             rgb(245, 233, 214)
             RetroRings().frame(width: 115, height: 90).offset(x: 20, y: -20)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: densityValue(one: 10, two: 7, three: 4)) {
             Text(eyebrow)
                     .font(roundFont(size: 10, weight: .bold)).foregroundStyle(rgb(74, 51, 32))
                 .padding(.horizontal, 13).frame(height: 22)
                 .background(rgb(232, 163, 61)).clipShape(Capsule())
                 .layoutAnchor(.eyebrow)
-                VStack(spacing: 1) {
+                VStack(spacing: densityValue(one: 4, two: 3, three: 1)) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                        HStack(spacing: 7) {
-                            Text("✽").font(.system(size: 16, weight: .bold)).foregroundStyle(rgb(232, 99, 43))
-                        goalText(title, font: roundFont(size: 15, weight: .bold), color: rgb(74, 51, 32))
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Text("✽").font(.system(size: markerSize, weight: .bold)).foregroundStyle(rgb(232, 99, 43))
+                                .baselineOffset(glyphCapCenterOffset(markerFont: markerUIFont, goalFont: goalUIFont))
+                                .offset(
+                                    y: (goalCount >= Self.maximumGoals
+                                        ? (goalTextRequiresScaling(title: title, font: goalUIFont, availableWidth: 342)
+                                            ? -0.5
+                                            : (index == 0 ? -1 : -0.5))
+                                        : 0)
+                                        + scaledGoalCapCenterOffset(
+                                            title: title,
+                                            font: goalUIFont,
+                                            availableWidth: 342
+                                        )
+                                )
+                                .layoutAnchor(.goalMarker(index))
+                        goalText(title, font: roundFont(size: goalSize, weight: .bold), color: rgb(74, 51, 32))
                             .layoutAnchor(.goal(index))
-                        }.frame(height: 22)
+                        }.frame(height: densityValue(one: 57, two: 33, three: 24))
                         if index < titles.count - 1 {
                             RepeatingDashes().stroke(rgb(201, 168, 124), style: StrokeStyle(lineWidth: 1, dash: [2, 4])).frame(height: 1)
                         }
@@ -531,16 +663,16 @@ struct LockThemeLiveActivityView: View {
                 }
                 HStack(spacing: 8) {
                     Text(cancelled)
-                        .font(roundFont(size: 10.5, weight: .bold)).foregroundStyle(rgb(245, 233, 214))
+                        .font(roundFont(size: adaptiveSummarySize(10.5), weight: .bold)).foregroundStyle(rgb(245, 233, 214))
                         .padding(.horizontal, 9).frame(height: 21).background(rgb(232, 99, 43)).clipShape(Capsule())
                         .layoutAnchor(.cancelledSummary)
-                    Text(attempted).font(roundFont(size: 10.5, weight: .regular)).foregroundStyle(rgb(107, 74, 50))
+                    Text(attempted).font(roundFont(size: adaptiveSummarySize(10.5), weight: .regular)).foregroundStyle(rgb(107, 74, 50))
                         .layoutAnchor(.attemptedSummary)
                 }.lineLimit(1).minimumScaleFactor(0.62)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutAnchor(.contentBounds)
-            .padding(.vertical, 9).padding(.horizontal, Self.cardInset)
+            .padding(.vertical, 8).padding(.horizontal, Self.cardInset)
             VStack(spacing: 0) {
                 Spacer()
                 rgb(232, 99, 43).frame(height: 3)
@@ -557,22 +689,23 @@ struct LockThemeLiveActivityView: View {
     }
 
     private func asagiriCancelledText() -> Text {
+        let summarySize = adaptiveSummarySize(11)
         let count = String(cancelledCount)
         guard let range = cancelled.range(of: count) else {
             return Text(cancelled)
-                .font(.system(size: 11, weight: .regular))
+                .font(.system(size: summarySize, weight: .regular))
                 .foregroundColor(rgb(91, 105, 119))
         }
         let leading = String(cancelled[..<range.lowerBound])
         let trailing = String(cancelled[range.upperBound...])
         return Text(leading)
-            .font(.system(size: 11, weight: .regular))
+            .font(.system(size: summarySize, weight: .regular))
             .foregroundColor(rgb(91, 105, 119))
             + Text(count)
-                .font(.system(size: 17, weight: .medium))
+                .font(.system(size: 17 + summaryFontIncrease, weight: .medium))
                 .foregroundColor(rgb(91, 126, 153))
             + Text(trailing)
-                .font(.system(size: 11, weight: .regular))
+                .font(.system(size: summarySize, weight: .regular))
                 .foregroundColor(rgb(91, 105, 119))
     }
 
@@ -620,7 +753,7 @@ struct LockThemeLiveActivityView: View {
 
     private func glassCapsule(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11.5, weight: .bold))
+            .font(.system(size: adaptiveSummarySize(11.5), weight: .bold))
             .foregroundStyle(.white)
             .lineLimit(1).minimumScaleFactor(0.58)
             .padding(.horizontal, 9).frame(minHeight: 24)
@@ -629,7 +762,7 @@ struct LockThemeLiveActivityView: View {
 
     private func noteAttemptedText() -> Text {
         let bundledFont = LockThemeFontPolicy.bundledFont(for: .note, locale: locale) ?? .zenKurenaido
-        let handwriting = customFont(bundledFont, size: 11.5, fallbackWeight: .regular)
+        let handwriting = customFont(bundledFont, size: adaptiveSummarySize(11.5), fallbackWeight: .regular)
         if locale.language.languageCode?.identifier == "ko" {
             return Text(attempted).font(handwriting)
         }
@@ -640,7 +773,7 @@ struct LockThemeLiveActivityView: View {
         let trailing = String(attempted[multiplicationSign.upperBound...])
         return Text(leading).font(handwriting)
             + Text("×")
-                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                .font(.system(size: adaptiveSummarySize(9.5), weight: .medium, design: .rounded))
                 .baselineOffset(0.4)
             + Text(trailing).font(handwriting)
     }
@@ -652,8 +785,64 @@ struct LockThemeLiveActivityView: View {
         return .custom(name, fixedSize: size).weight(fallbackWeight)
     }
 
+    private func uiFont(
+        _ font: DopaBreakBundledFont,
+        size: CGFloat,
+        fallbackWeight: UIFont.Weight
+    ) -> UIFont {
+        guard let name = DopaBreakFontRegistrar.registeredName(for: font),
+              let registeredFont = UIFont(name: name, size: size) else {
+            return .systemFont(ofSize: size, weight: fallbackWeight)
+        }
+        return registeredFont
+    }
+
     private func roundFont(size: CGFloat, weight: Font.Weight) -> Font {
         .custom("HiraMaruProN-W4", fixedSize: size).weight(weight)
+    }
+
+    private func roundUIFont(size: CGFloat) -> UIFont {
+        UIFont(name: "HiraMaruProN-W4", size: size) ?? .systemFont(ofSize: size, weight: .bold)
+    }
+
+    private func glyphCapCenterOffset(markerFont: UIFont, goalFont: UIFont) -> CGFloat {
+        (goalFont.capHeight - markerFont.capHeight) / 2
+    }
+
+    private func scaledGoalCapCenterOffset(
+        title: String,
+        font: UIFont,
+        availableWidth: CGFloat,
+        unscaledOffset: CGFloat = 0
+    ) -> CGFloat {
+        let naturalWidth = (title as NSString).size(withAttributes: [.font: font]).width
+        guard naturalWidth > availableWidth else { return unscaledOffset }
+        let effectiveScale = max(0.5, min(1, availableWidth / naturalWidth))
+        return font.capHeight * (1 - effectiveScale) / 2
+    }
+
+    private func goalTextRequiresScaling(
+        title: String,
+        font: UIFont,
+        availableWidth: CGFloat
+    ) -> Bool {
+        (title as NSString).size(withAttributes: [.font: font]).width > availableWidth
+    }
+
+    private func adaptiveGoalSize(_ base: CGFloat) -> CGFloat {
+        base + goalFontIncrease
+    }
+
+    private func adaptiveSummarySize(_ base: CGFloat) -> CGFloat {
+        base + summaryFontIncrease
+    }
+
+    private func densityValue<T>(one: T, two: T, three: T) -> T {
+        switch goalCount {
+        case 1: one
+        case 2: two
+        default: three
+        }
     }
 
     private func rgb(_ red: Double, _ green: Double, _ blue: Double) -> Color {
@@ -689,6 +878,12 @@ private extension View {
     func layoutAnchor(_ element: LockThemeLayoutElement) -> some View {
         transformAnchorPreference(key: LockThemeLayoutAnchorKey.self, value: .bounds) { value, anchor in
             value[element] = anchor
+        }
+    }
+
+    func markerCenterAlignedToCapHeight(of font: UIFont) -> some View {
+        alignmentGuide(.firstTextBaseline) { dimensions in
+            dimensions.height / 2 + font.capHeight / 2
         }
     }
 }

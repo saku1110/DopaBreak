@@ -519,6 +519,7 @@ final class DopaBreakCoreTests: XCTestCase {
         XCTAssertNil(store.lastAppVersion)
         XCTAssertEqual(store.breathDurationSeconds, 3)
         XCTAssertNil(store.pendingStartInterventionCatalogID)
+        XCTAssertFalse(store.pendingStartInterventionAutoResolve)
         XCTAssertEqual(store.verifiedAutomationCatalogIDs, [])
         XCTAssertNil(store.firstLaunchDate)
         XCTAssertNil(store.wakeTimeMinutes)
@@ -528,6 +529,7 @@ final class DopaBreakCoreTests: XCTestCase {
         store.lastAppVersion = "1.2.3"
         store.breathDurationSeconds = 5
         store.pendingStartInterventionCatalogID = "instagram"
+        store.pendingStartInterventionAutoResolve = true
         store.verifiedAutomationCatalogIDs = ["instagram"]
         let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
         store.firstLaunchDate = firstLaunchDate
@@ -538,6 +540,7 @@ final class DopaBreakCoreTests: XCTestCase {
         XCTAssertEqual(store.lastAppVersion, "1.2.3")
         XCTAssertEqual(store.breathDurationSeconds, 5)
         XCTAssertEqual(store.pendingStartInterventionCatalogID, "instagram")
+        XCTAssertTrue(store.pendingStartInterventionAutoResolve)
         XCTAssertEqual(store.verifiedAutomationCatalogIDs, ["instagram"])
         XCTAssertEqual(store.firstLaunchDate, firstLaunchDate)
         XCTAssertEqual(store.wakeTimeMinutes, 0)
@@ -548,12 +551,14 @@ final class DopaBreakCoreTests: XCTestCase {
 
         store.lastAppVersion = nil
         store.pendingStartInterventionCatalogID = nil
+        store.pendingStartInterventionAutoResolve = false
         store.verifiedAutomationCatalogIDs = []
         store.firstLaunchDate = nil
         store.wakeTimeMinutes = nil
         store.bedTimeMinutes = nil
         XCTAssertNil(store.lastAppVersion)
         XCTAssertNil(store.pendingStartInterventionCatalogID)
+        XCTAssertFalse(store.pendingStartInterventionAutoResolve)
         XCTAssertEqual(store.verifiedAutomationCatalogIDs, [])
         XCTAssertNil(store.firstLaunchDate)
         XCTAssertNil(store.wakeTimeMinutes)

@@ -73,11 +73,11 @@ struct StartInterventionIntent: AppIntent {
             defaultValue: "アプリ"
         )
     )
-    var app: SNSAppEnum
+    var app: SNSAppEnum?
 
     init() {}
 
-    init(app: SNSAppEnum) {
+    init(app: SNSAppEnum?) {
         self.app = app
     }
 
@@ -86,7 +86,13 @@ struct StartInterventionIntent: AppIntent {
         // AppIntentはアプリ本体とは別インスタンスで実行されるため、
         // SettingsStore（App Group UserDefaults）経由で起動要求を橋渡しする。
         if let settingsStore = try? SettingsStore() {
-            settingsStore.pendingStartInterventionCatalogID = app.catalogID
+            if let app {
+                settingsStore.pendingStartInterventionCatalogID = app.catalogID
+                settingsStore.pendingStartInterventionAutoResolve = false
+            } else {
+                settingsStore.pendingStartInterventionCatalogID = nil
+                settingsStore.pendingStartInterventionAutoResolve = true
+            }
         }
         return .result()
     }

@@ -154,6 +154,69 @@ final class GateUnlockConsumptionTests: XCTestCase {
         )
     }
 
+    func testOmittedShortcutParameterAutoResolvesSingleSelectedTargetOnce() throws {
+        let context = try makeContext()
+        defer { context.cleanup() }
+        let model = context.makeModel()
+        try model.setTargetCatalogIDs(["instagram"])
+        context.settingsStore.pendingStartInterventionAutoResolve = true
+
+        model.consumePendingInterventionRequest(from: context.settingsStore)
+
+        XCTAssertEqual(
+            model.pendingInterventionTarget,
+            SNSAppCatalog.app(catalogID: "instagram").map(InterventionTarget.catalog)
+        )
+        XCTAssertNil(context.settingsStore.pendingStartInterventionCatalogID)
+        XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
+    }
+
+    func testOmittedShortcutParameterWithMultipleTargetsUsesFirstSelectedTarget() throws {
+        let context = try makeContext()
+        defer { context.cleanup() }
+        let model = context.makeModel()
+        try model.setTargetCatalogIDs(["youtube", "instagram", "x"])
+        context.settingsStore.pendingStartInterventionAutoResolve = true
+
+        model.consumePendingInterventionRequest(from: context.settingsStore)
+
+        XCTAssertEqual(
+            model.pendingInterventionTarget,
+            SNSAppCatalog.app(catalogID: "youtube").map(InterventionTarget.catalog)
+        )
+        XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
+    }
+
+    func testExplicitShortcutParameterWinsWhenBothPendingKeysExist() throws {
+        let context = try makeContext()
+        defer { context.cleanup() }
+        let model = context.makeModel()
+        try model.setTargetCatalogIDs(["instagram", "youtube"])
+        context.settingsStore.pendingStartInterventionCatalogID = "youtube"
+        context.settingsStore.pendingStartInterventionAutoResolve = true
+
+        model.consumePendingInterventionRequest(from: context.settingsStore)
+
+        XCTAssertEqual(
+            model.pendingInterventionTarget,
+            SNSAppCatalog.app(catalogID: "youtube").map(InterventionTarget.catalog)
+        )
+        XCTAssertNil(context.settingsStore.pendingStartInterventionCatalogID)
+        XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
+    }
+
+    func testOmittedShortcutParameterWithNoSelectionClearsOneShotWithoutPresentation() throws {
+        let context = try makeContext()
+        defer { context.cleanup() }
+        let model = context.makeModel()
+        context.settingsStore.pendingStartInterventionAutoResolve = true
+
+        model.consumePendingInterventionRequest(from: context.settingsStore)
+
+        XCTAssertNil(model.pendingInterventionTarget)
+        XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
+    }
+
     private func makeContext() throws -> GateUnlockTestContext {
         let containerURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("GateUnlockConsumptionTests-\(UUID().uuidString)", isDirectory: true)

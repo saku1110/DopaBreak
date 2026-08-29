@@ -9,13 +9,12 @@ enum PaywallPlacement: String, CaseIterable, Identifiable {
     case settingsFamilyActivityLimit = "settings_family_activity_limit"
     case settingsProStatusRow = "settings_pro_status_row"
     case settingsThemeGate = "settings_theme_gate"
+    case homeThemeGate = "home_theme_gate"
     case settingsModeGate = "settings_mode_gate"
     case settingsGateGate = "settings_gate_gate"
-    case settingsUsageWatchGate = "settings_usage_watch_gate"
     case onboardingPrepaywallSummary = "onboarding_prepaywall_summary"
     case onboardingModeGate = "onboarding_mode_gate"
     case onboardingTargetAppGate = "onboarding_target_app_gate"
-    case statsHistoryGate = "stats_history_gate"
     case weekly = "weekly"
 
     var id: String { rawValue }
@@ -32,6 +31,21 @@ private enum PaywallPlan: CaseIterable, Identifiable {
         case .monthly:
             return ProProductID.monthly.rawValue
         }
+    }
+}
+
+enum AnnualDiscountPolicy {
+    static func percent(annualPrice: Decimal?, monthlyPrice: Decimal?) -> Int? {
+        guard let annualPrice, let monthlyPrice else { return nil }
+
+        let annualPriceValue = NSDecimalNumber(decimal: annualPrice).doubleValue
+        let monthlyPriceValue = NSDecimalNumber(decimal: monthlyPrice).doubleValue
+        guard monthlyPriceValue > 0 else { return nil }
+
+        let discountPercent = Int(
+            ((1 - annualPriceValue / (monthlyPriceValue * 12)) * 100).rounded()
+        )
+        return discountPercent > 0 ? discountPercent : nil
     }
 }
 
@@ -151,7 +165,7 @@ struct PaywallView: View {
                 .padding(.bottom, 4)
 
             VStack(alignment: .leading, spacing: 2) {
-                (Text(String(localized: "paywall.header.line1.prefix", defaultValue: "「あと5分だけ」が年")).foregroundStyle(DesignTokens.primaryText)
+                (Text(String(localized: "paywall.header.line1.prefix", defaultValue: "「あと5分」が1年で")).foregroundStyle(DesignTokens.primaryText)
                     + Text("\(yearlyDays)").foregroundStyle(DesignTokens.accent)
                     + Text(String(localized: "paywall.header.line1.suffix", defaultValue: "日")).foregroundStyle(DesignTokens.primaryText))
                     .dopaFont(30, weight: .black, tracking: -1)
@@ -165,7 +179,7 @@ struct PaywallView: View {
                     .minimumScaleFactor(0.78)
             }
 
-            Text(String(localized: "paywall.header.body", defaultValue: "がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開くのをやめた回数が毎日ホームに積み上がります。"))
+            Text(String(localized: "paywall.header.body", defaultValue: "ずっと我慢するためのアプリではありません。SNSを開く前に一呼吸はさみ、開かずにすんだ回数をホームに残します。"))
                 .dopaFont(14, weight: .medium, lineSpacing: 4)
                 .foregroundStyle(DesignTokens.secondaryText)
         }
@@ -179,11 +193,7 @@ struct PaywallView: View {
             divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.night_block", defaultValue: "就寝中は自動で完全ブロック"))
             divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.usage_watch", defaultValue: "使いすぎたら15分ごとに声かけ"))
-            divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.full_history", defaultValue: "記録と週次レポートを全期間"))
-            divider
-            PaywallFeatureRow(text: String(localized: "paywall.feature.lock_theme", defaultValue: "ロック画面テーマを着せ替え"))
+            PaywallFeatureRow(text: String(localized: "paywall.feature.lock_theme", defaultValue: "ロック画面のデザインを選べる"))
         }
         .padding(.horizontal, 4)
     }
@@ -206,7 +216,7 @@ struct PaywallView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SmallLabel(text: String(localized: "paywall.trial_reminder.label", defaultValue: "更新前のお知らせ"))
 
-                    Text(String(localized: "paywall.trial_reminder.body", defaultValue: "無料期間が終わる前に通知でお知らせします"))
+                    Text(String(localized: "paywall.trial_reminder.body", defaultValue: "無料期間が終わる前に通知します。"))
                         .dopaFont(14, weight: .bold)
                         .foregroundStyle(DesignTokens.primaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -224,7 +234,7 @@ struct PaywallView: View {
                     .labelsHidden()
                     .disabled(isBusy)
 
-                    Text(String(localized: "paywall.trial_reminder.note", defaultValue: "無料期間中に解約すれば請求はありません"))
+                    Text(String(localized: "paywall.trial_reminder.note", defaultValue: "無料期間中に解約すれば、料金はかかりません。"))
                         .dopaFont(12, weight: .medium, lineSpacing: 2)
                         .foregroundStyle(DesignTokens.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -331,7 +341,17 @@ struct PaywallView: View {
                         .dopaFont(17, weight: .black)
                         .foregroundStyle(DesignTokens.primaryText)
                     if plan == .annual {
-                        Text(String(localized: "paywall.plan.annual.savings_badge", defaultValue: "一番人気・\(annualDiscountPercent)%お得"))
+                        Text(
+                            annualDiscountPercent.map {
+                                String(
+                                    localized: "paywall.plan.annual.savings_badge",
+                                    defaultValue: "一番人気・\($0)%%お得"
+                                )
+                            } ?? String(
+                                localized: "paywall.plan.annual.popular_badge",
+                                defaultValue: "一番人気"
+                            )
+                        )
                             .dopaFont(11, weight: .black)
                             .foregroundStyle(DesignTokens.background)
                             .padding(.horizontal, 8)
@@ -448,15 +468,11 @@ struct PaywallView: View {
         return String(localized: "paywall.plan.annual.monthly_equivalent", defaultValue: "\(product.priceFormatStyle.format(product.price / Decimal(12)))/月")
     }
 
-    private var annualDiscountPercent: Int {
-        guard let annual = storeService.activeAnnualProduct,
-              let monthly = storeService.monthlyProduct else {
-            return 58
-        }
-        let annualPrice = NSDecimalNumber(decimal: annual.price).doubleValue
-        let monthlyPrice = NSDecimalNumber(decimal: monthly.price).doubleValue
-        guard monthlyPrice > 0 else { return 58 }
-        return max(0, Int(((1 - annualPrice / (monthlyPrice * 12)) * 100).rounded()))
+    private var annualDiscountPercent: Int? {
+        AnnualDiscountPolicy.percent(
+            annualPrice: storeService.activeAnnualProduct?.price,
+            monthlyPrice: storeService.monthlyProduct?.price
+        )
     }
 
     private func purchaseSelectedPlan() async {

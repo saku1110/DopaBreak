@@ -76,8 +76,8 @@ struct DopaBreakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            LaunchSplashHost(coordinator: launchSplash) {
-                AppLifecycleView(onAppActive: handleAppActive) {
+            BackgroundSnapshotShieldHost(onAppActive: handleAppActive) {
+                LaunchSplashHost(coordinator: launchSplash) {
                     Group {
                         if onboarding.isCompleted {
                             RootTabView(
@@ -246,36 +246,14 @@ struct DopaBreakApp: App {
     }
 
     private func handleAppActive() {
+        // ウォーム復帰時は、最上段の背景シールドを外す前に介入要求を取り込む。
+        consumePendingInterventionRequest()
         model.recordAppOpenedIfNeeded()
         model.reconcileGateGrantsOnForeground()
         // openParentalControlsAppは通知タップを伴わないため、activeのたびにも要求を拾う。
         model.consumePendingGateUnlock()
-        consumePendingInterventionRequest()
         updateQuickActions()
         consumePendingQuickAction()
-    }
-}
-
-struct AppLifecycleView<Content: View>: View {
-    private let onAppActive: () -> Void
-    private let content: Content
-    @Environment(\.scenePhase) private var scenePhase
-
-    init(
-        onAppActive: @escaping () -> Void,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.onAppActive = onAppActive
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .onAppear(perform: onAppActive)
-            .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase == .active else { return }
-                onAppActive()
-            }
     }
 }
 

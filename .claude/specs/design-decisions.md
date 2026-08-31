@@ -1417,3 +1417,15 @@
 
 - 検証: Opus5独立レビュー3ラウンド（初回差し戻し: スプラッシュ遮蔽🔴＋🟡3件 → 修正確認で過剰復元ガードの再指摘 → 最終確認で残件なし）。関連4テストクラス72件失敗0をレビュアーが独立再実行で確認。Fable受け入れ確定（2026-08-31）。
 - 実機の要確認2点: LaunchScreenはiOSキャッシュのため再インストールで確認する。ホームインジケータ帯のタップがオーバーレイに吸われることを実測する。
+
+## 2026-08-31 — 介入即時表示 v2（ウォームスタートのバックグラウンドシールド）
+
+- 作成・変更: `ios/DopaBreak/BackgroundSnapshotShield.swift` にscenePhase別の表示policy、状態コーディネータ、メインウィンドウ最上段の単色シールドhostを追加した。`ios/DopaBreak/DopaBreakApp.swift` は `LaunchSplashHost` 全体をシールドhostで包み、active処理の先頭でAppIntentの介入要求を消費する。`ios/DopaBreakTests/GateUnlockConsumptionTests.swift` はbackground／inactive／active判断と「消費中は表示、消費後に解除」の順序を検証し、`MeasurementFoundationTests.swift` は新host経由でも未オンボーディング時の初回起動記録が落ちない構成へ追従した。xcodegen生成物 `ios/DopaBreak.xcodeproj/project.pbxproj` も新規ソースを取り込んだ。
+- 採用方針・却下案: シールドは `RootTabView` 内ではLaunchSplashより上へ出せないため、WindowGroup直下の専用hostを採用した。scenePhaseから単純に `phase == .background` を導出する案は、background→inactive→active復帰でactive前にホームを露出するため却下した。.inactive単独では新規表示せず、backgroundからの復帰途中では既存シールドを保持し、activeで介入要求を同期消費してから同じanimations-disabled Transaction内で解除する。純単色 `DesignTokens.background` のみで、ロゴ・コピー・遷移アニメーションは追加していない。
+- Claude Code向け制約: シールド表示判断は `BackgroundSnapshotShieldPolicy.directive(for:)` を唯一の正本とし、host側へscenePhase分岐を増やさない。active時の `consumePendingIntervention()` → `isShieldVisible = false` の順序と、それらを包む `Transaction.disablesAnimations` を維持する。.inactiveで新しくシールドを出さない一方、background後のinactiveではactiveまで保持する。fullScreenCover（ロック画面確認・ペイウォール）は別presentation windowのため覆えない許容edgeであり、ホーム露出ではない。アプリスイッチャーのカードはプライバシー保護としてダーク単色になる。
+- 検証: generic iOS Simulator向け全7ターゲットは `BUILD SUCCEEDED`。iPhone 17 Pro Max（iOS 26.5）で `GateUnlockConsumptionTests`、`LaunchSplashTests`、`InterventionFlowGateTests`、`MeasurementFoundationTests` の74件が失敗0で `TEST SUCCEEDED`。
+
+### 2026-08-31 追記 — バックグラウンドシールド（v2）受け入れ確定
+
+- Claude Code向け制約: **シールド解除と介入提示は同一更新サイクルで完結させる**（RootTabView側の提示を非同期化・遅延化するとホーム1フレーム露出が復活する）。シールド表示判定はBackgroundSnapshotShieldPolicyに集約済みで、実機でなおスナップショットにホームが写る場合はscenePhaseからdidEnterBackgroundNotification購読へ差し替える（局所変更で済む構造）。
+- 検証: Opus5独立レビュー受け入れ可（方向依存遷移・解除順序・詰み経路すべて問題なし）。関連4クラス74件失敗0を独立再実行で確認。Fable受け入れ確定（2026-08-31）。

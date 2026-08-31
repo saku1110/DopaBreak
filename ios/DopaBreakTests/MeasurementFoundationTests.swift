@@ -703,7 +703,7 @@ final class MeasurementFoundationTests: XCTestCase {
             settingsStore: settingsStore,
             funnelEventStore: eventStore
         )
-        let rootView = AppLifecycleView(onAppActive: {
+        let rootView = BackgroundSnapshotShieldHost(onAppActive: {
             try? recorder.recordIfNeeded(at: timestamp)
         }) {
             Text("onboarding")

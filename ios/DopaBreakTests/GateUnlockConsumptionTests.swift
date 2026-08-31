@@ -1,5 +1,6 @@
 import FamilyControls
 import ManagedSettings
+import SwiftUI
 import XCTest
 @testable import DopaBreak
 @testable import DopaBreakCore
@@ -318,6 +319,45 @@ final class GateUnlockConsumptionTests: XCTestCase {
             ),
             .present
         )
+    }
+
+    func testBackgroundSnapshotShieldPolicyShowsOnlyForBackground() {
+        XCTAssertEqual(
+            BackgroundSnapshotShieldPolicy.directive(for: .background),
+            .show
+        )
+        XCTAssertEqual(
+            BackgroundSnapshotShieldPolicy.directive(for: .inactive),
+            .keepCurrent
+        )
+        XCTAssertEqual(
+            BackgroundSnapshotShieldPolicy.directive(for: .active),
+            .consumePendingInterventionThenHide
+        )
+
+        let inactiveCoordinator = BackgroundSnapshotShieldCoordinator()
+        inactiveCoordinator.handle(scenePhase: .inactive) {}
+        XCTAssertFalse(inactiveCoordinator.isShieldVisible)
+    }
+
+    func testBackgroundSnapshotShieldStaysUpThroughInactiveUntilActiveConsumption() {
+        let coordinator = BackgroundSnapshotShieldCoordinator()
+
+        coordinator.handle(scenePhase: .background) {}
+        XCTAssertTrue(coordinator.isShieldVisible)
+
+        coordinator.handle(scenePhase: .inactive) {
+            XCTFail("inactive must not consume an intervention request")
+        }
+        XCTAssertTrue(coordinator.isShieldVisible)
+
+        var wasVisibleWhileConsuming = false
+        coordinator.handle(scenePhase: .active) {
+            wasVisibleWhileConsuming = coordinator.isShieldVisible
+        }
+
+        XCTAssertTrue(wasVisibleWhileConsuming)
+        XCTAssertFalse(coordinator.isShieldVisible)
     }
 
     private func makeContext() throws -> GateUnlockTestContext {

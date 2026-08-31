@@ -1,3 +1,4 @@
+import DopaBreakCore
 import XCTest
 
 @testable import DopaBreak
@@ -100,6 +101,49 @@ final class LaunchSplashTests: XCTestCase {
         coordinator.complete(.playbackFailed)
 
         XCTAssertEqual(coordinator.completionReason, .userSkipped)
+    }
+
+    func testPendingInterventionSkipsLaunchSplashBeforePresentation() throws {
+        let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
+
+        XCTAssertEqual(
+            LaunchSplashStartupPolicy.completionReason(
+                pendingInterventionTarget: .catalog(target)
+            ),
+            .intervention
+        )
+        XCTAssertNil(
+            LaunchSplashStartupPolicy.completionReason(
+                pendingInterventionTarget: nil
+            )
+        )
+    }
+
+    func testDelayedInterventionCompletesPresentingLaunchSplash() throws {
+        let coordinator = LaunchSplashCoordinator(userDefaults: try makeUserDefaults())
+        let target = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
+
+        XCTAssertEqual(
+            coordinator.presentationDecision(
+                reduceMotion: false,
+                voiceOverRunning: false
+            ),
+            .present
+        )
+
+        let completionReason = LaunchSplashStartupPolicy.completionReason(
+            pendingInterventionTarget: .catalog(target)
+        )
+        coordinator.complete(try XCTUnwrap(completionReason))
+
+        XCTAssertEqual(coordinator.completionReason, .intervention)
+        XCTAssertEqual(
+            coordinator.presentationDecision(
+                reduceMotion: false,
+                voiceOverRunning: false
+            ),
+            .skip(.intervention)
+        )
     }
 
     func testOnlyFirstColdLaunchPolicyRecordsPresentation() throws {

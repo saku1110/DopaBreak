@@ -57,6 +57,7 @@
 - **URLルーティング**: `dopabreak://intervene?app={catalogID}` も受け付ける（ショートカットURL方式のフォールバック）。
 - **InterventionEngine**: 通常介入は `recordUntimedOpen()` で開いた事実だけを記録し、`selectedDurationSeconds` とReflectionLogを作らない。シールド一時解除だけ `recordOpen(duration)` を使う。
 - **復帰**: アプリカタログのURLスキームで `openURL`。スキーム無しアプリは「ホームに戻って開き直し」案内。
+- **起動表示（2026-08-31）**: 起動要求がある間は介入画面をルート直置き・無アニメで提示し、ホームのちらつきを出さない（fullScreenCover提示は廃止）。起動要求はbody評価前に同期読み取りする。LaunchScreenは介入画面と同色のダーク単色。
 - **時間経過通知**: 通常介入・シールド一時解除とも予約しない。過去版の `dopabreak.timeup.*` / `dopabreak.midsession.*` は起動時に削除する。
 - **時間選択UI**: シールド一時解除にだけ表示し、確定した時間を実際の解除期限として使う。通常介入には表示しない。
 

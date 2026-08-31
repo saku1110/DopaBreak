@@ -22,11 +22,21 @@ enum LaunchSplashCompletionReason: Equatable {
     case deepLink
     /// ホーム画面クイックアクションからの起動。着地先へ即座に送るため演出を畳む。
     case quickAction
+    /// AppIntentの起動要求を最初のフレームから介入へ直結するため演出を出さない。
+    case intervention
 }
 
 enum LaunchSplashPresentationDecision: Equatable {
     case present
     case skip(LaunchSplashCompletionReason)
+}
+
+enum LaunchSplashStartupPolicy {
+    static func completionReason(
+        pendingInterventionTarget: InterventionTarget?
+    ) -> LaunchSplashCompletionReason? {
+        pendingInterventionTarget == nil ? nil : .intervention
+    }
 }
 
 enum LaunchSplashDisplayPolicy: Equatable {

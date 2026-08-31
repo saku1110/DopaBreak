@@ -277,6 +277,10 @@ final class AppModel {
             }
         }
 
+        // AppIntentは別プロセスでApp Groupへ要求を書いてから本体を前面化する。
+        // View生成後のactive通知まで待つとホームが1フレーム見えるため、モデルを返す前に同期消費する。
+        consumePendingInterventionRequest(from: resolvedSettingsStore)
+
         // 完全ブロックは refresh() の中で同期する。起動直後は権利が未確定のため
         // ShieldSyncPolicy が「現状維持」を返し、確定後の refresh() で適用・解除が決まる。
         refresh(scheduleNotifications: scheduleNotificationsOnInit)

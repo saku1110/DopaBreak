@@ -5,7 +5,7 @@ import StoreKit
 import SwiftUI
 
 /// 一呼吸フロー全体（S-01〜S-05・doc12 §2 / doc11 §7）。
-/// AppIntent / URLスキーム経由で起動され、fullScreenCoverとして表示される。
+/// AppIntent / URLスキーム経由で起動され、RootTabView最前面の不透明オーバーレイとして表示される。
 struct InterventionFlowView: View {
     let onFinished: () -> Void
 

@@ -217,6 +217,109 @@ final class GateUnlockConsumptionTests: XCTestCase {
         XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
     }
 
+    func testModelInitializationSynchronouslyConsumesPendingInterventionRequest() throws {
+        let context = try makeContext()
+        defer { context.cleanup() }
+        try InterventionTargetStore(snapshotStore: context.snapshotStore)
+            .setTargets(["instagram"])
+        context.settingsStore.pendingStartInterventionAutoResolve = true
+
+        let model = context.makeModel()
+
+        XCTAssertEqual(
+            model.pendingInterventionTarget,
+            SNSAppCatalog.app(catalogID: "instagram").map(InterventionTarget.catalog)
+        )
+        XCTAssertNil(context.settingsStore.pendingStartInterventionCatalogID)
+        XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
+    }
+
+    func testOverlayStateShowsDismissesAndRecreatesForChangedTarget() throws {
+        let instagram = try XCTUnwrap(SNSAppCatalog.app(catalogID: "instagram"))
+        let youtube = try XCTUnwrap(SNSAppCatalog.app(catalogID: "youtube"))
+        var state = InterventionOverlayPresentationState()
+
+        state.present(.catalog(instagram))
+        let firstFlowID = try XCTUnwrap(state.flowID)
+        XCTAssertEqual(state.target, .catalog(instagram))
+
+        state.present(.catalog(youtube))
+        XCTAssertEqual(state.target, .catalog(youtube))
+        XCTAssertNotEqual(state.flowID, firstFlowID)
+
+        state.dismiss()
+        XCTAssertNil(state.target)
+        XCTAssertNil(state.flowID)
+    }
+
+    func testInterventionWaitsForLockScreenCheckAndPaywallDismissal() {
+        XCTAssertEqual(
+            InterventionPresentationPolicy.directive(
+                awaitingModalDismissal: nil,
+                isLockScreenCheckPresented: true,
+                isPaywallPresented: false
+            ),
+            .dismissLockScreenCheck
+        )
+        XCTAssertEqual(
+            InterventionPresentationPolicy.directive(
+                awaitingModalDismissal: nil,
+                isLockScreenCheckPresented: false,
+                isPaywallPresented: true
+            ),
+            .dismissPaywall
+        )
+        XCTAssertEqual(
+            InterventionPresentationPolicy.directive(
+                awaitingModalDismissal: .paywall,
+                isLockScreenCheckPresented: false,
+                isPaywallPresented: false
+            ),
+            .waitForModalDismissal
+        )
+        XCTAssertEqual(
+            InterventionPresentationPolicy.directive(
+                awaitingModalDismissal: nil,
+                isLockScreenCheckPresented: false,
+                isPaywallPresented: false
+            ),
+            .present
+        )
+    }
+
+    func testInterventionWaitsOnlyForPresentedModal() {
+        let presentedInterventionModal: InterventionModalBlocker? = .paywall
+        let awaitingPresentedModal = InterventionPresentationPolicy.awaitingModalDismissal(
+            for: .paywall,
+            presentedInterventionModal: presentedInterventionModal
+        )
+
+        XCTAssertEqual(
+            InterventionPresentationPolicy.directive(
+                awaitingModalDismissal: awaitingPresentedModal,
+                isLockScreenCheckPresented: false,
+                isPaywallPresented: false
+            ),
+            .waitForModalDismissal
+        )
+
+        let unpresentedInterventionModal: InterventionModalBlocker? = nil
+        let awaitingUnpresentedModal = InterventionPresentationPolicy.awaitingModalDismissal(
+            for: .paywall,
+            presentedInterventionModal: unpresentedInterventionModal
+        )
+
+        XCTAssertNil(awaitingUnpresentedModal)
+        XCTAssertEqual(
+            InterventionPresentationPolicy.directive(
+                awaitingModalDismissal: awaitingUnpresentedModal,
+                isLockScreenCheckPresented: false,
+                isPaywallPresented: false
+            ),
+            .present
+        )
+    }
+
     private func makeContext() throws -> GateUnlockTestContext {
         let containerURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("GateUnlockConsumptionTests-\(UUID().uuidString)", isDirectory: true)

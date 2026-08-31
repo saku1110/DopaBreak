@@ -76,6 +76,7 @@ targets:
         UIBackgroundModes:
           - audio
         UILaunchScreen:
+          # E1 Dark Mono / DesignTokens.background = #0B0D0F。画像・ロゴなしの単色起動面。
           UIColorName: LaunchBackground
         CFBundleURLTypes:
           - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)

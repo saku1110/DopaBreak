@@ -7,6 +7,16 @@ import UIKit
 enum InterventionTarget: Equatable {
     case catalog(SNSAppCatalogItem)
     case gateToken(tokenData: Data, ruleId: UUID)
+
+    /// SwiftUIの介入ルートを対象単位で作り直すための安定した識別子。
+    var presentationID: String {
+        switch self {
+        case .catalog(let target):
+            return "catalog:\(target.catalogID)"
+        case .gateToken(let tokenData, let ruleId):
+            return "gate:\(ruleId.uuidString):\(tokenData.base64EncodedString())"
+        }
+    }
 }
 
 /// 一呼吸フロー（S-01〜S-05・doc12 §2）の画面状態。

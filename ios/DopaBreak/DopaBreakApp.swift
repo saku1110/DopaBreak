@@ -39,7 +39,7 @@ struct DopaBreakApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel
     @State private var onboarding = OnboardingCoordinator()
-    @StateObject private var launchSplash = LaunchSplashCoordinator()
+    @StateObject private var launchSplash: LaunchSplashCoordinator
     @StateObject private var quickActions = QuickActionCenter.shared
     private let notificationDelegate: NotificationDelegate
 
@@ -52,9 +52,16 @@ struct DopaBreakApp: App {
             automaticallyRefreshEntitlement: enablesStartupSideEffects,
             scheduleNotificationsOnInit: enablesStartupSideEffects
         )
+        let launchSplash = LaunchSplashCoordinator()
+        if let reason = LaunchSplashStartupPolicy.completionReason(
+            pendingInterventionTarget: model.pendingInterventionTarget
+        ) {
+            launchSplash.complete(reason)
+        }
         _model = State(
             initialValue: model
         )
+        _launchSplash = StateObject(wrappedValue: launchSplash)
         let settingsStore = (try? SettingsStore()) ?? SettingsStore(userDefaults: .standard)
         let notificationDelegate = NotificationDelegate(
             settingsStore: settingsStore,
@@ -113,6 +120,16 @@ struct DopaBreakApp: App {
             }
             .onChange(of: onboarding.isCompleted) { _, _ in
                 updateQuickActions()
+            }
+            .onChange(of: model.pendingInterventionTarget) { _, target in
+                guard target != nil else {
+                    return
+                }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    launchSplash.complete(.intervention)
+                }
             }
             // 設定で対象アプリを全部外した直後に、着地先の無い介入枠を残さない。
             .onChange(of: model.hasInterventionTargets) { _, _ in

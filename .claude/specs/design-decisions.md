@@ -1403,3 +1403,17 @@
 
 - 作成・変更: `ios/DopaBreak/BreathingCharacterView.swift` の `beginPlaybackIfNeeded()` hasStarted分岐で `startedAtUptime` を現在時刻へ張り直し（フェイルセーフ再開時のリング・カウントダウン位相ズレ解消）。`ios/DopaBreakTests/MeasurementFoundationTests.swift` に呼吸Task生存中の `resumeBreathingIfNeeded()` no-op検証を追加。
 - 検証: Opus5独立レビュー3ラウンド（初回指摘3件→修正確認→残件確認）すべて受け入れ可・残件なし。介入フロー関連テスト最終49件失敗0・`BUILD SUCCEEDED`。Fable受け入れ確定（2026-08-29）。触覚の実際の体感・one sec的な間の質は実機検証時に確認する。
+
+## 2026-08-31 — 介入画面の初回フレーム即時表示
+
+- 作成・変更: `ios/DopaBreak/AppContainer.swift` はAppIntentがApp Groupへ保存した起動要求をモデル初期化中に同期消費する。`ios/DopaBreak/DopaBreakApp.swift`・`LaunchSplashView.swift` は初期要求がある起動だけ動画スプラッシュを省略する。`ios/DopaBreak/RootTabView.swift` は介入用`fullScreenCover`を廃止し、不透明なルート直置きオーバーレイへ置換した。`InterventionFlowModel.swift` はターゲット固有IDを提供し、`InterventionFlowView.swift` の提示契約コメントを更新した。`ios/project.yml` は画像なしの`LaunchBackground`単色起動面がE1 Dark Monoの`DesignTokens.background`（#0B0D0F）由来であることを明記した。回帰は`ios/DopaBreakTests/GateUnlockConsumptionTests.swift`と`LaunchSplashTests.swift`へ追加した。
+- 採用方針・却下案: 初期表示と遅着要求の両方を単一の消費セマンティクスへ通し、表示開始とターゲット差し替えはアニメーションを無効化、終了だけ0.2秒のease-out opacityにした。介入の前にロック画面確認またはペイウォールが存在する場合は、そのcoverのdismiss完了後に最新ターゲットを出す。既存`fullScreenCover`の継続、初回body後の`onAppear`だけでの消費、スライド終了はホームちらつきまたは仕様不一致になるため採用していない。
+- Claude Code向け制約: `AppModel.init`内の同期消費とactive時の再消費を両方維持する。オーバーレイの`.id(flowID)`、表示時の`Transaction.disablesAnimations`、終了時だけの0.2秒opacity、背景だけの`ignoresSafeArea`を外さない（フロー内容のsafe area・キーボード挙動は従来どおり）。ロック画面確認・ペイウォールのdismiss待ちを迂回して同時提示しない。介入対象が初期化時にある場合は起動動画を再生しない。
+- 検証: `xcodegen generate --spec project.yml`成功。generic iOS Simulator向け全7ターゲットは`BUILD SUCCEEDED`。iPhone 17 Pro Max（iOS 26.5）の`GateUnlockConsumptionTests`・`LaunchSplashTests`は32件、`InterventionFlowGateTests`・`MeasurementFoundationTests`は38件、合計70件が失敗0で両方`TEST SUCCEEDED`。`git diff --check`、変更対象のTODO／FIXME／旧介入cover参照0を確認した。LaunchScreenはiOSキャッシュの影響があるため、実機確認時は必要に応じてアプリを再インストールする。
+- 2026-08-31 独立レビュー追記: ペイウォール表示中に介入が来た場合は、旧実装の二重提示を防ぐためペイウォールを自動dismissしてから介入を提示する新挙動を維持する。
+- 権利未解決でも提示する。`gateToken`の棄却判定は`GateEntitlementAccess`のfail-open（未確定時true）に委ねる。
+
+### 2026-08-31 追記 — 介入即時表示の受け入れ確定
+
+- 検証: Opus5独立レビュー3ラウンド（初回差し戻し: スプラッシュ遮蔽🔴＋🟡3件 → 修正確認で過剰復元ガードの再指摘 → 最終確認で残件なし）。関連4テストクラス72件失敗0をレビュアーが独立再実行で確認。Fable受け入れ確定（2026-08-31）。
+- 実機の要確認2点: LaunchScreenはiOSキャッシュのため再インストールで確認する。ホームインジケータ帯のタップがオーバーレイに吸われることを実測する。

@@ -7,7 +7,7 @@ import WidgetKit
 @MainActor
 final class LockSurfaceCoordinator {
     /// Live Activityへ載せる目標の上限（ロック画面で読める件数＝ContentStateの4KB対策）。
-    static let liveActivityGoalLimit = 3
+    static let liveActivityGoalLimit = 5
 
     // 識別子はCoreのNotificationIdentifierを正本にする（取り消しと通知タップのルーティングで
     // 同じ文字列を参照するため、アプリ側に二重定義を持たない）。

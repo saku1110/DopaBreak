@@ -90,16 +90,69 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         }
     }
 
+    func testEveryThemeWithFourAndFiveLongGoalsFitsWithoutVerticalTextCompression() throws {
+        let longTitle = "通知に反応する前に深呼吸して本当に必要な行動か落ち着いて考えてから次の行動を選ぶ"
+        let card = CGRect(x: 0, y: 0, width: 393, height: LockThemeLiveActivityView.maximumHeight)
+
+        for count in 4...5 {
+            let titles = Array(repeating: longTitle, count: count)
+            for theme in LockTheme.allCases {
+                let frames = try renderedLayoutFrames(theme: theme, titles: titles)
+                for index in 0..<count {
+                    let frame = try XCTUnwrap(frames[.goal(index)], "Missing goal \(index) for \(theme), count \(count)")
+                    XCTAssertTrue(card.insetBy(dx: -0.5, dy: -0.5).contains(frame), "\(theme), count \(count): \(frame)")
+                    XCTAssertGreaterThanOrEqual(
+                        frame.height,
+                        8,
+                        "\(theme), count \(count), goal \(index) was vertically compressed to \(frame.height)pt"
+                    )
+                }
+
+                let measured = UIHostingController(
+                    rootView: LockThemeLiveActivityView(
+                        theme: theme,
+                        goalTitles: titles,
+                        cancelledCount: 12,
+                        attemptCount: 15,
+                        isMeasuring: true
+                    )
+                    .frame(width: card.width)
+                ).sizeThatFits(in: CGSize(width: card.width, height: .greatestFiniteMagnitude))
+                XCTAssertEqual(measured.height, card.height, accuracy: 0.5, "\(theme), count \(count)")
+            }
+        }
+    }
+
     func testAdaptiveDensityUsesApprovedTypographyIncreases() {
+        XCTAssertEqual(LockThemeLiveActivityView.maximumGoals, 5)
+        XCTAssertEqual(LockSurfaceCoordinator.liveActivityGoalLimit, 5)
         XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 1), 5)
         XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 2), 4)
-        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 3), 2)
+        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 3), 3)
+        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 4), 0)
+        XCTAssertEqual(LockThemeLiveActivityView.goalFontIncrease(forGoalCount: 5), -2)
         XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 1), 1.5)
         XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 2), 1.5)
         XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 3), 1)
+        XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 4), 0.5)
+        XCTAssertEqual(LockThemeLiveActivityView.summaryFontIncrease(forGoalCount: 5), 0)
         XCTAssertGreaterThanOrEqual(LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 1), 60)
         XCTAssertEqual(LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 2), 46.34375, accuracy: 0.01)
-        XCTAssertEqual(LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 3), 40.57421875, accuracy: 0.01)
+        XCTAssertEqual(
+            LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 3),
+            UIFont.systemFont(ofSize: 18, weight: .bold).lineHeight + 2,
+            accuracy: 0.01
+        )
+        XCTAssertEqual(
+            LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 4),
+            UIFont.systemFont(ofSize: 15, weight: .bold).lineHeight + 2,
+            accuracy: 0.01
+        )
+        XCTAssertEqual(
+            LockThemeLiveActivityView.e1GoalMinimumHeight(forGoalCount: 5),
+            UIFont.systemFont(ofSize: 13, weight: .bold).lineHeight + 2,
+            accuracy: 0.01
+        )
     }
 
     func testEveryThemeUsesAtLeast120PointsOfTypographyAndFitsWithOneGoal() throws {
@@ -207,7 +260,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                 let textInk = try XCTUnwrap(
                     inkBounds(
                         in: image,
-                        crop: referenceTextCrop(theme: theme, textFrame: textFrame),
+                        crop: referenceTextCrop(theme: theme, textFrame: textFrame, goalCount: titles.count),
                         matching: colors.text,
                         minimumInkHeight: expectedFont.capHeight * 0.6,
                         channelTolerance: 96
@@ -486,7 +539,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         let longTitle = "通知に反応する前に深呼吸して本当に必要な行動か考える"
 
         for title in [shortTitle, longTitle] {
-            for count in 1...3 {
+            for count in 1...LockThemeLiveActivityView.maximumGoals {
                 let frames = try renderedLayoutFrames(
                     theme: .e1,
                     titles: Array(repeating: title, count: count)
@@ -524,6 +577,73 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                 10,
                 "e1 goal \(index) rendered only \(inkHeight)pt of visible text ink"
             )
+        }
+    }
+
+    func testThreeGoalSpacingNeverExceedsRenderedGoalRowHeight() throws {
+        let titles = ["朝のランニングを続ける", "英語を毎日練習する", "本を30分読む"]
+
+        for theme in LockTheme.allCases {
+            let frames = try renderedLayoutFrames(theme: theme, titles: titles)
+            let goals = try titles.indices.map { index in
+                try XCTUnwrap(frames[.goal(index)], "Missing goal \(index) for \(theme)")
+            }
+            for (current, next) in zip(goals, goals.dropFirst()) {
+                let gap = next.minY - current.maxY
+                XCTAssertGreaterThanOrEqual(gap, 0, "\(theme) has overlapping goal rows: \(gap)pt")
+                XCTAssertLessThanOrEqual(
+                    gap,
+                    current.height,
+                    "\(theme) goal spacing \(gap)pt exceeds its \(current.height)pt rendered row height"
+                )
+            }
+        }
+    }
+
+    func testFiveGoalTextKeepsAtLeastEightPointsOfVisibleInkForEveryTheme() throws {
+        let titles = Array(repeating: "HHHHHHHH", count: 5)
+
+        for theme in LockTheme.allCases {
+            var renderedImage: UIImage?
+            let frames = try renderedLayoutFrames(theme: theme, titles: titles) { renderedImage = $0 }
+            let image = try XCTUnwrap(renderedImage)
+            let textColor = goalTextColor(for: theme)
+
+            for index in titles.indices {
+                let frame = try XCTUnwrap(frames[.goal(index)], "Missing goal \(index) for \(theme)")
+                let ink = try XCTUnwrap(
+                    inkBounds(in: image, crop: frame, matching: textColor, channelTolerance: 72),
+                    "Missing goal ink for \(theme), row \(index)"
+                )
+                XCTAssertGreaterThanOrEqual(
+                    ink.height,
+                    8,
+                    "\(theme) goal \(index) rendered only \(ink.height)pt of visible ink"
+                )
+            }
+        }
+    }
+
+    func testThreeThroughFiveGoalsKeepAtLeastSixPointsBelowSummary() throws {
+        let title = "朝のランニングを続ける"
+        let cardBottom = LockThemeLiveActivityView.maximumHeight
+
+        for count in 3...5 {
+            for theme in LockTheme.allCases {
+                let frames = try renderedLayoutFrames(
+                    theme: theme,
+                    titles: Array(repeating: title, count: count)
+                )
+                let summaryBottom = max(
+                    try XCTUnwrap(frames[.cancelledSummary]).maxY,
+                    try XCTUnwrap(frames[.attemptedSummary]).maxY
+                )
+                XCTAssertGreaterThanOrEqual(
+                    cardBottom - summaryBottom,
+                    6,
+                    "\(theme), count \(count) leaves only \(cardBottom - summaryBottom)pt below its summary"
+                )
+            }
         }
     }
 
@@ -627,6 +747,29 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         }
     }
 
+    private func goalTextColor(for theme: LockTheme) -> UIColor {
+        switch theme {
+        case .e1:
+            return UIColor(red: 244 / 255, green: 242 / 255, blue: 236 / 255, alpha: 1)
+        case .gaming:
+            return UIColor(red: 234 / 255, green: 234 / 255, blue: 242 / 255, alpha: 1)
+        case .asagiri:
+            return UIColor(red: 31 / 255, green: 37 / 255, blue: 47 / 255, alpha: 1)
+        case .monochrome:
+            return UIColor(red: 18 / 255, green: 18 / 255, blue: 18 / 255, alpha: 1)
+        case .liquidGlass, .blueprint:
+            return .white
+        case .kpop:
+            return UIColor(red: 35 / 255, green: 31 / 255, blue: 38 / 255, alpha: 1)
+        case .kawaiiPink:
+            return UIColor(red: 68 / 255, green: 43 / 255, blue: 49 / 255, alpha: 1)
+        case .note:
+            return UIColor(red: 59 / 255, green: 52 / 255, blue: 40 / 255, alpha: 1)
+        case .retroPop:
+            return UIColor(red: 74 / 255, green: 51 / 255, blue: 32 / 255, alpha: 1)
+        }
+    }
+
     private func inkBounds(
         in image: UIImage,
         crop: CGRect,
@@ -701,8 +844,10 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         return bounds
     }
 
-    private func referenceTextCrop(theme: LockTheme, textFrame: CGRect) -> CGRect {
-        guard theme == .e1 else { return textFrame }
+    /// e1は目標1〜2件のときだけ2行を許すため、その場合に限り1行目の帯へ絞る。
+    /// 3件以上は1行描画なので枠をそのまま使う（半分に切るとグリフが欠ける）。
+    private func referenceTextCrop(theme: LockTheme, textFrame: CGRect, goalCount: Int) -> CGRect {
+        guard theme == .e1, goalCount <= 2 else { return textFrame }
         return CGRect(
             x: textFrame.minX,
             y: textFrame.minY,

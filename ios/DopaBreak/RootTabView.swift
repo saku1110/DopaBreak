@@ -83,7 +83,6 @@ struct RootTabView: View {
     let onResetOnboarding: () -> Void
     @State private var selectedTab: AppTab = .home
     @State private var goalsAddRequest: UUID?
-    @State private var pendingReflection: ReflectionLog?
     @State private var pendingPaywallPlacement: PaywallPlacement?
     @State private var interventionOverlay: InterventionOverlayPresentationState
     @State private var isLockScreenCheckPresented = false
@@ -223,17 +222,6 @@ struct RootTabView: View {
         .onChange(of: model.pendingInterventionTarget) { _, target in
             presentPendingInterventionIfValid(target)
         }
-        .sheet(item: $pendingReflection, onDismiss: {
-            checkPendingLockScreenCheck()
-            checkPendingPaywalls()
-        }) { reflection in
-            if let engine = model.interventionEngine {
-                PostUseReflectionSheet(model: model, engine: engine, reflection: reflection) {
-                    pendingReflection = nil
-                    model.refresh()
-                }
-            }
-        }
         .fullScreenCover(isPresented: $isLockScreenCheckPresented, onDismiss: {
             presentedInterventionModal = nil
             if interventionAwaitingModalDismiss == .lockScreenCheck {
@@ -241,7 +229,6 @@ struct RootTabView: View {
             }
             consumePendingNotificationDestination()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
-            checkPendingReflection()
             checkPendingPaywalls()
         }) {
             LockScreenCheckSheet(model: model) {
@@ -299,7 +286,6 @@ struct RootTabView: View {
         consumePendingNotificationDestination()
         checkPendingIntervention()
         presentPendingInterventionIfValid(model.pendingInterventionTarget)
-        checkPendingReflection()
         checkPendingLockScreenCheck()
         checkPendingPaywalls()
     }
@@ -350,25 +336,12 @@ struct RootTabView: View {
               !isLockScreenCheckPresented,
               model.pendingInterventionTarget == nil,
               interventionOverlay.target == nil,
-              pendingReflection == nil,
               pendingPaywallPlacement == nil,
               !model.isChildModalActive else {
             return
         }
 
         isLockScreenCheckPresented = true
-    }
-
-    private func checkPendingReflection() {
-        guard model.pendingInterventionTarget == nil,
-              pendingReflection == nil,
-              !isLockScreenCheckPresented else {
-            return
-        }
-        guard let engine = model.interventionEngine else {
-            return
-        }
-        pendingReflection = try? engine.pendingReflection()
     }
 
     private func checkPendingPaywalls() {
@@ -379,7 +352,6 @@ struct RootTabView: View {
         guard settingsStore.onboardingCompleted,
               model.pendingInterventionTarget == nil,
               interventionOverlay.target == nil,
-              pendingReflection == nil,
               pendingPaywallPlacement == nil,
               !isLockScreenCheckPresented,
               !model.isChildModalActive,
@@ -511,7 +483,6 @@ struct RootTabView: View {
 
     private func runPostInterventionDismissalChecks() {
         consumePendingNotificationDestination()
-        checkPendingReflection()
         checkPendingLockScreenCheck()
         checkPendingPaywalls()
     }

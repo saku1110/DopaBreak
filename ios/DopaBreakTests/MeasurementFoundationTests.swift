@@ -995,9 +995,66 @@ final class MeasurementFoundationTests: XCTestCase {
         flow.completeBreathingForTesting()
         XCTAssertEqual(flow.stage, .reasonSelection)
         flow.selectReason(.work)
-        guard case .opening = flow.stage else {
-            return XCTFail("Direct reason should open the catalog target after breathing")
+        XCTAssertEqual(flow.stage, .durationSelection)
+    }
+
+    @MainActor
+    func testPendingReflectionAppearsBeforeBreathingAndSkipContinuesFlow() throws {
+        let context = try InterventionFlowTestContext()
+        defer { context.cleanup() }
+        let flow = try context.makeFlow()
+        defer { flow.stop() }
+        let now = Date()
+        let reflection = ReflectionLog(
+            id: UUID(),
+            attemptLogId: nil,
+            ruleId: UUID(),
+            promptedAt: now.addingTimeInterval(-3 * 60 * 60),
+            answeredAt: nil,
+            trigger: .timedSessionEnded,
+            satisfaction: nil,
+            happinessDelta: nil,
+            skipped: false,
+            createdAt: now.addingTimeInterval(-3 * 60 * 60 - 10 * 60)
+        )
+        try context.logStore.insert(reflection)
+
+        flow.start()
+
+        // Dateは保存時に timeIntervalSince1970 へ変換して読み戻すため、浮動小数の丸めで
+        // 元の値と厳密一致しないことがある。構造体まるごとの比較は実行時刻依存で落ちるのでidで判定する。
+        guard case .reflection(let pending) = flow.stage else {
+            return XCTFail("振り返りステージで始まらなかった: \(flow.stage)")
         }
+        XCTAssertEqual(pending.id, reflection.id)
+        flow.skipReflection()
+        XCTAssertEqual(flow.stage, .breathing)
+        XCTAssertTrue(try XCTUnwrap(context.logStore.fetchReflections().first).skipped)
+    }
+
+    func testReflectionTimingSummaryIncludesElapsedTimeAndDeclaredMinutes() {
+        let promptedAt = Date(timeIntervalSince1970: 10_000)
+        let reflection = ReflectionLog(
+            id: UUID(),
+            attemptLogId: nil,
+            ruleId: UUID(),
+            promptedAt: promptedAt,
+            answeredAt: nil,
+            trigger: .timedSessionEnded,
+            satisfaction: nil,
+            happinessDelta: nil,
+            skipped: false,
+            createdAt: promptedAt.addingTimeInterval(-10 * 60)
+        )
+
+        XCTAssertEqual(ReflectionTimingSummary.durationMinutes(for: reflection), 10)
+        XCTAssertEqual(
+            ReflectionTimingSummary.elapsedMinutes(
+                for: reflection,
+                now: promptedAt.addingTimeInterval(3 * 60 * 60)
+            ),
+            180
+        )
     }
 
     @MainActor
@@ -1102,6 +1159,12 @@ private struct InterventionFlowTestContext {
     let defaults: UserDefaults
     let settingsStore: SettingsStore
     let model: AppModel
+
+    var logStore: SQLiteLogStore {
+        get throws {
+            try SQLiteLogStore(containerProvider: FixedContainer(url: containerURL))
+        }
+    }
 
     init() throws {
         suiteName = "MeasurementFoundationTests.InterventionFlow.\(UUID().uuidString)"

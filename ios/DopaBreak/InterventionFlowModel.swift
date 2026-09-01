@@ -21,6 +21,7 @@ enum InterventionTarget: Equatable {
 
 /// 一呼吸フロー（S-01〜S-05・doc12 §2）の画面状態。
 enum InterventionFlowStage: Equatable {
+    case reflection(ReflectionLog)
     case breathing
     case usageSummary
     case reasonSelection
@@ -105,6 +106,10 @@ final class InterventionFlowModel {
     private(set) var selectedReason: InterventionReason?
     private(set) var selectedDuration: InterventionDuration = .tenMinutes
     private(set) var isAwaitingTargetOpen = false
+    private(set) var winReclaimedSeconds = 0
+    private(set) var winLifetimeReclaimedSeconds = 0
+    private(set) var winEstimatedMinutesPerCancellation = 1
+    private(set) var winMilestone: ReclaimedTimeMilestone?
 
     private var breathTask: Task<Void, Never>?
     private var startGeneration = 0
@@ -168,24 +173,39 @@ final class InterventionFlowModel {
             return
         }
         do {
-            let resolvedRuleID: UUID
-            switch target {
-            case .catalog(let catalogTarget):
-                resolvedRuleID = try model.ruleStore.catalogTargetRule(for: catalogTarget).id
-            case .gateToken(_, let gateRuleID):
-                resolvedRuleID = gateRuleID
+            if let reflection = try engine.pendingReflection() {
+                stage = .reflection(reflection)
+                return
             }
-            let current = try engine.currentStep()
-            let resumable: Set<InterventionStep> = [.idle, .cancelled, .postUseReflection]
-            if !resumable.contains(current) {
-                try engine.resetToIdle()
-            }
-            try engine.beginIntervention(ruleId: resolvedRuleID)
-            todayAttemptDisplayCount = model.todayAttemptCount(for: resolvedRuleID) + 1
-            selectedReason = nil
-            beginBreathing()
+            try beginInterventionAndBreathing(using: engine)
         } catch {
             stage = .failed(String(localized: "intervention.error.preparation", defaultValue: "準備できませんでした"))
+        }
+    }
+
+    func recordReflection(_ satisfaction: PostUseSatisfaction) {
+        guard case .reflection(let reflection) = stage,
+              let engine = model.interventionEngine else { return }
+        do {
+            try engine.recordPostUseReflection(
+                id: reflection.id,
+                satisfaction: satisfaction,
+                happinessDelta: satisfaction.impliedHappinessDelta
+            )
+            try beginInterventionAndBreathing(using: engine)
+        } catch {
+            stage = .failed(String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした"))
+        }
+    }
+
+    func skipReflection() {
+        guard case .reflection(let reflection) = stage,
+              let engine = model.interventionEngine else { return }
+        do {
+            try engine.skipReflection(id: reflection.id)
+            try beginInterventionAndBreathing(using: engine)
+        } catch {
+            stage = .failed(String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした"))
         }
     }
 
@@ -296,8 +316,22 @@ final class InterventionFlowModel {
         guard stage == .usageSummary || stage == .durationSelection else { return }
         guard let engine = model.interventionEngine else { return }
         do {
-            try engine.recordCancel()
+            let reclaimedSeconds = try engine.recordCancel()
             model.refresh()
+            let lifetimeReclaimedSeconds = try model.reclaimedSecondsAllTime()
+            let todayReclaimedSeconds = try model.reclaimedSecondsToday()
+            winReclaimedSeconds = reclaimedSeconds
+            winLifetimeReclaimedSeconds = lifetimeReclaimedSeconds
+            winEstimatedMinutesPerCancellation = ReclaimedTimeFormatter.estimatedMinutesPerCancellation(
+                todayReclaimedSeconds: todayReclaimedSeconds,
+                todayCancellationCount: model.todayCancelledCount,
+                fallbackSeconds: reclaimedSeconds
+            )
+            winMilestone = ReclaimedTimeMilestoneTracker.claimNewMilestone(
+                previousTotalSeconds: lifetimeReclaimedSeconds - reclaimedSeconds,
+                totalSeconds: lifetimeReclaimedSeconds,
+                settingsStore: settingsStore
+            )
             stage = .win
         } catch {
             stage = .failed(String(localized: "intervention.error.record", defaultValue: "記録できませんでした"))
@@ -315,43 +349,45 @@ final class InterventionFlowModel {
     }
 
     func confirmSelectedDuration() {
-        guard stage == .durationSelection,
-              case .gateToken(let tokenData, let ruleId) = target else { return }
-        openGateTarget(
-            tokenData: tokenData,
-            ruleId: ruleId,
-            for: selectedDuration
-        )
-    }
-
-    private func proceedToOpenOrDurationSelection() {
+        guard stage == .durationSelection else { return }
         switch target {
         case .catalog(let catalogTarget):
-            openCatalogTarget(catalogTarget)
-        case .gateToken:
-            stage = .durationSelection
+            openCatalogTarget(catalogTarget, for: selectedDuration)
+        case .gateToken(let tokenData, let ruleId):
+            openGateTarget(
+                tokenData: tokenData,
+                ruleId: ruleId,
+                for: selectedDuration
+            )
         }
     }
 
-    private func recordUntimedOpen() {
+    private func proceedToOpenOrDurationSelection() {
+        stage = .durationSelection
+    }
+
+    private func recordCatalogOpen(for duration: InterventionDuration) {
         guard let engine = model.interventionEngine else { return }
         do {
-            try engine.recordUntimedOpen()
+            try engine.recordCatalogOpen(durationSeconds: duration.seconds)
             model.refresh()
         } catch {
             stage = .failed(String(localized: "intervention.error.record", defaultValue: "記録できませんでした"))
         }
     }
 
-    private func openCatalogTarget(_ catalogTarget: SNSAppCatalogItem) {
+    private func openCatalogTarget(
+        _ catalogTarget: SNSAppCatalogItem,
+        for duration: InterventionDuration
+    ) {
         let fallbackMessage = String(
             localized: "intervention.opening.manual_fallback",
             defaultValue: "ホーム画面から\(catalogTarget.displayName)を開いてください"
         )
         guard let urlScheme = catalogTarget.urlScheme, let url = URL(string: urlScheme) else {
             stage = .opening(fallbackMessage: fallbackMessage)
-            // URLスキームがないアプリは、この案内から手動で開く前提で開いた事実だけを記録する。
-            recordUntimedOpen()
+            // URLスキームがないアプリは、この案内から手動で開く前提で宣言時間を記録する。
+            recordCatalogOpen(for: duration)
             return
         }
 
@@ -360,11 +396,11 @@ final class InterventionFlowModel {
         UIApplication.shared.open(url, options: [:]) { [weak self] success in
             guard let self else { return }
             if success {
-                self.recordUntimedOpen()
+                self.recordCatalogOpen(for: duration)
             } else {
                 self.stage = .opening(fallbackMessage: fallbackMessage)
-                // URL起動失敗時も、この案内から手動で開く前提で開いた事実だけを記録する。
-                self.recordUntimedOpen()
+                // URL起動失敗時も、この案内から手動で開く前提で宣言時間を記録する。
+                self.recordCatalogOpen(for: duration)
             }
             self.isAwaitingTargetOpen = false
         }
@@ -439,6 +475,25 @@ final class InterventionFlowModel {
                 defaultValue: "左上の◀をタップすると、\(duration.rawValue)分間開けます"
             )
         )
+    }
+
+    private func beginInterventionAndBreathing(using engine: InterventionEngine) throws {
+        let resolvedRuleID: UUID
+        switch target {
+        case .catalog(let catalogTarget):
+            resolvedRuleID = try model.ruleStore.catalogTargetRule(for: catalogTarget).id
+        case .gateToken(_, let gateRuleID):
+            resolvedRuleID = gateRuleID
+        }
+        let current = try engine.currentStep()
+        let resumable: Set<InterventionStep> = [.idle, .cancelled, .postUseReflection]
+        if !resumable.contains(current) {
+            try engine.resetToIdle()
+        }
+        try engine.beginIntervention(ruleId: resolvedRuleID)
+        todayAttemptDisplayCount = model.todayAttemptCount(for: resolvedRuleID) + 1
+        selectedReason = nil
+        beginBreathing()
     }
 
 }

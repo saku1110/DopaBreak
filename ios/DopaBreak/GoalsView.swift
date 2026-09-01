@@ -43,10 +43,23 @@ struct GoalsView: View {
                         emptyRow
                     } else {
                         ForEach(Array(model.goals.enumerated()), id: \.element.id) { index, goal in
-                            goalRow(goal, isPrimary: index == 0)
+                            goalRow(goal, index: index)
                         }
                         .onDelete(perform: deleteGoals)
                         .onMove(perform: model.moveGoal)
+                    }
+                } footer: {
+                    if !model.goals.isEmpty {
+                        Text(
+                            String(
+                                localized: "goals.footer.lock_screen_limit",
+                                defaultValue: "ロック画面に出るのは上から5つまで 並べ替えで入れ替えられます"
+                            )
+                        )
+                            .dopaFont(12, weight: .medium, lineSpacing: 3)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textCase(nil)
                     }
                 }
 
@@ -162,7 +175,7 @@ struct GoalsView: View {
         )
     }
 
-    private func goalRow(_ goal: Goal, isPrimary: Bool) -> some View {
+    private func goalRow(_ goal: Goal, index: Int) -> some View {
         Button {
             editorRoute = GoalEditorRoute(goal: goal)
         } label: {
@@ -171,7 +184,7 @@ struct GoalsView: View {
                     GoalCategoryTile(category: goal.category, size: 44)
 
                     VStack(alignment: .leading, spacing: 7) {
-                        SmallLabel(text: rowLabel(for: goal, isPrimary: isPrimary))
+                        SmallLabel(text: rowLabel(for: goal, index: index))
                         Text(goal.title)
                             .dopaFont(18, weight: .bold)
                             .foregroundStyle(DesignTokens.primaryText)
@@ -203,15 +216,15 @@ struct GoalsView: View {
         )
     }
 
-    /// カテゴリ名。先頭の目標だけはロック画面に出ていることも添える。
-    private func rowLabel(for goal: Goal, isPrimary: Bool) -> String {
+    /// カテゴリ名。ロック画面に出ない目標だけ注記を添える。
+    private func rowLabel(for goal: Goal, index: Int) -> String {
         let category = goal.category.japaneseLabel
-        guard isPrimary else {
+        guard index >= LockSurfaceCoordinator.liveActivityGoalLimit else {
             return category
         }
         let badge = String(
-            localized: "goals.badge.on_lock_screen",
-            defaultValue: "ロック画面に表示中"
+            localized: "goals.badge.off_lock_screen",
+            defaultValue: "ロック画面には出ません"
         )
         return "\(category) ・ \(badge)"
     }

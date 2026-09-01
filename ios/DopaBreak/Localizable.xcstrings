@@ -6949,6 +6949,30 @@
         }
       }
     },
+    "intervention.duration.catalog_notice": {
+      "comment": "Screen: Intervention catalog duration selection",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app will not close automatically when this time ends"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この時間が過ぎてもアプリは自動では閉じません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 시간이 지나도 앱은 자동으로 닫히지 않아요"
+          }
+        }
+      }
+    },
     "intervention.duration.eyebrow": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
@@ -7233,30 +7257,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "나의 목표"
-          }
-        }
-      }
-    },
-    "intervention.goal.eyebrow": {
-      "comment": "Screen: Intervention",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "YOUR GOAL"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "YOUR GOAL"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "YOUR GOAL"
           }
         }
       }
@@ -7597,146 +7597,170 @@
         }
       }
     },
-    "intervention.success.attempt_count": {
+    "intervention.success.daily_cancelled": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld"
+            "value": "Didn't open today · %lld"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld"
+            "value": "今日 %lld回 開かなかった"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld"
+            "value": "오늘 %lld회 열지 않음"
           }
         }
       }
     },
-    "intervention.success.cancelled_count": {
+    "intervention.success.goals.title": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld"
+            "value": "Ways to use this time"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld"
+            "value": "この時間の使いみち"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld"
+            "value": "이 시간을 쓰는 방법"
           }
         }
       }
     },
-    "intervention.success.daily_attempt": {
+    "intervention.success.milestone.days": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "#%lld today"
+            "value": "A full %lld days reclaimed"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日%lld回目"
+            "value": "まる%lld日ぶん 取り戻した"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오늘 %lld번째"
+            "value": "꼬박 %lld일치 되찾음"
           }
         }
       }
     },
-    "intervention.success.metric.attempted": {
+    "intervention.success.milestone.hours": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tried to open"
+            "value": "%lld hours reclaimed"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開こうとした"
+            "value": "%lld時間ぶん 取り戻した"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 한 횟수"
+            "value": "%lld시간치 되찾음"
           }
         }
       }
     },
-    "intervention.success.metric.cancelled": {
+    "intervention.success.reclaimed.increment": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open"
+            "value": "+%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かなかった"
+            "value": "＋%@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않음"
+            "value": "+%@"
           }
         }
       }
     },
-    "intervention.success.title": {
+    "intervention.success.reclaimed.label": {
       "comment": "Screen: Intervention",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Didn't open\nThat's time you kept for yourself"
+            "value": "Reclaimed time"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開かずにすんだ\nそのぶん自分の時間が残った"
+            "value": "取り戻した時間"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열지 않았어요\n그만큼 내 시간이 남았어요"
+            "value": "되찾은 시간"
+          }
+        }
+      }
+    },
+    "intervention.success.reclaimed.total": {
+      "comment": "Screen: Intervention",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "累計 %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "누적 %@"
           }
         }
       }
@@ -8701,6 +8725,78 @@
         }
       }
     },
+    "reflection.context.elapsed_hours": {
+      "comment": "Screen: Reflection; elapsed whole hours",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld hr"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld시간"
+          }
+        }
+      }
+    },
+    "reflection.context.elapsed_minutes": {
+      "comment": "Screen: Reflection; elapsed whole minutes",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld分"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld분"
+          }
+        }
+      }
+    },
+    "reflection.context.summary": {
+      "comment": "Screen: Reflection; elapsed time then declared duration",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About the %2$lld min from %1$@ ago"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@前の%2$lld分について"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 전의 %2$lld분에 대해"
+          }
+        }
+      }
+    },
     "reflection.error.data_save": {
       "comment": "Screen: Reflection",
       "extractionState": "manual",
@@ -8756,19 +8852,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Note how you feel now. It may help the next time you choose whether to open."
+            "value": "Note how you feel now to help the next time you choose whether to open"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "使い終えた今の気持ちを記録しておくと、次に開くか選ぶときの参考になります。"
+            "value": "今の気持ちを記録すると次に開くか選ぶときの参考になります"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지금 기분을 기록해 두면 다음에 열지 말지 고를 때 도움이 돼요."
+            "value": "지금 기분을 기록하면 다음에 열지 말지 고를 때 도움이 돼요"
           }
         }
       }
@@ -14206,26 +14302,26 @@
         }
       }
     },
-    "goals.badge.on_lock_screen": {
+    "goals.badge.off_lock_screen": {
       "comment": "Screen: Goals",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Showing on the Lock Screen"
+            "value": "Not on the Lock Screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ロック画面に表示中"
+            "value": "ロック画面には出ません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "잠금 화면에 표시 중"
+            "value": "잠금 화면에 표시되지 않아요"
           }
         }
       }
@@ -14250,6 +14346,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "목표를 원하는 만큼 추가할 수 있어요"
+          }
+        }
+      }
+    },
+    "goals.footer.lock_screen_limit": {
+      "comment": "Screen: Goals",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only your top five goals appear on the Lock Screen. Reorder to choose which."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロック画面に出るのは上から5つまで 並べ替えで入れ替えられます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잠금 화면에는 위에서 5개까지만 표시돼요. 순서를 바꿔 고를 수 있어요."
           }
         }
       }

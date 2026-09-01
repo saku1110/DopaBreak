@@ -44,6 +44,20 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(SettingsStore(userDefaults: defaults).lockScreenCheckCompleted)
     }
 
+    func testReclaimedMilestonePersistsAndIsResettable() {
+        store.lastCelebratedReclaimedMilestoneSeconds = 86_400
+
+        XCTAssertEqual(
+            SettingsStore(userDefaults: defaults).lastCelebratedReclaimedMilestoneSeconds,
+            86_400
+        )
+
+        store.resetToDefaults()
+
+        XCTAssertEqual(store.lastCelebratedReclaimedMilestoneSeconds, 0)
+        XCTAssertNil(defaults.object(forKey: "lastCelebratedReclaimedMilestoneSeconds"))
+    }
+
     func testLockSurfaceValuesPersistAndNormalizeMinutes() {
         store.morningNotificationEnabled = false
         store.morningNotificationMinutes = 1_500

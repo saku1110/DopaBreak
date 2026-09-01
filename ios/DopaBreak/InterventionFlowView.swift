@@ -111,7 +111,10 @@ struct InterventionFlowView: View {
         // 触覚は「結果が確定した瞬間」だけに絞る。段階送りのたびに鳴らすと意味が薄れる。
         .sensoryFeedback(trigger: flow.stage) { _, stage in
             switch stage {
-            case .win: return .success
+            case .win:
+                return flow.winMilestone == nil
+                    ? .success
+                    : .impact(weight: .heavy, intensity: 1)
             case .failed, .limit: return .error
             default: return nil
             }
@@ -187,6 +190,12 @@ struct InterventionFlowView: View {
     @ViewBuilder
     private var flowContent: some View {
         switch flow.stage {
+        case .reflection(let reflection):
+            PostUseReflectionContent(
+                reflection: reflection,
+                onSelect: flow.recordReflection,
+                onSkip: flow.skipReflection
+            )
         case .breathing:
             breathingScreen
         case .usageSummary:
@@ -546,6 +555,17 @@ struct InterventionFlowView: View {
                 )
                     .dopaFont(14, weight: .medium)
                     .foregroundStyle(DesignTokens.secondaryText)
+                if case .catalog = flow.target {
+                    Text(
+                        String(
+                            localized: "intervention.duration.catalog_notice",
+                            defaultValue: "この時間が過ぎてもアプリは自動では閉じません"
+                        )
+                    )
+                        .dopaFont(14, weight: .semibold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     ForEach(InterventionDuration.allCases) { duration in
                         let isSelected = flow.selectedDuration == duration
@@ -647,97 +667,31 @@ struct InterventionFlowView: View {
     }
 
     private var usageSummaryOpenActionTitle: String {
-        switch flow.target {
-        case .catalog:
-            String(localized: "intervention.usage_summary.action.open", defaultValue: "開く")
-        case .gateToken:
-            String(
-                localized: "intervention.usage_summary.action.choose_duration",
-                defaultValue: "開く時間を選ぶ"
-            )
-        }
+        String(
+            localized: "intervention.usage_summary.action.choose_duration",
+            defaultValue: "開く時間を選ぶ"
+        )
     }
 
     private func openingSummary(for reason: InterventionReason) -> String {
-        switch flow.target {
-        case .catalog:
-            reason.displayTitle
-        case .gateToken:
-            String(
-                localized: "intervention.opening.summary",
-                defaultValue: "\(reason.displayTitle) ・ \(flow.selectedDuration.rawValue)分"
-            )
-        }
+        String(
+            localized: "intervention.opening.summary",
+            defaultValue: "\(reason.displayTitle) ・ \(flow.selectedDuration.rawValue)分"
+        )
     }
 
     // MARK: - 勝ち画面
 
     private var winScreen: some View {
-        stepScaffold {
-            VStack(alignment: .center, spacing: 18) {
-                CharacterView(.relief, size: DesignTokens.CharacterSize.support)
-                    .frame(
-                        width: DesignTokens.CharacterSize.support * (96.0 / 86.0),
-                        height: DesignTokens.CharacterSize.support
-                    )
-                    .background(DesignTokens.card)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(DesignTokens.hairline, lineWidth: 1)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .characterPop(.celebrate)
-
-                Text(String(localized: "intervention.success.title", defaultValue: "開かずにすんだ\nそのぶん自分の時間が残った"))
-                    .dopaFont(32, weight: .black, lineSpacing: 4)
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-
-                Text(
-                    String(
-                        localized: "intervention.success.daily_attempt",
-                        defaultValue: "今日\(flow.todayAttemptDisplayCount)回目"
-                    )
-                )
-                    .dopaFont(15, weight: .semibold)
-                    .foregroundStyle(DesignTokens.secondaryText)
-
-                if let goal = flow.goals.first {
-                    CardContainer {
-                        VStack(alignment: .leading, spacing: 8) {
-                            SmallLabel(text: String(localized: "intervention.goal.eyebrow", defaultValue: "YOUR GOAL"))
-                            Text(goal.title)
-                                .dopaFont(17, weight: .bold)
-                                .foregroundStyle(DesignTokens.primaryText)
-                        }
-                    }
-                }
-
-                CardContainer {
-                    HStack(spacing: 18) {
-                        metricColumn(
-                            label: String(
-                                localized: "intervention.success.metric.cancelled",
-                                defaultValue: "開かなかった"
-                            ),
-                            value: todayCancelledCountText
-                        )
-                        Rectangle()
-                            .fill(DesignTokens.hairline)
-                            .frame(width: 1, height: 54)
-                        metricColumn(
-                            label: String(
-                                localized: "intervention.success.metric.attempted",
-                                defaultValue: "開こうとした"
-                            ),
-                            value: todayAttemptCountText
-                        )
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity)
+        stepScaffold(topPadding: 28) {
+            WinScreenContent(
+                reclaimedSeconds: flow.winReclaimedSeconds,
+                lifetimeReclaimedSeconds: flow.winLifetimeReclaimedSeconds,
+                todayCancelledCount: flow.todayCancelledCountForDisplay,
+                estimatedMinutesPerCancellation: flow.winEstimatedMinutesPerCancellation,
+                goals: flow.goals,
+                milestone: flow.winMilestone
+            )
         } action: {
             primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
                 onFinished()
@@ -830,49 +784,19 @@ struct InterventionFlowView: View {
         }
     }
 
-    private var todayCancelledCountText: String {
-        String(
-            localized: "intervention.success.cancelled_count",
-            defaultValue: "\(flow.todayCancelledCountForDisplay)"
-        )
-    }
-
-    private var todayAttemptCountText: String {
-        String(
-            localized: "intervention.success.attempt_count",
-            defaultValue: "\(flow.todayAttemptCountForDisplay)"
-        )
-    }
-
-    private func metricColumn(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .dopaFont(13, weight: .semibold)
-                .foregroundStyle(DesignTokens.secondaryText)
-            Text(value)
-                .dopaFont(30, weight: .bold, design: .rounded)
-                .monospacedDigit()
-                .foregroundStyle(DesignTokens.accent)
-                // 数字が増えるところは桁を回して見せる。
-                .contentTransition(.numericText())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // 「開くのをやめた / 3」を1つの読み上げにまとめる。
-        .accessibilityElement(children: .combine)
-    }
-
     /// - Parameter hasAction: CTAを持たない段階では `false`。
     ///   `EmptyView` を渡しても余白と背景は残るため、固定バー自体を作らないことで
     ///   本文の安全領域が30pt無駄に縮むのを防ぐ。
     private func stepScaffold<Content: View, Action: View>(
         hasAction: Bool = true,
+        topPadding: CGFloat = 60,
         @ViewBuilder content: () -> Content,
         @ViewBuilder action: () -> Action
     ) -> some View {
         ScrollView {
             content()
                 .padding(.horizontal, 20)
-                .padding(.top, 60)
+                .padding(.top, topPadding)
                 .padding(.bottom, 40)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

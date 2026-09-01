@@ -1429,3 +1429,46 @@
 
 - Claude Code向け制約: **シールド解除と介入提示は同一更新サイクルで完結させる**（RootTabView側の提示を非同期化・遅延化するとホーム1フレーム露出が復活する）。シールド表示判定はBackgroundSnapshotShieldPolicyに集約済みで、実機でなおスナップショットにホームが写る場合はscenePhaseからdidEnterBackgroundNotification購読へ差し替える（局所変更で済む構造）。
 - 検証: Opus5独立レビュー受け入れ可（方向依存遷移・解除順序・詰み経路すべて問題なし）。関連4クラス74件失敗0を独立再実行で確認。Fable受け入れ確定（2026-08-31）。
+
+## 2026-08-31 — Live Activity密度v2: 目標5件対応と3件時の行高水増し廃止
+
+- 作成・変更: 設計正本 `.claude/specs/live-activity-density-v2-five-goals.md` を追加し、`ios/WidgetsExtension/LockThemeLiveActivityView.swift` の全10テーマを目標1〜5件へ拡張した。`maximumGoals` と `LockSurfaceCoordinator.liveActivityGoalLimit` を3から5へ引き上げ、`densityValue` を5分岐へ置き換えた。`ios/DopaBreakTests/LockThemeLiveActivityViewTests.swift` へ4〜5件の収まりと非圧縮、3〜5件の下余白6pt以上、5件の実インク8pt以上の回帰を追加した。目視検証用に `ios/DopaBreakTests/LockThemeDensitySnapshotCapture.swift` を追加し、10テーマ×1〜5件を `output/verify/live-activity-density/` へ書き出す。
+- 採用方針・却下案: オーナー実機指摘「3件で行間の余白を取りすぎ」の原因は `e1GoalMinimumHeight` が3件でも各行に2行分（約40.57pt）を強制していたこと。3件以上は1行実高+2ptへ改め、余りは行高ではなくフォントとセクション間隔へ配分した。目標フォント増分は1件+5／2件+4／3件+3（v1の+2から拡大）／4件0／5件-2、サマリー増分は1〜2件1.5／3件1／4件0.5／5件0。外側縦paddingは全件数で6pt以上とし、e1の3件時 `0` によるカード下辺への張り付きを解消した。カード高の変更、4〜5件でのeyebrow削除、2行折返しの維持（3件18ptでは高さ予算に収まらない）は採用しなかった。
+- Claude Code向け制約: 160pt固定・四辺描画・水平16pt（note左46pt例外）・マーカーのcap中心整列を維持する。e1の2行折返しは1〜2件のみ、3件以上は1行。4〜5件は `minimumScaleFactor(0.55)`、3件は0.85、noteは手書きフォントが潰れるため縮小させず末尾省略で逃がす。件数別フォント増分は `goalFontIncrease`／`summaryFontIncrease` を唯一の正本として全テーマで共用する。テストの許容誤差・期待値を緩めて通すことは禁止。テストヘルパー `referenceTextCrop` はe1が2行を描く1〜2件のときだけ枠を半分に絞る（3件以上で半分にするとグリフが欠けて誤判定する）。
+- 検証: `xcodegen generate` 成功。iPhone 16 Pro Simulatorで `xcodebuild test` 全281件・18skip・失敗0で `TEST SUCCEEDED`。`scripts/lint-display-copy.py` と `scripts/audit-default-values.py` はexit 0。10テーマ×3／4／5件の実描画を目視確認し、切れ・潰れ・下辺張り付きがないことを確認した（liquidGlassのサマリー白飛びはImageRendererがガラス素材を描けない既存の描画癖で、変更前も同一）。
+
+## 2026-08-31 — Live Activity密度v2の縮小時マーカーcap中心補正
+
+- 作成・変更: `ios/WidgetsExtension/LockThemeLiveActivityView.swift` のe1マーカーへ `scaledGoalCapCenterOffset` を追加し、gamingの3件以上向け件数補正を同ヘルパーの `unscaledOffset` へ統合した。長い日本語3件が18pt・1行・`minimumScaleFactor(0.85)`で縮小される場合も、タイトル幅から求めた実効縮小率へマーカー位置が追随する。
+- 採用方針・却下案: 非縮小時は件数別のgaming補正を維持し、縮小時は固定値を加算せずcapHeightと実効縮小率から導く既存補正へ切り替える。マーカーを行ボックス中央へ戻す案、行別の固定pt調整、テストの期待値または許容誤差を緩める案は却下した。
+- Claude Code向け制約: e1／gamingの `.firstTextBaseline` と `markerCenterAlignedToCapHeight`、`scaledGoalCapCenterOffset` の実効縮小率計算を維持する。gamingの件数別 `unscaledOffset` を縮小補正の外で重ねず、e1の3件密度（18pt・1行・`minimumScaleFactor(0.85)`）とマーカー整列許容±0.75ptを変更しない。
+- 検証: iPhone 16 Pro Simulatorで `DopaBreakTests/LockThemeLiveActivityViewTests` 全23件・失敗0、`TEST SUCCEEDED`。長い日本語3件のマーカー中心差はe1が各行-0.5／0／-0.5pt、gamingが-0.5／0／0ptで、非縮小の1〜5件を含む全マーカー回帰も失敗0。
+
+## 2026-08-31 — 目標一覧のロック画面表示上限注釈
+
+- 作成・変更: `ios/DopaBreak/GoalsView.swift` の目標リスト`Section`に、目標が1件以上ある場合だけロック画面の表示上限と並べ替えを案内するフッターを追加した。行ラベルは配列順の`index`を受け取り、`LockSurfaceCoordinator.liveActivityGoalLimit`未満にはバッジを付けず、上限以上の行だけ`goals.badge.off_lock_screen`を表示する。`ios/DopaBreak/Localizable.xcstrings`では旧`goals.badge.on_lock_screen`を削除した。
+- ローカライズ: `goals.footer.lock_screen_limit`と`goals.badge.off_lock_screen`をja/en/koの3言語で追加・同期した。Swift側のja `defaultValue`とカタログjaは完全一致させ、既存の`dopaFont`／`DesignTokens.secondaryText`をフッター表示へ適用した。
+- 採用方針・却下案: 目標の登録数は無制限のまま保ち、Live Activityに載る先頭分だけを表示対象と明示する。先頭行だけを表示中とする旧バッジは5件表示後の事実と矛盾するため廃止し、表示対象外の行だけへ注記する。表示件数をGoalsViewへ別定数として複製する案は、Live Activity側との不整合を生むため採用していない。
+- Claude Code向け制約: フッターは目標0件では表示しない。バッジ分岐は`LockSurfaceCoordinator.liveActivityGoalLimit`を唯一の上限参照とし、文言内の数値はカタログ正本のままにする。日本語の短い表示テキストへ読点を追加せず、ja/en/koの3言語と各`defaultValue`を同期する。
+- 検証: `xcodegen generate`成功。指定iPhone 16 Pro Simulatorの`xcodebuild test`は282件実行・18件スキップ・失敗0で`TEST SUCCEEDED`。`python3 scripts/lint-display-copy.py`と`python3 scripts/audit-default-values.py`はともにexit 0、カタログの3言語完全一致、旧キーの実装・カタログ参照なし、`git diff --check`を確認した。
+
+## 2026-08-31 — 一呼吸フローの時間選択と振り返り提示位置
+
+- 作成・変更: `ios/DopaBreak/InterventionFlowModel.swift` と `InterventionFlowView.swift` はcatalog／gateTokenの両経路を時間選択へ統一し、未回答の `ReflectionLog` がある場合だけ呼吸前に `.reflection` を表示する。`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/InterventionEngine.swift` はトークンなしのcatalog用 `recordCatalogOpen(durationSeconds:)` で選択時間つきAttemptLogと `promptedAt = openedAt + duration` のReflectionLogを作り、既定の振り返り対象窓を24時間へ延長した。`ios/DopaBreak/PostUseReflectionSheet.swift` は既存5択を `PostUseReflectionContent` として共用し、`ReflectionLog.createdAt` と `promptedAt` から経過時間と宣言分数を表示する。`ios/DopaBreak/RootTabView.swift` から旧独立シート提示を削除し、`ios/DopaBreak/Localizable.xcstrings` にcatalog注意文と振り返り文脈をja/en/koで追加した。回帰は `ios/DopaBreakTests/MeasurementFoundationTests.swift`、`InterventionMergeCopyTests.swift`、`ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/InterventionEngineTests.swift` に追加・更新した。
+- 採用方針・却下案: catalogは選択時間を宣言と振り返りにだけ使い、記録後のエンジン状態をidleへ戻す方式を採用した。gateTokenの `temporarilyAllowed` と再シールドは従来どおりPro経路だけに残す。振り返りはRootのアプリ復帰シートではなく次の一呼吸オーバーレイの先頭へ組み込み、回答またはスキップ後に同じフロー内でbreathingへ進める。通知で満了を知らせる案、無料ユーザーを時間で強制停止する案、ReflectionLogへ表示用フィールドを足す案は採用していない。
+- Claude Code向け制約: `PostUseSatisfaction`／`HappinessDelta`／`ReflectionLog` のスキーマを変更しない。catalogの時間は自動終了や再シールドを意味しないため `intervention.duration.catalog_notice` を削除しない。振り返りの決めた分数は `promptedAt - createdAt`、経過時間は現在時刻と `promptedAt` の差から導出し、先頭ステージ以外に別提示経路を復活させない。回答・スキップ後は `beginInterventionAndBreathing(using:)` を通し、既存の呼吸世代ガードとgateTokenの権利判定を維持する。表示コピーは読点なし、Swift defaultValueとja/en/koカタログを同期する。
+- 検証: `xcodegen generate` 成功。指定iPhone 16 Pro Simulatorの `xcodebuild test` は284件実行・18件スキップ・失敗0で `TEST SUCCEEDED`。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はともにexit 0。catalog時間選択、catalog ReflectionLog作成、冒頭振り返り、経過時間／宣言分数、24時間境界を追加テストで確認した。
+
+## 2026-09-01 — 開かなかった画面を取り戻した時間中心へ再設計
+
+- 作成・変更: `ios/DopaBreak/WinScreenView.swift` に保存済み増分、累計、日数換算、全目標、節目祝いを収めた新しい成功画面と、`TimelineView` + `Canvas` による42粒・2.4秒の自前紙吹雪を追加した。`ios/DopaBreak/ReclaimedTimePresentation.swift` へHome既存の時間書式を移して共通化し、節目判定と一度だけの永続化処理も集約した。`InterventionEngine.recordCancel()` は保存した `reclaimedSeconds` を返し、`InterventionFlowModel.swift` はその値とStatsServiceの累計だけを画面状態へ渡す。`SettingsStore.swift` に到達済み最大節目を追加し、ローカルデータリセット対象へ含めた。`InterventionFlowView.swift` は旧回数中心の成功表示を廃止して新画面へ接続し、`Localizable.xcstrings` はja/en/koを同期した。回帰は `WinScreenReclaimedTimeTests.swift` とCoreテストへ追加した。
+- 採用方針・却下案: 成功画面の主役は今回保存された取り戻した時間とし、累計と日数換算はHomeと同じ `ReclaimedTimeFormatter` を唯一の書式正本にした。節目は1時間、6時間、12時間、その後は累計の丸一日が増えるたびとし、今回の保存で境界を越えた場合だけ最大到達値を更新して発火する。既存利用者への遅延紙吹雪、画面側での `ReclaimedTimeEstimator` 再計算、外部紙吹雪パッケージ、先頭目標だけの表示、効果を断定するコピーは採用していない。
+- Claude Code向け制約: 成功画面の増分は `recordCancel()` が返す保存値を正本とし、画面で推定し直さない。累計はStatsServiceから読み、表示は `ReclaimedTimeFormatter` をHomeと共有する。節目の永続値は単調増加かつresettableで、`previousTotalSeconds` との交差判定を外さない。Reduce Motion時は紙吹雪とカウントアップを出さず、同じ節目文言を静的に表示する。目標1〜5件を順序どおり全件表示し、閉じる操作のsafe areaを紙吹雪で覆わない。表示コピーに読点・句点、装飾英語eyebrow、時間利用の効果断定を追加せず、Swift `defaultValue` とカタログのja/en/koを完全一致させる。
+- 検証: `xcodegen generate` 成功。指定iPhone 16 Pro Simulatorの `xcodebuild test` は290件実行・18件スキップ・失敗0で `TEST SUCCEEDED`。追加した6件で保存増分との一致、1〜5目標の実描画と高さ、節目境界と一度だけの発火、既存利用者への遅延発火防止、Reduce Motion、3言語コピーを確認した。DopaBreakCore `swift test` は520件・失敗0。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はともにexit 0、`git diff --check` も成功した。
+
+## 2026-09-01 — 開かなかった画面のキャラクター復元
+
+- 変更: `ios/DopaBreak/WinScreenView.swift` の `WinScreenContent` で、節目バナーの下・増分数字の上に `CharacterView(.relief)` を復元した。サイズは `DesignTokens.CharacterSize.support`、外枠幅は `support * (96.0 / 86.0)`、背景は `DesignTokens.card`、角丸22のRoundedRectangle clip、`DesignTokens.hairline` の1px stroke、`.characterPop(.celebrate)` を旧WinScreen実装と同じ順序で適用した。
+- 採用方針・却下案: 目標5件の実描画でキャラクターと全目標カードが同時に収まり、文字の切れ・重なりもなかったため、指定されたsupportサイズを維持した。目標を隠す、先頭だけに戻す、必要のない件数別縮小は採用していない。
+- Claude Code向け制約: 取り戻した時間の増分・累計・節目バナー・カウントアップ・Reduce Motion時の静的表示・紙吹雪・閉じる操作のsafe areaを維持する。キャラクターは節目の有無にかかわらず表示し、目標1〜5件を順序どおり全件表示する。新しい文言キーや表示コピーは追加しない。
+- 検証: `xcodegen generate && xcodebuild test -project DopaBreak.xcodeproj -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'` は291件実行・18件スキップ・失敗0。`-only-testing:DopaBreakTests/WinScreenSnapshotCapture` は1件・失敗0。`output/verify/win-screen/win-goals-5.png` と `win-milestone-1day.png` を原寸目視し、5件の全表示、節目→キャラクター→増分の順序、切れ・重なりなしを確認した。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はexit 0、`git diff --check`も成功した。

@@ -73,10 +73,7 @@ final class InterventionMergeCopyTests: XCTestCase {
         "DopaBreak/Localizable.xcstrings::intervention.duration.title::ko",
         "DopaBreak/Localizable.xcstrings::intervention.intent.title::en",
         "DopaBreak/Localizable.xcstrings::intervention.intent.title::ja",
-        "DopaBreak/Localizable.xcstrings::intervention.intent.title::ko",
-        "DopaBreak/Localizable.xcstrings::intervention.success.title::en",
-        "DopaBreak/Localizable.xcstrings::intervention.success.title::ja",
-        "DopaBreak/Localizable.xcstrings::intervention.success.title::ko"
+        "DopaBreak/Localizable.xcstrings::intervention.intent.title::ko"
     ]
 
     func testMergedInterventionCopyIsTranslatedInEverySupportedLanguage() throws {
@@ -148,8 +145,8 @@ final class InterventionMergeCopyTests: XCTestCase {
         XCTAssertFalse(modelSource.contains("scheduleMidSessionCheckIn"))
         XCTAssertFalse(modelSource.contains("notificationsAuthorized"))
         XCTAssertFalse(viewSource.contains("notificationMessage"))
-        XCTAssertTrue(modelSource.contains("recordUntimedOpen()"))
-        XCTAssertTrue(modelSource.contains("case .catalog(let catalogTarget):\n            openCatalogTarget(catalogTarget)"))
+        XCTAssertTrue(modelSource.contains("recordCatalogOpen(durationSeconds: duration.seconds)"))
+        XCTAssertTrue(modelSource.contains("private func proceedToOpenOrDurationSelection() {\n        stage = .durationSelection"))
     }
 
     func testUsageTimeAlertUIAndMonitorNotificationsAreRemoved() throws {

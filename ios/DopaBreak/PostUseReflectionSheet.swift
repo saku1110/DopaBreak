@@ -4,15 +4,12 @@ import SwiftUI
 /// `.sheet(item:)` で使うための Identifiable 準拠（Core側の型定義は変更しない）。
 extension ReflectionLog: @retroactive Identifiable {}
 
-/// 見たあとの振り返り（doc11 §7 振り返り）。アプリがアクティブになった際、
-/// engine.pendingReflection() が対象を返したら表示する。
+/// 見たあとの振り返り（doc11 §7 振り返り）のシート用ラッパー。
 struct PostUseReflectionSheet: View {
     let model: AppModel
     let engine: InterventionEngine
     let reflection: ReflectionLog
     let onFinished: () -> Void
-
-    @State private var satisfaction: PostUseSatisfaction?
 
     init(
         model: AppModel,
@@ -24,6 +21,66 @@ struct PostUseReflectionSheet: View {
         self.engine = engine
         self.reflection = reflection
         self.onFinished = onFinished
+    }
+
+    var body: some View {
+        PostUseReflectionContent(
+            reflection: reflection,
+            onSelect: { satisfaction in
+                finish(
+                    satisfaction: satisfaction,
+                    happinessDelta: satisfaction.impliedHappinessDelta
+                )
+            },
+            onSkip: skip
+        )
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+        .preferredColorScheme(.dark)
+    }
+
+    private func finish(satisfaction: PostUseSatisfaction, happinessDelta: HappinessDelta) {
+        do {
+            try engine.recordPostUseReflection(
+                id: reflection.id,
+                satisfaction: satisfaction,
+                happinessDelta: happinessDelta
+            )
+            onFinished()
+        } catch {
+            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+        }
+    }
+
+    private func skip() {
+        do {
+            try engine.skipReflection(id: reflection.id)
+            onFinished()
+        } catch {
+            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+        }
+    }
+}
+
+/// シートと一呼吸フロー冒頭で共用する振り返り本体。
+struct PostUseReflectionContent: View {
+    let reflection: ReflectionLog
+    let onSelect: (PostUseSatisfaction) -> Void
+    let onSkip: () -> Void
+
+    @State private var satisfaction: PostUseSatisfaction?
+    private let referenceDate: Date
+
+    init(
+        reflection: ReflectionLog,
+        referenceDate: Date = Date(),
+        onSelect: @escaping (PostUseSatisfaction) -> Void,
+        onSkip: @escaping () -> Void
+    ) {
+        self.reflection = reflection
+        self.referenceDate = referenceDate
+        self.onSelect = onSelect
+        self.onSkip = onSkip
         _satisfaction = State(initialValue: nil)
     }
 
@@ -43,7 +100,7 @@ struct PostUseReflectionSheet: View {
                     .disabled(satisfaction != nil)
 
                 Button(String(localized: "reflection.action.skip", defaultValue: "今回はスキップ")) {
-                    skip()
+                    onSkip()
                 }
                 .dopaFont(15, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
@@ -55,10 +112,6 @@ struct PostUseReflectionSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(DesignTokens.background)
-        .presentationDetents([.large])
-        .presentationDragIndicator(.hidden)
-        .interactiveDismissDisabled(satisfaction != nil)
-        .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: satisfaction)
         .task(id: satisfaction) {
             guard let satisfaction else { return }
@@ -68,10 +121,7 @@ struct PostUseReflectionSheet: View {
                 return
             }
             guard !Task.isCancelled else { return }
-            finish(
-                satisfaction: satisfaction,
-                happinessDelta: satisfaction.impliedHappinessDelta
-            )
+            onSelect(satisfaction)
         }
     }
 
@@ -81,7 +131,11 @@ struct PostUseReflectionSheet: View {
                 .dopaFont(34, weight: .black, tracking: -0.8)
                 .foregroundStyle(DesignTokens.primaryText)
 
-            Text(String(localized: "reflection.satisfaction.description", defaultValue: "使い終えた今の気持ちを記録しておくと、次に開くか選ぶときの参考になります。"))
+            Text(ReflectionTimingSummary.text(for: reflection, now: referenceDate))
+                .dopaFont(16, weight: .bold)
+                .foregroundStyle(DesignTokens.accent)
+
+            Text(String(localized: "reflection.satisfaction.description", defaultValue: "今の気持ちを記録すると次に開くか選ぶときの参考になります"))
                 .dopaFont(14, weight: .medium)
                 .foregroundStyle(DesignTokens.secondaryText)
 
@@ -131,27 +185,35 @@ struct PostUseReflectionSheet: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func finish(satisfaction: PostUseSatisfaction, happinessDelta: HappinessDelta) {
-        do {
-            try engine.recordPostUseReflection(
-                id: reflection.id,
-                satisfaction: satisfaction,
-                happinessDelta: happinessDelta
-            )
-            onFinished()
-        } catch {
-            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
-            self.satisfaction = nil
-        }
+}
+
+enum ReflectionTimingSummary {
+    static func durationMinutes(for reflection: ReflectionLog) -> Int {
+        max(1, Int((reflection.promptedAt.timeIntervalSince(reflection.createdAt) / 60).rounded()))
     }
 
-    private func skip() {
-        do {
-            try engine.skipReflection(id: reflection.id)
-            onFinished()
-        } catch {
-            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+    static func elapsedMinutes(for reflection: ReflectionLog, now: Date) -> Int {
+        max(0, Int(now.timeIntervalSince(reflection.promptedAt) / 60))
+    }
+
+    static func text(for reflection: ReflectionLog, now: Date) -> String {
+        let elapsedMinutes = elapsedMinutes(for: reflection, now: now)
+        let elapsed: String
+        if elapsedMinutes < 60 {
+            elapsed = String(
+                localized: "reflection.context.elapsed_minutes",
+                defaultValue: "\(elapsedMinutes)分"
+            )
+        } else {
+            elapsed = String(
+                localized: "reflection.context.elapsed_hours",
+                defaultValue: "\(elapsedMinutes / 60)時間"
+            )
         }
+        return String(
+            localized: "reflection.context.summary",
+            defaultValue: "\(elapsed)前の\(durationMinutes(for: reflection))分について"
+        )
     }
 }
 

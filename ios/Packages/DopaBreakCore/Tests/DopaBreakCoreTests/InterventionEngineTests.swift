@@ -19,7 +19,7 @@ final class InterventionEngineTests: XCTestCase {
         try ctx.engine.recordIntent(.boredom)
 
         clock = date(30)
-        try ctx.engine.recordCancel()
+        let reclaimedSeconds = try ctx.engine.recordCancel()
 
         XCTAssertEqual(try ctx.engine.currentStep(), .idle)
         let attempts = try ctx.log.fetchAttempts()
@@ -36,6 +36,7 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertEqual(try ctx.log.fetchReflections(), [], "cancel does not create a reflection")
         XCTAssertEqual(try ctx.log.reclaimedLedgerEntryCount(), 1)
         XCTAssertEqual(try StatsService(logStore: ctx.log).reclaimedSecondsAllTime(), 300)
+        XCTAssertEqual(reclaimedSeconds, 300, "the UI must receive the exact persisted ledger value")
     }
 
     func testFullHappyPathOpenExpireReshieldReflectionAnswer() throws {
@@ -131,6 +132,30 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertTrue(attempt.opened)
         XCTAssertNil(attempt.selectedDurationSeconds)
         XCTAssertTrue(try ctx.log.fetchReflections().isEmpty)
+    }
+
+    func testCatalogOpenRecordsDeclaredDurationAndReflectionWithoutTemporaryAllowance() throws {
+        let ctx = try makeContext(now: { self.date(100) })
+        let rule = uuid(904)
+
+        try ctx.engine.beginIntervention(ruleId: rule)
+        try ctx.engine.beginIntentSelection()
+        try ctx.engine.recordIntent(.communication)
+        _ = try ctx.engine.advanceStep()
+
+        try ctx.engine.recordCatalogOpen(durationSeconds: 600)
+
+        XCTAssertEqual(try ctx.engine.currentStep(), .idle)
+        let attempt = try XCTUnwrap(ctx.log.fetchAttempts().first)
+        XCTAssertEqual(attempt.ruleId, rule)
+        XCTAssertEqual(attempt.selectedDurationSeconds, 600)
+        XCTAssertTrue(attempt.opened)
+        let reflection = try XCTUnwrap(ctx.log.fetchReflections().first)
+        XCTAssertEqual(reflection.attemptLogId, attempt.id)
+        XCTAssertEqual(reflection.promptedAt, date(700))
+        XCTAssertEqual(reflection.createdAt, date(100))
+        XCTAssertEqual(reflection.trigger, .timedSessionEnded)
+        XCTAssertNil(reflection.satisfaction)
     }
 
     func testBeginIntentSelectionRejectsNonStartStep() throws {
@@ -355,10 +380,10 @@ final class InterventionEngineTests: XCTestCase {
             )
         )
 
-        clock = promptedAt.addingTimeInterval(1800) // age == window -> inside
+        clock = promptedAt.addingTimeInterval(24 * 60 * 60) // age == window -> inside
         XCTAssertEqual(try ctx.engine.pendingReflection()?.id, uuid(50))
 
-        clock = promptedAt.addingTimeInterval(1801) // age > window -> outside
+        clock = promptedAt.addingTimeInterval(24 * 60 * 60 + 1) // age > window -> outside
         XCTAssertNil(try ctx.engine.pendingReflection())
 
         clock = promptedAt.addingTimeInterval(-10) // future prompt -> not due

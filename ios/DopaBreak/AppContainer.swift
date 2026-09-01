@@ -333,6 +333,33 @@ final class AppModel {
         try? funnelEventStore.record(name: .reviewPromptShown, at: date)
     }
 
+    func reclaimedSecondsAllTime() throws -> Int {
+        guard let statsService else {
+            throw CoreError.fileSystem(
+                operation: "read",
+                path: "reclaimed_ledger",
+                message: "record store is unavailable"
+            )
+        }
+        return try statsService.reclaimedSecondsAllTime()
+    }
+
+    func reclaimedSecondsToday() throws -> Int {
+        guard let statsService else {
+            throw CoreError.fileSystem(
+                operation: "read",
+                path: "reclaimed_ledger",
+                message: "record store is unavailable"
+            )
+        }
+        let calendar = Calendar.autoupdatingCurrent
+        let start = calendar.startOfDay(for: now())
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
+            return 0
+        }
+        return try statsService.reclaimedSeconds(from: start, to: end)
+    }
+
     func recordAppOpenedIfNeeded() {
         let recorder = DailyAppOpenRecorder(
             settingsStore: settingsStore,

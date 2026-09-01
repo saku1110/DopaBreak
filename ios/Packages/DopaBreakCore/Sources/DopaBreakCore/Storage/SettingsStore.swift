@@ -40,6 +40,7 @@ public final class SettingsStore: @unchecked Sendable {
         static let deepFocusScheduleStartMinutes = "deepFocusScheduleStartMinutes"
         static let deepFocusScheduleEndMinutes = "deepFocusScheduleEndMinutes"
         static let trialReminderLeadDays = "trialReminderLeadDays"
+        static let lastCelebratedReclaimedMilestoneSeconds = "lastCelebratedReclaimedMilestoneSeconds"
 
         // firstLaunchDate, reviewPromptEventDates, the entitlement cache, and the one-shot
         // notification markers (annualUpgradeOfferNotificationFireDate /
@@ -77,7 +78,8 @@ public final class SettingsStore: @unchecked Sendable {
             deepFocusScheduleWeekdays,
             deepFocusScheduleStartMinutes,
             deepFocusScheduleEndMinutes,
-            trialReminderLeadDays
+            trialReminderLeadDays,
+            lastCelebratedReclaimedMilestoneSeconds
         ]
 
         /// `Key` から取り除かれた旧キー。既存インストールには値が残り続けるため、
@@ -350,6 +352,12 @@ public final class SettingsStore: @unchecked Sendable {
                 forKey: Key.trialReminderLeadDays
             )
         }
+    }
+
+    /// 取り戻した時間で一度だけ祝った最大節目。ローカルデータ削除では0へ戻す。
+    public var lastCelebratedReclaimedMilestoneSeconds: Int {
+        get { max(0, userDefaults.integer(forKey: Key.lastCelebratedReclaimedMilestoneSeconds)) }
+        set { userDefaults.set(max(0, newValue), forKey: Key.lastCelebratedReclaimedMilestoneSeconds) }
     }
 
     /// 書き込み時刻つきで持ち、消費されないまま残ったものを後から実行しないための

@@ -1472,3 +1472,16 @@
 - 採用方針・却下案: 目標5件の実描画でキャラクターと全目標カードが同時に収まり、文字の切れ・重なりもなかったため、指定されたsupportサイズを維持した。目標を隠す、先頭だけに戻す、必要のない件数別縮小は採用していない。
 - Claude Code向け制約: 取り戻した時間の増分・累計・節目バナー・カウントアップ・Reduce Motion時の静的表示・紙吹雪・閉じる操作のsafe areaを維持する。キャラクターは節目の有無にかかわらず表示し、目標1〜5件を順序どおり全件表示する。新しい文言キーや表示コピーは追加しない。
 - 検証: `xcodegen generate && xcodebuild test -project DopaBreak.xcodeproj -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'` は291件実行・18件スキップ・失敗0。`-only-testing:DopaBreakTests/WinScreenSnapshotCapture` は1件・失敗0。`output/verify/win-screen/win-goals-5.png` と `win-milestone-1day.png` を原寸目視し、5件の全表示、節目→キャラクター→増分の順序、切れ・重なりなしを確認した。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はexit 0、`git diff --check`も成功した。
+
+## 2026-09-04 — K-POPテーマの★左のピンク縦バーを廃止（★のX位置は据え置き）
+
+- 決定（オーナー）: 「kpopデザインのリストの星マークの左の縦線はいらない」。K-POPロックテーマの目標行から、★の左にあった5pt幅のピンク縦バーを削除する
+- 削除したのはバーだけ。★のサイズ・色・`baselineOffset`・目標テキストとの spacing 7・trailing 8 は変更しない
+- 変更: `ios/WidgetsExtension/LockThemeLiveActivityView.swift` の `private var kpop`。`Rectangle().fill(rgb(238,52,137)).frame(width: 5 * markerScale)` と、それを包んでいた内側 `HStack(spacing: 7)` を削除し、`.frame(height:)` `.offset(...)` `.layoutAnchor(.goalMarker(index))` `.markerCenterAlignedToCapHeight(of:)` を★の `Text` へ順序どおり移設した
+- 目標行へ `.padding(.leading, 5 * markerScale + 7)` を追加した。理由は2つある。①バーを消したまま詰めると★が `TicketStubShape` の左ノッチ（行minX中心・半径4pt）に重なる ②`scaledGoalCapCenterOffset(availableWidth: 324)` はハードコードのため、目標テキストの実利用幅が変わると整列が狂う。削除したバー幅＋spacingと同値にしたので、両方とも変更前と同じ状態に戻る。固定値12ではなく `markerScale` 由来にして密度差でもズレないようにした
+- 検証（実レンダリングの画素比較）: ★のインクX座標は目標1〜5件のすべてでバー削除前と完全一致（1件 30.667pt / 5件 28.000pt）。ノッチは12〜20ptなので最悪ケースでも8ptのクリアランスがある
+- テスト: `ios/DopaBreakTests/LockThemeLiveActivityViewTests.swift` の `independentMarkerCrop` から、K-POP専用の「縦バーのx範囲を除外して★を独立測定する」分岐と未使用になった `goalCount` 引数を削除した。バーが無くなり、マーカー領域はそのまま★を指すため
+- **1358行の制約を一部無効化する**: 「K-POPの★測定は縦バーのx範囲を含めず」は今回で不要になった。`glyphCapCenterOffset` による★のbaselineOffset補正と `markerCenterAlignedToCapHeight` は引き続き必要なので削除しない
+- 途中で入った依頼外の変更を撤回した記録: 実装1周目に `goalCount == 2` を `<= 2` へ変えたが、paddingでX位置を戻した後に実測すると delta の絶対値が両者0.5で同等だった。オリジナルの `== 2` へ戻してある
+- 体制: Codexが利用上限（復帰 2026-09-07 11:27）のため、実装はOpus5サブエージェント（effort xhigh）、レビューは別インスタンスのOpus5が担当
+- Claude Code向け制約: バーを復活させない。★の左余白は `5 * markerScale + 7` を維持する。この値を変えると★がノッチに重なるか、`availableWidth: 324` との整合が崩れて整列テストが落ちる

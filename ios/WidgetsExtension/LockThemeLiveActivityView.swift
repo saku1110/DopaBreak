@@ -404,31 +404,31 @@ struct LockThemeLiveActivityView: View {
             VStack(spacing: densityValue(one: 4, two: 3, three: 6, four: 4, five: 3)) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
                     HStack(alignment: .firstTextBaseline, spacing: 7) {
-                        HStack(spacing: 7) {
-                            Rectangle().fill(rgb(238, 52, 137)).frame(width: 5 * markerScale)
-                            Text("★")
-                                .font(.system(size: markerSize, weight: .bold))
-                                .foregroundStyle(rgb(238, 52, 137))
-                                .baselineOffset(
-                                    glyphCapCenterOffset(markerFont: markerUIFont, goalFont: goalUIFont) - 1.5
-                                )
-                        }
-                        .frame(height: goalUIFont.capHeight)
-                        .offset(
-                            y: (goalCount == 2
-                                ? 1
-                                : ((3...4).contains(goalCount) || (goalCount == 5 && index == 2) ? 0.5 : 0))
-                                + scaledGoalCapCenterOffset(
-                                    title: title,
-                                    font: goalUIFont,
-                                    availableWidth: 324
-                                )
-                        )
-                        .layoutAnchor(.goalMarker(index))
-                        .markerCenterAlignedToCapHeight(of: goalUIFont)
+                        Text("★")
+                            .font(.system(size: markerSize, weight: .bold))
+                            .foregroundStyle(rgb(238, 52, 137))
+                            .baselineOffset(
+                                glyphCapCenterOffset(markerFont: markerUIFont, goalFont: goalUIFont) - 1.5
+                            )
+                            .frame(height: goalUIFont.capHeight)
+                            .offset(
+                                y: (goalCount == 2
+                                    ? 1
+                                    : ((3...4).contains(goalCount) || (goalCount == 5 && index == 2) ? 0.5 : 0))
+                                    + scaledGoalCapCenterOffset(
+                                        title: title,
+                                        font: goalUIFont,
+                                        availableWidth: 324
+                                    )
+                            )
+                            .layoutAnchor(.goalMarker(index))
+                            .markerCenterAlignedToCapHeight(of: goalUIFont)
                         goalText(title, size: goalSize, weight: .black, color: rgb(35, 31, 38))
                             .layoutAnchor(.goal(index))
                     }
+                    // 削除した縦バー（5 * markerScale）とその spacing 7 を先頭余白として残し、
+                    // ★の描画位置とテキストの実利用幅をバー削除前と一致させる。
+                    .padding(.leading, 5 * markerScale + 7)
                     .padding(.trailing, 8)
                     .frame(maxWidth: .infinity, minHeight: densityValue(one: 64, two: 33, three: 24, four: 19, five: 16), alignment: .leading)
                     .background {

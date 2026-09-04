@@ -194,11 +194,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                         frames[.goal(index)],
                         "Missing goal text for \(theme), count \(count), row \(index)"
                     )
-                    let markerCrop = independentMarkerCrop(
-                        theme: theme,
-                        markerFrame: markerFrame,
-                        goalCount: count
-                    )
+                    let markerCrop = independentMarkerCrop(theme: theme, markerFrame: markerFrame)
                     let markerInk = try XCTUnwrap(
                         inkBounds(in: image, crop: markerCrop, matching: colors.marker),
                         "Missing rendered marker ink for \(theme), count \(count), row \(index)"
@@ -253,7 +249,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
                 let markerInk = try XCTUnwrap(
                     inkBounds(
                         in: image,
-                        crop: independentMarkerCrop(theme: theme, markerFrame: markerFrame, goalCount: titles.count),
+                        crop: independentMarkerCrop(theme: theme, markerFrame: markerFrame),
                         matching: colors.marker
                     )
                 )
@@ -856,28 +852,13 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         )
     }
 
-    private func independentMarkerCrop(
-        theme: LockTheme,
-        markerFrame: CGRect,
-        goalCount: Int
-    ) -> CGRect {
-        let cropFrame: CGRect
+    private func independentMarkerCrop(theme: LockTheme, markerFrame: CGRect) -> CGRect {
         switch theme {
         case .gaming, .note, .blueprint:
-            cropFrame = markerFrame.insetBy(dx: 0, dy: -6)
+            return markerFrame.insetBy(dx: 0, dy: -6)
         default:
-            cropFrame = markerFrame
+            return markerFrame
         }
-        guard theme == .kpop else { return cropFrame }
-        let goalSize = 15 + LockThemeLiveActivityView.goalFontIncrease(forGoalCount: goalCount)
-        let barWidth = 5 * goalSize / 15
-        let starMinX = cropFrame.minX + barWidth + 5
-        return CGRect(
-            x: starMinX,
-            y: cropFrame.minY,
-            width: max(0, cropFrame.maxX - starMinX),
-            height: cropFrame.height
-        )
     }
 
     private func goalUIFont(for theme: LockTheme, goalCount: Int, locale: Locale) -> UIFont {

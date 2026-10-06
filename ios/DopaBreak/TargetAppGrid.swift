@@ -46,23 +46,26 @@ struct TargetAppGrid: View {
         return Button {
             onToggle(item)
         } label: {
-            HStack(spacing: layout.hStackSpacing) {
+            VStack(spacing: layout.labelSpacing) {
                 AppIconView(source: .catalog(item), size: layout.iconSize)
 
                 Text(item.displayName)
                     .dopaFont(layout.fontSize, weight: .semibold)
                     .foregroundStyle(DesignTokens.primaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-
-                Spacer(minLength: 0)
-
-                selectionIndicator(isSelected: isSelected)
+                    .minimumScaleFactor(0.85)
+                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, layout.horizontalPadding)
             .padding(.vertical, layout.verticalPadding)
-            .frame(maxWidth: .infinity, minHeight: layout.minHeight, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: layout.minHeight)
             .background(DesignTokens.card)
+            .overlay(alignment: .topTrailing) {
+                selectionIndicator(isSelected: isSelected)
+                    .padding(.top, 10)
+                    .padding(.trailing, 10)
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous)
                     .strokeBorder(
@@ -107,9 +110,9 @@ struct TargetAppGrid: View {
                 fontSize: 15,
                 horizontalPadding: 12,
                 verticalPadding: 11,
-                minHeight: 72,
+                minHeight: 108,
                 gridSpacing: 8,
-                hStackSpacing: 10,
+                labelSpacing: 8,
                 indicatorSize: 22
             )
         case .large:
@@ -118,9 +121,9 @@ struct TargetAppGrid: View {
                 fontSize: 17,
                 horizontalPadding: 14,
                 verticalPadding: 16,
-                minHeight: 96,
+                minHeight: 124,
                 gridSpacing: 12,
-                hStackSpacing: 12,
+                labelSpacing: 10,
                 indicatorSize: 24
             )
         }
@@ -133,7 +136,7 @@ struct TargetAppGrid: View {
         let verticalPadding: CGFloat
         let minHeight: CGFloat
         let gridSpacing: CGFloat
-        let hStackSpacing: CGFloat
+        let labelSpacing: CGFloat
         let indicatorSize: CGFloat
     }
 }

@@ -103,13 +103,16 @@ final class LocalDataResetterTests: XCTestCase {
         context.settingsStore.breathDurationSeconds = 8
         context.settingsStore.pendingStartInterventionCatalogID = "instagram"
         context.settingsStore.pendingStartInterventionAutoResolve = true
+        context.settingsStore.pendingStartInterventionRequestedAt = timestamp
+        context.settingsStore.lastSelfOpenedCatalogID = "instagram"
+        context.settingsStore.lastSelfOpenedAt = timestamp
         context.settingsStore.verifiedAutomationCatalogIDs = ["instagram"]
+        context.settingsStore.setAutomationConfirmed(catalogID: "x", confirmed: true)
         context.settingsStore.firstLaunchDate = timestamp
         context.settingsStore.lastAppOpenedDateKey = "2027-01-15"
         context.settingsStore.wakeTimeMinutes = 480
         context.settingsStore.bedTimeMinutes = 1_320
-        context.settingsStore.morningNotificationEnabled = false
-        context.settingsStore.morningNotificationMinutes = 510
+        context.settingsStore.weeklyReportNotificationMinutes = 510
         context.settingsStore.weeklyReportNotificationEnabled = false
         context.settingsStore.retentionSupportNotificationsEnabled = false
         context.settingsStore.planNotificationsEnabled = false
@@ -131,23 +134,6 @@ final class LocalDataResetterTests: XCTestCase {
             to: .selfCheckSnapshot
         )
         try context.interventionEngine.beginIntervention(ruleId: UUID())
-        try context.snapshotStore.write(
-            GateAppSettingsSnapshot(settings: [], updatedAt: timestamp),
-            to: .gateAppSettings
-        )
-        try context.snapshotStore.write(
-            GateLedger(entries: [], activeGrants: [], updatedAt: timestamp),
-            to: .gateLedger
-        )
-        try context.snapshotStore.write(
-            GateShieldSnapshot(selectionDataList: [Data([0x01])], updatedAt: timestamp),
-            to: .gateShieldSnapshot
-        )
-        try context.snapshotStore.write(
-            GateUnlockRequest(id: UUID(), tokenData: Data([0x01]), requestedAt: timestamp),
-            to: .gateUnlockRequest
-        )
-
         try context.resetter.deleteAllLocalData()
 
         XCTAssertFalse(context.settingsStore.onboardingCompleted)
@@ -157,13 +143,16 @@ final class LocalDataResetterTests: XCTestCase {
         XCTAssertEqual(context.settingsStore.breathDurationSeconds, 3)
         XCTAssertNil(context.settingsStore.pendingStartInterventionCatalogID)
         XCTAssertFalse(context.settingsStore.pendingStartInterventionAutoResolve)
+        XCTAssertNil(context.settingsStore.pendingStartInterventionRequestedAt)
+        XCTAssertNil(context.settingsStore.lastSelfOpenedCatalogID)
+        XCTAssertNil(context.settingsStore.lastSelfOpenedAt)
         XCTAssertEqual(context.settingsStore.verifiedAutomationCatalogIDs, [])
+        XCTAssertEqual(context.settingsStore.confirmedAutomationCatalogIDs, [])
         XCTAssertEqual(context.settingsStore.firstLaunchDate, timestamp)
         XCTAssertNil(context.settingsStore.lastAppOpenedDateKey)
         XCTAssertNil(context.settingsStore.wakeTimeMinutes)
         XCTAssertNil(context.settingsStore.bedTimeMinutes)
-        XCTAssertTrue(context.settingsStore.morningNotificationEnabled)
-        XCTAssertEqual(context.settingsStore.morningNotificationMinutes, 420)
+        XCTAssertEqual(context.settingsStore.weeklyReportNotificationMinutes, 420)
         XCTAssertTrue(context.settingsStore.weeklyReportNotificationEnabled)
         XCTAssertTrue(context.settingsStore.retentionSupportNotificationsEnabled)
         XCTAssertTrue(context.settingsStore.planNotificationsEnabled)
@@ -175,16 +164,6 @@ final class LocalDataResetterTests: XCTestCase {
             try context.snapshotStore.read(SelfCheckSnapshot.self, from: .selfCheckSnapshot)
         )
         XCTAssertEqual(try context.interventionEngine.currentStep(), .idle)
-        XCTAssertNil(
-            try context.snapshotStore.read(GateAppSettingsSnapshot.self, from: .gateAppSettings)
-        )
-        XCTAssertNil(try context.snapshotStore.read(GateLedger.self, from: .gateLedger))
-        XCTAssertNil(
-            try context.snapshotStore.read(GateShieldSnapshot.self, from: .gateShieldSnapshot)
-        )
-        XCTAssertNil(
-            try context.snapshotStore.read(GateUnlockRequest.self, from: .gateUnlockRequest)
-        )
     }
 
     func testDeleteAllLocalDataWithoutLogStoreClearsOtherStoresAndRemovesSQLiteFiles() throws {

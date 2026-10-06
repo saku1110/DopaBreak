@@ -20,20 +20,22 @@ public enum WakeSleepTimelinePolicy {
     }
 
     public static func snapped(_ time: Int) -> Int {
-        let normalizedTime = normalized(time)
-        let step = Double(normalizedTime) / Double(stepMinutes)
-        return normalized(Int(step.rounded()) * stepMinutes)
+        let step = Double(time) / Double(stepMinutes)
+        let roundedTime = Int(step.rounded()) * stepMinutes
+        return min(max(roundedTime, 0), latestMinute)
     }
 
     /// 24時間の円環上で、動かす起床ハンドルだけを有効範囲へ止める。
     public static func clampedWake(
         _ proposedWake: Int,
         bed: Int,
+        current: Int,
         snapToStep: Bool = true
     ) -> Int {
         clampedMovingTime(
             proposedWake,
             fixedTime: bed,
+            currentTime: current,
             snapToStep: snapToStep
         )
     }
@@ -42,11 +44,13 @@ public enum WakeSleepTimelinePolicy {
     public static func clampedBed(
         _ proposedBed: Int,
         wake: Int,
+        current: Int,
         snapToStep: Bool = true
     ) -> Int {
         clampedMovingTime(
             proposedBed,
             fixedTime: wake,
+            currentTime: current,
             snapToStep: snapToStep
         )
     }
@@ -66,28 +70,29 @@ public enum WakeSleepTimelinePolicy {
     private static func clampedMovingTime(
         _ proposedTime: Int,
         fixedTime: Int,
+        currentTime: Int,
         snapToStep: Bool
     ) -> Int {
         let candidate = snapToStep ? snapped(proposedTime) : normalized(proposedTime)
         let fixed = normalized(fixedTime)
         let forward = clockwiseDistance(from: fixed, to: candidate)
+        let current = normalized(currentTime)
+        let currentForward = clockwiseDistance(from: fixed, to: current)
+        let currentIsAtBoundary = currentForward == minimumGapMinutes
+            || currentForward == minutesPerDay - minimumGapMinutes
+        let currentIsClockwise = currentForward <= minutesPerDay / 2
+        let candidateIsClockwise = forward <= minutesPerDay / 2
+        if snapToStep && currentIsAtBoundary && currentIsClockwise != candidateIsClockwise {
+            return current
+        }
         guard forward < minimumGapMinutes || forward > minutesPerDay - minimumGapMinutes else {
             return candidate
         }
 
-        let forwardBoundary = normalized(fixed + minimumGapMinutes)
-        let backwardBoundary = normalized(fixed - minimumGapMinutes)
-        let distanceToForward = circularDistance(candidate, forwardBoundary)
-        let distanceToBackward = circularDistance(candidate, backwardBoundary)
-        return distanceToForward <= distanceToBackward ? forwardBoundary : backwardBoundary
+        return normalized(fixed + (currentIsClockwise ? minimumGapMinutes : -minimumGapMinutes))
     }
 
     private static func clockwiseDistance(from start: Int, to end: Int) -> Int {
         normalized(end - start)
-    }
-
-    private static func circularDistance(_ lhs: Int, _ rhs: Int) -> Int {
-        let forward = clockwiseDistance(from: lhs, to: rhs)
-        return min(forward, minutesPerDay - forward)
     }
 }

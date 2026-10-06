@@ -12,12 +12,12 @@ DopaBreakは **SNS依存・ドーパミン中毒を軽減するアプリ**。文
 | 層 | 語彙 |
 | --- | --- |
 | **問題の言葉**（ユーザーの自己認識） | SNS依存 / ドーパミン中毒 / 無意識に開く / 時間を溶かす / ダラダラ見て後悔 |
-| **解決の言葉**（機能の説明） | 止める（止めるアプリ・止める強さ）/ 開こうとした / 開かずに我慢 / 一呼吸 / 見たあとの気持ち / 取り戻した時間 / 戻る先（＝目標） |
+| **解決の言葉**（機能の説明） | 一呼吸をはさむアプリ / 完全にブロックするアプリ / 止める強さ / 開こうとした / 開かずに我慢 / 一呼吸 / 見たあとの気持ち / 取り戻した時間 / 戻る先（＝目標） |
 | **禁止** | ①内部用語: 介入・再介入・シールド・セッション・リフレクション（UIでは「見たあとの振り返り」）②医療表現: 治療・治る・依存症の診断 ③対象が曖昧な表現: **「アプリを守る」「あなたを守る」**（何を守るのか不明）④過度な口語・スラング |
 
 - 見出し・短い表示文: 句読点を使わない（改行と体言止め。グローバル規則）。本文・説明文: 通常の句読点OK。
 - トーン: 責めない・禁止しない・命令しない。「〜しましょう」より事実と選択肢の提示。
-- オンボーディングの全文言は [doc07](./07_onboarding_design_lifefocus.md)、通知/Live Activity文言は [doc06 §9](./06_screen_design.md)、ペイウォールは本書§5。
+- オンボーディングの全文言は [doc07](./07_onboarding_design_lifefocus.md)、通知・Live Activity文言は [doc06 §9](./06_screen_design.md)、ペイウォールは本書§5。
 
 ---
 
@@ -60,7 +60,7 @@ DopaBreakは **SNS依存・ドーパミン中毒を軽減するアプリ**。文
 | --- | --- |
 | タブ / 画面タイトル | 統計 |
 | 空状態 見出し | まだ記録がありません |
-| 空状態 本文 | 止めるアプリを設定すると、SNSを開こうとした回数と、開かずに我慢できた回数がここに貯まります。 |
+| 空状態 本文 | 一呼吸をはさむアプリを設定するとSNSを開こうとした回数と開かずに我慢できた回数がここに貯まります |
 | 期間見出し | 今週 |
 | 指標 | 開かずに我慢 / 開こうとした |
 
@@ -70,7 +70,8 @@ DopaBreakは **SNS依存・ドーパミン中毒を軽減するアプリ**。文
 | --- | --- |
 | タブ / 画面タイトル | 設定 |
 | 行: モード | 止める強さ — ディープフォーカス / 標準 / 夜だけ強化 |
-| 行: 対象 | 止めるアプリ — 未設定（iPhone実機で設定） |
+| 行: 一呼吸の対象 | 一呼吸をはさむアプリ — 未設定（iPhone実機で設定） |
+| 行: 完全ブロックの対象 | 完全にブロックするアプリ — 未設定（iPhone実機で設定） |
 | 行: 一呼吸の長さ | 一呼吸の長さ |
 | 行: 自動設定ガイド | 自動で一呼吸を出す設定 |
 | 行: バージョン | バージョン |
@@ -103,14 +104,14 @@ DopaBreakは **SNS依存・ドーパミン中毒を軽減するアプリ**。文
 | 許可画面 本文 | 選んだSNSを開こうとした瞬間に確認画面を出すために、iOSのスクリーンタイムを使います。使用データは端末内に保存されます。 |
 | 許可ボタン | 許可する |
 | 許可 拒否時 本文 | 許可がないため、SNSを開く前の確認はまだ使えません。設定からいつでも有効にできます。 |
-| アプリ選択画面 タイトル | 止めるアプリを選ぶ |
+| アプリ選択画面 タイトル | 完全にブロックするアプリを選ぶ |
 | 行: 止める機能トグル | 止める機能を使う |
 
 ## 4c. MVP対象アプリ選択・自動設定ガイド（2026-07-08 MVP pivot）
 
 | 要素 | 文言 |
 | --- | --- |
-| 対象アプリ選択 見出し | 止めるアプリを選ぶ |
+| 対象アプリ選択 見出し | 一呼吸をはさむアプリを選ぶ |
 | 対象アプリ選択 サブ | 開こうとした瞬間に一呼吸を出したいアプリを選びます。 |
 | 上限説明（Free） | 無料プランでは1つまで |
 | 上限説明（15日目以降のFree） | 無料プランでは1つまで |
@@ -129,7 +130,7 @@ DopaBreakは **SNS依存・ドーパミン中毒を軽減するアプリ**。文
 | アプリごとのテストボタン | テストする |
 | Safari行の注記 | Safariはホーム画面から開いて確認してください |
 | 設定確認の説明（ガイド/オンボ共通） | 設定できたかどうかは 対象アプリを開いたときに自動で確認されます |
-| ガイド対象なし | 先に止めるアプリを選んでください。 |
+| ガイド対象なし | 先に一呼吸をはさむアプリを選んでください |
 | AppIntent名 | DopaBreakで一呼吸 |
 
 ## 6b. 止める画面（対象アプリを開こうとした瞬間の全画面・実装(6)静的表示）
@@ -151,7 +152,7 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 
 | 旧 | 新 |
 | --- | --- |
-| 選んだアプリを何個でも守れる | **止めるアプリを何個でも追加できる** |
+| 選んだアプリを何個でも守れる | **一呼吸をはさむアプリを何個でも追加できる** |
 | 1年の目標＋複数ウィジェット | **目標を何個でも追加できる** |
 | この設定で、DopaBreakがあなたを守ります。（08b） | ~~この設定で、無意識にSNSを開く瞬間をDopaBreakが止めます。~~ → 2026-07-18改訂で再変更（下表） |
 
@@ -171,6 +172,44 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 
 - サブコピー（「無意識に消える時間を、あなたが選んだ目標へ戻します。」）は現状維持。差し替え案はオーナー確認待ちのため本改訂に含めない。
 - 見出しの数字アクセント（accent色）は{N}の数字部分に適用。2行化に伴いlineLimit(1)は撤廃する。
+- **2026-09-04**: 上表の見出し1行目「「あと5分だけ」が年{N}日」は下の改訂で置換済み。2行目「開く前にブレーキ」と{N}のハードコード禁止方針はそのまま有効。
+
+### 2026-09-04 ペイウォール見出しの人生年数化＋中央揃え（オーナー決定）
+
+オーナー回答「1,A／2,約いらない／3,入れない」で確定。設計正本は `.claude/specs/paywall-headline-v2.md`。日数はオンボーディング（O-03r → O-08b → ペイウォール）で3回目の再掲になり、直前の山場「50年で 人生の約5.2年」より弱い単位へ戻っていた。ペイウォールを同じ人生年数へ揃える。
+
+| 対象 | 旧（2026-07-18） | 新（確定・正本） |
+| --- | --- | --- |
+| 見出し1行目 | 「あと5分だけ」が年{N}日 | **「あと5分」が人生の{Y}年**（見出しに「約」は入れない） |
+| 見出し2行目 | 開く前にブレーキ | **変更なし** |
+| 推計注記（新設） | なし | **1日約{T}が50年続いた場合の推計** |
+| 配置 | 左寄せ | **見出し・注記・本文を中央揃え**（CLAUDE.md「訴求画面の見出しは中央揃えが既定」。チェックリスト・プラン・法務は左揃えのまま） |
+
+| キー | ja | en | ko |
+| --- | --- | --- | --- |
+| `paywall.header.line1.prefix` | 「あと5分」が人生の | “5 more min” =␣ | '5분만 더'가 인생의␣ |
+| `paywall.header.line1.suffix` | 年 | ␣years gone | 년 |
+| `paywall.header.estimate_note` | 1日約%@が50年続いた場合の推計 | Estimate: %@ a day, over 50 years | 하루 약 %@이 50년 이어질 때의 추정치 |
+
+␣は半角スペース（数値を前後の語とくっつけないため、prefix末尾とsuffix先頭に持たせる）。
+
+見出しは1行目・2行目とも他の大見出しと同じ `dopaDisplayClamp()`（1行固定＋縮小下限0.5＋Dynamic Typeはaccessibility2で打ち止め）を当てる。en は初稿の ` years of life`（32字）だと折返して「of life」だけが3行目に孤立したため ` years gone`（29字）へ短縮した。縮小下限を0.78で止めると、文字を最大にした端末で en が「years g…」と切れる（2026-09-04 XXXL実測）。
+
+2026-09-05: 機能行は6行。強いブロックを追加し、週次予定2件を明記。全ユーザー向けの白黒設定を除外し、登録対象は対応アプリであることを明記（正本は docs/15 §3.2b）。
+
+| 順 | キー | ja | en | ko |
+| --- | --- | --- | --- | --- |
+| 1 | `paywall.feature.unlimited_apps` | 対応アプリの登録数制限を解除 | Remove the limit on supported apps | 지원 앱 등록 개수 제한 해제 |
+| 2 | `paywall.feature.deep_focus` | 選んだアプリを完全にブロック | Fully block the apps you choose | 고른 앱 완전 차단 |
+| 3 | `paywall.feature.strict_block`（新設） | 解除に30秒待つ強いブロック | Strict blocks with a 30-second exit delay | 해제 전 30초 기다리는 강력 차단 |
+| 4 | `paywall.feature.weekly_schedule` | 毎週のブロック予定を2つ設定 | Set two weekly blocking schedules | 주간 차단 일정 2개 설정 |
+| 5 | `paywall.feature.night_block` | 就寝中は自動で完全ブロック | Auto-block while you sleep | 자는 동안 자동 완전 차단 |
+| 6 | `paywall.feature.lock_theme` | ロック画面のデザインを選べる | Choose your Lock Screen design | 잠금 화면 디자인 선택 |
+
+- {Y} = `LossEstimator.lifetimeYears(fromYearlyDays:)` を1桁小数で表示（切り捨て済み・四捨五入しない）。{T} = SelfCheck回答の1日の利用時間。どちらも固定値のハードコード禁止で、未回答時は既定バケット「2-4時間」＝150分／38日＝5.2年。
+- 書式は O-03r と同一の `LossEstimatePresentation`（`dailyTimeText` / `lifetimeYearsText`）に一本化し、オンボーディングと二重実装しない。
+- 法務根拠は docs/07 O-03r（2026-07-29）と同じ。50年という前提を注記で明示し、丸めは常に切り捨て、効果の断定（「取り戻せる」）は書かない。
+- accent色は{Y}の数値だけ。前後の語は本文色のまま。
 
 ### ペイウォール法務表示
 
@@ -186,9 +225,8 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 
 | 要素 | 文言（テンプレート） | 備考 |
 | --- | --- | --- |
-| 年額カード ヒーロー価格 | {年額price÷12}/月 | 例: 415円/月。大きく表示 |
-| 年額カード 総額行 | 年間{年額price}を一括請求 | 月換算の直下・**可読サイズ必須**（審査3.1.2/景表法。極小表示禁止） |
-| 年額カード 補足 | 7日間無料（トライアル対象者のみ・introductoryOfferから導出） | 総額行と「・」区切り可 |
+| 年額カード 大きい価格 | {年額price}/年（`paywall.plan.annual.price`・en `%@/yr`・ko `%@/년`） | 2026-09-26改訂。請求額をカードでいちばん大きく出す（審査3.1.2） |
+| 年額カード 補足 | 月あたり{年額price÷12}（`paywall.plan.annual.monthly_equivalent`・en `Works out to %@/mo`・ko `월 %@`）・{N}日間 {¥0}（トライアル対象者のみ） | 小さく請求額の下に。旧「年間{年額price}を一括請求」（`paywall.plan.annual.charge`）は2026-09-26に削除 |
 | 月額カード ヒーロー価格 | {月額price}/月 | 例: 980円/月 |
 | 年額法務（トライアル対象・動的） | {N}日間の無料期間終了後、年額{価格}で自動更新。いつでも解約できます。購入はApple IDに請求されます | §16の動的法務方針と統一・**請求総額を法務文言にも明記** |
 | Settings 買い切り行 | 買い切りプラン {価格} | Free時のみ表示。タップで購入フロー |
@@ -201,7 +239,7 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 | 保存エラー（見出し/本文） | 保存できませんでした / データを保存できませんでした |
 | スクリーンタイム許可 拒否時の機能名 | SNSを開く前の確認（※doc07の旧表現に「介入」が含まれていたため本書ルールで置換） |
 
-オンボーディング本体の全文言は doc07 が正本（14ステップ・転記済み）。
+オンボーディング本体の全文言は doc07 が正本（現行v3の最大11画面は§4・§8を参照）。
 
 ## 6. 介入フロー（S-01〜S-07・実装時に転記）
 
@@ -305,13 +343,10 @@ iOSの仕様上この画面は静的表示のみ（アニメ不可）。ボタ�
 | 要素 | 文言 |
 | --- | --- |
 | 設定 セクション見出し | ロック画面の表示 |
-| 行1 | 朝の目標通知 |
-| 行2 | 通知時刻 |
-| 行3 | 週次レポート通知 |
-| 行4 | Live Activity |
-| 行5 | テーマ |
-| 朝の通知タイトル | 今日の戻る先 |
-| 朝の通知本文 | {目標1}・{目標2}・…（全目標を列挙） |
+| 通知 行1 | 毎週の記録通知 |
+| 通知 行2 | 記録通知の時刻（毎週の記録通知がOFFのときは操作できない） |
+| ロック画面 行1 | Live Activity |
+| ロック画面 行2 | テーマ |
 | 週次通知タイトル | 今週のふりかえり |
 | 週次通知本文 | 開かずに我慢 {N}回 / 開こうとした {M}回 |
 | Live Activity 見出し | あなたの戻る先 |
@@ -411,13 +446,10 @@ doc13 §4・§5の該当行をオーナーが承認（2026-07-20）。「勝ち�
 
 ## 17. トライアル防衛線＋週1回ペイウォール提示（2026-07-20 新設・監査C5/C4後半）
 
-Day5通知はトライアル中のみ（トライアル開始+5日）。Month1はPro継続1ヶ月時点、Month12は年額更新の7日前。週1回提示は無料ユーザーのアプリ起動時に7日以上間隔で既存ペイウォールを表示（新規文言なし・placement=weekly）。
+2026-09-20オーナー決定: トライアル終了前通知とペイウォールの通知カード・日数選択を廃止。旧予約は次回起動時に解除する。無料トライアルと購入・権限判定は変更しない。Month1はPro継続1ヶ月時点、Month12は年額更新の7日前。週1回提示は無料ユーザーのアプリ起動時に7日以上間隔で既存ペイウォールを表示（新規文言なし・placement=weekly）。
 
 | 要素 | 文言 |
 | --- | --- |
-| Day5通知 タイトル | 無料期間はあと2日です |
-| Day5通知 本文（実績あり） | ここまでに開かずに戻れた {N}回。7日目に年額プランへ切り替わります。解約はいつでもできます。 |
-| Day5通知 本文（実績なし） | 7日目に年額プランへ切り替わります。解約はいつでもできます。 |
 | Month1通知 タイトル | この1ヶ月のふりかえり |
 | Month1通知 本文 | 開かずに戻れた {N}回 / 開こうとした {M}回 |
 | Month12通知 タイトル | まもなく1年の更新です |
@@ -472,9 +504,11 @@ Day5通知はトライアル中のみ（トライアル開始+5日）。Month1�
 
 | 導線 | タイミング |
 | --- | --- |
-| オンボーディング（`notification_guide`の次・識別子`lock_screen_check`） | 通知許可の直後。目標0件のときはステップごとスキップ |
+| ホーム > ロック画面で確かめる | v3では初回の体験完了またはwin後に表示。オンボーディングの独立ステップは廃止 |
 | 全画面の自動提示 | オンボ完了後にはじめて目標を追加したとき（確認を通すまで1回） |
 | 設定 > ロック画面の表示 > ロック画面で確かめる | いつでも再確認・許可のやり直し |
+| オンボ完了画面 > 完了ボタンのすぐ上 | 許可の注記だけを出す（`lock_check.permission_note`）。目標があり、端末でライブアクティビティが許可されているときだけ（2026-09-26） |
+| ホーム > ロック画面の表示カード | 端末でライブアクティビティがオフのとき、プレビューの代わりに見出し（端末側オフ）・端末側オフのリード・「設定を開く」を出す（2026-09-26） |
 
 **文言**
 
@@ -543,7 +577,7 @@ Day5通知はトライアル中のみ（トライアル開始+5日）。Month1�
 
 | キー | ja |
 | --- | --- |
-| settings.gate.section | 止めるアプリ |
+| settings.gate.section | 廃止（2026-09-01） |
 | settings.gate.description | 開く前に必ず一呼吸。回数や長さはアプリごとに決められます |
 | settings.gate.app_list | アプリごとの設定 |
 | settings.gate.daily_limit | 1日に開ける回数 |
@@ -551,7 +585,7 @@ Day5通知はトライアル中のみ（トライアル開始+5日）。Month1�
 | settings.gate.session_minutes | 1回の長さ |
 | settings.gate.cooldown | 次に開けるまでの間 |
 | settings.gate.cooldown.none | なし |
-| settings.gate.automation_note | Proの止めるアプリではショートカットの自動化は不要です |
+| settings.gate.automation_note | 廃止（2026-09-01） |
 | settings.gate.category_note | カテゴリ選択は完全ブロックでだけ使われます。開く前の一呼吸はアプリ単位です |
 | settings.gate.locked_notice（Free） | Proにするとショートカット設定なしで開く前に必ず止まり回数や待ち時間も決められます |
 
@@ -615,4 +649,184 @@ Day5通知はトライアル中のみ（トライアル開始+5日）。Month1�
 
 今日の利用サマリーでは、主指標を `16回`／`16 times`／`16회`、補助指標を `12回`／`12 times`／`12회` の単位一体表示とする。独立した最終確認画面は設けず、通常SNSでは同じ画面で `開かない`／`開く` を直接選ぶ。シールド一時解除だけ `開く時間を選ぶ` と表示する。
 
-オンボーディングの目標入力見出しは、ja=`取り戻した時間で\n何をしたいですか？`を正本とする。「取り戻した時間で」と問いかけの間を意味境界として固定し、「何をしま｜すか？」のような語中改行を作らない。en-USとkoは各言語の自然な自動折り返しを維持する。
+オンボーディングv3の目標入力見出しは2026-09-21の改行修正で短縮。下記「11画面のディスプレイコピー」を正本とする。中央揃え・設計フォントサイズで1行を優先し、縮小で収めない。
+
+### 2026-09-06 チェックリストの手動確認
+
+- 設定ガイドと初回設定の各アプリ行はユーザーがチェックを付け外しする。自動起動の履歴から「設定済み」にしない。
+- 案内: 「設定したアプリにチェックを付けてください。削除した場合はチェックを外してください。」
+- チェックONは「設定済み」、OFFは「未設定」。初回設定の完了見出しは「設定を確認しました」。
+- チェックはアプリ内の確認メモであり、ショートカットAppの設定を変更するものではない。
+
+### 2026-09-07 ホームと手動チェックの導線
+
+- ホームの案内と設定済み件数も手動チェックを参照する。自動実行履歴で設定未完了と断定しない。
+- 未チェック時のボタン: 「設定済みのアプリをチェック」。全件チェック後も「ショートカットの設定状況」から見直せる。
+- ガイドは「設定したアプリをチェック」を動画/手順より先に表示する。
+- 付け外しの説明: 「ショートカットで設定したアプリをタップしてください。設定を削除した場合は、もう一度タップしてチェックを外せます。」初回設定でも共用する。
+
+
+## 2026-09-13 — Gemini 3.8による全画面3言語の文言改善
+
+本体・通知・ブロック画面・ウィジェットの全4カタログ、2,310文字列を `gemini-3.8-flash` でレビューした。採用した94文字列（日26・英33・韓35）の確定文言は[全変更一覧](../output/review/2026-09-13-gemini-copy/README.md)を参照。この追記と一覧は、同一キーの旧表現に優先する。
+
+日本語の不自然な空白区切り、英語の硬い表現、韓国語の翻訳調を改善した。Pro期限終了時は「Proを再開して一呼吸を使う」と「自動化を削除してDopaBreakの起動を止める」の違いを明記。利用時間到達時の「再介入」は通知またはブロックという動作へ言い換えた。数値・変数・改行数を維持し、日本語のSwiftフォールバックを同期した。OS画面内の操作名・法務条件・テーマ名は維持した。
+
+画面確認後の追加修正: 設定・エラー・利用時間の説明に残っていた「再介入／재개입」を8キー16文字列で置換した。最終採用は**110文字列（日34・英33・韓43）**。日本語の機能名は「利用時間の通知・制限」、韓国語は「사용 시간 알림·차단」。接続解除や今回だけ通知・制限を省く操作の範囲を維持する。
+
+最終の表示調整: 英語の秒数選択は狭いチップ内で単語が折り返すため `3s / 5s / 8s` に短縮。最終合計は**113文字列（日34・英36・韓43）**。
+
+
+### 2026-09-20 — ASA是正 S1・S2・S5 追加文言
+
+| Key | 日本語 | English | 한국어 |
+|---|---|---|---|
+| home.block_setup.title | ブロック未設定 | Blocking isn’t set up yet | 차단 설정이 필요해요 |
+| home.block_setup.action | ブロックを設定する | Set up blocking | 차단 설정하기 |
+| onboarding.experience.win | これが一呼吸です | That’s how a pause works | 이렇게 한숨 돌리는 거예요 |
+| onboarding.experience.finish | 一呼吸の体験を終える | Finish the pause experience | 한숨 돌리기 체험 마치기 |
+
+体験画面の説明文 `onboarding.experience.lead`（{アプリ名}を開こうとした時に出る画面です）の{アプリ名}は、選んだ中で最初のSNS（Safari以外）。Safariだけを選んだ人はSafari、何も選んでいなければInstagram（2026-09-26）。
+| paywall.action.reload | 再読み込み | Reload | 다시 불러오기 |
+| paywall.price.failed | 読み込めませんでした | Couldn’t load prices | 가격을 불러오지 못했어요 |
+
+### 2026-09-20 S6（改）呼吸画面の目標
+
+目標がある場合のみ呼吸アニメーションの下に最大5件を既存順で表示。見出しは中央・1行。利用状況画面の目標表示と編集導線は維持。
+
+| キー | ja | en | ko |
+| --- | --- | --- | --- |
+| `intervention.breath.goals_title` | 目標を思い出しましょう | Remember your goals | 목표를 떠올려 보세요 |
+
+
+### 2026-09-21 11画面のディスプレイコピー
+
+375pt幅・左右20pt余白で、見出し34pt／副文16ptの1行を優先。全文が収まらない場合だけ、翻訳内のU+200B（下表では `¦`）の位置で2行にする。`¦`は表示文字でも強制改行でもない。1行・拡大文字・VoiceOverでは空白に置換し、前後の句を連結しない。コードに改行文字を埋め込まない。英韓は単語を分割しない。Dynamic Type拡大時には全文を読めるよう自然改行を許可する。`dopaDisplayClamp`は大きな数値専用で、見出しには適用しない。従来のオンボ文言・中央1行を縮小で実現する記述より本追補を優先する。
+
+| キー | 日本語 | English | 한국어 |
+|---|---|---|---|
+| onboarding.goal.title | SNSの代わりに¦何を進めたい？ | What do you want¦ to make time for? | SNS 대신¦ 무엇을 하고 싶나요? |
+| onboarding.goal.lead | 今日から始めたいことを1つ | One thing you’d like to start | 오늘 시작하고 싶은 일 하나 |
+| onboarding.goal.multi_note | 目標はあとから追加・変更できます | Add or change goals anytime | 목표는 나중에 추가·변경할 수 있어요 |
+| onboarding.apps.title | 止めるアプリを選ぶ | Choose your apps | 앱 고르기 |
+| onboarding.apps.lead | 選んだアプリはあとから変更できます | You can change this anytime | 언제든지 바꿀 수 있어요 |
+| onboarding.self_check.title | 1日のSNS時間は？ | Daily time¦ on social media? | 하루 SNS 이용 시간은? |
+| onboarding.self_check.privacy_note | 回答の保存は端末内だけ | Answers stay on your device | 답변은 기기에만 저장돼요 |
+| onboarding.aimless.title | 気づけば目的もなくスクロール | Scrolling without a reason | 목적 없이 하게 되는 스크롤 |
+| onboarding.regret.title | 時間を溶かした？ | Time wasted? | 시간을 낭비했나요? |
+| onboarding.regret.lead | SNSを閉じたあとに感じる頻度は？ | How often do you feel this¦ after closing social media? | SNS를 닫은 뒤¦ 얼마나 자주 느끼나요? |
+| onboarding.mode.title | 止め方を選ぶ | Choose how¦ to stop | 멈추는 방법 선택 |
+| onboarding.mode.lead | あとから変えられます | You can change this later | 나중에 바꿀 수 있어요 |
+| onboarding.automation.title | 一呼吸を設定 | Set up a pause | 숨 고르기 설정 |
+| onboarding.automation.lead | アプリを開くと一呼吸が始まる設定¦ ショートカットで約2分の初回設定 | Launch a pause when apps open¦ A one-time Shortcuts setup, about 2 min | 앱을 열면 숨 고르기가 시작돼요¦ 단축어로 한 번만 설정 · 약 2분 |
+| onboarding.automation.privacy_note | 検知するのは選んだアプリの起動だけ¦ ほかの操作や画面の内容は送信しません | Only chosen app opens are detected¦ Other actions and content stay private | 선택한 앱을 열었다는 사실만 감지해요¦ 다른 조작이나 화면 내용은 전송하지 않아요 |
+| onboarding.notification.title | 目標をロック画面に | Your goal¦ on Lock Screen | 목표를 잠금 화면에 |
+| onboarding.notification.lead | ライブアクティビティで目標を表示¦ 記録と振り返りの通知もオンにできます | Show goals with Live Activities¦ Enable record and reflection reminders too | 실시간 현황으로 목표를 표시해요¦ 기록과 돌아보기 알림도 켤 수 있어요 |
+| onboarding.summary.title.pending | 自動化の設定へ | Set up automation | 자동화 설정하기 |
+| onboarding.summary.lead | SNSを開く前に一呼吸 | A pause before social media opens | SNS를 열기 전에 잠깐 숨 고르기 |
+| onboarding.summary.footer | 開く前に立ち止まって選べます | Pause and choose before opening | 열기 전에 멈추고 다시 골라요 |
+| onboarding.summary.block_setup_note | 次はブロックするアプリを選択 | Next, choose apps to block | 다음은 차단할 앱 선택 |
+| onboarding.block_setup.title | 完全にブロックする¦アプリを選ぶ | Choose apps¦ to block | 차단할 앱 선택 |
+| onboarding.block_setup.lead.deep_focus | Deep Focus中は開けなくなります | Apps stay blocked during Deep Focus | 딥 포커스 중에는 앱을 열 수 없어요 |
+| onboarding.block_setup.lead.night | 就寝%1$@から起床%2$@まで¦選んだアプリをブロック | Apps blocked from bedtime %1$@¦ until wake time %2$@ | 취침 %1$@부터 기상 %2$@까지¦ 선택한 앱을 차단해요 |
+| onboarding.ready.title.pending | あと1つで準備完了 | One more step | 한 단계만 더 |
+| onboarding.ready.body | SNSを開く前に立ち止まって選べます | Pause and choose before opening | 앱을 열기 전에 멈추고 다시 골라요 |
+| onboarding.ready.body.pending | ショートカットの自動化で¦ 一呼吸が動き始めます | Set up a Shortcuts automation¦ to start your pause | 단축어 자동화를 설정하면¦ 숨 고르기가 시작돼요 |
+| onboarding.recovery.disclaimer | ※回答をもとに開く回数が¦半分になった場合の推計 | *Based on your answer,¦ assuming half as many opens | ※답변을 바탕으로 여는 횟수가¦ 절반이 됐을 때의 추정치 |
+| onboarding.result.disclaimer | ※1日約%@の想定にもとづく推計 | *Estimated at about %@ a day | ※하루 약 %@ 사용 가정에 따른 추정치 |
+| onboarding.result.lifetime | 50年で人生の約%@年 | About %@ years of your life¦ over the next 50 years | 50년 중 내 삶의 약 %@년 |
+| onboarding.recovery.lead | 開く回数を半分にすると | If you opened half as often | 여는 횟수를 절반으로 줄이면 |
+| onboarding.result.lead | 回答から計算すると | Based on your answers | 답변을 바탕으로 추정하면 |
+| onboarding.goal.helper | 目標はロック画面にも表示 | Goals also appear on your Lock Screen | 목표는 잠금 화면에도 표시돼요 |
+| onboarding.automation.action_note | 選んだアプリで一呼吸が始まれば設定完了 | Open a chosen app to check your pause | 선택한 앱에서 숨 고르기가 시작되면 완료 |
+| onboarding.block_setup.later_note | 設定まではブロックされません¦ ホームから設定できます | Blocking starts after setup¦ Set it up from Home anytime | 설정 전에는 차단되지 않아요¦ 홈에서 설정할 수 있어요 |
+| onboarding.notification.preview.goal_fallback | ここにあなたの目標を表示 | Your goal appears here | 여기에 나의 목표 표시 |
+| intervention_mode.night_only.detail | 就寝から起床までアプリをブロック | Blocks apps from bedtime until wake-up | 취침부터 기상까지 앱을 차단해요 |
+
+
+## 2026-09-21 まとめ画面・モード選択の是正
+
+以下は旧「対象の時間」「年 約N日分」を置き換える現行文言。ラベルと値は上下配置し、通常文字サイズではそれぞれ1行。目標は編集リストとロック画面の順序を保って最大5件、未追加の入力も末尾に含め、超過分は件数で表示する。
+
+| キー | ja | en | ko |
+|---|---|---|---|
+| onboarding.summary.time | 1年でSNSに使う時間 | SNS time per year | 1년간 SNS에 쓰는 시간 |
+| onboarding.summary.yearly_days | 約%lld日 | About %lld days | 약 %lld일 |
+| onboarding.summary.mode | 止める強さ | Stopping strength | 멈추는 강도 |
+| onboarding.summary.pro_mode | %@（Pro） | %@ (Pro) | %@ (Pro) |
+| onboarding.summary.additional_goals | ほか%lld件 | %lld more | 외 %lld개 |
+| onboarding.ready.free_start | いまは一呼吸で始めます | Start with a breath for now | 지금은 한숨 돌리기로 시작해요 |
+| onboarding.ready.deep_focus_pro | ディープフォーカスはProで使えます | Deep Focus is available with Pro | 딥 포커스는 Pro에서 쓸 수 있어요 |
+| onboarding.ready.night_pro | 夜だけ強化はProで使えます | Night mode is available with Pro | 야간 강화는 Pro에서 쓸 수 있어요 |
+| onboarding.ready.mode_settings | 設定でいつでも変えられます | Change anytime in Settings | 설정에서 언제든 바꿀 수 있어요 |
+
+Deep Focus／夜だけ強化には既存のProカプセルを表示し、Deep Focusの「おすすめ」を維持。非Proのまとめでは選択モード名に（Pro）を付ける。専用プランのペイウォールを未購入で閉じた場合だけ、完了画面に上記3行を一度表示する。夜だけ強化を選んだ場合はそのモード名の説明を使う。表示済み状態は端末に保存し、選択モードは保持する。後から購入すると既存の権利判定で選択モードへ復帰する。
+
+
+## 2026-09-21 — 一呼吸＋独立したブロックへの統合
+
+この節を旧「止める強さ」の3択より優先する。設定のブロックはPro専用の3スイッチ、オンボーディングは2択。**2026-09-26 オーナー指示で、Pro（一呼吸＋完全ブロック）を上に置き、おすすめ・初期選択にした**（止め方を確定した後の画面から再開する人には保存済みの選択を出す）。無料トライアルの表記はこの画面に出さず、ペイウォールだけで伝える。選択時には購入画面を開かず、まとめで必要なプラン確認へ進む。目標5件、年間SNS時間、完了時の未購入案内は維持する。
+
+| 表示 | ja | en | ko |
+|---|---|---|---|
+| オンボーディング見出し | 止め方を選ぶ | Choose how¦ to stop | 멈추는 방법 선택 |
+| リード | あとから変えられます | You can change this later | 나중에 바꿀 수 있어요 |
+| 無料の選択 | 開く前に一呼吸 | Pause before you open | 열기 전에 한숨 고르기 |
+| 無料の補足 | 反射で開く手が止まる | Breaks the reflex to open | 무심코 여는 손을 멈춰요 |
+| 無料のバッジ | 無料（2026-09-26までは「無料・おすすめ」） | Free | 무료 |
+| Proの選択 | 一呼吸＋完全ブロック | Pause plus full block | 한숨 고르기＋완전 차단 |
+| 手動の説明 | いま30分〜2時間だけ開けなくする | Block now for 30 min to 2 hours | 지금 30분〜2시간 동안 차단 |
+| 予定の説明 | 毎週の予定で自動ブロック | Blocks on your weekly schedule | 매주 예정대로 자동 차단 |
+| 就寝中の説明 | 就寝中は自動ブロック | Blocks automatically while you sleep | 잠자는 동안 자동 차단 |
+| Proの補足 | （2026-09-26削除。トライアルはペイウォールだけで伝える） | — | — |
+| Proのバッジ | Pro・おすすめ（`onboarding.block.pro_badge`） | Pro · Recommended | Pro · 추천 |
+| 手動スイッチ | 手動セッション | Manual sessions | 수동 세션 |
+| 予定スイッチ | 毎週の予定 | Weekly schedules | 매주 일정 |
+| 夜間スイッチ | 就寝中は自動 | Automatically while sleeping | 자는 동안 자동 |
+| 未購入案内 | ブロックはProで使えます | Blocking is available with Pro | 차단은 Pro에서 쓸 수 있어요 |
+| 期間未取得 | 無料期間あり | Free trial available | 무료 체험 제공 |
+| 無料オファー未取得 | 無料トライアルあり | Free trial available | 무료 체험 제공 |
+
+¦は既存の意味区切り用U+200B。トライアル期間・ゼロ価格の通貨はStoreKitの商品情報から表示する。期間不明時には日数を補わず、汎用の無料開始CTAと期間を特定しない購入条件を表示する。シールドは有効なきっかけを併記し、Live Activityは手動の残り時間／予定の終了時刻／就寝中の起床時刻を表示する。
+
+まとめ画面CTA（2026-09-27改訂・オーナー指示）: 選んだ止め方に関係なく「このプランで始める」／“Start with this plan”／“이 플랜으로 시작하기”。無料トライアル（{期間} {ゼロ価格}）はペイウォールだけで伝える。旧「{期間} {ゼロ価格} で始める」（`onboarding.summary.action.intro`）は削除。
+
+## 2026-10-05 — 1日に開ける回数（Pro・オーナー決定A）
+
+一呼吸のあと開いた回をSNS合計で数え、使い切ったら「完全にブロックするアプリ」を翌朝の起床時刻まで止める。急ぐときは30秒待てば、選んだ時間だけ開ける。設計正本は `.claude/specs/daily-open-limit-2026-10-05.md`。止まった画面には理由と終わる時刻だけを書き、説教や約束を求める言い方をしない。「明日」は終わる時刻が翌日のときだけ付ける。
+
+| 表示 | キー | ja | en | ko |
+|---|---|---|---|---|
+| 設定の行 | `open_limit.settings.title` | 1日に開ける回数 | Daily open limit | 하루에 열 수 있는 횟수 |
+| 設定の値 | `open_limit.value.off` / `open_limit.value.count` | オフ／{n}回 | Off / {n} opens | 꺼짐 / {n}번 |
+| 設定の補足 | `open_limit.settings.footnote` | 使い切ると完全にブロックするアプリは翌朝 {起床} まで開けません。急ぐときは30秒待てば開けます。 | Once you use them up, your blocked apps stay closed until {wake} the next morning. If it's urgent, wait 30 seconds to open. | 다 쓰면 차단할 앱은 다음 날 아침 {wake}까지 열 수 없어요. 급할 때는 30초 기다리면 열 수 있어요. |
+| 設定の目安（オフのとき） | `open_limit.settings.average` | 最近は1日平均{n}回開いています。まずは{m}回から始めるのがおすすめです。 | Lately you open them about {n} times a day. Try starting with {m}. | 최근에는 하루 평균 {n}번 열고 있어요. 먼저 {m}번부터 시작해 보세요. |
+| 設定の変更待ち | `open_limit.pending.count` / `.off` | 明日 {時刻} から{n}回になります／明日 {時刻} からオフになります | Changes to {n} opens at {time} tomorrow / Turns off at {time} tomorrow | 내일 {time}부터 {n}번으로 바뀌어요 / 내일 {time}부터 꺼져요 |
+| 設定の変更待ち（深夜に変えて同じ日の朝に効くとき） | `open_limit.pending.count_today` / `.off_today` | {時刻} から{n}回になります／{時刻} からオフになります | Changes to {n} opens at {time} / Turns off at {time} | {time}부터 {n}번으로 바뀌어요 / {time}부터 꺼져요 |
+| 使い切ったがまだ開ける時間（最後の1回・緊急で開いた時間のあいだ。ホームと設定） | `open_limit.open_until` | {時刻} まで開けます | You can open until {time} | {time}까지 열 수 있어요 |
+| 設定・止めるアプリ未選択 | `open_limit.settings.no_block_apps` | 完全にブロックするアプリを選ぶと、使い切ったあとはスクリーンタイムで止まります。 | Choose apps to block so Screen Time stops them after you use up your opens. | 차단할 앱을 고르면 다 쓴 뒤 스크린 타임으로 막을 수 있어요. |
+| 設定・Free | `open_limit.settings.locked` | 決めた回数だけ開いたら翌朝まで完全にブロックします | After the number of opens you set, apps are blocked until the next morning | 정한 횟수만큼 열면 다음 날 아침까지 차단해요 |
+| 呼吸中の残り | `open_limit.breath.remaining` | 今日あと{n}回 | {n} left today | 오늘 {n}번 남았어요 |
+| 最後の1回の見出し | `open_limit.last.title` | 今日はこれが最後の1回です | This is your last open today | 오늘 마지막 한 번이에요 |
+| 最後の1回の補足 | `open_limit.last.notice_tomorrow` / `_today` | この時間が過ぎると明日 {時刻} まで開けません | When this time is up, they're blocked until {time} tomorrow | 이 시간이 지나면 내일 {time}까지 열 수 없어요 |
+| 上限画面の見出し | `open_limit.opened_title` | 今日は{n}回開きました | Opened {n} times today | 오늘 {n}번 열었어요 |
+| 上限画面の副文 | `open_limit.until_tomorrow` / `_today` | 明日 {時刻} まで開けません | Can't open until {time} tomorrow | 내일 {time}까지 열 수 없어요 |
+| 緊急ボタン | `open_limit.emergency.start` | 30秒待って開く | Wait 30 seconds to open | 30초 기다렸다가 열기 |
+| 待ち中 | `open_limit.emergency.waiting` | あと{n}秒で開けます | You can open in {n} seconds | {n}초 뒤에 열 수 있어요 |
+| 待ち終わり | `open_limit.emergency.ready` | 開けます | You can open now | 이제 열 수 있어요 |
+| 待ちの猶予切れ | `open_limit.emergency.expired` | 待ち時間が切れました | The wait has expired | 대기 시간이 지났어요 |
+| 時間へ進む | `open_limit.emergency.choose_time` | 時間を選ぶ | Choose a time | 시간 고르기 |
+| 待ちをやめる | `open_limit.emergency.cancel` | 開かない | Don't open | 열지 않기 |
+| 緊急の時間選択の補足 | `open_limit.emergency.duration_notice` | この時間が過ぎるとまた開けなくなります | When this time is up, they're blocked again | 이 시간이 지나면 다시 열 수 없어요 |
+| ホームの残り | `open_limit.home.remaining` | 今日あと{n}回開けます | {n} opens left today | 오늘 {n}번 더 열 수 있어요 |
+| ホームから開けたあと | `open_limit.emergency.opened_title` / `_body` | {時刻}まで開けます／ホーム画面からアプリを開いてください。この時間が過ぎるとまた開けなくなります。 | Open until {time} / Open the app from your Home Screen. When the time is up, it's blocked again. | {time}까지 열 수 있어요 / 홈 화면에서 앱을 열어 주세요. 이 시간이 지나면 다시 열 수 없어요. |
+| 失敗 | `open_limit.emergency.failed` | 開けるようにできませんでした。もう一度試してください。 | Couldn't unblock. Please try again. | 열 수 있게 하지 못했어요. 다시 시도해 주세요. |
+| ペイウォールの機能行（4行目・2026-10-05 オーナー指定。「解除に30秒待つ強いブロック」の行と差し替え） | `paywall.feature.daily_open_limit` | 1日の開く回数を制限してブロック | Block apps after your daily open limit | 하루에 여는 횟수를 제한해 차단 |
+| シールド見出し | `open_limit.shield.title` | 今日は{n}回開きました | Opened {n} times today | 오늘 {n}번 열었어요 |
+| シールド副文 | `open_limit.shield.until_tomorrow` / `_today` ＋ `open_limit.shield.emergency_hint`（26.5以降）/ `_manual` | 明日 {時刻} まで開けません／急ぐときはDopaBreakで30秒待つと開けます | Can't open until {time} tomorrow / If it's urgent, wait 30 seconds in DopaBreak to open | 내일 {time}까지 열 수 없어요 / 급할 때는 DopaBreak에서 30초 기다리면 열 수 있어요 |
+| シールド副ボタン（26.5以降） | `open_limit.shield.open_app` | DopaBreakを開く | Open DopaBreak | DopaBreak 열기 |
+| 他のブロックと重なったときの1行 | `open_limit.shield.combined_tomorrow` / `_today` | 今日の回数を使い切りました 明日{時刻}まで | Daily opens used up until {time} tomorrow | 오늘 횟수를 다 썼어요 내일 {time}까지 |
+
+就寝中だけオンのときの補足（回数上限オン）`settings.night_only.description_with_limit`: 完全にブロックするアプリは、就寝時刻から起床時刻まで開けません。日中は1日の回数を使い切るまで開けます。／Apps you block stay locked from bedtime until wake-up time. During the day, they open until you use up your daily opens.／차단할 앱은 취침 시각부터 기상 시각까지 열 수 없어요. 낮에는 하루 횟수를 다 쓸 때까지 열 수 있어요.
+
+再利用: 閉じる（`intervention.action.close`）、{n}分だけ開く（`intervention.duration.action.open`）、ブロックを続ける（`settings.strict.exit.continue`）。

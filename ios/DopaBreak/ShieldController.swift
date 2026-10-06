@@ -1,34 +1,69 @@
+import DeviceActivity
 import DopaBreakCore
 import FamilyControls
 import Foundation
 import ManagedSettings
+
+/// 廃止した常時ゲートが残したDeviceActivityの監視を止めるためだけの入口。
+/// テストから差し替えられるように切っておく。
+protocol RetiredActivityMonitoring {
+    /// いまこのアプリが登録している監視の名前。
+    var monitoredActivityNames: [DeviceActivityName] { get }
+    func stopMonitoring(_ activities: [DeviceActivityName])
+}
+
+extension DeviceActivityCenter: RetiredActivityMonitoring {
+    var monitoredActivityNames: [DeviceActivityName] {
+        activities
+    }
+}
+
+/// Named ManagedSettings output. Tests record writes because Simulator cannot authorize Screen Time.
+protocol ShieldSettingsWriting: AnyObject {
+    func setShield(applications: Set<ApplicationToken>, categories: Set<ActivityCategoryToken>, webDomains: Set<WebDomainToken>)
+}
+
+extension ManagedSettingsStore: ShieldSettingsWriting {
+    func setShield(applications: Set<ApplicationToken>, categories: Set<ActivityCategoryToken>, webDomains: Set<WebDomainToken>) {
+        shield.applications = applications.isEmpty ? nil : applications
+        shield.applicationCategories = categories.isEmpty ? nil : .specific(categories)
+        shield.webDomains = webDomains.isEmpty ? nil : webDomains
+    }
+}
 
 @MainActor
 final class ShieldController {
     private let ruleStore: RuleStore
     /// 完全ブロック（ディープフォーカス）の分を置くストア。窓の境界で拡張が
     /// ここだけを触れるように、夜だけ強化とも旧ストアとも分ける。
-    private let deepFocusManagedSettingsStore = ManagedSettingsStore(
-        named: .init(DeepFocusConstants.shieldStoreName)
-    )
-    /// 夜だけ強化の分は別ストアに置く。朝の解除でディープフォーカスまで外さないため、
-    /// また拡張が夜間分だけを触れるようにするため（`NightShieldConstants.shieldStoreName`）。
-    private let nightManagedSettingsStore = ManagedSettingsStore(
-        named: .init(NightShieldConstants.shieldStoreName)
-    )
+    private let deepFocusManagedSettingsStore: any ShieldSettingsWriting
+    /// 夜間は独立したストアに置き、手動終了では解除しない。
+    private let nightManagedSettingsStore: any ShieldSettingsWriting
     /// 常時ブロックだった頃の置き場。もう誰も書かないが、更新前に掛かったままの端末が残る。
     /// 空にし続けないと、窓が終わっても剥がれないブロックが更新直後の全員に残る。
-    private let legacyManagedSettingsStore = ManagedSettingsStore(
-        named: .init(DeepFocusConstants.legacyShieldStoreName)
-    )
-    /// 全解除・Free確定時に、日常ゲートの専用ストアも取り残さない。
-    private let gateManagedSettingsStore = ManagedSettingsStore(
-        named: .init(GateConstants.shieldStoreName)
-    )
+    private let legacyManagedSettingsStore: any ShieldSettingsWriting
+    /// 更新前の常時ゲートが使っていたストア。
+    /// 新しい書き込み元は持たず、更新後の最初の同期から空にし続ける。
+    private let retiredAlwaysOnManagedSettingsStore: any ShieldSettingsWriting
+    /// 更新前の常時ゲートが張ったDeviceActivityの名前の頭（`dopabreak.gate.reshield.<uuid>`）。
+    /// 張り直しの持ち主だったコントローラごと廃止したため、止める経路が誰にも残っていない。
+    private static let retiredGateActivityPrefix = "dopabreak.gate"
+    private let activityCenter: any RetiredActivityMonitoring
+    /// 廃止済みゲートの掃除を済ませたか。
+    private var didStopRetiredGateMonitoring = false
     private let decoder = JSONDecoder()
 
-    init(ruleStore: RuleStore) {
+    init(
+        ruleStore: RuleStore,
+        activityCenter: any RetiredActivityMonitoring = DeviceActivityCenter(),
+        storeFactory: (String) -> any ShieldSettingsWriting = { ManagedSettingsStore(named: .init($0)) }
+    ) {
         self.ruleStore = ruleStore
+        self.activityCenter = activityCenter
+        self.deepFocusManagedSettingsStore = storeFactory(DeepFocusConstants.shieldStoreName)
+        self.nightManagedSettingsStore = storeFactory(NightShieldConstants.shieldStoreName)
+        self.legacyManagedSettingsStore = storeFactory(DeepFocusConstants.legacyShieldStoreName)
+        self.retiredAlwaysOnManagedSettingsStore = storeFactory("dopabreak.gate")
     }
 
     /// 完全ブロックを現在の権利とルールへ合わせる。
@@ -52,8 +87,15 @@ final class ShieldController {
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
         isDeepFocusWindowActive: Bool,
-        isManualDeepFocusSessionActive: Bool = false
+        isManualDeepFocusSessionActive: Bool = false,
+        allowsNightSchedule: Bool = false,
+        blockConfiguration: BlockConfiguration = BlockConfiguration()
     ) {
+        // 権利確認やルール読み取りより先に、廃止済みの常時ゲートだけを必ず剥がす。
+        // これが更新後の初回同期で、既存ユーザーの灰色アイコンを確実に戻す移行経路になる。
+        clear(retiredAlwaysOnManagedSettingsStore)
+        stopRetiredGateMonitoring()
+
         // ルールの取得も含めて `ShieldSyncPolicy` に判断させる。
         // 取得してから判断する形にすると、読み取りが失敗する端末で
         // Freeへ戻った人の解除が落ちる（判断の順序をここで持たない）。
@@ -64,7 +106,9 @@ final class ShieldController {
             hasConfirmedEntitlement: hasConfirmedEntitlement,
             isNightWindow: isNightWindow,
             isDeepFocusWindowActive: isDeepFocusWindowActive,
-            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
+            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive,
+                allowsNightSchedule: allowsNightSchedule,
+                blockConfiguration: blockConfiguration
         ) {
         case .preserve:
             return
@@ -76,7 +120,9 @@ final class ShieldController {
                 entitlementGate: entitlementGate,
                 isNightWindow: isNightWindow,
                 isDeepFocusWindowActive: isDeepFocusWindowActive,
-                isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
+                isManualDeepFocusSessionActive: isManualDeepFocusSessionActive,
+                allowsNightSchedule: allowsNightSchedule,
+                blockConfiguration: blockConfiguration
             )
         }
     }
@@ -86,7 +132,9 @@ final class ShieldController {
         entitlementGate: EntitlementGate,
         isNightWindow: Bool,
         isDeepFocusWindowActive: Bool,
-        isManualDeepFocusSessionActive: Bool
+        isManualDeepFocusSessionActive: Bool,
+        allowsNightSchedule: Bool,
+        blockConfiguration: BlockConfiguration
     ) {
         var deepFocusTokens = ShieldTokens()
         var nightTokens = ShieldTokens()
@@ -94,9 +142,8 @@ final class ShieldController {
         var remainingTargetTokenLimit = entitlementGate.targetAppTokensLimit
 
         for rule in applicableRules(from: rules, entitlementGate: entitlementGate) {
-            let appliesToDeepFocus = isManualDeepFocusSessionActive
-                || (rule.mode == .deepFocus && isDeepFocusWindowActive)
-            let appliesToNight = rule.mode == .nightOnly && isNightWindow
+            let appliesToDeepFocus = blockConfiguration.isActive(manual: isManualDeepFocusSessionActive, weeklySchedule: isDeepFocusWindowActive, night: false)
+            let appliesToNight = blockConfiguration.allows(.night) && isNightWindow
 
             do {
                 let selection = try decoder.decode(
@@ -133,7 +180,7 @@ final class ShieldController {
         clear(deepFocusManagedSettingsStore)
         clear(nightManagedSettingsStore)
         clear(legacyManagedSettingsStore)
-        clear(gateManagedSettingsStore)
+        clear(retiredAlwaysOnManagedSettingsStore)
     }
 
     /// 完全ブロックぶんだけを剥がす。窓の予定を張れなかったときに、
@@ -148,9 +195,44 @@ final class ShieldController {
         clear(nightManagedSettingsStore)
     }
 
+    /// 廃止した常時ゲートが残した監視を止める。
+    ///
+    /// `ManagedSettingsStore` 側の掃除だけでは、旧ビルドから上げた端末に
+    /// `dopabreak.gate.reshield.<uuid>` の予定が残り続ける。枠を食いながら
+    /// `MonitorExtension` を無駄に起こすため、シールドの解除と同じ最初の同期で落とす。
+    ///
+    /// 何度呼んでも壊れない。走り切るのはプロセスに1回だけで、そのあとは問い合わせもしない。
+    /// この版に `dopabreak.gate.*` を張る書き手はもういないため、あとから増えることがない。
+    ///
+    /// 済んだ印は、一覧を実際に読めてから立てる。スクリーンタイムの認可が未解決の端末では
+    /// `monitoredActivityNames` が空で返るため、そこで印を立てるとそのプロセスでは二度と見に行かない。
+    /// 空のときは印を立てず次の同期へ回す。前面復帰のたびの問い合わせは掃除が済むまでの間だけになる。
+    ///
+    /// `AppContainer.syncShield()` が予定を張り直すより前にも通す。DeviceActivityの枠には
+    /// 上限があり、旧アクティビティが居座ったまま新しい予定を登録させないため。
+    func stopRetiredGateMonitoring() {
+        guard !didStopRetiredGateMonitoring else {
+            return
+        }
+
+        let monitored = activityCenter.monitoredActivityNames
+        guard !monitored.isEmpty else {
+            return
+        }
+        didStopRetiredGateMonitoring = true
+
+        let retired = monitored.filter {
+            $0.rawValue.hasPrefix(Self.retiredGateActivityPrefix)
+        }
+        guard !retired.isEmpty else {
+            return
+        }
+        activityCenter.stopMonitoring(retired)
+    }
+
     /// 読み取れたぶんだけを反映する。1件でもデコードに失敗したときは解除しない。
     /// 壊れたルールを理由に、いま効いているブロックを剥がさないため。
-    private func apply(_ tokens: ShieldTokens, to store: ManagedSettingsStore) {
+    private func apply(_ tokens: ShieldTokens, to store: any ShieldSettingsWriting) {
         guard !tokens.isEmpty else {
             if tokens.didFailDecodingSelection {
                 return
@@ -159,17 +241,11 @@ final class ShieldController {
             return
         }
 
-        store.shield.applications = tokens.applications.isEmpty ? nil : tokens.applications
-        store.shield.applicationCategories = tokens.categories.isEmpty
-            ? nil
-            : .specific(tokens.categories)
-        store.shield.webDomains = tokens.webDomains.isEmpty ? nil : tokens.webDomains
+        store.setShield(applications: tokens.applications, categories: tokens.categories, webDomains: tokens.webDomains)
     }
 
-    private func clear(_ store: ManagedSettingsStore) {
-        store.shield.applications = nil
-        store.shield.applicationCategories = nil
-        store.shield.webDomains = nil
+    private func clear(_ store: any ShieldSettingsWriting) {
+        store.setShield(applications: [], categories: [], webDomains: [])
     }
 
     private func applicableRules(

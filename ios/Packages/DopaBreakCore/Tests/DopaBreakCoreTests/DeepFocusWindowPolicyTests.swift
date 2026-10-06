@@ -451,7 +451,7 @@ final class DeepFocusWindowPolicyTests: XCTestCase {
     }
 
     func testAllWindowActivityNamesCoverSessionAndEveryWeekday() {
-        XCTAssertEqual(DeepFocusConstants.allWindowActivityNames.count, 8)
+        XCTAssertEqual(DeepFocusConstants.allWindowActivityNames.count, 17)
         XCTAssertTrue(
             DeepFocusConstants.allWindowActivityNames
                 .contains(DeepFocusConstants.sessionActivityName)

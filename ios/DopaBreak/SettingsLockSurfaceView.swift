@@ -5,12 +5,13 @@ enum SettingsLockThemeSelectionHandler {
     static func select(
         for theme: LockTheme,
         isThemeAllowed: (LockTheme) -> Bool,
-        onLocked: (PaywallPlacement) -> Void,
+        onLocked: (LockTheme, PaywallPlacement) -> Void,
         onSelect: (LockTheme) -> Void
     ) {
-        onSelect(theme)
-        if !isThemeAllowed(theme) {
-            onLocked(.settingsThemeGate)
+        if isThemeAllowed(theme) {
+            onSelect(theme)
+        } else {
+            onLocked(theme, .settingsThemeGate)
         }
     }
 }
@@ -32,7 +33,6 @@ struct SettingsLockSurfaceView: View {
     @Binding var liveActivityEnabled: Bool
     @Binding var isLockScreenCheckPresented: Bool
     @Binding var paywallPlacement: PaywallPlacement?
-    @State private var savedLockTheme: LockTheme
     private let onPickerActionReady: ((@escaping (LockTheme) -> Void) -> Void)?
     private let onPickerSelectionRendered: ((LockTheme) -> Void)?
     private let onProNoteRendered: (() -> Void)?
@@ -54,7 +54,6 @@ struct SettingsLockSurfaceView: View {
         _liveActivityEnabled = liveActivityEnabled
         _isLockScreenCheckPresented = isLockScreenCheckPresented
         _paywallPlacement = paywallPlacement
-        _savedLockTheme = State(initialValue: model.savedLockTheme)
         self.onPickerActionReady = onPickerActionReady
         self.onPickerSelectionRendered = onPickerSelectionRendered
         self.onProNoteRendered = onProNoteRendered
@@ -112,7 +111,7 @@ struct SettingsLockSurfaceView: View {
                             }
 
                             if SettingsLockThemePresentation.showsProNote(
-                                savedTheme: savedLockTheme,
+                                savedTheme: model.displayedLockThemeSelection,
                                 isThemeAllowed: model.entitlementGate.lockThemeAllowed
                             ) {
                                 Text(
@@ -128,7 +127,7 @@ struct SettingsLockSurfaceView: View {
                             }
 
                             LockThemePickerView(
-                                selectedTheme: savedLockTheme,
+                                selectedTheme: model.displayedLockThemeSelection,
                                 goalTitles: previewTitles,
                                 cancelledCount: model.todayCancelledCount,
                                 attemptCount: model.todayAttemptCount,
@@ -167,11 +166,12 @@ struct SettingsLockSurfaceView: View {
         SettingsLockThemeSelectionHandler.select(
             for: theme,
             isThemeAllowed: model.entitlementGate.lockThemeAllowed,
-            onLocked: { paywallPlacement = $0 },
+            onLocked: { selectedTheme, placement in
+                model.pendingProThemeSelection = selectedTheme
+                paywallPlacement = placement
+            },
             onSelect: { selectedTheme in
-                savedLockTheme = selectedTheme
-                settingsStore.lockTheme = selectedTheme
-                model.refreshLockSurfaces(scheduleNotifications: false)
+                model.updateLockTheme(selectedTheme)
                 liveLockTheme = model.liveLockTheme
             }
         )

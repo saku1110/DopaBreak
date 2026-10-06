@@ -1,13 +1,25 @@
 import DopaBreakCore
-import FamilyControls
-import ManagedSettings
 import StoreKit
 import SwiftUI
+
+private struct StepContentHeightModifier: ViewModifier {
+    let fillsAvailableHeight: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if fillsAvailableHeight {
+            content.containerRelativeFrame(.vertical, alignment: .top)
+        } else {
+            content
+        }
+    }
+}
 
 /// 一呼吸フロー全体（S-01〜S-05・doc12 §2 / doc11 §7）。
 /// AppIntent / URLスキーム経由で起動され、RootTabView最前面の不透明オーバーレイとして表示される。
 struct InterventionFlowView: View {
     let onFinished: () -> Void
+    private var onExperienceCompleted: () -> Void = {}
 
     @State private var flow: InterventionFlowModel
     @State private var goalEditorRoute: GoalEditorRoute?
@@ -17,13 +29,17 @@ struct InterventionFlowView: View {
     private let breathPreviewLoop: Range<TimeInterval>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.scenePhase) private var scenePhase
 
     init(
         target: InterventionTarget,
         model: AppModel,
         settingsStore: SettingsStore,
+        isOnboardingExperience: Bool = false,
+        onExperienceCompleted: @escaping () -> Void = {},
         onFinished: @escaping () -> Void
     ) {
+        self.onExperienceCompleted = onExperienceCompleted
         self.onFinished = onFinished
         self.startsFlowOnAppear = true
         self.breathPreviewLoop = nil
@@ -34,7 +50,8 @@ struct InterventionFlowView: View {
             initialValue: InterventionFlowModel(
                 target: target,
                 model: model,
-                settingsStore: settingsStore
+                settingsStore: settingsStore,
+                isOnboardingExperience: isOnboardingExperience
             )
         )
     }
@@ -88,8 +105,10 @@ struct InterventionFlowView: View {
         model: AppModel,
         settingsStore: SettingsStore,
         breathPreviewLoop: Range<TimeInterval>? = nil,
+        onExperienceCompleted: @escaping () -> Void = {},
         onFinished: @escaping () -> Void
     ) {
+        self.onExperienceCompleted = onExperienceCompleted
         self.onFinished = onFinished
         self.startsFlowOnAppear = false
         self.breathPreviewLoop = breathPreviewLoop
@@ -115,7 +134,7 @@ struct InterventionFlowView: View {
                 return flow.winMilestone == nil
                     ? .success
                     : .impact(weight: .heavy, intensity: 1)
-            case .failed, .limit: return .error
+            case .failed: return .error
             default: return nil
             }
         }
@@ -129,18 +148,28 @@ struct InterventionFlowView: View {
             flow.stop()
         }
         .task(id: openingTaskID) {
-            guard case .opening(let message) = flow.stage,
-                  message == nil,
-                  !flow.isAwaitingTargetOpen else {
+            guard isReadyToDismissAfterOpening else {
                 return
             }
             try? await Task.sleep(nanoseconds: 500_000_000)
-            if case .opening(let latest) = flow.stage, latest == nil {
+            if isReadyToDismissAfterOpening {
                 onFinished()
             }
         }
         .task(id: reviewPromptTaskID) {
             await requestReviewFromWinScreenIfEligible()
+        }
+        // 上限画面を開いたまま朝を迎えた・Freeへ戻ったときに、古い画面のまま待たせない。
+        .task(id: isShowingDailyOpenLimitScreen) {
+            while isShowingDailyOpenLimitScreen, !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                flow.refreshLimitStateIfNeeded()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                flow.refreshLimitStateIfNeeded()
+            }
         }
         .sheet(item: $goalEditorRoute) { route in
             GoalEditorSheet(model: model, goal: route.goal)
@@ -157,6 +186,9 @@ struct InterventionFlowView: View {
     }
 
     private var openingTaskID: String {
+        if case .passingThrough = flow.stage {
+            return flow.isAwaitingTargetOpen ? "pass-through-pending" : "pass-through-ready"
+        }
         if case .opening(let message) = flow.stage, message == nil {
             return flow.isAwaitingTargetOpen ? "opening-pending" : "opening-ready"
         }
@@ -164,6 +196,21 @@ struct InterventionFlowView: View {
             return "opening-fallback"
         }
         return "idle"
+    }
+
+    private var isReadyToDismissAfterOpening: Bool {
+        switch flow.stage {
+        case .opening(let message):
+            return message == nil && !flow.isAwaitingTargetOpen
+        case .passingThrough:
+            return !flow.isAwaitingTargetOpen
+        default:
+            return false
+        }
+    }
+
+    private var isShowingDailyOpenLimitScreen: Bool {
+        flow.stage == .limitReached || flow.stage == .emergencyWaiting
     }
 
     private var reviewPromptTaskID: String {
@@ -190,12 +237,6 @@ struct InterventionFlowView: View {
     @ViewBuilder
     private var flowContent: some View {
         switch flow.stage {
-        case .reflection(let reflection):
-            PostUseReflectionContent(
-                reflection: reflection,
-                onSelect: flow.recordReflection,
-                onSkip: flow.skipReflection
-            )
         case .breathing:
             breathingScreen
         case .usageSummary:
@@ -206,48 +247,90 @@ struct InterventionFlowView: View {
             durationSelectionScreen
         case .opening(let message):
             openingScreen(fallbackMessage: message)
-        case .limit(let denial):
-            limitScreen(denial: denial)
+        case .passingThrough(let remainingMinutes):
+            passThroughScreen(remainingMinutes: remainingMinutes)
         case .win:
             winScreen
         case .failed(let message):
             failedScreen(message: message)
+        case .limitReached:
+            limitReachedScreen
+        case .emergencyWaiting:
+            emergencyWaitingScreen
         }
     }
 
     // MARK: - 全経路共通の一呼吸
 
     private var breathingScreen: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                SmallLabel(text: String(localized: "intervention.breath.eyebrow", defaultValue: "PAUSE"))
-                Spacer()
-                targetLabel
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 4)
+
+                    VStack(spacing: 20) {
+                        if !flow.goals.isEmpty {
+                            VStack(spacing: 14) {
+                                Text(String(
+                                    localized: "intervention.breath.goals_title",
+                                    defaultValue: "目標を思い出しましょう"
+                                ))
+                                .dopaFont(18, weight: .bold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                                .frame(maxWidth: .infinity)
+
+                                CardContainer {
+                                    goalRows(Array(flow.goals.prefix(5)))
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                        }
+
+                        if let remaining = flow.remainingOpensForDisplay {
+                            Text(String(localized: "open_limit.breath.remaining", defaultValue: "今日あと\(remaining)回"))
+                                .dopaFont(16, weight: .bold)
+                                .foregroundStyle(DesignTokens.secondaryText)
+                                .monospacedDigit()
+                                .frame(maxWidth: .infinity)
+                                .accessibilityIdentifier("intervention.open_limit.remaining")
+                        }
+
+                        breathingCharacter
+                            .frame(maxWidth: 520, maxHeight: 520)
+                            .padding(.horizontal, 6)
+
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Spacer(minLength: 4)
+                }
+                .frame(minHeight: geometry.size.height)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
-
-            Spacer(minLength: 4)
-
-            VStack(spacing: 20) {
-                Text(String(localized: "intervention.breath.title", defaultValue: "まずはひと呼吸"))
-                    .dopaFont(24, weight: .black)
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                breathingCharacter
-                    .frame(maxWidth: 520, maxHeight: 520)
-                    .padding(.horizontal, 6)
-            }
-            .frame(maxWidth: .infinity)
-
-            Spacer(minLength: 4)
+            .scrollBounceBehavior(.basedOnSize)
         }
         .onAppear {
             flow.resumeBreathingIfNeeded()
+        }
+    }
+
+    private func goalRows(_ goals: [Goal]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(goals, id: \.id) { goal in
+                HStack(alignment: .top, spacing: 10) {
+                    Circle()
+                        .fill(DesignTokens.accent)
+                        .frame(width: 6, height: 6)
+                        .padding(.top, 8)
+                        .accessibilityHidden(true)
+                    Text(goal.title)
+                        .dopaFont(18, weight: .bold)
+                        .foregroundStyle(DesignTokens.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 
@@ -343,21 +426,7 @@ struct InterventionFlowView: View {
                                 .foregroundStyle(DesignTokens.primaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(flow.goals, id: \.id) { goal in
-                                    HStack(alignment: .top, spacing: 10) {
-                                        Circle()
-                                            .fill(DesignTokens.accent)
-                                            .frame(width: 6, height: 6)
-                                            .padding(.top, 8)
-                                            .accessibilityHidden(true)
-                                        Text(goal.title)
-                                            .dopaFont(18, weight: .bold)
-                                            .foregroundStyle(DesignTokens.primaryText)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                }
-                            }
+                            goalRows(flow.goals)
                         }
                     }
                 }
@@ -490,10 +559,9 @@ struct InterventionFlowView: View {
     // MARK: - S-04 理由
 
     private var reasonSelectionScreen: some View {
-        // 6択カード自体が選択手段なので、下部CTAは持たない。
-        stepScaffold(hasAction: false) {
+        // 開かない決断には理由の入力を要求しない。
+        stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: String(localized: "intervention.intent.eyebrow", defaultValue: "INTENT"))
                 titleText(String(localized: "intervention.intent.title", defaultValue: "何のために\n開きますか？"))
                 Text(String(localized: "intervention.intent.description", defaultValue: "開く理由を選んでください"))
                     .dopaFont(14, weight: .medium)
@@ -525,15 +593,18 @@ struct InterventionFlowView: View {
                 }
             }
         } action: {
-            EmptyView()
+            primaryButton(String(localized: "intervention.usage_summary.action.cancel", defaultValue: "開かない")) {
+                flow.chooseCancel()
+            }
         }
     }
 
     private var durationSelectionScreen: some View {
         stepScaffold {
             VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: String(localized: "intervention.duration.eyebrow", defaultValue: "TIME"))
-                titleText(String(localized: "intervention.duration.title", defaultValue: "何分だけ\n開きますか？"))
+                titleText(flow.canChooseUntimed && !flow.usesTimeLimit
+                    ? String(localized: "reintervention.work.title", defaultValue: "用事に集中しましょう")
+                    : String(localized: "intervention.duration.title", defaultValue: "何分だけ\n開きますか？"))
                 if let reason = flow.selectedReason {
                     CardContainer {
                         HStack(spacing: 10) {
@@ -547,6 +618,35 @@ struct InterventionFlowView: View {
                         }
                     }
                 }
+                if flow.isEmergencyOpen {
+                    Text(String(localized: "open_limit.emergency.duration_notice", defaultValue: "この時間が過ぎるとまた開けなくなります"))
+                        .dopaFont(14, weight: .semibold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if flow.isLastOpenForDailyLimit, let end = flow.dailyOpenLimitDayEndsAt {
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(String(localized: "open_limit.last.title", defaultValue: "今日はこれが最後の1回です"))
+                                .dopaFont(16, weight: .bold)
+                                .foregroundStyle(DesignTokens.primaryText)
+                            Text(DailyOpenLimitDisplay.lastOpenNotice(end, now: model.currentDate))
+                                .dopaFont(14, weight: .semibold)
+                                .foregroundStyle(DesignTokens.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("intervention.open_limit.last")
+                }
+                if flow.canChooseUntimed {
+                    Toggle(String(localized: "reintervention.work.toggle", defaultValue: "今回は利用時間を決める"), isOn: $flow.usesTimeLimit)
+                        .tint(DesignTokens.accent)
+                    if !flow.usesTimeLimit {
+                        Text(String(localized: "reintervention.work.notice", defaultValue: "今回は利用時間の通知・制限や満足度の質問はありません。毎週の予定や就寝中のブロックは続きます。"))
+                            .dopaFont(14, weight: .medium).foregroundStyle(DesignTokens.secondaryText)
+                    }
+                }
+                if !flow.canChooseUntimed || flow.usesTimeLimit {
                 Text(
                     String(
                         localized: "intervention.duration.guidance",
@@ -555,7 +655,28 @@ struct InterventionFlowView: View {
                 )
                     .dopaFont(14, weight: .medium)
                     .foregroundStyle(DesignTokens.secondaryText)
-                if case .catalog = flow.target {
+                if flow.canChooseUntimed {
+                    if flow.canBlockNecessaryUse {
+                        Toggle(String(localized: "reintervention.soft.block", defaultValue: "時間になったらブロックする"), isOn: $flow.blocksNecessaryUse)
+                            .tint(DesignTokens.accent)
+                    }
+                    if flow.isGentleCheckIn {
+                        Text(flow.canBlockNecessaryUse
+                            ? String(localized: "reintervention.soft.usage_notice", defaultValue: "選んだ利用時間になったら確認通知を送ります。ブロックや満足度の質問はありません。")
+                            : String(localized: "reintervention.soft.clock_notice", defaultValue: "開いてから選んだ時間がたつと確認通知を送ります。ブロックや満足度の質問はありません。"))
+                            .dopaFont(14, weight: .medium).foregroundStyle(DesignTokens.secondaryText)
+                        Text(String(localized: "reintervention.soft.permission", defaultValue: "確認通知にはiOSの通知許可と設定の「振り返りの通知」が必要です。"))
+                            .font(.footnote).foregroundStyle(DesignTokens.secondaryText)
+                    }
+                }
+                if flow.isEmergencyOpen || flow.isLastOpenForDailyLimit {
+                    // 回数上限の一文を上に出している。自動では閉じない旨や再介入の案内は、この回には当てはまらない。
+                    EmptyView()
+                } else if !flow.isGentleCheckIn, case .catalog(let target) = flow.target, model.isReinterventionConnected(catalogID: target.catalogID) {
+                    Text(String(localized: "reintervention.duration.notice", defaultValue: "選んだ利用時間に達すると通知またはブロックでお知らせします。戻ったあとに満足度を記録し、終了か延長を選べます。"))
+                        .dopaFont(14, weight: .semibold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                } else if !flow.isGentleCheckIn, case .catalog = flow.target {
                     Text(
                         String(
                             localized: "intervention.duration.catalog_notice",
@@ -594,12 +715,17 @@ struct InterventionFlowView: View {
                 .animation(DopaMotion.control, value: flow.selectedDuration)
                 // 選択の切り替えは触覚で確定を返す。ピッカーと同じ役割。
                 .sensoryFeedback(.selection, trigger: flow.selectedDuration)
+                }
 
             }
         } action: {
             VStack(spacing: 4) {
                 primaryButton(
-                    String(
+                    flow.isOnboardingExperience
+                    ? String(localized: "onboarding.experience.finish", defaultValue: "一呼吸の体験を終える")
+                    : flow.canChooseUntimed && !flow.usesTimeLimit
+                    ? String(localized: "reintervention.work.open", defaultValue: "時間を決めずに開く")
+                    : String(
                         localized: "intervention.duration.action.open",
                         defaultValue: "\(flow.selectedDuration.rawValue)分だけ開く"
                     )
@@ -631,7 +757,6 @@ struct InterventionFlowView: View {
         // 起動待ちの通常時はCTAなし。失敗メッセージが出たときだけ「閉じる」を置く。
         stepScaffold(hasAction: fallbackMessage != nil) {
             VStack(alignment: .center, spacing: 24) {
-                SmallLabel(text: String(localized: "intervention.opening.eyebrow", defaultValue: "OPENING"))
                 if let fallbackMessage {
                     titleText(fallbackMessage)
                 } else {
@@ -666,6 +791,37 @@ struct InterventionFlowView: View {
         }
     }
 
+    private func passThroughScreen(remainingMinutes: Int) -> some View {
+        stepScaffold(hasAction: false) {
+            VStack(alignment: .center, spacing: 16) {
+                titleText(
+                    String(
+                        localized: "intervention.pass_through.title",
+                        defaultValue: "\(targetDisplayName)を開きます"
+                    )
+                )
+                Text(flow.isUntimedPassThrough
+                    ? String(localized: "reintervention.work.passing", defaultValue: "今回は通知・制限をスキップして開きます")
+                    : flow.hasMonitoredUsageBudget
+                    ? String(localized: "reintervention.continuing", defaultValue: "選んだ利用時間の計測を続けます")
+                    : String(
+                        localized: "intervention.pass_through.remaining",
+                        defaultValue: "決めた時間はあと\(remainingMinutes)分"
+                    )
+                )
+                    .dopaFont(15, weight: .bold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                ProgressView()
+                    .progressViewStyle(.linear)
+                    .tint(DesignTokens.accent)
+                    .frame(maxWidth: 220)
+            }
+            .frame(maxWidth: .infinity)
+        } action: {
+            EmptyView()
+        }
+    }
+
     private var usageSummaryOpenActionTitle: String {
         String(
             localized: "intervention.usage_summary.action.choose_duration",
@@ -683,17 +839,24 @@ struct InterventionFlowView: View {
     // MARK: - 勝ち画面
 
     private var winScreen: some View {
-        stepScaffold(topPadding: 28) {
+        stepScaffold(fillsAvailableHeight: true, topPadding: 28) {
             WinScreenContent(
                 reclaimedSeconds: flow.winReclaimedSeconds,
                 lifetimeReclaimedSeconds: flow.winLifetimeReclaimedSeconds,
                 todayCancelledCount: flow.todayCancelledCountForDisplay,
+                consecutiveDays: flow.winConsecutiveDays,
                 estimatedMinutesPerCancellation: flow.winEstimatedMinutesPerCancellation,
                 goals: flow.goals,
                 milestone: flow.winMilestone
             )
+            if flow.isOnboardingExperience {
+                Text(String(localized: "onboarding.experience.win", defaultValue: "これが一呼吸です"))
+                    .dopaFont(17, weight: .semibold)
+                    .foregroundStyle(DesignTokens.primaryText)
+            }
         } action: {
             primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
+                if flow.isOnboardingExperience { onExperienceCompleted() }
                 onFinished()
             }
         }
@@ -711,76 +874,90 @@ struct InterventionFlowView: View {
         }
     }
 
-    private func limitScreen(denial: GateDenial) -> some View {
+    // MARK: - 1日に開ける回数
+
+    /// 使い切ったあとに呼ばれたときの画面。理由と終わる時刻だけを書く。
+    private var limitReachedScreen: some View {
         stepScaffold {
-            VStack(alignment: .leading, spacing: 20) {
-                titleText(
-                    String(
-                        localized: "intervention.gate.limit.title",
-                        defaultValue: "今日はここまで"
-                    )
-                )
-                Text(limitMessage(for: denial))
-                    .dopaFont(16, weight: .medium, lineSpacing: 5)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 14) {
+                titleText(DailyOpenLimitDisplay.openedTitle(flow.dailyOpenLimitOpenedCount))
+                if let end = flow.dailyOpenLimitDayEndsAt {
+                    Text(DailyOpenLimitDisplay.untilLine(end, now: model.currentDate))
+                        .dopaFont(17, weight: .bold)
+                        .foregroundStyle(DesignTokens.secondaryText)
+                        .monospacedDigit()
+                }
             }
+            .accessibilityIdentifier("intervention.open_limit.reached")
         } action: {
-            primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
-                onFinished()
+            VStack(spacing: 4) {
+                primaryButton(String(localized: "intervention.action.close", defaultValue: "閉じる")) {
+                    onFinished()
+                }
+                if !flow.isOtherHardBlockActive {
+                    textButton(String(localized: "open_limit.emergency.start", defaultValue: "30秒待って開く")) {
+                        flow.requestEmergencyOpen()
+                    }
+                    .accessibilityIdentifier("intervention.open_limit.emergency")
+                }
             }
         }
+    }
+
+    /// 緊急で開く前の30秒。待ち始めた時刻は保存してあり、閉じて開き直しても短くならない。
+    private var emergencyWaitingScreen: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let state = flow.dailyOpenLimitEmergencyState
+            stepScaffold {
+                VStack(alignment: .leading, spacing: 14) {
+                    switch state {
+                    case .waiting(let seconds):
+                        titleText(String(localized: "open_limit.emergency.waiting", defaultValue: "あと\(seconds)秒で開けます"))
+                            .monospacedDigit()
+                    case .ready:
+                        titleText(String(localized: "open_limit.emergency.ready", defaultValue: "開けます"))
+                    case .notRequested:
+                        titleText(String(localized: "open_limit.emergency.expired", defaultValue: "待ち時間が切れました"))
+                    }
+                }
+                .accessibilityIdentifier("intervention.open_limit.waiting")
+            } action: {
+                VStack(spacing: 4) {
+                    if state == .notRequested {
+                        primaryButton(String(localized: "open_limit.emergency.start", defaultValue: "30秒待って開く")) {
+                            flow.requestEmergencyOpen()
+                        }
+                    } else {
+                        // 待っているあいだは押しても進まないため、押せない見た目にする。
+                        Button(String(localized: "open_limit.emergency.choose_time", defaultValue: "時間を選ぶ")) {
+                            flow.proceedAfterEmergencyWait()
+                        }
+                        .buttonStyle(PrimaryButtonStyle(isEnabled: state == .ready))
+                        .disabled(state != .ready)
+                    }
+                    textButton(String(localized: "open_limit.emergency.cancel", defaultValue: "開かない")) {
+                        onFinished()
+                    }
+                }
+            }
+        }
+    }
+
+    private func textButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .dopaFont(15, weight: .semibold)
+            .foregroundStyle(DesignTokens.secondaryText)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .buttonStyle(.plain)
     }
 
     // MARK: - Helpers
 
-    @ViewBuilder
-    private var targetLabel: some View {
-        switch flow.target {
-        case .catalog(let target):
-            SmallLabel(text: target.displayName.uppercased())
-        case .gateToken(let tokenData, _):
-            if let token = try? GateTokenCoding.decode(ApplicationToken.self, from: tokenData) {
-                Label(token)
-                    .dopaFont(12, weight: .bold)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .lineLimit(1)
-            } else {
-                SmallLabel(text: targetDisplayName)
-            }
-        }
-    }
-
     private var targetDisplayName: String {
         switch flow.target {
-        case .catalog(let target):
+        case .catalog(let target), .catalogPassThrough(let target, _):
             return target.displayName
-        case .gateToken:
-            return String(
-                localized: "intervention.gate.target_name",
-                defaultValue: "このアプリ"
-            )
-        }
-    }
-
-    private func limitMessage(for denial: GateDenial) -> String {
-        switch denial {
-        case .limitReached:
-            return String(
-                localized: "intervention.gate.limit.body",
-                defaultValue: "このアプリは今日の上限に達しました。上限は設定で変えられます。"
-            )
-        case .cooldown(let until):
-            let time = until.formatted(date: .omitted, time: .shortened)
-            return String(
-                localized: "intervention.gate.cooldown.body",
-                defaultValue: "\(time)から開けます。待ち時間は設定で変えられます。"
-            )
-        case .alreadyOpen:
-            return String(
-                localized: "intervention.gate.already_open.body",
-                defaultValue: "このアプリは、すでに開ける状態です。"
-            )
         }
     }
 
@@ -789,6 +966,7 @@ struct InterventionFlowView: View {
     ///   本文の安全領域が30pt無駄に縮むのを防ぐ。
     private func stepScaffold<Content: View, Action: View>(
         hasAction: Bool = true,
+        fillsAvailableHeight: Bool = false,
         topPadding: CGFloat = 60,
         @ViewBuilder content: () -> Content,
         @ViewBuilder action: () -> Action
@@ -799,6 +977,11 @@ struct InterventionFlowView: View {
                 .padding(.top, topPadding)
                 .padding(.bottom, 40)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .modifier(
+                    StepContentHeightModifier(
+                        fillsAvailableHeight: fillsAvailableHeight
+                    )
+                )
         }
         // 中身が短いときに空振りで弾ませない。
         .scrollBounceBehavior(.basedOnSize)

@@ -48,6 +48,41 @@ final class DeepFocusSchedulerTests: XCTestCase {
         try super.tearDownWithError()
     }
 
+    func testIndependentTriggersArmBothSchedulersAndSurviveRepurchase() throws {
+        let rule = try makeDeepFocusRule(mode: .standard)
+        settingsStore.blockConfiguration = BlockConfiguration(blockEnabled: true, blockTriggers: Set(BlockTrigger.allCases))
+        settingsStore.deepFocusSchedule = .init(isEnabled: true, weekdays: [2], startMinutes: 600, endMinutes: 720)
+        let scheduler = makeScheduler()
+        let nightMonitor = BlockNightMonitor()
+        let night = NightShieldScheduler(ruleStore: ruleStore, settingsStore: settingsStore,
+            snapshotStore: snapshotStore, monitoringCenter: nightMonitor, clearNightShield: {})
+        scheduler.startSession(durationMinutes: 60)
+        XCTAssertTrue(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertTrue(night.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        var snapshot = try XCTUnwrap(scheduler.armedSnapshot)
+        XCTAssertEqual(snapshot.sessionSelectionDataList, [rule.activitySelectionData])
+        XCTAssertEqual(snapshot.selectionDataList, [rule.activitySelectionData])
+        XCTAssertTrue(snapshotStore.exists(.nightShieldSnapshot))
+        settingsStore.blockConfiguration.blockTriggers.remove(.weeklySchedule)
+        XCTAssertTrue(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        snapshot = try XCTUnwrap(scheduler.armedSnapshot)
+        XCTAssertNotNil(snapshot.session)
+        XCTAssertTrue(snapshot.selectionDataList.isEmpty)
+        XCTAssertTrue(night.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        settingsStore.blockConfiguration.blockTriggers.remove(.manual)
+        XCTAssertFalse(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertTrue(night.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertFalse(night.rebuild(entitlementGate: freeGate, hasConfirmedEntitlement: true))
+        XCTAssertFalse(scheduler.rebuild(entitlementGate: freeGate, hasConfirmedEntitlement: true))
+        XCTAssertFalse(settingsStore.blockEnabled)
+        XCTAssertEqual(settingsStore.blockTriggers, [.night])
+        XCTAssertNil(settingsStore.deepFocusSession)
+        XCTAssertFalse(snapshotStore.exists(.nightShieldSnapshot))
+        XCTAssertTrue(night.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertTrue(settingsStore.blockEnabled)
+        XCTAssertEqual(settingsStore.blockTriggers, [.night])
+    }
+
     // MARK: - 窓は本人の操作でしか開かない（P1-1の再発防止）
 
     /// 同期そのものが窓を作らないこと。
@@ -83,6 +118,7 @@ final class DeepFocusSchedulerTests: XCTestCase {
     // MARK: - セッションの開始と終了
 
     func testStartSessionStoresTheRequestedDuration() {
+        settingsStore.blockConfiguration = BlockConfiguration(blockEnabled: true, blockTriggers: [.manual])
         let scheduler = makeScheduler()
 
         scheduler.startSession(durationMinutes: 30)
@@ -97,6 +133,7 @@ final class DeepFocusSchedulerTests: XCTestCase {
 
     /// 「自分で戻すまで」は終わる時刻を持たない。
     func testStartSessionWithoutDurationHasNoEndDate() {
+        settingsStore.blockConfiguration = BlockConfiguration(blockEnabled: true, blockTriggers: [.manual])
         let scheduler = makeScheduler()
 
         scheduler.startSession(durationMinutes: nil)
@@ -108,6 +145,7 @@ final class DeepFocusSchedulerTests: XCTestCase {
 
     func testManualSessionUsesStandardModeTargetsAndEndRemovesItsSnapshot() throws {
         let standardRule = try makeDeepFocusRule(mode: .standard)
+        settingsStore.blockConfiguration = BlockConfiguration(blockEnabled: true, blockTriggers: [.manual])
         let scheduler = makeScheduler()
         scheduler.startSession(durationMinutes: 30)
 
@@ -221,6 +259,8 @@ final class DeepFocusSchedulerTests: XCTestCase {
         XCTAssertTrue(monitoringCenter.stoppedActivities.isEmpty)
         XCTAssertTrue(monitoringCenter.startedActivities.isEmpty)
         XCTAssertEqual(clearedShieldCount, 0)
+        // 触らないことは正しいが、未武装であることは残す（`ShieldArmingStateTests`）。
+        XCTAssertEqual(scheduler.lastRebuildOutcome, .entitlementUnconfirmed)
     }
 
     /// Freeだと確定したら、ルールを読む前に後始末を通す。
@@ -238,12 +278,13 @@ final class DeepFocusSchedulerTests: XCTestCase {
                 NotificationIdentifier.deepFocusSessionEnd
             ])
         )
-        // 降格は非破壊。窓の設定そのものは残す。
-        XCTAssertNotNil(settingsStore.deepFocusSession)
+        // Trigger choices survive; an interrupted manual session must not restart on repurchase.
+        XCTAssertNil(settingsStore.deepFocusSession)
+        XCTAssertEqual(settingsStore.blockTriggers, [.manual, .weeklySchedule])
     }
 
     /// 曜日の予定は選んだ曜日のぶんだけ張る。
-    func testRebuildStartsOneActivityPerSelectedWeekday() throws {
+    func testRebuildUsesOneDailyActivityAndPreservesSelectedWeekdays() throws {
         try makeDeepFocusRule()
         settingsStore.deepFocusSchedule = DeepFocusSchedule(
             isEnabled: true,
@@ -258,8 +299,7 @@ final class DeepFocusSchedulerTests: XCTestCase {
         XCTAssertEqual(
             Set(monitoringCenter.startedActivities.map(\.rawValue)),
             [
-                DeepFocusConstants.scheduleActivityName(weekday: 2),
-                DeepFocusConstants.scheduleActivityName(weekday: 5)
+                DeepFocusConstants.dailyScheduleActivityName(index: 0)
             ]
         )
     }
@@ -285,7 +325,7 @@ final class DeepFocusSchedulerTests: XCTestCase {
 
     /// 曜日1本が張れなくても、成功したセッションの一回きりの予定は生かす。
     /// ここを巻き添えで落とすと、いま動いている回の終わりに解除を出す担い手が消える。
-    func testASingleWeekdayFailureDoesNotCancelTheSessionActivity() throws {
+    func testAScheduleFailureDoesNotCancelTheSessionActivity() throws {
         try makeDeepFocusRule()
         settingsStore.deepFocusSchedule = DeepFocusSchedule(
             isEnabled: true,
@@ -294,7 +334,7 @@ final class DeepFocusSchedulerTests: XCTestCase {
             endMinutes: 1_320
         )
         monitoringCenter.failingActivityNames = [
-            DeepFocusConstants.scheduleActivityName(weekday: 5)
+            DeepFocusConstants.dailyScheduleActivityName(index: 0)
         ]
         let scheduler = makeScheduler()
         scheduler.startSession(durationMinutes: 60)
@@ -316,10 +356,13 @@ final class DeepFocusSchedulerTests: XCTestCase {
         // 張れなかった曜日だけを止め直す。
         XCTAssertTrue(
             monitoringCenter.stoppedActivities.contains([
-                DeviceActivityName(DeepFocusConstants.scheduleActivityName(weekday: 5))
+                DeviceActivityName(DeepFocusConstants.dailyScheduleActivityName(index: 0))
             ])
         )
         XCTAssertTrue(scheduler.didLastRebuildFail)
+        let armed = try XCTUnwrap(snapshotStore.read(DeepFocusShieldSnapshot.self, from: .deepFocusShieldSnapshot))
+        XCTAssertEqual(armed.schedule.weekdays, [])
+        XCTAssertNotNil(armed.session)
     }
 
     /// 1本も張れなかったときだけ剥がす側へ倒す。嘘の終了通知も残さない。
@@ -417,6 +460,56 @@ final class DeepFocusSchedulerTests: XCTestCase {
                 NotificationIdentifier.deepFocusSessionEnd
             ])
         )
+    }
+
+    func testTwoSchedulesUseOnlyTwoActivitiesAndShareSnapshot() throws {
+        try makeDeepFocusRule()
+        settingsStore.deepFocusSchedules = [
+            .init(isEnabled: true, weekdays: [2, 3], startMinutes: 600, endMinutes: 720),
+            .init(isEnabled: true, weekdays: [2, 3], startMinutes: 660, endMinutes: 780)
+        ]
+        let scheduler = makeScheduler()
+        XCTAssertTrue(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertEqual(Set(monitoringCenter.startedActivities.map(\.rawValue)).count, 2)
+        let snapshot = try XCTUnwrap(snapshotStore.read(DeepFocusShieldSnapshot.self, from: .deepFocusShieldSnapshot))
+        XCTAssertEqual(snapshot.schedules, settingsStore.deepFocusSchedules)
+        settingsStore.deepFocusSchedules = [settingsStore.deepFocusSchedule]
+        scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true)
+        XCTAssertFalse(monitoringCenter.startedActivities.contains { $0.rawValue == DeepFocusConstants.dailyScheduleActivityName(index: 1) })
+    }
+
+    func testNightScheduleCoexistenceRequiresOptIn() throws {
+        try makeDeepFocusRule(mode: .nightOnly)
+        settingsStore.deepFocusSchedule = .init(isEnabled: true, weekdays: [2], startMinutes: 600, endMinutes: 720)
+        let scheduler = makeScheduler()
+        XCTAssertFalse(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        settingsStore.blockConfiguration = BlockConfiguration(blockEnabled: true, blockTriggers: [.night, .weeklySchedule])
+        XCTAssertTrue(scheduler.rebuild(entitlementGate: proGate, hasConfirmedEntitlement: true))
+        XCTAssertEqual(monitoringCenter.startedActivities.count, 1)
+    }
+
+    func testStrictSessionCannotBeReplacedOrStoppedBeforeEmergencyWait() {
+        let scheduler = makeScheduler()
+        scheduler.startSession(durationMinutes: 60, isStrict: true)
+        let original = settingsStore.deepFocusSession
+        scheduler.startSession(durationMinutes: 15)
+        scheduler.endSession()
+        XCTAssertEqual(settingsStore.deepFocusSession, original)
+        scheduler.requestEmergencyExit()
+        currentDate = currentDate.addingTimeInterval(29)
+        scheduler.endSession(emergency: true)
+        XCTAssertNotNil(settingsStore.deepFocusSession)
+        currentDate = currentDate.addingTimeInterval(1)
+        makeScheduler().endSession(emergency: true)
+        XCTAssertNil(settingsStore.deepFocusSession)
+    }
+
+    func testStrictRejectsIndefiniteAndInvalidDuration() {
+        let scheduler = makeScheduler()
+        for duration: Int? in [nil, 0, 14, 241] {
+            scheduler.startSession(durationMinutes: duration, isStrict: true)
+            XCTAssertNil(settingsStore.deepFocusSession)
+        }
     }
 
     // MARK: - Helpers
@@ -519,4 +612,11 @@ private final class RecordingDeepFocusNotifying: DeepFocusSessionNotifying {
     func removeDeliveredNotifications(withIdentifiers identifiers: [String]) {
         removedDeliveredIdentifiers.append(identifiers)
     }
+}
+
+@MainActor
+private final class BlockNightMonitor: NightShieldMonitoring {
+    func startMonitoring(_ activity: DeviceActivityName, during schedule: DeviceActivitySchedule,
+                         events: [DeviceActivityEvent.Name: DeviceActivityEvent]) throws {}
+    func stopMonitoring(_ activities: [DeviceActivityName]) {}
 }

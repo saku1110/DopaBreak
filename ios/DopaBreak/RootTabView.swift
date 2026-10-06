@@ -10,15 +10,6 @@ enum AppTab: Hashable {
     case settings
 }
 
-enum GateEntitlementAccess {
-    static func isAllowed(
-        hasConfirmedEntitlement: Bool,
-        gateAllowed: Bool
-    ) -> Bool {
-        !(hasConfirmedEntitlement && !gateAllowed)
-    }
-}
-
 struct InterventionOverlayPresentationState: Equatable {
     private(set) var target: InterventionTarget?
 
@@ -39,9 +30,51 @@ struct InterventionOverlayPresentationState: Equatable {
     }
 }
 
+enum InterventionTargetPresentationPolicy {
+    static func validatedTarget(
+        _ target: InterventionTarget?,
+        now: Date
+    ) -> InterventionTarget? {
+        guard let target else { return nil }
+        if case .catalogPassThrough(_, let until) = target, until <= now {
+            return nil
+        }
+        return target
+    }
+}
+
+enum ReflectionInterventionPriority {
+    static func shouldSuppressPassThrough(
+        for pendingDestination: PendingNotificationDestination?,
+        now: Date
+    ) -> Bool {
+        guard let pendingDestination,
+              pendingDestination.isValid(at: now),
+              case .reflection = pendingDestination.destination else {
+            return false
+        }
+        return true
+    }
+}
+
+enum ReflectionDeferralPolicy {
+    static func shouldRestore(
+        pendingReflection: ReflectionLog?,
+        deferredReflection: ReflectionLog?
+    ) -> Bool {
+        guard pendingReflection == nil,
+              let deferredReflection else {
+            return false
+        }
+        return deferredReflection.answeredAt == nil && !deferredReflection.skipped
+    }
+}
+
 enum InterventionModalBlocker: Equatable {
     case lockScreenCheck
     case paywall
+    case reflection
+    case nonTargetAutomation
 }
 
 enum InterventionPresentationDirective: Equatable {
@@ -49,13 +82,17 @@ enum InterventionPresentationDirective: Equatable {
     case waitForModalDismissal
     case dismissLockScreenCheck
     case dismissPaywall
+    case dismissReflection
+    case dismissNonTargetAutomation
 }
 
 enum InterventionPresentationPolicy {
     static func directive(
         awaitingModalDismissal: InterventionModalBlocker?,
         isLockScreenCheckPresented: Bool,
-        isPaywallPresented: Bool
+        isPaywallPresented: Bool,
+        isReflectionPresented: Bool,
+        isNonTargetAutomationPresented: Bool = false
     ) -> InterventionPresentationDirective {
         if awaitingModalDismissal != nil {
             return .waitForModalDismissal
@@ -65,6 +102,12 @@ enum InterventionPresentationPolicy {
         }
         if isPaywallPresented {
             return .dismissPaywall
+        }
+        if isReflectionPresented {
+            return .dismissReflection
+        }
+        if isNonTargetAutomationPresented {
+            return .dismissNonTargetAutomation
         }
         return .present
     }
@@ -84,6 +127,10 @@ struct RootTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var goalsAddRequest: UUID?
     @State private var pendingPaywallPlacement: PaywallPlacement?
+    @State private var paywallAfterNonTargetAutomation: PaywallPlacement?
+    @State private var pendingReflectionLog: ReflectionLog?
+    @State private var deferredReflectionLog: ReflectionLog?
+    @State private var presentedNonTargetAutomation: NonTargetAutomation?
     @State private var interventionOverlay: InterventionOverlayPresentationState
     @State private var isLockScreenCheckPresented = false
     @State private var interventionAwaitingModalDismiss: InterventionModalBlocker?
@@ -99,11 +146,18 @@ struct RootTabView: View {
         self.model = model
         self.settingsStore = settingsStore
         self.onResetOnboarding = onResetOnboarding
+        let pendingTarget = model.isInterventionSuppressedByHardBlock ? nil : model.pendingInterventionTarget
+        let initialTarget = InterventionTargetPresentationPolicy.validatedTarget(
+            pendingTarget,
+            now: model.currentDate
+        )
         _interventionOverlay = State(
             initialValue: InterventionOverlayPresentationState(
-                initialTarget: model.pendingInterventionTarget
+                initialTarget: initialTarget
             )
         )
+        _pendingReflectionLog = State(initialValue: nil)
+        _deferredReflectionLog = State(initialValue: nil)
         _interventionAwaitingModalDismiss = State(initialValue: nil)
         _presentedInterventionModal = State(initialValue: nil)
         _interventionDismissTask = State(initialValue: nil)
@@ -138,7 +192,10 @@ struct RootTabView: View {
                         Label(String(localized: "root_tab.goals", defaultValue: "目標"), systemImage: "flag")
                     }
 
-                StatsView(model: model)
+                StatsView(model: model, onOpenBlockSettings: {
+                    selectedTab = .settings
+                    model.pendingDeepFocusSettingsFocus = true
+                })
                     .tag(AppTab.stats)
                     .tabItem {
                         Label(String(localized: "root_tab.stats", defaultValue: "統計"), systemImage: "chart.bar")
@@ -186,11 +243,24 @@ struct RootTabView: View {
         .onAppear {
             handleAppActive()
         }
-        .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active else { return }
-            handleAppActive()
+        .onDisappear {
+            model.isInterventionOverlayPresented = false
         }
-        .onChange(of: model.storeService.isPro) { _, _ in
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                handleAppActive()
+            case .background:
+                break
+            case .inactive:
+                break
+            @unknown default:
+                break
+            }
+        }
+        .onChange(of: model.storeService.isPro) { _, isPro in
+            model.applyPendingProThemeSelectionIfNeeded(hasProEntitlement: isPro)
+            model.applyPurchaseContinuationIfNeeded()
             model.refresh()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
@@ -201,6 +271,10 @@ struct RootTabView: View {
             checkPendingPaywalls()
         }
         .onChange(of: model.storeService.entitlementRevision) { _, _ in
+            model.applyPendingProThemeSelectionIfNeeded(
+                hasProEntitlement: model.storeService.isPro
+            )
+            model.applyPurchaseContinuationIfNeeded()
             model.refresh()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
@@ -209,6 +283,8 @@ struct RootTabView: View {
             guard !isActive else { return }
             checkPendingLockScreenCheck()
             checkPendingPaywalls()
+            checkPendingReflection()
+            checkPendingNonTargetAutomation()
         }
         .onChange(of: model.pendingLockScreenCheck) { _, _ in
             checkPendingLockScreenCheck()
@@ -220,7 +296,14 @@ struct RootTabView: View {
             consumePendingNotificationDestination()
         }
         .onChange(of: model.pendingInterventionTarget) { _, target in
+            guard target != nil || interventionOverlay.target == nil else {
+                return
+            }
             presentPendingInterventionIfValid(target)
+        }
+        .onChange(of: model.reinterventionRevision) { _, _ in checkPendingReflection() }
+        .onChange(of: model.pendingNonTargetAutomation) { _, _ in
+            checkPendingNonTargetAutomation()
         }
         .fullScreenCover(isPresented: $isLockScreenCheckPresented, onDismiss: {
             presentedInterventionModal = nil
@@ -230,6 +313,8 @@ struct RootTabView: View {
             consumePendingNotificationDestination()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
+            checkPendingReflection()
+            checkPendingNonTargetAutomation()
         }) {
             LockScreenCheckSheet(model: model) {
                 isLockScreenCheckPresented = false
@@ -246,14 +331,71 @@ struct RootTabView: View {
             consumePendingNotificationDestination()
             presentPendingInterventionIfValid(model.pendingInterventionTarget)
             checkPendingPaywalls()
+            checkPendingReflection()
+            checkPendingNonTargetAutomation()
         }) { placement in
             PaywallView(
                 storeService: model.storeService,
                 placement: placement,
-                settingsStore: settingsStore
+                settingsStore: settingsStore,
+                model: model
             )
             .onAppear {
                 presentedInterventionModal = .paywall
+            }
+        }
+        .sheet(item: $pendingReflectionLog, onDismiss: {
+            presentedInterventionModal = nil
+            model.cancelReflectionNotification()
+            if interventionAwaitingModalDismiss == .reflection {
+                interventionAwaitingModalDismiss = nil
+            }
+            consumePendingNotificationDestination()
+            presentPendingInterventionIfValid(model.pendingInterventionTarget)
+            checkPendingLockScreenCheck()
+            checkPendingPaywalls()
+            checkPendingNonTargetAutomation()
+        }) { reflection in
+            if let engine = model.interventionEngine {
+                PostUseReflectionSheet(
+                    model: model,
+                    engine: engine,
+                    reflection: reflection
+                ) {
+                    pendingReflectionLog = nil
+                    model.refresh()
+                }
+                .onAppear {
+                    presentedInterventionModal = .reflection
+                }
+            }
+        }
+        .sheet(item: $presentedNonTargetAutomation, onDismiss: {
+            presentedInterventionModal = nil
+            if interventionAwaitingModalDismiss == .nonTargetAutomation {
+                interventionAwaitingModalDismiss = nil
+            }
+            if let placement = paywallAfterNonTargetAutomation {
+                paywallAfterNonTargetAutomation = nil
+                pendingPaywallPlacement = placement
+                return
+            }
+            presentPendingInterventionIfValid(model.pendingInterventionTarget)
+            checkPendingLockScreenCheck()
+            checkPendingPaywalls()
+            checkPendingReflection()
+            checkPendingNonTargetAutomation()
+        }) { automation in
+            NonTargetAutomationSheet(
+                automation: automation,
+                restoreDecision: restoreDecision(for: automation),
+                onRestore: { restoreNonTargetAutomation(automation) },
+                onShowPro: { showProForNonTargetAutomation(automation) },
+                onOpenApp: { openNonTargetAutomationApp(automation) },
+                onClose: { presentedNonTargetAutomation = nil }
+            )
+            .onAppear {
+                presentedInterventionModal = .nonTargetAutomation
             }
         }
     }
@@ -273,8 +415,11 @@ struct RootTabView: View {
         )
     }
 
-    private func checkPendingIntervention() {
-        model.consumePendingInterventionRequest(from: settingsStore)
+    private func checkPendingIntervention(suppressPassThrough: Bool = false) {
+        model.consumePendingInterventionRequest(
+            from: settingsStore,
+            suppressPassThrough: suppressPassThrough
+        )
     }
 
     private func handleAppActive() {
@@ -283,11 +428,39 @@ struct RootTabView: View {
         // 自動更新オフはiOS設定側で起きるためTransactionが流れない。
         // 復帰のたびに取り直さないと、プロセスが生きている限り解約を検知できない（docs/18 §4）。
         model.refreshEntitlementOnForeground()
+        let suppressPassThrough = hasValidPendingReflectionDestination
+        if suppressPassThrough {
+            discardPendingPassThroughForReflection()
+        }
         consumePendingNotificationDestination()
-        checkPendingIntervention()
+        checkPendingIntervention(suppressPassThrough: suppressPassThrough)
         presentPendingInterventionIfValid(model.pendingInterventionTarget)
         checkPendingLockScreenCheck()
         checkPendingPaywalls()
+        checkPendingReflection()
+        checkPendingNonTargetAutomation()
+    }
+
+    private var hasValidPendingReflectionDestination: Bool {
+        ReflectionInterventionPriority.shouldSuppressPassThrough(
+            for: settingsStore.pendingNotificationDestination,
+            now: model.currentDate
+        )
+    }
+
+    private func discardPendingPassThroughForReflection() {
+        guard let target = model.pendingInterventionTarget,
+              case .catalogPassThrough = target,
+              model.discardPendingInterventionTarget(ifMatching: target) else {
+            return
+        }
+        guard interventionOverlay.target == target else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            interventionOverlay.dismiss()
+        }
+        model.isInterventionOverlayPresented = false
     }
 
     /// 通知タップの着地先を消費する（docs/18 §2f）。
@@ -309,6 +482,7 @@ struct RootTabView: View {
         guard model.pendingInterventionTarget == nil,
               interventionOverlay.target == nil,
               pendingPaywallPlacement == nil,
+              presentedNonTargetAutomation == nil,
               !isLockScreenCheckPresented else {
             return
         }
@@ -324,7 +498,27 @@ struct RootTabView: View {
         case .automationGuide:
             selectedTab = .settings
             model.pendingAutomationGuideRequest = true
+        case .reflection:
+            presentReflectionFromNotification()
         }
+    }
+
+    private func presentReflectionFromNotification() {
+        model.recordFunnelEvent(.reflectionNotificationTapped)
+        guard settingsStore.onboardingCompleted,
+              pendingReflectionLog == nil,
+              model.pendingInterventionTarget == nil,
+              interventionOverlay.target == nil,
+              pendingPaywallPlacement == nil,
+              presentedNonTargetAutomation == nil,
+              !isLockScreenCheckPresented,
+              !model.isChildModalActive,
+              let engine = model.interventionEngine else {
+            return
+        }
+        pendingReflectionLog = model.pendingReinterventionReflection() ?? (try? engine.pendingReflection(
+            within: InterventionEngine.reflectionNotificationTapWindow
+        ))
     }
 
     /// オンボーディング後に最初の目標を追加したら、ロック画面での確認導線を出す。
@@ -337,6 +531,7 @@ struct RootTabView: View {
               model.pendingInterventionTarget == nil,
               interventionOverlay.target == nil,
               pendingPaywallPlacement == nil,
+              presentedNonTargetAutomation == nil,
               !model.isChildModalActive else {
             return
         }
@@ -348,11 +543,33 @@ struct RootTabView: View {
         checkPendingWeeklyPaywall()
     }
 
+    private func checkPendingReflection() {
+        guard settingsStore.onboardingCompleted,
+              pendingReflectionLog == nil,
+              model.pendingInterventionTarget == nil,
+              interventionOverlay.target == nil,
+              pendingPaywallPlacement == nil,
+              presentedNonTargetAutomation == nil,
+              !isLockScreenCheckPresented,
+              !model.isChildModalActive,
+              let engine = model.interventionEngine else {
+            return
+        }
+        let expiredCount = (try? engine.expireStaleReflections(
+            olderThan: InterventionEngine.reflectionNotificationTapWindow
+        )) ?? 0
+        if expiredCount > 0 {
+            model.removeDeliveredReflectionNotification()
+        }
+        pendingReflectionLog = model.pendingReinterventionReflection() ?? (try? engine.pendingReflection())
+    }
+
     private func checkPendingWeeklyPaywall() {
         guard settingsStore.onboardingCompleted,
               model.pendingInterventionTarget == nil,
               interventionOverlay.target == nil,
               pendingPaywallPlacement == nil,
+              presentedNonTargetAutomation == nil,
               !isLockScreenCheckPresented,
               !model.isChildModalActive,
               WeeklyPaywallPolicy.shouldPresent(
@@ -373,6 +590,13 @@ struct RootTabView: View {
     }
 
     private func presentPendingInterventionIfValid(_ target: InterventionTarget?) {
+        if model.isInterventionSuppressedByHardBlock {
+            model.pendingInterventionTarget = nil
+            if interventionOverlay.target != nil {
+                dismissInvalidInterventionOverlayWithoutAnimation()
+            }
+            return
+        }
         guard let target else {
             guard interventionDismissTask == nil else {
                 return
@@ -384,26 +608,26 @@ struct RootTabView: View {
             withTransaction(transaction) {
                 interventionOverlay.dismiss()
             }
+            model.isInterventionOverlayPresented = false
             if wasPresented {
                 runPostInterventionDismissalChecks()
             }
             return
         }
+        guard let target = InterventionTargetPresentationPolicy.validatedTarget(
+            target,
+            now: model.currentDate
+        ) else {
+            model.discardPendingInterventionTarget(ifMatching: target)
+            dismissInvalidInterventionOverlayWithoutAnimation()
+            return
+        }
         switch target {
-        case .catalog(let catalogTarget):
+        case .catalog(let catalogTarget), .catalogPassThrough(let catalogTarget, _):
             guard model.isCurrentInterventionTarget(catalogID: catalogTarget.catalogID) else {
-                model.pendingInterventionTarget = nil
-                dismissInvalidInterventionOverlayWithoutAnimation()
-                return
-            }
-        case .gateToken:
-            // 通知の到着前にFreeへ戻った場合は、解除済みの対象へ古いフローを出さない。
-            // 未確認時はGateSyncPolicyと同じくfail-openでpreserveし、確定Freeだけ拒否する。
-            guard GateEntitlementAccess.isAllowed(
-                hasConfirmedEntitlement: model.storeService.hasConfirmedEntitlement,
-                gateAllowed: model.entitlementGate.gateAllowed
-            ) else {
-                model.pendingInterventionTarget = nil
+                guard model.discardPendingInterventionTarget(ifMatching: target) else {
+                    return
+                }
                 dismissInvalidInterventionOverlayWithoutAnimation()
                 return
             }
@@ -413,7 +637,9 @@ struct RootTabView: View {
         switch InterventionPresentationPolicy.directive(
             awaitingModalDismissal: interventionAwaitingModalDismiss,
             isLockScreenCheckPresented: isLockScreenCheckPresented,
-            isPaywallPresented: pendingPaywallPlacement != nil
+            isPaywallPresented: pendingPaywallPlacement != nil,
+            isReflectionPresented: pendingReflectionLog != nil,
+            isNonTargetAutomationPresented: presentedNonTargetAutomation != nil
         ) {
         case .waitForModalDismissal:
             return
@@ -435,6 +661,25 @@ struct RootTabView: View {
                 shouldAwaitModalDismissal = true
             }
             pendingPaywallPlacement = nil
+        case .dismissReflection:
+            if let awaitingModalDismissal = InterventionPresentationPolicy.awaitingModalDismissal(
+                for: .reflection,
+                presentedInterventionModal: presentedInterventionModal
+            ) {
+                interventionAwaitingModalDismiss = awaitingModalDismissal
+                shouldAwaitModalDismissal = true
+            }
+            deferredReflectionLog = pendingReflectionLog
+            pendingReflectionLog = nil
+        case .dismissNonTargetAutomation:
+            if let awaitingModalDismissal = InterventionPresentationPolicy.awaitingModalDismissal(
+                for: .nonTargetAutomation,
+                presentedInterventionModal: presentedInterventionModal
+            ) {
+                interventionAwaitingModalDismiss = awaitingModalDismissal
+                shouldAwaitModalDismissal = true
+            }
+            presentedNonTargetAutomation = nil
         case .present:
             break
         }
@@ -449,6 +694,7 @@ struct RootTabView: View {
         withTransaction(transaction) {
             interventionOverlay.present(target)
         }
+        model.isInterventionOverlayPresented = true
     }
 
     private func dismissInterventionOverlay() {
@@ -469,6 +715,7 @@ struct RootTabView: View {
         withAnimation(.easeOut(duration: 0.2)) {
             interventionOverlay.dismiss()
         }
+        model.isInterventionOverlayPresented = false
     }
 
     private func dismissInvalidInterventionOverlayWithoutAnimation() {
@@ -478,13 +725,114 @@ struct RootTabView: View {
         withTransaction(transaction) {
             interventionOverlay.dismiss()
         }
+        model.isInterventionOverlayPresented = false
         runPostInterventionDismissalChecks()
     }
 
     private func runPostInterventionDismissalChecks() {
+        restoreDeferredReflectionIfNeeded()
         consumePendingNotificationDestination()
         checkPendingLockScreenCheck()
         checkPendingPaywalls()
+        checkPendingReflection()
+        checkPendingNonTargetAutomation()
+    }
+
+    private func restoreDeferredReflectionIfNeeded() {
+        guard ReflectionDeferralPolicy.shouldRestore(
+            pendingReflection: pendingReflectionLog,
+            deferredReflection: deferredReflectionLog
+        ), let deferredReflectionLog else {
+            return
+        }
+        pendingReflectionLog = deferredReflectionLog
+        self.deferredReflectionLog = nil
+    }
+
+    private func checkPendingNonTargetAutomation() {
+        guard presentedNonTargetAutomation == nil,
+              model.pendingInterventionTarget == nil,
+              interventionOverlay.target == nil,
+              pendingPaywallPlacement == nil,
+              !isLockScreenCheckPresented,
+              pendingReflectionLog == nil,
+              !model.isChildModalActive,
+              let pending = model.pendingNonTargetAutomation else {
+            return
+        }
+        model.pendingNonTargetAutomation = nil
+        presentedNonTargetAutomation = pending
+    }
+
+    /// 枠が埋まっているだけの状態を「2個目の追加」と数えると、入れ替えのつもりの操作が
+    /// ペイウォールに落ちる。追加・入れ替え・課金導線の判定はCoreの純関数に寄せる。
+    private func restoreDecision(
+        for automation: NonTargetAutomation
+    ) -> NonTargetAutomationRestorePolicy.Decision {
+        let selected = (try? model.targetStore.selectedCatalogIDs()) ?? []
+        return NonTargetAutomationRestorePolicy.decision(
+            reason: restorePolicyReason(automation.reason),
+            restoredCatalogID: automation.catalogID,
+            selectedCatalogIDs: selected,
+            limit: model.entitlementGate.targetAppTokensLimit
+        )
+    }
+
+    /// 画面層の理由をCoreの判定用へ写す。網羅スイッチにして、理由が増えたらここで気づけるようにする。
+    private func restorePolicyReason(
+        _ reason: NonTargetAutomationReason
+    ) -> NonTargetAutomationRestorePolicy.Reason {
+        switch reason {
+        case .removed:
+            return .removed
+        case .clampedByEntitlement:
+            return .clampedByEntitlement
+        }
+    }
+
+    /// 対象へ戻す。失敗したら文言を返し、シートは開いたままにする。
+    /// 呼び出し元のアラートはこのシートに隠れて出ないため、表示はシート側に任せる。
+    private func restoreNonTargetAutomation(_ automation: NonTargetAutomation) -> String? {
+        let selected: [String]
+        do {
+            // 読み取りに失敗した0件を「空き枠あり」と読むと、生きている対象を消して保存してしまう。
+            // 保存する側では握りつぶさず、何も書かずに理由を返す。
+            selected = try model.targetStore.selectedCatalogIDs()
+        } catch {
+            return String(localized: "settings.error.data_load", defaultValue: "データを読み込めませんでした")
+        }
+        // 押し出す分の失効処理とクランプ控えの破棄は setTargetCatalogIDs が持っている。
+        let resulting = NonTargetAutomationRestorePolicy.resultingCatalogIDs(
+            restoredCatalogID: automation.catalogID,
+            selectedCatalogIDs: selected,
+            limit: model.entitlementGate.targetAppTokensLimit
+        )
+        do {
+            try model.setTargetCatalogIDs(resulting)
+            model.requestStartIntervention(catalogID: automation.catalogID)
+            presentedNonTargetAutomation = nil
+            return nil
+        } catch {
+            return String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
+        }
+    }
+
+    private func showProForNonTargetAutomation(_ automation: NonTargetAutomation) {
+        model.purchaseContinuation = .addTarget(catalogID: automation.catalogID)
+        paywallAfterNonTargetAutomation = .settingsTargetAppLimit
+        presentedNonTargetAutomation = nil
+    }
+
+    private func openNonTargetAutomationApp(_ automation: NonTargetAutomation) {
+        guard let scheme = SNSAppCatalog.app(catalogID: automation.catalogID)?.urlScheme,
+              let url = URL(string: scheme) else {
+            return
+        }
+        // 自動化は残ったままなので、戻った先でもう一度発火する。
+        // 自己起動として記録しておかないと、同じシートがそのまま返ってくる。
+        model.markSelfOpened(catalogID: automation.catalogID)
+        UIApplication.shared.open(url)
+        presentedNonTargetAutomation = nil
     }
 }
 

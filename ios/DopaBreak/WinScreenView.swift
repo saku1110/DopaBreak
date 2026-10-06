@@ -12,12 +12,31 @@ enum WinScreenPresentationPolicy {
     ) -> Bool {
         milestone != nil && !reduceMotion
     }
+
+    static func showsProgress(milestone: ReclaimedTimeMilestone?) -> Bool {
+        milestone == nil
+    }
+
+    static func streakText(
+        days: Int,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String? {
+        guard days > 0 else { return nil }
+        let format = bundle.localizedString(
+            forKey: "intervention.success.streak",
+            value: "%lld日連続",
+            table: nil
+        )
+        return String(format: format, locale: locale, arguments: [days])
+    }
 }
 
 struct WinScreenContent: View {
     let reclaimedSeconds: Int
     let lifetimeReclaimedSeconds: Int
     let todayCancelledCount: Int
+    let consecutiveDays: Int
     let estimatedMinutesPerCancellation: Int
     let goals: [Goal]
     let milestone: ReclaimedTimeMilestone?
@@ -33,10 +52,15 @@ struct WinScreenContent: View {
         goals.count >= 4 ? 6 : 8
     }
 
+    private var sectionSpacing: CGFloat {
+        goals.count >= 5 ? 10 : goals.count >= 4 ? 12 : 18
+    }
+
     var body: some View {
-        VStack(alignment: .center, spacing: goals.count >= 4 ? 14 : 18) {
+        VStack(alignment: .center, spacing: 0) {
             if let milestone {
                 staticMilestone(milestone)
+                sectionGap
             }
 
             CharacterView(.relief, size: DesignTokens.CharacterSize.support)
@@ -51,6 +75,8 @@ struct WinScreenContent: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .characterPop(.celebrate)
+
+            sectionGap
 
             VStack(spacing: 5) {
                 Text(incrementText)
@@ -103,13 +129,32 @@ struct WinScreenContent: View {
                     .accessibilityIdentifier("win.reclaimed.basis")
             }
 
-            Text(todayCancelledText)
-                .dopaFont(14, weight: .semibold)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .contentTransition(.numericText(value: Double(todayCancelledCount)))
-                .accessibilityIdentifier("win.cancelled.today")
+            sectionGap
+
+            if WinScreenPresentationPolicy.showsProgress(milestone: milestone),
+               let progress = ReclaimedTimeMilestoneProgress(seconds: lifetimeReclaimedSeconds) {
+                milestoneProgress(progress)
+                sectionGap
+            }
+
+            HStack(spacing: 14) {
+                Text(todayCancelledText)
+                    .contentTransition(.numericText(value: Double(todayCancelledCount)))
+                    .accessibilityIdentifier("win.cancelled.today")
+
+                if let streak = WinScreenPresentationPolicy.streakText(days: consecutiveDays) {
+                    Text(streak)
+                        .foregroundStyle(DesignTokens.accent)
+                        .accessibilityIdentifier("win.streak")
+                }
+            }
+            .dopaFont(14, weight: .semibold)
+            .foregroundStyle(DesignTokens.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             if !goals.isEmpty {
+                sectionGap
+
                 CardContainer {
                     VStack(alignment: .leading, spacing: goalSpacing) {
                         Text(
@@ -143,7 +188,7 @@ struct WinScreenContent: View {
                 .accessibilityIdentifier("win.goals")
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .overlay {
             if WinScreenPresentationPolicy.showsConfetti(
                 milestone: milestone,
@@ -195,6 +240,80 @@ struct WinScreenContent: View {
         String(
             localized: "intervention.success.daily_cancelled",
             defaultValue: "今日 \(todayCancelledCount)回 開かなかった"
+        )
+    }
+
+    private var sectionGap: some View {
+        Spacer(minLength: sectionSpacing)
+    }
+
+    private func milestoneProgress(_ progress: ReclaimedTimeMilestoneProgress) -> some View {
+        let percentage = Int((progress.fraction * 100).rounded())
+        return VStack(alignment: .leading, spacing: 7) {
+            Text(progressLine(progress))
+                .dopaFont(13, weight: .semibold)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            HStack(spacing: 10) {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(DesignTokens.hairline)
+                        Capsule()
+                            .fill(DesignTokens.accent)
+                            .frame(width: proxy.size.width * progress.fraction)
+                    }
+                }
+                    .frame(height: 8)
+                    .accessibilityLabel(progressTargetText(progress.nextMilestone))
+                    .accessibilityValue("\(percentage)%")
+
+                Text("\(percentage)%")
+                    .dopaFont(12, weight: .bold, design: .rounded)
+                    .monospacedDigit()
+                    .foregroundStyle(DesignTokens.tertiaryText)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("win.progress")
+    }
+
+    private func progressLine(_ progress: ReclaimedTimeMilestoneProgress) -> String {
+        let format = Bundle.main.localizedString(
+            forKey: "intervention.success.progress.remaining",
+            value: "%1$@ あと%2$@",
+            table: nil
+        )
+        return String(
+            format: format,
+            locale: Locale.autoupdatingCurrent,
+            arguments: [
+                progressTargetText(progress.nextMilestone),
+                ReclaimedTimeFormatter.detailedString(seconds: progress.remainingSeconds)
+            ]
+        )
+    }
+
+    private func progressTargetText(_ milestone: ReclaimedTimeMilestone) -> String {
+        if let dayCount = milestone.dayCount {
+            let format = Bundle.main.localizedString(
+                forKey: "intervention.success.progress.days",
+                value: "まる%lld日ぶんまで",
+                table: nil
+            )
+            return String(format: format, locale: Locale.autoupdatingCurrent, arguments: [dayCount])
+        }
+        let format = Bundle.main.localizedString(
+            forKey: "intervention.success.progress.hours",
+            value: "%lld時間ぶんまで",
+            table: nil
+        )
+        return String(
+            format: format,
+            locale: Locale.autoupdatingCurrent,
+            arguments: [milestone.hourCount ?? 0]
         )
     }
 

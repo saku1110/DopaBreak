@@ -263,20 +263,24 @@ public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
     case gaming
     case asagiri
     case monochrome
-    case liquidGlass
+    case liquidGlass = "liquidGlassV3"
     case kpop
     case kawaiiPink
     case note
     case blueprint
-    case retroPop
+    case spiderWeb
 
     public init(migratingRawValue rawValue: String) {
         switch rawValue {
         case "sumi": self = .gaming
         case "shinrin": self = .monochrome
-        case "yozora": self = .liquidGlass
+        case "yozora", "liquidGlass", "retroPop": self = .monochrome
         default: self = LockTheme(rawValue: rawValue) ?? .e1
         }
+    }
+
+    public init(from decoder: Decoder) throws {
+        self.init(migratingRawValue: try decoder.singleValueContainer().decode(String.self))
     }
 
     public var palette: LockThemePalette {
@@ -339,12 +343,14 @@ public enum LockTheme: String, Codable, Equatable, Sendable, CaseIterable {
                 primaryText: .init(255, 255, 255), secondaryText: .init(185, 203, 232),
                 accent: .init(255, 255, 255)
             )
-        case .retroPop:
+        case .spiderWeb:
             return LockThemePalette(
-                background: .init(245, 233, 214), card: .init(255, 255, 255),
-                primaryText: .init(74, 51, 32), secondaryText: .init(107, 74, 50),
-                accent: .init(232, 99, 43)
+                background: .init(163, 15, 35), card: .init(191, 20, 39),
+                primaryText: .init(255, 255, 255), secondaryText: .init(249, 212, 218),
+                accent: .init(66, 153, 255)
             )
+
+
         }
     }
 }
@@ -448,9 +454,9 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
 }
 
 public struct LockSurfaceState: Codable, Equatable, Sendable {
-    public var morningNotificationEnabled: Bool
-    public var morningNotificationTime: DateComponents
+    public var weeklyReportNotificationTime: DateComponents
     public var weeklyReportEnabled: Bool
+    public var reflectionNotificationEnabled: Bool
     public var retentionSupportNotificationsEnabled: Bool
     public var planNotificationsEnabled: Bool
     public var liveActivityEnabled: Bool
@@ -458,18 +464,18 @@ public struct LockSurfaceState: Codable, Equatable, Sendable {
     public var theme: LockTheme
 
     public init(
-        morningNotificationEnabled: Bool,
-        morningNotificationTime: DateComponents,
+        weeklyReportNotificationTime: DateComponents,
         weeklyReportEnabled: Bool,
+        reflectionNotificationEnabled: Bool = true,
         retentionSupportNotificationsEnabled: Bool = true,
         planNotificationsEnabled: Bool = true,
         liveActivityEnabled: Bool,
         liveActivityStartedAt: Date?,
         theme: LockTheme
     ) {
-        self.morningNotificationEnabled = morningNotificationEnabled
-        self.morningNotificationTime = morningNotificationTime
+        self.weeklyReportNotificationTime = weeklyReportNotificationTime
         self.weeklyReportEnabled = weeklyReportEnabled
+        self.reflectionNotificationEnabled = reflectionNotificationEnabled
         self.retentionSupportNotificationsEnabled = retentionSupportNotificationsEnabled
         self.planNotificationsEnabled = planNotificationsEnabled
         self.liveActivityEnabled = liveActivityEnabled
@@ -564,7 +570,28 @@ public struct InterventionState: Codable, Equatable, Sendable {
 /// `OnboardingFlow` が出ている＝`RootTabView` がいないため誰も消費できない。
 /// 有効期限を切らないと、数週間後にオンボーディングを終えた瞬間に設定画面へ飛ばされる。
 public struct PendingNotificationDestination: Codable, Equatable, Sendable {
+    /// 既定の有効期限。着地先を誰も消費できないまま持ち越さないための上限。
     public static let validityInterval: TimeInterval = 30 * 60
+
+    /// 振り返りの着地だけは長く受ける。
+    ///
+    /// 宣言時間の終わりに届く通知は、手が空いてからタップされることが多い。
+    /// ここを30分で切ると、`InterventionEngine` が3時間まで出せるのに着地先が先に捨てられ、
+    /// 本人は一度も振り返りを見ないまま `skip` として畳まれる。
+    /// エンジン側の窓をそのまま使い、片方だけ伸ばして同じ穴が空くのを防ぐ。
+    public static let reflectionValidityInterval: TimeInterval =
+        InterventionEngine.reflectionNotificationTapWindow
+
+    /// 着地先ごとの有効期限。自分でアプリを開いた場合の30分の既定は変えない
+    /// （これは通知タップで書かれた着地先だけを受ける窓）。
+    public static func validity(for destination: NotificationDestination) -> TimeInterval {
+        switch destination {
+        case .reflection:
+            return reflectionValidityInterval
+        case .stats, .planSettings, .automationGuide:
+            return validityInterval
+        }
+    }
 
     public let destination: NotificationDestination
     public let writtenAt: Date
@@ -576,6 +603,6 @@ public struct PendingNotificationDestination: Codable, Equatable, Sendable {
 
     public func isValid(at date: Date) -> Bool {
         let age = date.timeIntervalSince(writtenAt)
-        return age >= 0 && age <= Self.validityInterval
+        return age >= 0 && age <= Self.validity(for: destination)
     }
 }

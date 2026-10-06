@@ -54,44 +54,7 @@ public struct SubscriptionEntitlementSnapshot: Equatable, Sendable {
     }
 }
 
-/// 無料トライアル終了の何日前に知らせるかの選択肢。
-/// ペイウォールでの事前選択と、保存値の正規化の両方でここを正本にする。
-public enum TrialReminderLeadDays {
-    /// 既定は終了2日前。従来の固定スケジュール（Day5）と同じ日に落ちる。
-    public static let standard = 2
-    public static let allowed = [2, 3]
-
-    public static func normalized(_ value: Int) -> Int {
-        allowed.contains(value) ? value : standard
-    }
-}
-
 public enum RetentionNotificationDateCalculator {
-    /// 7日間の無料トライアルの「終了`leadDays`日前」に当たる日付。
-    /// 予約日はトライアル開始から `7 - leadDays` 日後になる。
-    /// - Parameter leadDays: 終了何日前に知らせるか。想定は2か3だが、
-    ///   保存値が壊れていても購入日以前・終了日以降へ飛ばさないよう1〜6へ丸める。
-    public static func trialReminderDate(
-        from purchaseDate: Date,
-        leadDays: Int,
-        calendar: Calendar = .current
-    ) -> Date? {
-        let clampedLeadDays = min(max(leadDays, 1), 6)
-        return dateAfterDays(7 - clampedLeadDays, from: purchaseDate, calendar: calendar)
-    }
-
-    /// 終了2日前（開始から5日後）。`trialReminderDate` の既定値ぶんの薄い別名。
-    public static func trialDay5Date(
-        from purchaseDate: Date,
-        calendar: Calendar = .current
-    ) -> Date? {
-        trialReminderDate(
-            from: purchaseDate,
-            leadDays: TrialReminderLeadDays.standard,
-            calendar: calendar
-        )
-    }
-
     public static func nextMonthlyReportDate(
         from initialPurchaseDate: Date,
         now: Date,
@@ -134,10 +97,6 @@ public enum RetentionNotificationDateCalculator {
         calendar: Calendar = .current
     ) -> Date? {
         dateAfterDays(358, from: purchaseDate, calendar: calendar)
-    }
-
-    public static func isFuture(_ date: Date, relativeTo now: Date) -> Bool {
-        date > now
     }
 
     private static func dateAfterDays(

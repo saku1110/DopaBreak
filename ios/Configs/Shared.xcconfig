@@ -5,3 +5,8 @@ SWIFT_VERSION = 5.0
 // 実機署名（2026-07-08・Toshiki Sakuraya 個人チーム。過去の全profileと一致）
 DEVELOPMENT_TEAM = C76D9UB7AV
 CODE_SIGN_STYLE = Automatic
+
+// Public SDK key for RevenueCat project b342aaa8 / com.dopabreak.app (not a secret).
+REVENUECAT_PUBLIC_SDK_KEY = appl_bNCOGOeHiLirYsYivQkAUdDOwLu
+// Enabled for the 1.0.1 submission; publish matching privacy disclosures before submission.
+APPLE_ADS_MEASUREMENT_ENABLED = YES

@@ -130,6 +130,7 @@ struct AppIconStack: View {
     var size: CGFloat = 44
     var maxVisible: Int = 4
     var showsStatusDots = false
+    var spacing: CGFloat? = nil
 
     private var visibleSources: [AppIconSource] {
         Array(sources.prefix(max(0, maxVisible)))
@@ -144,7 +145,7 @@ struct AppIconStack: View {
     }
 
     private var stride: CGFloat {
-        size * 0.7
+        spacing.map { size + $0 } ?? size * 0.7
     }
 
     var body: some View {

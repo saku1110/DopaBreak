@@ -14,24 +14,10 @@ public enum ShieldSyncAction: Equatable, Sendable {
     case preserve
 }
 
-/// 完全ブロック（Deep Focus / 夜だけ強化）の適用可否を決める純関数。
-///
-/// どちらもPro専用で、どちらも決めた窓のなかだけ通す。
-/// `deepFocus` の窓は「いますぐ」で始めた回と週1本の予定（`DeepFocusWindowPolicy`）、
-/// `nightOnly` の窓は就寝から起床まで（`NightWindowPolicy`）。
-/// ただし「いますぐ」の手動セッションは一時的な全対象ブロックとして、保存モードに
-/// 関係なく有効な選択ルールへ適用する。
-/// どちらの判定も別の純関数が持ち、ここへは結果だけを渡す。
-/// 時計を読む処理をこの純関数へ入れないため、呼び出し側が毎回明示して渡す。
-///
-/// **`deepFocus` は 2026-08-17 に「常時」から「窓のなかだけ」へ変わった（オーナー決定④）。**
-/// 窓が閉じたのに解除が届かない状態は、閉じ込め事故として扱う。窓の外では必ず `clear` へ倒す。
-///
-/// **降格は非破壊で行う（2026-08-14 Fable裁定・恒久）。**
-/// Freeへ戻った人には「シールドを解除する」だけで、ルールに保存された `deepFocus` は書き換えない。
-/// 対象アプリのクランプが控えを持って復元できるようにしてあるのと同じ考え方で、
-/// 再びProになったときに前の設定がそのまま戻るようにするため。
-/// ここでルールを `standard` へ書き潰すと、復元できない永久的な設定変更になる。
+/// Proのブロック設定と、呼び出し側で計算した3種類の窓を照合する純関数。
+/// 本体は必ず保存済みの `blockConfiguration` を渡す。nilは旧API呼び出しの互換変換専用。
+/// 権利未確定は現状維持、Free確定はルール読み込みの成否にかかわらず解除する。
+/// トリガー選択の保持・権利復帰はSettingsStoreが担当する。
 public enum ShieldSyncPolicy {
     /// 完全ブロックの対象になるルールを返す。
     ///
@@ -44,7 +30,9 @@ public enum ShieldSyncPolicy {
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
         isDeepFocusWindowActive: Bool,
-        isManualDeepFocusSessionActive: Bool = false
+        isManualDeepFocusSessionActive: Bool = false,
+        allowsNightSchedule: Bool = false,
+        blockConfiguration: BlockConfiguration? = nil
     ) -> [TargetRule] {
         guard hasConfirmedEntitlement, isPro, strictModeAllowed else {
             return []
@@ -52,10 +40,11 @@ public enum ShieldSyncPolicy {
         return rules.filter { rule in
             rule.isEnabled
                 && shieldsNow(
-                    mode: rule.mode,
+                    configuration: blockConfiguration ?? (isManualDeepFocusSessionActive ? BlockConfiguration(blockEnabled: true, blockTriggers: [.manual]) : .migrating(rule.mode, weeklySchedulesDuringNightEnabled: allowsNightSchedule)),
                     isNightWindow: isNightWindow,
                     isDeepFocusWindowActive: isDeepFocusWindowActive,
-                    isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
+                    isManualDeepFocusSessionActive: isManualDeepFocusSessionActive,
+                    allowsNightSchedule: allowsNightSchedule
                 )
                 && !rule.activitySelectionData.isEmpty
         }
@@ -63,22 +52,15 @@ public enum ShieldSyncPolicy {
 
     /// いまこの強さがブロックを出すか。どちらの強さも窓の外では何も出さない。
     private static func shieldsNow(
-        mode: InterventionMode,
+        configuration: BlockConfiguration,
         isNightWindow: Bool,
         isDeepFocusWindowActive: Bool,
-        isManualDeepFocusSessionActive: Bool
+        isManualDeepFocusSessionActive: Bool,
+        allowsNightSchedule: Bool
     ) -> Bool {
-        if isManualDeepFocusSessionActive {
-            return true
-        }
-        switch mode {
-        case .deepFocus:
-            return isDeepFocusWindowActive
-        case .nightOnly:
-            return isNightWindow
-        case .standard:
-            return false
-        }
+        configuration.isActive(manual: isManualDeepFocusSessionActive,
+                               weeklySchedule: isDeepFocusWindowActive,
+                               night: isNightWindow)
     }
 
     /// ルールを一切見ずに解除して良いか。
@@ -106,7 +88,9 @@ public enum ShieldSyncPolicy {
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
         isDeepFocusWindowActive: Bool,
-        isManualDeepFocusSessionActive: Bool = false
+        isManualDeepFocusSessionActive: Bool = false,
+        allowsNightSchedule: Bool = false,
+        blockConfiguration: BlockConfiguration? = nil
     ) -> ShieldSyncAction {
         guard hasConfirmedEntitlement else {
             return .preserve
@@ -119,7 +103,9 @@ public enum ShieldSyncPolicy {
             hasConfirmedEntitlement: hasConfirmedEntitlement,
             isNightWindow: isNightWindow,
             isDeepFocusWindowActive: isDeepFocusWindowActive,
-            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
+            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive,
+            allowsNightSchedule: allowsNightSchedule,
+            blockConfiguration: blockConfiguration
         )
         return targets.isEmpty ? .clear : .apply(rules: targets)
     }
@@ -136,7 +122,9 @@ public enum ShieldSyncPolicy {
         hasConfirmedEntitlement: Bool,
         isNightWindow: Bool,
         isDeepFocusWindowActive: Bool,
-        isManualDeepFocusSessionActive: Bool = false
+        isManualDeepFocusSessionActive: Bool = false,
+        allowsNightSchedule: Bool = false,
+        blockConfiguration: BlockConfiguration? = nil
     ) -> ShieldSyncAction {
         if requiresUnconditionalClear(
             isPro: isPro,
@@ -164,7 +152,9 @@ public enum ShieldSyncPolicy {
             hasConfirmedEntitlement: hasConfirmedEntitlement,
             isNightWindow: isNightWindow,
             isDeepFocusWindowActive: isDeepFocusWindowActive,
-            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive
+            isManualDeepFocusSessionActive: isManualDeepFocusSessionActive,
+            allowsNightSchedule: allowsNightSchedule,
+            blockConfiguration: blockConfiguration
         )
     }
 }

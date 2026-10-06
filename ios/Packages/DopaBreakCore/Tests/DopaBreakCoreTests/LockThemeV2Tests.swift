@@ -2,10 +2,10 @@ import XCTest
 @testable import DopaBreakCore
 
 final class LockThemeV2Tests: XCTestCase {
-    func testAllCasesAreExactlyTheTenV2Themes() {
+    func testAllCasesAreExactlyTheTenCurrentThemes() {
         XCTAssertEqual(
             LockTheme.allCases,
-            [.e1, .gaming, .asagiri, .monochrome, .liquidGlass, .kpop, .kawaiiPink, .note, .blueprint, .retroPop]
+            [.e1, .gaming, .asagiri, .monochrome, .liquidGlass, .kpop, .kawaiiPink, .note, .blueprint, .spiderWeb]
         )
         XCTAssertEqual(LockTheme.allCases.count, 10)
         XCTAssertNil(LockTheme(rawValue: "sumi"))
@@ -16,13 +16,13 @@ final class LockThemeV2Tests: XCTestCase {
     func testLegacyAndUnknownRawValuesMigrateExplicitly() {
         XCTAssertEqual(LockTheme(migratingRawValue: "sumi"), .gaming)
         XCTAssertEqual(LockTheme(migratingRawValue: "shinrin"), .monochrome)
-        XCTAssertEqual(LockTheme(migratingRawValue: "yozora"), .liquidGlass)
+        XCTAssertEqual(LockTheme(migratingRawValue: "yozora"), .monochrome)
         XCTAssertEqual(LockTheme(migratingRawValue: "future-theme"), .e1)
     }
 
     func testSettingsReadMigratesAndPersistsNewRawValues() {
         let mappings: [(String, LockTheme)] = [
-            ("sumi", .gaming), ("shinrin", .monochrome), ("yozora", .liquidGlass)
+            ("sumi", .gaming), ("shinrin", .monochrome), ("yozora", .monochrome), ("liquidGlass", .monochrome), ("retroPop", .monochrome)
         ]
         for (legacy, expected) in mappings {
             let suite = "LockThemeV2Tests.\(UUID().uuidString)"
@@ -37,6 +37,16 @@ final class LockThemeV2Tests: XCTestCase {
             XCTAssertEqual(store.lockThemeRawValue, expected.rawValue)
             XCTAssertEqual(SettingsStore(userDefaults: defaults).lockTheme, expected)
         }
+    }
+
+    func testRetiredThemesDecodeToMonochromeAndNewGlassRoundTrips() throws {
+        for value in ["liquidGlass", "retroPop", "yozora"] {
+            let data = try JSONEncoder().encode(value)
+            XCTAssertEqual(try JSONDecoder().decode(LockTheme.self, from: data), .monochrome)
+        }
+        let data = try JSONEncoder().encode(LockTheme.liquidGlass)
+        XCTAssertEqual(try JSONDecoder().decode(String.self, from: data), "liquidGlassV3")
+        XCTAssertEqual(try JSONDecoder().decode(LockTheme.self, from: data), .liquidGlass)
     }
 
     func testUnknownSettingsValueNormalizesToDefault() {
@@ -75,7 +85,7 @@ final class LockThemeV2Tests: XCTestCase {
             .kawaiiPink: .init(background: .init(255, 220, 229), card: .init(255, 253, 253), primaryText: .init(68, 43, 49), secondaryText: .init(139, 91, 102), accent: .init(242, 94, 137)),
             .note: .init(background: .init(251, 247, 239), card: .init(255, 255, 255), primaryText: .init(59, 52, 40), secondaryText: .init(138, 128, 112), accent: .init(199, 80, 80)),
             .blueprint: .init(background: .init(22, 65, 138), card: .init(27, 76, 158), primaryText: .init(255, 255, 255), secondaryText: .init(185, 203, 232), accent: .init(255, 255, 255)),
-            .retroPop: .init(background: .init(245, 233, 214), card: .init(255, 255, 255), primaryText: .init(74, 51, 32), secondaryText: .init(107, 74, 50), accent: .init(232, 99, 43))
+            .spiderWeb: .init(background: .init(163, 15, 35), card: .init(191, 20, 39), primaryText: .init(255, 255, 255), secondaryText: .init(249, 212, 218), accent: .init(66, 153, 255)),
         ]
 
         XCTAssertEqual(expected.count, LockTheme.allCases.count)

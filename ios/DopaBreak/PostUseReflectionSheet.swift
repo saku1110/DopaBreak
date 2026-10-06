@@ -10,6 +10,9 @@ struct PostUseReflectionSheet: View {
     let engine: InterventionEngine
     let reflection: ReflectionLog
     let onFinished: () -> Void
+    @State private var didAnswer = false
+    @State private var saveError: String?
+    @State private var answerRevision = 0
 
     init(
         model: AppModel,
@@ -21,19 +24,60 @@ struct PostUseReflectionSheet: View {
         self.engine = engine
         self.reflection = reflection
         self.onFinished = onFinished
+        _didAnswer = State(initialValue: reflection.answeredAt != nil || reflection.skipped)
+    }
+
+    private var reintervention: ReinterventionSession? {
+        model.reinterventionSession(reflectionID: reflection.id)
     }
 
     var body: some View {
-        PostUseReflectionContent(
-            reflection: reflection,
-            onSelect: { satisfaction in
-                finish(
-                    satisfaction: satisfaction,
-                    happinessDelta: satisfaction.impliedHappinessDelta
-                )
-            },
-            onSkip: skip
-        )
+        VStack {
+            if didAnswer, let session = reintervention {
+                ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text(String(localized: "reintervention.review.title", defaultValue: "ここで終わりますか？"))
+                        .dopaFont(30, weight: .bold)
+                    Text(SNSAppCatalog.app(catalogID: session.catalogID)?.displayName ?? "")
+                        .foregroundStyle(DesignTokens.secondaryText)
+                    Button(String(localized: "reintervention.review.finish", defaultValue: "ここで終わる")) {
+                        do { try model.finishReintervention(catalogID: session.catalogID); onFinished() }
+                        catch { saveError = error.localizedDescription }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    Button(String(localized: "reintervention.review.extend", defaultValue: "一呼吸して時間を追加")) {
+                        do { try model.resumeAfterReintervention(catalogID: session.catalogID); onFinished() }
+                        catch { saveError = error.localizedDescription }
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    Text(String(localized: "reintervention.review.other_blocks", defaultValue: "毎週の予定や就寝中のブロックがある場合は、その制限が優先されます。"))
+                        .font(.footnote).foregroundStyle(DesignTokens.secondaryText)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                PostUseReflectionContent(reflection: reflection, timingOverride: reintervention.map { session in
+                    session.endedEarly
+                        ? String(localized: "reintervention.reflection.early", defaultValue: "選んだ時間を使い切る前の振り返りです")
+                        : String(localized: "reintervention.reflection.time", defaultValue: "\(session.minutes)分利用した区切りの振り返りです")
+                }, onSelect: { satisfaction in
+                    finish(satisfaction: satisfaction, happinessDelta: satisfaction.impliedHappinessDelta)
+                }, onSkip: skip)
+                .id(answerRevision)
+            }
+            if let session = reintervention {
+                Button(String(localized: "reintervention.work.continue", defaultValue: "用事があるため今回は通知・制限なしで続ける")) {
+                    do { try model.continueWithoutReintervention(catalogID: session.catalogID); onFinished() }
+                    catch { saveError = error.localizedDescription }
+                }
+                .buttonStyle(SecondaryButtonStyle()).padding(.horizontal, 24).padding(.bottom, 12)
+            }
+            if let saveError { Text(saveError).foregroundStyle(DesignTokens.danger).padding() }
+        }
+        .background(DesignTokens.background)
+        .tint(DesignTokens.accent)
+        .interactiveDismissDisabled(reintervention != nil)
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
         .preferredColorScheme(.dark)
@@ -46,23 +90,27 @@ struct PostUseReflectionSheet: View {
                 satisfaction: satisfaction,
                 happinessDelta: happinessDelta
             )
-            onFinished()
+            model.recordFunnelEvent(.reflectionAnswered, detail: satisfaction.rawValue)
+            if reintervention != nil { didAnswer = true } else { onFinished() }
         } catch {
-            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+            answerRevision += 1
+            saveError = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
         }
     }
 
     private func skip() {
         do {
             try engine.skipReflection(id: reflection.id)
-            onFinished()
+            model.recordFunnelEvent(.reflectionSkipped)
+            if reintervention != nil { didAnswer = true } else { onFinished() }
         } catch {
-            model.alertMessage = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
+            answerRevision += 1
+            saveError = String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした")
         }
     }
 }
 
-/// シートと一呼吸フロー冒頭で共用する振り返り本体。
+/// 見たあとの振り返り本体。
 struct PostUseReflectionContent: View {
     let reflection: ReflectionLog
     let onSelect: (PostUseSatisfaction) -> Void
@@ -70,15 +118,18 @@ struct PostUseReflectionContent: View {
 
     @State private var satisfaction: PostUseSatisfaction?
     private let referenceDate: Date
+    private let timingOverride: String?
 
     init(
         reflection: ReflectionLog,
         referenceDate: Date = Date(),
+        timingOverride: String? = nil,
         onSelect: @escaping (PostUseSatisfaction) -> Void,
         onSkip: @escaping () -> Void
     ) {
         self.reflection = reflection
         self.referenceDate = referenceDate
+        self.timingOverride = timingOverride
         self.onSelect = onSelect
         self.onSkip = onSkip
         _satisfaction = State(initialValue: nil)
@@ -87,8 +138,6 @@ struct PostUseReflectionContent: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                SmallLabel(text: String(localized: "reflection.eyebrow", defaultValue: "REFLECTION"))
-
                 CharacterView(
                     satisfaction?.characterExpression ?? .doom,
                     size: DesignTokens.CharacterSize.lead
@@ -131,7 +180,7 @@ struct PostUseReflectionContent: View {
                 .dopaFont(34, weight: .black, tracking: -0.8)
                 .foregroundStyle(DesignTokens.primaryText)
 
-            Text(ReflectionTimingSummary.text(for: reflection, now: referenceDate))
+            Text(timingOverride ?? ReflectionTimingSummary.text(for: reflection, now: referenceDate))
                 .dopaFont(16, weight: .bold)
                 .foregroundStyle(DesignTokens.accent)
 

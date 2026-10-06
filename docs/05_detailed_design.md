@@ -191,12 +191,11 @@ WidgetSnapshot
 - updatedAt: Date
 ```
 
-### LockSurfaceState（2026-07-02 追加: 通知/Live Activity）
+### LockSurfaceState（2026-07-02 追加: 通知/Live Activity、2026-09-03 朝通知廃止）
 
 ```text
 LockSurfaceState
-- morningNotificationEnabled: Bool
-- morningNotificationTime: DateComponents   // 例 7:00
+- weeklyReportNotificationTime: DateComponents   // 例 7:00
 - weeklyReportEnabled: Bool
 - liveActivityEnabled: Bool
 - liveActivityStartedAt: Date?              // 8時間制限 → 起動/介入時に更新して延長
@@ -205,8 +204,8 @@ LockSurfaceState
 
 設計:
 
-- 朝の通知: UNCalendarNotificationTrigger。本文=フル目標文＋前週実績。**折りたたみ通知はシステム描画のためテーマ不可**。テーマはLive Activityと展開UI（Notification Content Extension）に適用する。
-- Live Activity: ActivityKitで「今日のゲート実績」を表示。`todayCancelledCount`/取り戻した時間をShieldAction後にpush更新（ライブ更新が審査要件を満たす根拠）。8時間で失効するため、アプリ起動時・介入時・朝通知タップ時に再開始する。
+- 週次通知: 月曜（weekday: 2）の`weeklyReportNotificationTime`ちょうどに`UNCalendarNotificationTrigger`で発火する。
+- Live Activity: ActivityKitで「今日のゲート実績」を表示。`todayCancelledCount`/取り戻した時間をShieldAction後にpush更新（ライブ更新が審査要件を満たす根拠）。8時間で失効するため、アプリ起動時・介入時に再開始する。
 - `displayTitle`（12-16文字）はHome Widget/Dynamic Islandで使用。旧 LockScreenGoalSnapshot / LockScreenWidgetLayout は廃止。
 
 ## 5. 介入状態遷移
@@ -426,7 +425,7 @@ Free:
 - goals_limit = 1
 - target_rules_limit = 1
 - target_app_tokens_limit = 1   // FamilyActivitySelection内のapp/categoryトークン合計を保存時に検証。超過分は無効化しPro導線
-- lock_theme = e1_only          // 通知/Live Activityテーマ（2026-07-02: 常設ウィジェット廃止。テーマがロック面の課金価値）
+- lock_theme = e1_only          // Live Activityテーマ（2026-09-03: 朝の目標通知廃止。テーマがロック面の課金価値）
 - stats_days = 1
 
 Pro:

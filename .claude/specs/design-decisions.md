@@ -1,5 +1,34 @@
 # Design decisions
 
+## 2026-09-03 — 朝の目標通知を廃止（オーナー決定）
+
+- オーナー発言「たまに目標の通知が来るんだけど目標は通知せずLiveActivityがあるから不要」。目標のロック画面表示は**デイリーLive Activityだけ**にする。同じ内容を通知でも出すのは重複で、通知の総量を増やすだけと判断した
+- 設定の「朝の目標通知」トグルは撤去。時刻設定は残すが、意味は**毎週の記録通知の時刻**に限定する。ラベルも「通知時刻」から「記録通知の時刻」へ変え、通知全体の時刻と誤読されないようにした
+- 週次の記録通知は設定時刻の30分後ではなく**設定時刻ちょうど**に月曜へ届く。朝の通知が消えた以上、表示している時刻と実際の発火がずれるのは嘘になるため
+- 既存端末には毎日繰り返しの予約が残るので、識別子を legacy 掃除リストへ移して起動時に消す。ここを外すと廃止後も鳴り続ける
+- UserDefaultsのキー名 `morningNotificationMinutes` は据え置き（Swift側の名前だけ `weeklyReportNotificationMinutes` へ）。キーを変えると設定済みの時刻がリセットされるため
+- オンボーディングの通知許可画面は残す。週次の記録・振り返り・継続導線の通知で許可は引き続き要る。リードにその理由を書き、通知の話が1つも出ないまま許可を求める画面にしない
+- 未設定時の週次の時刻は**7:00固定**にする。起床時刻に追従させると、夜だけ強化で起床05:30にしたProユーザーへ月曜05:30に届く（本人はその紐づきを知らない）
+- 廃止通知の掃除は `purgeRetiredNotifications()` として独立させ、`AppModel.refresh` の **defer から無条件で**呼ぶ。do-catch の中に置くと記録の読み取りに失敗した端末で一生走らず、旧予約が鳴り続ける
+
+## 2026-09-02 — 記録画面の通貨を「取り戻した時間」に統一（オーナー決定）
+
+- 記録画面のヒーローを3期間（今日／今週／全期間）とも **取り戻した時間** にする。「開かなかった割合」は支える数字へ降格。理由は8/25にホームのヒーローを時間へ変えたときと同じで、積み上がる数字のほうが使い続ける理由になるから。割合は悪い日に下がる
+- 内訳（アプリごと・開こうとした理由）も時間で表示する
+- **名前は「取り戻した時間」に統一**する。オーナー発言の「無駄にしなかった時間」は新しい言い方を作らず既存名へ寄せた。ホーム＝「SNSを開かずに取り戻した時間」、一呼吸の完了画面＝「取り戻した時間」
+- **1回あたりの推定はアプリ別にしない**。`ReclaimedTimeEstimator` は全体中央値のままにする。アプリ別にしても開いた履歴が少ないアプリは全体中央値へ戻るため、効くのは主力1〜2アプリだけと判断した
+- **時間帯カードを新設**する（何時に開こうとしているか）。`started_at` から出す推定を挟まない事実で、夜だけ強化（Pro）への導線にもなる。今日タブには出さない（1日分では24本のバーが壊れて見える）
+- 台帳の確定値は引き続き再計算しない（累計が縮むと信頼を壊す・8/25決定を維持）
+- 設計書: `.claude/specs/stats-reclaimed-time-2026-09-02.md`
+
+## 2026-09-02 — 全体監査（設計穴＋CVR構造）の結果とオーナー決定3件
+
+- 監査正本: `.claude/specs/product-design-cvr-audit-2026-09-02.md`（Opus5×3＋Codex独立・Fable裏取り）。生レポート: `output/audits/2026-09-02-product-audit/`。🔴10件のうち 1・2・3 は release-monetization-check A に抵触（Pro購入しても夜だけ強化/ディープフォーカスが何も起きない／標準モードのまま完全ブロック対象を選べる／ホームが未認可でも「開けません」表示）。
+- オーナー決定①: **ショートカット自動化は必須のまま**（自動化なしの価値経路は作らない）。従ってオンボの自動化手順のガイド同一化と「戻ってきたら同じ画面へ」が最優先。
+- オーナー決定②: **振り返り（リフレクション）は案A**＝宣言した利用時間の終了時刻に通知を1回、タップで `PostUseReflectionSheet` を開く。設定に個別オフ。文面は事実と問いのみ。8/28に廃止した「利用時間の通知」とは別物（利用の推測でなく本人の宣言時刻に基づく）。設計: `.claude/specs/reflection-declared-end-notification-2026-09-02.md`。
+- オーナー決定③: **計測を入れる**（SDK選定は別途。ローカル FunnelEventStore に振り返り関連イベントを先に足しておく）。
+- 却下: 案B（次にDopaBreakを開いた時に聞く＝9/1に嫌った「覚えていない」問題が戻る）・案C（振り返り機能の撤去）。
+
 ## 2026-08-12 — Cute Tex app-icon concept C2
 
 - Created `creatives/app-icon/concepts/cute-tex/png/texC2.png` as a 1024×1024 full-bleed iOS app-icon asset.
@@ -1473,6 +1502,233 @@
 - Claude Code向け制約: 取り戻した時間の増分・累計・節目バナー・カウントアップ・Reduce Motion時の静的表示・紙吹雪・閉じる操作のsafe areaを維持する。キャラクターは節目の有無にかかわらず表示し、目標1〜5件を順序どおり全件表示する。新しい文言キーや表示コピーは追加しない。
 - 検証: `xcodegen generate && xcodebuild test -project DopaBreak.xcodeproj -scheme DopaBreak -destination 'platform=iOS Simulator,name=iPhone 16 Pro'` は291件実行・18件スキップ・失敗0。`-only-testing:DopaBreakTests/WinScreenSnapshotCapture` は1件・失敗0。`output/verify/win-screen/win-goals-5.png` と `win-milestone-1day.png` を原寸目視し、5件の全表示、節目→キャラクター→増分の順序、切れ・重なりなしを確認した。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はexit 0、`git diff --check`も成功した。
 
+## 2026-09-01 — 起床・就寝タイムラインのドラッグジッター修正
+
+- 変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/WakeSleepTimelinePolicy.swift` は15分丸めを0:00〜23:45へクリップし、禁止帯では現在ハンドルがいる側の60分境界へ止める。ドラッグで境界へ達した後も反対側へ抜けないようにした。`ios/DopaBreak/SettingsView.swift` は起床・就寝それぞれの現在確定値をポリシーへ渡す。`ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/WakeSleepTimelinePolicyTests.swift` に右端、正逆1分スイープ、夜勤想定ピッカー交差の回帰を追加した。
+- 採用方針・却下案: ドラッグは一般的な2ハンドルレンジと同様に相手を飛び越えず、ピッカーは60分以上離れた有効時刻へ従来どおり交差できる。候補に近い境界を選ぶ旧方式は固定ハンドル通過時に2時間跳ねるため廃止した。見た目、ジェスチャ世代管理、タップガード、250msシールド同期は変更していない。
+- Claude Code向け制約: `current` は動かす側の確定値を渡し、ドラッグだけ15分スナップを使う。時刻ピッカーの `snapToStep: false`、成分ベースのDate変換、就寝・起床を夜間設定の唯一の正本とする構造を維持する。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は524件・失敗0。対象ポリシー12件・失敗0、`git diff --check`も成功した。
+
+## 2026-09-01 — 起床・就寝時刻セクションの説明を常時表示
+
+- 変更: `ios/DopaBreak/SettingsView.swift` の `wakeSleepTimelineSection` で、起床・就寝の時刻ラベル行の直後にモード別の説明文を追加した。`nightOnly` は既存の `settings.night_only.description` を再利用し、それ以外は `settings.schedule.description` を参照する。`ios/DopaBreak/Localizable.xcstrings` に `settings.schedule.description` のja/en/koを追加し、3言語とも設計書の確定文言を `translated` で登録した。
+- 採用方針・却下案: 既存footnoteと同じ13pt medium・lineSpacing 3・secondaryText・縦方向の固定サイズで、タイムラインの意味をモードに関係なく同じ場所へ説明する方針を採用した。説明を夜だけ強化時だけ出す案、オンオフのトグル追加、表示条件の変更、バー・ハンドル・ラベル・ポップオーバー・ドラッグ挙動の変更は採用していない。
+- Claude Code向け制約: `wakeSleepTimelineSection` は引き続き常時表示する。新説明は時刻ラベル行の下に置き、`selectedMode == .nightOnly` のときだけ既存キー、それ以外（標準・ディープフォーカス・Free）は新キーを使う。`deepFocusFootnote`、時刻の正本、バー・ハンドルの操作、ポップオーバー、既存の3言語文言を変更しない。新キーのSwift `defaultValue` とLocalizable Catalogのja/en/koは設計書の文字列と完全一致させ、未翻訳stateを残さない。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は524件・失敗0。指定のgeneric iOS Simulator向け `xcodebuild build` は `BUILD SUCCEEDED`。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はexit 0、`git diff --check`も成功した。
+
+## 2026-09-01 — ロック画面テーマ伝播・Live Activity外形・介入復帰シールド修正
+
+- 作成・変更: `ios/DopaBreak/AppContainer.swift` にObservableな `lockThemeSelection` と単一書き込みAPI `updateLockTheme(_:)` を追加し、Home／Settings／Onboardingの選択経路を移行した。`ios/WidgetsExtension/LockThemeLiveActivityView.swift` は本番の `ContainerRelativeShape` とプレビュー22ptを切り替える外形に統一し、外周線を内側描画にした。`ios/DopaBreak/BackgroundSnapshotShield.swift` と `RootTabView.swift` は介入オーバーレイ表示までシールドを保持し、1.5秒の強制解除ウォッチドッグを追加した。回帰は `ios/DopaBreakTests/MeasurementFoundationTests.swift` に追加した。
+- 採用方針・却下案: UserDefaultsをプロセス間の正本のままとし、AppModelの写しでSwiftUI観測を成立させた。Live Activityの端末依存角丸を固定値で再定義する案、先行モーダル解除待ちで無期限にシールドを保持する案は却下した。表示コピーは変更していない。
+- Claude Code向け制約: テーマ書き込みは `model.updateLockTheme(_:)` に集約し、外部プロセスの書き込みは `refresh()` で差分取込する。Live Activity本番は `.containerRelative`、アプリ内は `previewCornerRadius` を使い、noteの内側破線は固定角丸を維持する。シールド保持条件はbody内で評価し、present／dismiss全経路で `isInterventionOverlayPresented` を対称更新する。
+- 検証: 指定Simulator向け `xcodebuild build` は `BUILD SUCCEEDED`。`MeasurementFoundationTests` は修正前既存suiteと追加2件が成功、Live Activityの型／160pt収容／四辺描画の分割4件も成功した。全描画suite一括実行はテスト開始前のSimulator Runner bootstrapがSIGKILL、再実行はXcodeの `waiting for workers to materialize` で停滞したため分割実行した。`git diff --check` は成功。
+## 2026-09-01 — 開かなかった画面へ次の節目と連続記録を追加
+
+- 作成・変更: `ios/DopaBreak/ReclaimedTimePresentation.swift` で既存の節目閾値を単一の定義へ集約し、`ReclaimedTimeMilestone.nextThreshold(after:)` と直前節目起点の `ReclaimedTimeMilestoneProgress` を追加した。`ios/DopaBreak/AppContainer.swift` / `InterventionFlowModel.swift` / `InterventionFlowView.swift` / `WinScreenView.swift` では `StatsService.consecutiveDaysWithCancellations(endingOn:)` の結果、次の節目までの残り時間、区間進捗バーを成功画面へ接続し、目標件数別の可変間隔と表示領域への縦配分を実装した。`ios/DopaBreak/Localizable.xcstrings` はja/en/koを同期し、`ios/DopaBreakTests/WinScreenReclaimedTimeTests.swift` と `WinScreenSnapshotCapture.swift`、`output/verify/win-screen/win-*.png` を更新した。
+- 採用方針・却下案: 進捗率は累計0起点ではなく直前節目→次節目の区間比率とし、残り時間は既存 `ReclaimedTimeFormatter.detailedString` を再利用した。節目回は祝いを濁らせないため進捗ブロックを隠し、連続0日は罰に見えるため非表示とした。標準 `ProgressView` はスナップショットでプラットフォームビューの描画記号が混入したため、同じ意味を持つ純SwiftUIのCapsuleバーを採用した。満足度内訳、週次グラフ、恣意的な時間換算は追加していない。
+- 実装制約: 閾値を追加・変更するときは `ReclaimedTimeMilestone.fixedThresholdSeconds` と日単位規則だけを正本とし、`highestReached` と `nextThreshold` に別々の閾値を直書きしない。成功画面は1〜3目標で広め、4〜5目標で狭めの可変スペーサーを使い、キャラクターと最大5目標を同時表示する。Dynamic Typeで内容が収まらない場合は既存ScrollViewでスクロールを許容する。
+- 検証: `xcodegen generate` 後の指定 `xcodebuild test` は296件実行・18件スキップ・失敗0。`WinScreenSnapshotCapture` は目標1〜5件と1時間/1日の節目回を再撮影し、通常回の進捗・連続記録、節目回の進捗非表示、下部余白の再配分を原寸確認した。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はexit 0、`git diff --check` も成功した。
+## 2026-09-01 — 利用後リフレクションをアプリ復帰時へ移動し装飾eyebrowを撤去
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/InterventionEngine.swift` の既定提示窓を30分へ短縮し、期限切れ未回答を既存スキップ経路で畳む `expireStaleReflections` を追加した。`ios/DopaBreak/InterventionFlowModel.swift`／`InterventionFlowView.swift` からリフレクション段階を完全削除し、`ios/DopaBreak/RootTabView.swift` で前面復帰・先行モーダル終了・介入終了後に既存 `PostUseReflectionSheet` を提示する。介入要求時はreflection sheetを閉じて一呼吸を最優先にする。`InterventionFlowView.swift`、`PostUseReflectionSheet.swift`、`OnboardingFlow.swift` から指定10個の装飾英語eyebrowを削除し、`Localizable.xcstrings` から対応キーも削除した。`ios/WidgetsExtension/Localizable.xcstrings` と `DopaBreakWidgets.swift` のwidget目標eyebrowはLive Activityと同じja/en/ko値・日本語defaultValueへ揃えた。
+- 採用方針・却下案: リフレクションを次回SNS起動の先頭へ残す案は、一呼吸までに2画面を挟み前回利用の記憶が薄れた状態でも開く導線を塞ぐため却下した。30分以内にDopaBreakへ戻った場合だけ独立sheetで尋ね、期限超過は表示せず永続的にskipする。eyebrowは日本語へ置換せず、見出しを先頭へ繰り上げ、オンボーディングのstagger番号も欠番が残らないよう詰めた。ブランド名DOPABREAKと通知モック内のアプリ名は維持した。
+- Claude Code向け制約: 一呼吸はlock screen check／paywall／reflectionより常に優先する。reflection提示ガードは介入・paywall・lock screen check・child modalと競合させず、`handleAppActive`、各fullScreenCoverの`onDismiss`、`runPostInterventionDismissalChecks`から再確認する。30分境界は提示対象、境界を1秒でも過ぎた未回答だけを期限切れとする。削除済み10キーと`InterventionFlowStage.reflection`を復活させない。`onboarding.welcome.eyebrow`、`onboarding.notification.preview.app_name`、`paywall.brand.pro`は残す。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は521件・失敗0。指定Simulator IDへの `xcodebuild ... build` は `BUILD SUCCEEDED`、`build-for-testing` は `TEST BUILD SUCCEEDED`。String CatalogのJSON解析、defaultValue監査（mismatch／missing 0）、削除キーと旧stage参照の不在、`git diff --check`を確認した。シミュレータ上のアプリ起動・終了は行っていない。
+
+## 2026-09-01 — Live Activityフォント同梱先と購入後テーマ確定ルール
+
+- 作成・変更: `ios/project.yml` / `ios/WidgetsExtension/Info.plist` で4件のテーマフォントを親アプリ直下から `WidgetsExtension.appex` へ移し、`UIAppFonts` を宣言した。`BundledFontRegistrar.swift` は自バンドル、親アプリ内の `PlugIns/WidgetsExtension.appex` と `Fonts`、祖先の順に探索し、`DopaBreakApp.swift` は既定探索で登録する。`AppContainer.swift` に非永続の `pendingProThemeSelection` と購入成立時の確定処理を追加し、`HomeView.swift` / `SettingsLockSurfaceView.swift` / `OnboardingFlow.swift` / `RootTabView.swift` の選択表示・保存・購入監視を新ルールへ統一した。`BundledFontIntegrationTests.swift` / `LockThemeLiveActivityViewTests.swift` / `MeasurementFoundationTests.swift` に配置・登録・3入口・保留なし購入の回帰を追加した。
+- 採用方針・却下案: フォントは容量を増やす複製ではなくExtensionへの単一配置とし、アプリ内プレビューは埋め込みappexからプロセス登録する。無料時のProテーマタップはチェック表示用のメモリ保留だけにし、UserDefaultsへは書かず、Pro成立時だけ確定する。既存保存済みProテーマの移行リセット、永続pendingフィールド、表示コピー変更、描画負荷削減は採用していない。`apple-hig` / `apple-design` に従い既存のペイウォール方式・モーション・アクセシビリティ構造も維持した。
+- Claude Code向け制約: テーマピッカーの表示値は `model.displayedLockThemeSelection`、永続値は `savedLockTheme`、実掲出値は権利ガード済み `liveLockTheme` を使い分ける。許可テーマ選択は `updateLockTheme(_:)` で保留を消して保存し、ロック済みテーマは `pendingProThemeSelection` のみ更新する。購入成立監視はRootとオンボーディングの双方で `applyPendingProThemeSelectionIfNeeded` を通す。フォント4件を親アプリ直下へ戻したり、appexとの二重配置にしない。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は524件・失敗0。指定Simulator IDへの `xcodebuild ... build` は `BUILD SUCCEEDED`、`build-for-testing` は `TEST BUILD SUCCEEDED`。成果物は `WidgetsExtension.appex` 内に `.ttf` 4件、`DopaBreak.app` 直下0件で、Extensionの `UIAppFonts` 4件も確認した。シミュレータ上のアプリ／テストランナーは起動・終了していない。`git diff --check` 成功。
+
+## 2026-09-01 — スクリーンタイムを対象アプリの単一入口へ統合
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/ScreenTimeSingleEntryPolicy.swift` に保存済みアプリ選択・認可と介入ルートから提示可否を決める純関数を追加した。`ios/DopaBreak/AppContainer.swift` は認可をrefreshごとに更新し、FamilyControlsの保存済みApplicationToken選択と合わせて `isScreenTimeGateConfigured` を公開する。`ios/DopaBreak/RootTabView.swift` はゲート設定中のcatalog要求だけを記録前に破棄し、gateTokenを従来どおり提示する。`ios/DopaBreak/AutomationGuideView.swift` と `OnboardingFlow.swift` はゲート設定中にショートカット手順を出さず、スクリーンタイムが入口で登録済み自動化を削除できる1画面へ分岐する。`ios/ShieldConfigExtension/ShieldConfigurationExtension.swift` と同 `Localizable.xcstrings` は見出しを「このアプリは止めています」、主操作を「DopaBreakで開く」へja/en/koで同期した。回帰はCore純関数テストと `ios/DopaBreakTests/ScreenTimeSingleEntryLocalizationTests.swift` に追加した。
+- 採用方針・却下案: FamilyControlsの不透明トークンをcatalogへ対応付ける案はプラットフォーム上不可能なため、スクリーンタイム設定中はシールドを唯一の入口にした。判定用の新しい永続フラグは作らず、GateShieldControllerと同じ有効ルール内のApplicationToken選択と現在認可だけを正本にした。AppSettingsの残存行だけを見る案は対象解除後も残り得るため採用せず、カテゴリ／Webドメインだけの選択も日常ゲート対象とは数えない。`apple-hig` / `apple-design` に従い既存NavigationStack、閉じる操作、Dynamic Type対応、モーションを維持し、新しい遷移や装飾は追加していない。
+- Claude Code向け制約: catalog抑止は `presentPendingInterventionIfValid(_:)` の入口でのみ行い、attempt/openを記録しない。gateTokenの権利判定・提示・grant処理は変更しない。`isScreenTimeGateConfigured` は保存済みApplicationTokenが1件以上かつScreen Time認可済みの論理積で、新しいUserDefaultsやSnapshotを追加しない。ゲート設定中のAutomationGuide／オンボーディングにはShortcuts起動、動画、手順、チェックリスト、白黒化自動化を出さない。シールドの副題・副ボタンとhard window文言は維持する。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は527件・失敗0。`xcodegen generate` 後のgeneric iOS Simulator向け `xcodebuild build` は `BUILD SUCCEEDED`、`build-for-testing` は `TEST BUILD SUCCEEDED`。String Catalog JSON解析、defaultValue監査（mismatch／missing 0）、`git diff --check` は成功。表示コピーlintの3件は今回未変更の既存読点のみ。シミュレータ上のアプリ／テストランナーは起動・終了していない。
+
+## 2026-09-01 — 起動時と前面復帰時のScreen Time認可状態同期
+
+- 変更: `ios/DopaBreak/ScreenTimeCenter.swift` に本番既定の `AuthorizationCenter.shared.authorizationStatus` 読み取りを保持した注入可能なstatus providerを追加した。`ios/DopaBreak/AppContainer.swift` はAppModelの初回 `refresh()` でScreen Time認可を更新し、`ios/DopaBreak/DopaBreakApp.swift` はRootTabView未表示のオンボーディング中も前面復帰ごとに軽量な `screenTime.refresh()` を実行する。`ios/DopaBreakTests/ScreenTimeSingleEntryAppModelTests.swift` にSettingsを開かず、認可済み状態で `isScreenTimeGateConfigured` がtrueになる回帰を追加した。
+- 採用方針・却下案: `refresh()` は認可要求や非同期処理を起こさず、AuthorizationCenterの現在statusを一度読むだけにした。RootTabViewの既存 `model.refresh()` 経路は維持し、外側のapp-active経路には重い全体refreshを重ねず直接更新する。SettingsViewへの依存や認可状態の永続フラグは追加していない。
+- Claude Code向け制約: `isScreenTimeGateConfigured` は保存済みApplicationToken選択と現在の認可状態の論理積を正本とする。RootTabViewのcatalog抑止、gateToken処理、SettingsViewの認可要求、WinScreenView／ReclaimedTimePresentation／WakeSleepTimelinePolicyの既存実装は変更しない。アプリ／テストランナーをSimulator上で起動・終了しない。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は527件・失敗0。generic iOS Simulator向け `xcodebuild build` と `build-for-testing` は成功。`git diff --check` は成功。
+
+## 2026-09-01 — 常時ゲートの標準モード限定とcatalog競合保護
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/GateShieldScope.swift` に常時ゲート対象を有効な標準モードへ限定する純関数を追加し、`ios/DopaBreak/GateShieldController.swift` と `ios/DopaBreak/AppContainer.swift` のシールド同期・Screen Time入口判定を同じ範囲へ統一した。`ios/DopaBreak/RootTabView.swift` は抑止したcatalog要求が実際に届いた場合だけ既存 `AutomationGuideView` を前面滞在ごと最大1回提示する。`InterventionFlowModel.swift` とCore policyはgateToken優先および一致要求だけを破棄する競合契約を追加し、Core／アプリテストで両到着順と移行時解除を覆った。
+- 採用方針・却下案: window外でもシールドを残す方式は時間制御を無効化するため却下し、常時シールドはstandardだけ、nightOnly／deepFocusは既存の時間窓シールドだけに委ねた。catalog破棄で単一pending値を無条件nilにする方式と後着catalogによる上書きはgateToken消失を起こすため廃止し、gateToken優先＋compare-and-clearにした。案内は新画面を作らず、閉じる手段とScreen Time説明を持つ既存sheetを再利用した（`apple-hig` / `apple-design`）。
+- Claude Code向け制約: `GateShieldScope.selectionData(from:)` を常時ゲートと `isScreenTimeGateConfigured` の共通正本として維持する。nightOnly／deepFocusを追加しない。catalog抑止案内はcatalog到着時だけ、前面滞在ごと最大1回で、child modal・paywall・lock screen check・reflectionを押しのけず、gateToken到着時は案内を閉じて介入を優先する。pending要求の破棄は `discardPendingInterventionTarget(ifMatching:)` を使い、無条件nilへ戻さない。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は531件・失敗0。generic iOS Simulator向け `xcodebuild build` は `BUILD SUCCEEDED`、`build-for-testing` は `TEST BUILD SUCCEEDED`。Simulator上のアプリ／テストランナーは起動・終了していない。
+
+## 2026-09-01 — 完全ブロック画面から目標表示を削除
+
+- 作成・変更: `ios/ShieldConfigExtension/ShieldConfigurationExtension.swift` から完全ブロック用の目標読み出しと引数の受け渡しを削除し、`hardWindowSubtitle` はDeep Focusで `shield.subtitle.fallback`、夜で `shield.night.subtitle` を常に返すようにした。`ios/ShieldConfigExtension/Localizable.xcstrings` から未参照の目標副題カタログ項目を削除した。
+- 採用方針・却下案: `.hardWindow` は目標に依存しない中立的な種別別副題を採用した。`.canUnlock` のゲート判定と表示経路は変更せず、目標を残してフォールバックへ条件分岐する案は完全ブロック画面に目標が出る余地を残すため採用していない。表示コピーは既存値を再利用し、句点・読点・呼吸語を追加していない。
+- Claude Code向け制約: `.hardWindow` のDeep Focus副題は `shield.subtitle.fallback`、夜副題は `shield.night.subtitle` を正本とする。旧目標副題項目、完全ブロック経路の `GoalStore` 読み出し、目標引数を復活させない。`.canUnlock` のgateToken判定、回数表示、解除アクションは維持する。
+- 検証: 目標副題項目とShield拡張内のGoalStore参照は0件、hard-window副題内の `ひと呼吸`／`一呼吸` は0件。String CatalogのJSON解析、`git diff --check`、generic iOS Simulator向け `xcodebuild build` は成功した。Simulator上のアプリ／テストランナーは起動・終了していない。
+
+## 2026-09-01 — Screen Time完全ブロックと一呼吸対象を分離（案X）
+
+- 作成・変更: `ios/DopaBreak/SettingsView.swift` と `Localizable.xcstrings` は、一呼吸対象を既存SNSカタログ／Shortcuts、完全ブロック対象をFamilyControlsのルール選択として別カードへ分離した。同一アプリを双方へ登録でき、相互除外は行わない。`AppContainer.swift`、`RootTabView.swift`、`AutomationGuideView.swift`、`OnboardingFlow.swift`、介入フロー、通知、Shield Action／Config／Monitor、Coreのモデル・ストア・policyから常時Screen Timeゲート、gateToken、回数／cooldown／一時解除を参照ごと削除した。削除ファイルは `GateAppSettingSheet.swift`、`GateGrantController.swift`、`GateShieldController.swift`、CoreのGateModels／GatePolicy／GateStores／GateSyncPolicy／GateShieldScope／ScreenTimeSingleEntryPolicyと専用テスト群。`ios/DopaBreak.xcodeproj/project.pbxproj` はxcodegenで再生成した。
+- 採用方針・却下案: オーナー追記どおり案Xを採用し、一呼吸と完全ブロックを独立した正本へ分けた。FamilyControls選択を一呼吸対象へ流用する案、常時シールドを残して入口だけ隠す案、両リスト間で同一アプリを排他にする案は却下した。夜のみ／Deep Focusの時間窓シールドは既存ルール選択と専用snapshot／ManagedSettingsストアのまま維持した。
+- Claude Code向け制約: `ShieldController.syncShield` は同期の最初に旧 `dopabreak.gate` ManagedSettingsストアを無条件clearし、移行後最初の同期で既存常時シールドを解除する。この互換解除は旧ゲート機能の復活ではなく、保存トークンを読まない一方向の清掃として維持する。一呼吸はSNSカタログ＋Shortcuts、完全ブロックはFamilyControls＋Screen Time認可が正本。同一アプリの重複登録を許す。`InterventionFlowStage.durationSelection`、勝利画面のreclaimed／lifetime／estimated／consecutiveDays／milestone、`DayTimeContext`、Settingsのwake/sleep timeline処理、`settings.night_only.description` は変更しない。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は488件・失敗0。`xcodegen generate --spec project.yml` 後のgeneric iOS Simulator向け全7ターゲットは `BUILD SUCCEEDED`、テストターゲットを含む `build-for-testing` は `TEST BUILD SUCCEEDED`。2つの変更String CatalogはJSON解析成功、常時ゲート専用参照とTODO／FIXMEは0件、`git diff --check`成功。Simulator上のアプリ／テストランナーは起動・終了していない。
+
+## 2026-09-01 — 設定コピーの手動改行撤去
+
+- 作成・変更: `ios/DopaBreak/Localizable.xcstrings` の `settings.targets.block.description`、`settings.targets.breath.description`、`settings.targets.breath.empty_description`、`settings.authorization.body`、`settings.authorization.denied_body` をja／en／koの全15値で自然折返しへ変更した。日本語の対応 `defaultValue` は `ios/DopaBreak/SettingsView.swift` でカタログと同期した。
+- 採用方針・却下案: 端末幅に依存するハードコード改行は削除し、説明文を短くして自然折返しに任せた。日本語は句点・リズム目的の読点を避け、対象と結果が読める体言止め寄りの短文にした。en／koは各言語の自然な案内へ整えた。既存のレビュー済み改行許可リストへキーを追加する案は採用していない。
+- Claude Code向け制約: 5キーのja／en／ko値へ手動改行を戻さない。設定カードと認可シートの幅・Dynamic Typeによる自然折返しを維持し、日本語を変更するときは同じキーの `SettingsView.swift` の `defaultValue` も同期する。`InterventionMergeCopyTests.swift` の既存許可境界とレイアウトは変更しない。
+- 検証: `InterventionMergeCopyTests` はiPhone 16 Pro Simulatorで7件・失敗0の `TEST SUCCEEDED`。String Catalog JSON解析、既定値監査（mismatch／missing／unresolved／specifier-type 0）、`git diff --check` は成功。アプリのSimulator起動・終了操作は行っていない。
+
+## 2026-09-01 — 2つのアプリ一覧名確定と起床・就寝タイムラインの再配置
+
+- 作成・変更: `ios/DopaBreak/Localizable.xcstrings` と関連するSwiftの `defaultValue`、Coreの選択エラー、`docs/11_ui_copy.md`、機能分離仕様を更新した。一呼吸一覧は ja=`一呼吸をはさむアプリ`／en=`Apps with a pause`／ko=`숨 고르기를 설정한 앱`、完全ブロック一覧は ja=`完全にブロックするアプリ`／en=`Apps to block`／ko=`차단할 앱` を正本とし、旧 `settings.target.apps` は未参照のため削除した。`ios/DopaBreak/SettingsView.swift` は `wakeSleepTimelineSection` の呼び出しを完全ブロックカード内へ移し、外側の `CardContainer` だけを外して二重カードを避けた。
+- 採用方針・却下案: 英韓は直訳を作らず、既存の `home.targets.title` と完全ブロック語彙をそのまま一覧名へ採用した。曖昧な「止めるアプリ」、設定だけ異なる `Apps for a pause`／`숨 고르기를 넣을 앱`、タイムラインを独立カードのまま残す案は却下した。HIGの近接・グルーピング原則に合わせ、完全ブロック対象、Screen Time状態、時間範囲を1カードにまとめた。
+- Claude Code向け制約: `wakeSleepTimelineSection` の表示内容、`wakeSleepTimelineDescription`、`timelineBar`、`timelineHandle`、`updateTimeline` は変更していない。タイムラインは完全ブロックカードの末尾に置き、カードを入れ子にしない。一呼吸一覧と完全ブロック一覧は保存先も用途も別で、同じアプリを両方へ登録できる既存契約を維持する。
+- 検証: DopaBreakCoreは488件・失敗0、generic iOS Simulatorビルドは `BUILD SUCCEEDED`、`InterventionMergeCopyTests` は7件・失敗0で `TEST SUCCEEDED`。String Catalog JSON解析、`止めるアプリ` の実装・正本文書内残存0、defaultValue監査 mismatch／missing／unresolved 0、`git diff --check` を確認した。Simulatorアプリの手動起動・終了操作は行っていない。
+
+## 2026-09-01 — 設定本文5キーの述語付き文章化
+
+- 作成・変更: `ios/DopaBreak/Localizable.xcstrings` の `settings.targets.block.description`、`settings.targets.breath.description`、`settings.targets.breath.empty_description`、`settings.authorization.body`、`settings.authorization.denied_body` をja／en／koで更新し、`ios/DopaBreak/SettingsView.swift` の日本語 `defaultValue` 5件も同期した。
+- 採用方針・却下案: 本文中の体言止め・断片を全角スペースで連結する案を廃止し、各言語で述語を持つ短い文章へ分割した。日本語で一覧を指す箇所は承認済み名称の「一呼吸をはさむアプリ」「完全にブロックするアプリ」をそのまま使い、読点は条件節と主節の境界に必要な箇所だけに限定した。英語と韓国語は日本語の語順を写さず、各言語の設定画面として自然な案内にした。
+- Claude Code向け制約: この5キーを断片列や全角スペース区切りへ戻さない。日本語本文は述語を持つです／ます調を維持し、一覧を指す場合は承認済み名称を変えない。jaのカタログ値を変更するときは `SettingsView.swift` の同一キーの `defaultValue` も同期する。全言語とも値に手動改行を入れない。
+- 検証: String CatalogのJSON解析、対象15値の手動改行／全角スペース0件、defaultValue監査、`git diff --check` が成功。generic iOS Simulator向けDopaBreakビルドは `BUILD SUCCEEDED`。iPhone 17 Pro Max（iOS 26.5）で `DopaBreakTests/InterventionMergeCopyTests` は7件・失敗0、`TEST SUCCEEDED`。Simulatorアプリの手動起動・終了操作は行っていない。日本語カタログは `一呼吸` 42件、`ひと呼吸` 2件で混在しており、依頼どおり表記統一は未実施。
+
+## 2026-09-02 — 宣言終了時刻に振り返り通知を届ける（案A）
+
+- 作成・変更: Coreの `InterventionEngine.swift` は保存した `ReflectionLog` を返し、`ReflectionNotificationPolicy.swift`、`NotificationRouting.swift`、`FunnelEventStore.swift`、`SettingsStore.swift`、`AppModels.swift` に終了時刻ポリシー、固定通知ID、振り返りルート、計測イベント、既定ON設定を追加した。アプリ側は `ReflectionNotificationScheduler.swift` を新設し、`AppContainer.swift`、`InterventionFlowModel.swift`、`LockSurfaceCoordinator.swift`、`RootTabView.swift`、`PostUseReflectionSheet.swift` で予約・置換・タップ・回答／スキップ・削除を接続した。`SettingsNotificationsView.swift` と `SettingsView.swift` に通知Toggleを追加し、`Localizable.xcstrings` をja／en／koで同期した。Core／アプリの関連テストも追加・更新した。
+- 採用方針・却下案: 通知は介入開始時ではなく、保存済みReflectionの `promptedAt` を唯一の発火時刻にし、同一固定IDで常に最新宣言へ置換する案Aを採用した。通常のロック面通知更新に混ぜる案、通知タップで期限切れReflectionを失効させる案、通知許可を再要求する案は採用していない。`apple-hig` に従い設定は既存Form内の標準Toggle行とし、独自画面・独自ジェスチャ・追加モーションは作っていない。
+- Claude Code向け制約: 振り返り通知IDは `dopabreak.reflection.prompt` の1件固定で、予約前にpending／deliveredを両方除去する。許可状態は `.authorized`／`.provisional`／`.ephemeral` のみ予約可とし、`.notDetermined` で認可要求しない。通知タップは未回答Reflectionかつ `promptedAt ... promptedAt+3h` の範囲だけシートを開き、期限切れをexpireしない。通常の `refreshNotifications`／`reconcileDelivered` の削除対象へこのIDを含めず、Toggle OFF、回答／スキップ、全削除の各経路ではpending／deliveredを除去する。設定ToggleをONにした時点では過去分を予約しない。
+- 検証: `cd ios/Packages/DopaBreakCore && swift test` は494件・失敗0。`xcodegen generate --spec project.yml` 後、iPhone 17 Pro（iOS 26.5）で `DopaBreakTests` は278件（18件スキップ）・失敗0。対象差分の `git diff --check` とString CatalogのJSON解析に成功した。
+
+### 2026-09-02 — レビュー後の訂正（§11）
+
+- 作成・変更: `ios/DopaBreak/ReflectionNotificationScheduler.swift` と `ios/DopaBreak/AppContainer.swift` は通知予約を同期発行し、`UIApplication.beginBackgroundTask` から `add(_:withCompletionHandler:)` 完了まで実行時間を確保する構成へ変更した。`ios/DopaBreak/RootTabView.swift` は未回答を3時間で畳み、通知タップ計測を提示ガードより前へ移した。`ios/DopaBreak/SettingsNotificationsView.swift` は振り返り通知Toggle変更後にも `refreshLockSurfaces()` を呼ぶ。Core／アプリのテストも3時間窓と置換後の発火日時まで検証する形へ更新した。
+- 採用方針・却下案: 正しい固定IDは `NotificationRouting.swift` の `dopabreak.reflection.prompt`。通知許可を事前に非同期取得する案は背面移行時の取りこぼしを避けるため廃止し、予約要求を即時発行して未許可時はcompletionのエラーとして扱う。自発提示窓は30分のまま、未回答の失効だけ3時間に揃え、30分〜3時間は通知タップ時だけ回答できる方針とした。
+- Claude Code向け制約: 通常の通知再同期は `LockSurfaceCoordinator.performNotificationReschedule`／`removeInvalidatedNotificationRequests` であり、振り返り通知を通常再同期の削除対象へ混ぜない。予約直前には同じ固定IDのdelivered通知を削除し、成功イベントは `add` のcompletionが成功した場合だけ記録する。Background Taskはcompletionとexpirationのどちらでも一度だけ終了する。
+- 検証: `ios/Packages/DopaBreakCore` の `swift test` は496件・失敗0。iPhone 17 Pro（iOS 26.5）Simulatorでscheme `DopaBreak` の `DopaBreakTests` は278件（18件スキップ）・失敗0、`TEST SUCCEEDED`。
+
+## 2026-09-02 — P0修正バッチA（A-1〜A-4）
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/CatalogAllowanceStore.swift` と同テストを新設し、カタログアプリの宣言終了時刻までの許可をApp Groupへ保存するようにした。`InterventionFlowModel.swift`／`InterventionFlowView.swift`／`AppContainer.swift` は有効な許可中の再起動を記録・振り返り・通知なしのパススルーへ分岐する。`NonTargetAutomation.swift`／`NonTargetAutomationSheet.swift`／`RootTabView.swift` は削除済み・権利縮退済み対象の自動化起動を説明シートへ案内する。`PurchaseContinuation.swift` とPaywall／設定／対象選択の接続で購入後の操作を一度だけ再開する。Screen Time認可状態、完全ブロック設定数、起床・就寝時刻の既定値補完を `AppContainer.swift`／`ScreenTimeCenter.swift` に公開した。文字列は `Localizable.xcstrings` のja／en／koへ追加し、新規Swiftファイルは `xcodegen generate --spec project.yml` で `ios/DopaBreak.xcodeproj/project.pbxproj` に反映した。
+- 採用方針・却下案: 有効期限の判定を保存時ではなく読取時にも行い、対象削除・権利縮退では許可を即時失効させる方針を採用した。対象外自動化は通常の介入へ誤接続せず、Apple標準のNavigationStack付きシート、明示的な閉じる操作、既存ボタン階層、Button＋chevronの折りたたみによる削除手順で説明する。自動で別画面へ遷移する案、独自ジェスチャや追加モーション、購入前操作を推測して複数回再生する案は採用していない。バッチB／Cの画面・ロジックは変更していない。
+- Claude Code向け制約: パススルーは約0.6秒後に同じURLを開くだけで、`recordOpen`、Reflection作成、通知予約、介入試行記録を行わない。購入継続は `.addTarget`／`.applyMode` の単発値で、購入成功時は継続処理を適用してからPaywallを閉じ、無料状態で閉じた場合は破棄する。標準プランでは完全ブロック対象を保存せずfalseを返す。`blockTargetRuleCount` は保存済み完全ブロック選択と起床・就寝は合算しない。時刻の既定値保存は `ensureWakeSleepDefaults` が別途行う。A-1〜A-4以外を実装する場合も、これらの公開状態と副作用境界を維持する。
+- 検証: DopaBreakCoreは500件・失敗0。iPhone 17 Pro SimulatorのDopaBreakTestsは286件（18件スキップ）・失敗0。表示文言lintと既定値監査はともに終了コード0、String Catalog JSON解析と `git diff --check` も成功した。
+
+## 2026-09-02 — P0修正バッチB（B-1〜B-5）
+
+- 作成・変更: `ios/DopaBreak/OnboardingFlow.swift` にProの完全ブロック設定ステップ、Shortcuts設定の初期／試行待ち／検収済み状態、オンボ内購入継続、未検収の要約／完了導線を追加した。`ios/DopaBreak/AutomationGuideView.swift` は正しい7手順と動画カードを `AutomationGuideStepList` として共有した。`ios/DopaBreak/AppContainer.swift` は保留中の自動化要求を検収だけ記録して消費する経路を通常介入と共有した。`ios/DopaBreak/PaywallView.swift` は注入可能な通知認可プロバイダで許可済み／未決定／拒否を出し分けた。`ios/DopaBreak/Localizable.xcstrings` はja／en／koを同期し、旧5手順・模式図・完了画面の旧テスト文言を削除した。`ios/DopaBreakTests/MeasurementFoundationTests.swift` は18ステップ、検収状態遷移、通知認可マッピングを検証する。
+- 採用方針・却下案: `apple-hig`／`apple-design` に従いFamilyActivityPicker、標準sheet、システム認可要求、44pt以上の操作領域を再利用し、独自の許可画面・独自ジェスチャ・追加モーションは採用していない。Shortcutsを開いた時点で準備完了にする案は却下し、対象アプリの起動要求と保存済み検収IDの一致だけを完了条件にした。通知未許可時に終了前通知を約束する案は却下し、未決定は許可CTA、拒否は設定CTAだけを表示する。
+- Claude Code向け制約: `blockSetup` は `prePaywallSummary` の次、`ready` の前で、Proかつ `selectedMode.usesShield` の場合だけ表示する。「あとで設定する」は必ず標準モードへ戻す。オンボの購入継続はローカル単発値で、無料のままPaywallを閉じたら破棄する。検収だけの消費はAttempt／Reflection／介入を開始せず、通常消費と同じ検収マーク・イベント・通知取消を使う。共有7手順は `AutomationGuideStepList` を正本とし、旧 `onboarding.automation.step1...5` と `onboarding.automation.mock.*` を復活させない。Paywallの2／3日前Pickerは通知許可済みだけ表示する。
+- 検証: DopaBreakCoreは500件・失敗0。iPhone 17 Pro SimulatorのDopaBreakTestsは289件（18件スキップ）・失敗0。表示文言lintと既定値監査はともに終了コード0、String Catalog JSON解析と `git diff --check` も成功した。
+
+### 2026-09-02 — P0修正バッチA記録の訂正（A-5）
+
+- 訂正: 直前のバッチA記録にある `blockTargetRuleCount` は、起床・就寝ルールを合算せず、保存済みの完全ブロック選択データを持つ有効ルールだけを数える。起床・就寝時刻の既定値保存は `ensureWakeSleepDefaults()` が担当する。
+- 訂正: 非対象自動化シートの削除手順は `DisclosureGroup` ではなく、Buttonとchevronで展開する既存実装を正本とする。
+
+## 2026-09-02 — P0修正 A-5 とバッチC
+
+- 作成・変更: `ios/DopaBreak/PurchaseContinuation.swift` と `ios/DopaBreak/AppContainer.swift` は購入継続へ作成時刻と30分の有効期限を持たせ、対象追加前にクランプ復元を完了し、期限切れ要求とPro確定時の空要求を破棄するようにした。期限切れ直後のパススルーは通常介入へ戻し、標準モードの完全ブロック保存失敗は説明を返す。`ios/DopaBreak/RootTabView.swift` はロック画面チェック・ペイウォール・振り返り終了後に非対象自動化を再評価し、非対象シートからのPro導線をシート終了後に提示する。`ios/DopaBreak/HomeView.swift` は一呼吸対象と完全ブロック状態を別行へ分離し、未設定状態と設定CTA、件数と時間帯を表示する。`ios/DopaBreak/SettingsView.swift` は標準モードから完全ブロック対象を選ぶ前に標準alertで夜だけ強化／ディープフォーカスを確定させ、モード別説明と夜だけ強化の空対象注記を追加した。`ios/DopaBreak/Localizable.xcstrings` は新規表示をja／en／koで同期し、`ios/DopaBreakTests/InterventionRoutingTests.swift` はクランプ復元後の重複防止、30分失効、期限切れパススルー、保存防御を検証する。`.claude/release-check/device-verification-runbook.md` §8 へ追記し、夜だけ強化中の重複対象でシールドだけが出ることの実機確認手順を記録した。
+- 採用方針・却下案: 一呼吸のアイコン横へ完全ブロックの「開けません」を残さず、完全ブロックは件数・時間帯・稼働状態を独立行で示す。標準モードからの対象選択は暗黙に夜だけ強化へ変えず、Apple標準alertの3操作で本人に選ばせる。非対象シートからペイウォールを出すための固定100ms待機は廃止し、sheetの `onDismiss` を提示境界にした。購入継続は永続化せず、30分を過ぎた操作を購入後に再生しない。
+- Claude Code向け制約: `PurchaseContinuation` の対象追加は `reconcileSelectedTargetsWithEntitlement()` 後の選択へ適用し、既存対象を重複させない。Pro確定時は継続actionが成立しなくても必ず値を消す。`requestPassThrough` の期限切れは無言終了させず通常介入へ送る。Homeの「開けません」は `isBlockConfigured` がtrueのときだけ表示し、一呼吸アイコン列と完全ブロック状態行を再混在させない。標準モードの `saveBlockedAppSelection` は保存せずfalseを返し、呼び出し側は必ず説明を提示する。夜だけ強化の空対象注記を維持し、ディープフォーカス固有の窓なし判定を夜だけ強化へ流用しない。`OnboardingFlow.swift`、`AutomationGuideView.swift`、`PaywallView.swift` は今回変更していない。
+- 検証: DopaBreakCoreは500件・失敗0。iPhone 17 Pro SimulatorのDopaBreakTestsは292件（18件スキップ）・失敗0。表示文言lintと既定値監査はともに終了コード0、String Catalog JSON解析、`xcodegen generate --spec project.yml`、`git diff --check` も成功した。
+
+## 2026-09-02 — P0修正 A-6 振り返り通知からSNSへ戻る実機バグ
+
+- 作成・変更: Coreへ `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/AutomationRequestPolicy.swift` と同テストを追加し、自動化要求の60秒鮮度と同一アプリ自己起動の20秒除外を純粋関数化した。`SettingsStore.swift`／`StartInterventionIntent.swift`／`FunnelEventStore.swift` は要求時刻、自己起動記録、破棄イベントをApp Groupと計測へ接続した。アプリ側の `InterventionFlowModel.swift`／`AppContainer.swift`／`DopaBreakApp.swift`／`RootTabView.swift` はURL起動完了時の保留解除、期限切れ通過の破棄、振り返り宛先による通過抑止を実装した。`ios/DopaBreakTests/InterventionRoutingTests.swift` とCore既存テストを更新し、`.claude/release-check/device-verification-runbook.md` §8へ8-14を追加した。新規ファイル反映のため `ios/project.yml` からXcodeプロジェクトを再生成した。
+- 採用方針・却下案: 通過画面の遅延dismissだけに依存せず、SNS URLのopen completionを保留要求の寿命境界にした。自動化要求は検収記録を先に残したうえで、60秒超または同一アプリの自己起動20秒未満を表示なしで破棄する。振り返り通知と有効な通過が競合するときだけ振り返りを優先し、許可が無く通常の一呼吸が必要な起動は従来どおり最優先とした。振り返り全体を常に一呼吸より優先する案、30分の自発振り返り窓や通知仕様を変える案は採用していない。
+- Claude Code向け制約: `pendingStartInterventionRequestedAt` はAppIntentが要求本体と同時に書き、消費時はcatalogID／autoResolveと一緒に必ず消す。`lastSelfOpenedCatalogID`／`lastSelfOpenedAt` は通常・通過のURL起動直前だけ更新する。鮮度は60秒ちょうどを有効、自己起動除外は20秒未満だけとし、別catalogIDは除外しない。URL起動完了で一致する `pendingInterventionTarget` だけを消し、別要求への置換を壊さない。期限切れ通過は初期表示と前面中の再提示の両方でアニメなしに破棄する。表示コピー、30分の振り返り窓、案A通知、`recordOpen` は変更していない。
+- 検証: DopaBreakCoreは506件・失敗0。iPhone 17 Pro（iOS 26.5）SimulatorのDopaBreakTestsは298件（18件スキップ）・失敗0。表示文言lintと既定値監査はともに終了コード0。`xcodegen generate --spec project.yml` を実行済み。
+
+## 2026-09-02 — Statsアプリ別カードの対象範囲を文言で明示
+
+- 作成・変更: `ios/DopaBreak/StatsView.swift` の `appsCard` で見出しを「一呼吸をはさんだアプリ」へ変更し、空状態を「まだ一呼吸の記録がありません」へ変更した。見出し直下には `stats.apps.caption` を常時表示し、完全ブロック対象がこの集計に含まれないことを示した。`ios/DopaBreak/Localizable.xcstrings` は `stats.apps.title`／`stats.apps.empty` をja／en／koで更新し、`stats.apps.caption` を3言語すべて `translated` で追加した。
+- 採用方針・却下案: `appsCard` の集計は一呼吸のAttemptをrule単位で集計する既存仕様のままとし、完全ブロック対象を表示する案や集計側を変更する案は採用していない。注記は見出しの直下、既存VStackの `spacing: 10` に任せ、空状態でも消えない位置へ置いた。
+- Claude Code向け制約: `StatsAppMetric`、`appMetrics`、`iconSource`、`StatsService`、および集計・挙動は変更しない。Swiftのja `defaultValue` とカタログのja／en／koは指定文字列から変更せず、注記へ新たなpaddingや句読点を追加しない。
+- 検証: String CatalogのJSON解析、3キー×3言語の値と `translated` 状態の一致、Swift構文／ビルド確認を実施する。
+
+## 2026-09-02 — 起床・就寝時刻セクションを夜だけ強化時のみ表示
+
+- 変更: `ios/DopaBreak/SettingsView.swift` の `targetLengthAutomationSection` で `SettingsDivider()` と `wakeSleepTimelineSection` を `selectedMode == .nightOnly` の条件内へ移した。`wakeSleepTimelineSection` の `InterventionMode.nightOnly.detailText` バッジは常時表示とし、`wakeSleepTimelineDescription` は `settings.night_only.description` を常に返す形へ整理した。`ios/DopaBreak/Localizable.xcstrings` の同キーをja／en／koの確定文言へ更新し、到達不能な `settings.schedule.description` エントリを削除した。
+- 採用方針・却下案: 起床・就寝時刻は夜だけ強化の完全ブロック窓にだけ関係するため、標準・ディープフォーカスではセクション自体を表示しない。既存のタイムライン操作、時刻変換、モード選択、他の説明文は変更していない。標準・ディープフォーカス向け説明を残す案は到達不能キーと誤解を残すため採用していない。
+- Claude Code向け制約: `wakeSleepTimelineSection` は `selectedMode == .nightOnly` の呼び出し条件を維持し、ヘッダーの夜だけ強化バッジ、`settings.night_only.description` のja／en／ko値、`SettingsView.swift` 内の同キーの日本語 `defaultValue` を改変しない。`settings.schedule.description` を復活させない。
+- 検証: `swiftc -parse ios/DopaBreak/SettingsView.swift`、`jq empty ios/DopaBreak/Localizable.xcstrings`、3言語値と削除キーの機械照合、対象2ファイルの `git diff --check` が成功した。指示により `xcodebuild` は実行していない。
+
+## 2026-09-02 — DopaBreak自己起動と完全ブロック自己巻き込みの予防
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/AutomationRequestPolicy.swift` は要求鮮度を10秒へ短縮し、自己起動反響を消費時刻ではなく要求作成時刻で判定するよう変更した。`ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/AutomationRequestPolicyTests.swift` は10秒／8秒の境界、受け入れ条件5ケース、自己起動より前の要求を追加した。`ios/DopaBreak/SettingsView.swift` と `ios/DopaBreak/OnboardingFlow.swift` はFamilyActivityPickerのfooter注意書きと、カテゴリ選択時に保存を保留する標準alertを追加した。`ios/DopaBreak/Localizable.xcstrings` は新規5キーをja／en／koすべてtranslatedで追加した。
+- 採用方針・却下案: 不透明なApplicationTokenから自アプリを推測するフィルタは採用せず、ピッカー内の事前注意とカテゴリ保存直前の明示確認で事故を予防する。カテゴリなしは従来どおり即保存し、カテゴリありは「このまま保存」だけが既存保存処理を呼ぶ。「選び直す」は選択を保持したままピッカーを再提示する。Apple標準のFamilyActivityPickerと2操作alertを使い、独自モーダルや解除口は追加していない。
+- Claude Code向け制約: `AutomationRequestPolicy.decision` のシグネチャ、stale優先、一発限りの自己起動記録クリアは維持する。自己起動判定は同一catalogIDかつ `requestedAt >= lastSelfOpenedAt` かつ差が8秒未満、鮮度は10秒ちょうどまで有効とする。2画面ともカテゴリが1件以上なら保存前確認を必須とし、「選び直す」で選択を初期化しない。`ShieldController`、`ShieldActionExtension`、`saveBlockedAppSelection` の契約は変更しない。
+- 検証: DopaBreakCoreは516件・失敗0。アプリは検証専用Xcodeプロジェクトでビルド成功し、DopaBreakTests全299件を安定性のため296件一括＋長時間保持2件＋OCR1件に分けて実行し、18件skip・失敗0を確認した。表示文言lintと既定値監査はexit 0、String CatalogのJSON解析と対象差分の `git diff --check` も成功した。
+
+## 2026-09-03 — Statsを「取り戻した時間」中心へ再設計
+
+- 作成・変更: `ios/DopaBreak/StatsView.swift` を期間別の取り戻した時間を主役に再構成し、`ios/DopaBreak/HourBars.swift` と `ios/DopaBreakTests/StatsReclaimedTimeTests.swift` を新設した。`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SQLiteLogStore.swift`、`Services/StatsService.swift`、`Tests/DopaBreakCoreTests/StatsServiceTests.swift` へrule別・intent別の取り戻した秒数と開始時刻／時間帯集計を追加した。`ios/DopaBreak/Localizable.xcstrings` は比較、時間帯、時間表示に必要なja／en／koを同期した。
+- 採用方針・却下案: `apple-design` と `apple-hig` に従い、今日・今週・全期間で同じ情報階層を保ち、最大56ptの時間、根拠、内訳の順に読める構成を採用した。回数を主役のまま残す案、週以外にも曜日棒を出す案、全期間で前週比較を見せる案は却下した。週／全期間には24時間棒を置き、最大時間帯は最初の同率時刻をアクセント表示し、データ5件以上だけ文章で補足する。Reduce Motion時は暗黙アニメーションを無効化する。
+- Claude Code向け制約: Ledgerの期間条件は `recordedAt >= start && recordedAt < end`、Attempt開始時刻も同じ半開区間を維持する。intentがnilのLedgerはintent内訳に含めない。旧anxietyはcommunicationへ秒数と回数の両方を合算する。アプリ別／目的別は取り戻した秒数の降順、同値は既存の安定順で並べる。`DayBars` は週だけ、`HourBars` は週と全期間だけ表示し、0件の棒は2pt、最大棒は56pt、軸ラベルは0／6／12／18時を維持する。
+- 検証: DopaBreakCoreは516件・失敗0。generic iOS Simulatorビルドは `BUILD SUCCEEDED`。通常アプリテストは外部撮影用の長時間Captureハーネスを除く285件が失敗0で、Stats専用XCTest 5件は `TEST EXECUTE SUCCEEDED`。表示文言lintと既定値監査は終了コード0、String Catalog JSON解析、対象キー3言語、旧キー／TODO残存、`git diff --check` を確認した。
+
+## 2026-09-03 — Stats取り戻した時間レビュー差し戻し修正
+
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SQLiteLogStore.swift` と `Services/StatsService.swift` に、`attempt_logs.started_at` の半開区間で台帳総秒数・rule別秒数・intent別秒数を集計するAPIを追加した。`ios/DopaBreak/StatsView.swift` は今日／今週のヒーロー、アプリ別、理由別、先週比を同じ開始時刻窓へ統一し、根拠行の回数もlegendと同じ `dashboard.summary.cancelled` を正本にした。全期間とホーム向けの既存 `recorded_at` APIは維持した。
+- UI修正: `ios/DopaBreak/HourBars.swift` は非0バーを計算後2pt以上へclampし、56pt領域の下端へ固定した。可視ピーク事実を出さない5件未満ではVoiceOverにもピークを含めない。`ios/DopaBreakTests/CoreScreensSnapshotCapture.swift` のStatsServiceへUTC固定Calendarを注入した。未参照の `MetricBlock` と `stats.rate.unavailable` は参照0を再確認後に削除し、`stats.metric.count` のen複数形 `%lld times` が存在することを確認した。
+- 採用方針・却下案: 記録画面内で台帳の `recorded_at` と試行の `started_at` を混在させる案は、日跨ぎ時にヒーロー・内訳・件数がずれるため却下した。`reloadDashboard` のバックグラウンド化と全期間書式の変更は本差し戻しの対象外として行っていない。比較文はja／en／koの実カタログ書式から組み立て、同じローカライズ済み差分文字列の範囲だけをaccentにする。
+- Claude Code向け制約: Statsの今日／今週に `reclaimedSeconds(from:to:)`、`reclaimedSecondsByRule(from:to:)`、`reclaimedSecondsByIntent(from:to:)` を戻さない。3集計は必ず同じ `a.started_at >= start && a.started_at < end` を使い、根拠行とlegendはどちらも `summary.cancelled` を使う。全期間は従来のall-time／`recorded_at`経路を維持する。HourBarsは空・非0とも最小2pt、最大56pt、ピーク事実は合計5件以上だけという条件を表示とアクセシビリティで共有する。
+- 検証: DopaBreakCore `swift test` は517件・失敗0。iPhone 16 Pro（iOS 26.5）の `xcodebuild test` 全スイートは310件・18skip・失敗0。日跨ぎシードでアプリ別秒数合計＝ヒーロー秒数、intent付き理由別秒数合計＝ヒーロー秒数、根拠行回数＝legend回数を固定した。`python3 scripts/lint-display-copy.py` と `python3 scripts/audit-default-values.py` はexit 0、xcstrings JSON解析、参照0確認、`git diff --check`も成功した。
+## 2026-09-03 — 朝の目標通知廃止レビュー是正
+
+- 作成・変更: `ios/DopaBreak/LockSurfaceCoordinator.swift` と `ios/DopaBreak/AppContainer.swift` で廃止済み通知の掃除を独立化し、refreshの読み取り成否にかかわらず実行するようにした。`ios/DopaBreak/OnboardingFlow.swift` と `ios/DopaBreak/Localizable.xcstrings` は通知許可の理由をja／en／koで明示した。`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift` と同テストは退役キー削除と週次通知の固定7:00既定を実装し、関連ランブック・バックログ・i18n一覧を現仕様へ更新した。
+- 採用方針・却下案: 廃止通知の掃除は通知権限や記録ストアの状態に依存させず、既存の再予約経路からも同じメソッドを呼ぶ。通知許可画面は指定コピーのみを更新し、タイトル・カード・CTA・認可処理・レイアウト変更は採用していない。週次通知の未保存時刻を起床時刻へ追従させる案は根拠がないため廃止し、7:00固定とした。
+- Claude Code向け制約: `purgeRetiredNotifications()` は `AppModel.refresh` のdefer内と再予約処理の双方から呼ぶ。`morningNotificationMinutes` のキー文字列は既存設定移行のため維持し、退役した `morningNotificationEnabled` は `legacyResettable` だけで管理する。オンボの `onboarding.notification.lead` は3言語とSwiftのja既定値を同期したままにする。
+- 検証: DopaBreakCoreは520件・失敗0。iPhone 16 Pro SimulatorのDopaBreakビルドは成功。既定値監査はmismatches=0／missing=0、JSON解析と `git diff --check` も成功した。
+## 2026-09-03 — 対象から外したアプリのショートカット自動化を消させる
+
+- 前提事実: iOSにはアプリ側からユーザーのショートカット自動化を削除・無効化するAPIがない。対象から外しても自動化が残る限り、そのアプリを開けばDopaBreakは前面に出る。**この遷移自体はコードで止められない**ため、対策は「外した瞬間に事実を伝えて削除へ送る」ことと「発火後の再発火ループを止める」ことに絞った。
+- 作成・変更: `ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/TargetRemovalNoticePolicy.swift` に案内可否の純関数を新設した（`SNSAppCatalog` に存在し、かつ `verifiedAutomationCatalogIDs` に含まれるときだけ `true`）。`ios/DopaBreak/TargetAppPickerSheet.swift` は削除分岐の保存成功時のみApple標準アラートを出し、`shortcuts://` へ送る。`ios/DopaBreak/AppContainer.swift` に `markSelfOpened(catalogID:)` を新設し、`ios/DopaBreak/RootTabView.swift` の `openNonTargetAutomationApp` と `ios/DopaBreak/InterventionFlowModel.swift` の直書き2箇所を同メソッドへ集約した。`ios/DopaBreak/NonTargetAutomationSheet.swift` の削除手順に「ショートカットを開く」を追加した。
+- 採用方針・却下案: 発火時の説明シートは残す（削除を促す唯一の接点であり「対象に戻す」導線も兼ねるため）。黙って元アプリへ返す案は却下した。**削除手順の「ショートカットを開く」ボタンは `.removed` 経路に限定し、`.clampedByEntitlement`（Pro失効でクランプ）には出さない**。あちらは本文が「Proを再開するか この自動化を削除してください」と2択を出す課金導線であり、削除側だけワンタップに軽くすると再課金の理由が減るため。既存のディスクロージャと手順テキストは両経路のまま変えていない。
+- Claude Code向け制約: 案内は保存成功時のみ出す（保存失敗時はまだ対象のままで、案内がエラー文言と矛盾するため）。`markSelfOpened` は `UIApplication.shared.open` より**前**に呼び、`lastSelfOpenedCatalogID` と `lastSelfOpenedAt` の両方を書く。`TargetAppPickerSheet` へは `settingsStore` を渡さず `AppModel.verifiedAutomationCatalogIDs`（読み取り専用）を経由する。`NonTargetAutomationSheet` は `target_app_picker.automation_notice.action.open` を共有し、重複キーを作らない。
+- 検証: DopaBreakCore `swift test` は524件・失敗0。iPhone 16 Proの `xcodebuild test` は317件・18skip・失敗0。`lint-display-copy.py` と `audit-default-values.py` はexit 0（calls=762／mismatches=0／missing=0）。シミュレータで案内アラート、`.removed` のボタン表示、`.clampedByEntitlement` のボタン非表示を実画面で確認した。**実機のみ未確認**: 「そのまま開く」で対象アプリへ戻ったあとシートが再表示されないこと（Instagram実体が要るため）。
+
+## 2026-09-03 — 止めるアプリ選択カードを縦組みへ（オーナー指示・実装済み）
+
+- オーナー指摘: 「ひと呼吸挟むアプリ選ぶ画面でアイコンの横にSNS名書いてるけど見えてない」。名称を消すか、名称が見える配置にするかの二択を提示された。
+- 原因: `TargetAppGrid.appCard` が `HStack(アイコン → 名称 → Spacer → 選択丸)` で、2列グリッドの1枚が約170pt。アイコン60ptと選択丸24ptを引くと名称の取り分が約34ptしかなく、`minimumScaleFactor(0.72)` の下限まで縮んでも "Instagram" / "Facebook" / "YouTube" が入らず潰れていた。
+- 決定: 名称は残し配置を変える。Threads・Safari・Xはアイコン単体だと判別しづらく、選択の確信度が落ちるため。
+- 実装: `ios/DopaBreak/TargetAppGrid.swift` のみ変更。カードを `VStack(アイコン → 中央寄せ名称)` へ変え、選択丸は `.overlay(alignment: .topTrailing)` に上下左右10ptインセットで逃がして名称の幅を占有させない。`Layout` に `labelSpacing`（regular 8 / large 10）を追加し、`hStackSpacing` を削除。`minHeight` は regular 72→108、large 96→124。`minimumScaleFactor` は 0.72→0.85、`multilineTextAlignment(.center)` を追加。アイコン寸法50/60、文字15/17、インジケータ22/24、gridSpacing 8/12、内側パディングは2026-08-24のオーナー指示どおり据え置き。
+- 維持: 2列／アクセシビリティサイズ1列の分岐、押下scale 0.985、選択丸の `DopaMotion.select` 補間と `phaseAnimator` 1.0→1.08→1.0、Reduce Motion分岐、カード背景・枠線・clip/contentShape、`accessibilityLabel` と `.isSelected`、`onboardingStagger`、`onToggle`。`TargetAppPickerSheet.swift` と `OnboardingFlow.swift` は未変更。
+- 検証: iPhone 16 Pro Maxで `testCaptureRedesignPhase1Screens` を再撮影し `output/screenshots/redesign-phase1/target-picker.png`（1320×2868）で8件全ての名称表示を確認。加えてiPhone 16 Proシミュレータへ実インストールし、オンボーディング07/18「止めたいアプリを選ぶ」（style .regular）でも8件の名称と選択時のライム枠・右上ドットを目視確認した。ビルドは `xcodebuild ... build` でSUCCEEDED。
+- Claude Code向け制約: 選択丸はカードの `clipShape` より内側のoverlayに置き、名称と同じ行に戻さない。`minHeight` を108/124より下げると縦組みが潰れる。オンボーディングの `.regular` とシートの `.large` は同一 `appCard` を共有するため、片側だけの分岐を足さない。
+- 追記（同日・オーナー指摘反映）: 対象外シートの折返しと配置を是正した。削除手順は `automation.non_target.delete_steps` の矢印1本を廃止し、`automation.non_target.delete_step.1〜.3`（ja/en/ko）へ分けて番号バッジ付きの1行1ステップへ組み替えた。**短縮ではなく分割を選んだのは、短縮だと文字サイズを上げたときに同じ壊れ方へ戻るため**。旧キーは参照0を確認して削除した。見出し `automation.non_target.title` は ja のみカタログ値に改行を持たせ「Instagramは / 一呼吸の対象外です」で割る（オーナー明示指示・2026-09-03）。改行を持つ翻訳のときだけ `lineLimit` を行数固定し `minimumScaleFactor(0.6)` を当てる。en/ko は改行を持たないので自然折返しのまま。`ios/DopaBreakTests/InterventionMergeCopyTests.swift` の `approvedManualLineBreaks` に `automation.non_target.title::ja` を承認日つきで追加した（この許可リストと完全一致で検査されるため）。見出しと本文は中央揃えにした（下部CTA付きの訴求シートであり iOS Large Title 文脈ではないため）。手順リスト・ボタン・ディスクロージャは左揃え／既存のまま。既定サイズとAX2の両方で見出し2行・手順各1行を実画面で確認した。
+
+## 2026-09-04 — App Storeスクショ03（ロック画面）の目標を各国データ準拠の4件構成へ差し替え
+
+- 決定（オーナー）: 目標は4件構成（人生→期限つき→習慣→今日）。ja/en-US/koは翻訳関係にせず、各国の抱負・生活目標調査で多数派が掲げる目標に差し替えた。期限つき枠は ja=TOEIC／ko=토익（簿記3級は「目標として弱すぎる」で却下）。en-USの人生枠は「kids」だと子どものいない人に響かないため "More time with family and friends"（APA 2025 調査項目そのまま・53%）に広げた
+- 確定文言・根拠・変更箇所の正本: `.claude/specs/appstore-screenshot-goals-4-locale-2026-09-04.md`
+- データ根拠の要点: 日本＝健康27.9%／お金16.4%（メディアシーク N=8,495）、社会人TOEIC受験者は就業者の約1.07%、「読書」は抱負ランキングに出現せず。米国＝金銭64%／健康60%／家族友人53%（APA Stress in America 2025 Q4010 N=3,199）、語学の選択肢は主要3調査のどこにも存在しない。韓国＝영어 잘하고 싶다 89.2%（実行12.6%）、운동53.8%≒저축51.9%（트렌드모니터）。主要数値はFableが一次ソースを開いて照合済み
+- 幅の裏取り: Live Activity実機は3件以上で1行固定・末尾省略、4件時15pt bold、使用可能幅332pt。全文言をSF bold 15ptで実測し最長291pt（縮まず収まる）。3件に戻すと18ptに拡大して溢れる文言があるため4件で固定
+- 実装（Codex利用上限のためOpus5 L3・レビューは別Opus5）: `LOCK_GOALS`／`goalSeeds`／`live_activity.goal.eyebrow` en を "Your goals" へ（DopaBreak・WidgetsExtension 両カタログ。生成スクリプトはWidgetsExtension側を読む）。`LOCK_ACTIVITY_CARD_BOX` top 1860→1796（カード高さ420→484px、下端2280は固定）。iPad側の幾何定数は下端基準のため無変更
+- 再生成: iphone-69・ipad-13（3ロケール）＋ `upload-order/` 同期。iphone-65 は生成経路がなく iphone-69 の `sips` 縮小派生（既存手順どおり）。旧設定との制御比較で差分は03のみ
+- 残課題（1行・未着手）: ja の iphone-65／ipad-13 の非ロック画面パネルは8/28以前の raw-core 由来で iphone-69 と不一致。ASCアップロード前に ja を全再派生する
+- Claude Code向け制約: 目標文言を変える時は `LOCK_GOALS` と `goalSeeds` を必ず同時に同じ文字列で更新し、SF bold 15ptで332pt以内を実測してから出す。3件構成へ戻さない
+
+## 2026-09-04 — 保留中のProテーマは「デザインを選ぶ導線」からの購入でだけ反映する
+
+- 決定（オーナー）: 「オンボーディングや有料デザイン選択以外の画面からペイウォールでProにした場合はデフォルトのLiveActivityデザインになるようにして。」保留を持ち込めるのは `settingsThemeGate` / `homeThemeGate` / `onboardingPrepaywallSummary` / `onboardingModeGate` / `onboardingTargetAppGate` の5つだけ。残る5つ（`settingsProStatusRow` / `settingsTargetAppLimit` / `settingsFamilyActivityLimit` / `settingsModeGate` / `weekly`）は購入しても既定の `.e1` のままにする
+- 設計正本: `.claude/specs/lock-theme-pending-selection-placement-2026-09-04.md`
+- 破棄は**購入時ではなく提示時**に行う。購入時に消すと、ペイウォールを開いている間ピッカーが「Proにするとこのデザインになります」と言い続けたのに結果が違う、という食い違いが出るため
+- 作成・変更: `PaywallView.swift` に `PendingProThemePaywallPolicy`（10 placement を全列挙・`default` なし）を追加し、`PaywallView.onAppear` で否の placement のとき `model?.pendingProThemeSelection = nil` を実行する。破棄はファネル計測の `didRecordAppearance` ガードの**外**に置く（`fullScreenCover(item:)` は nil を挟まない placement 差し替えでビュー同一性と `@State` を保つため、ガード内だと破棄が飛ぶ）。計測の順序と回数は不変
+- **レビューで見つかった別経路の同一不具合（修正済み）**: `HomeView.isAnyChildModalPresented` が `pendingThemePaywallPlacement` を数えておらず、ピッカーを閉じてからペイウォールが出るまで `model.isChildModalActive` が false へ落ちる。その隙に `RootTabView.checkPendingWeeklyPaywall()` が割り込むと週次ペイウォールが先に出て保留が捨てられる（＝ホームで選んで買ったのにデフォルトに戻る）。実測で **0.002〜0.015秒** false・ペイウォール提示は0.045秒。`|| pendingThemePaywallPlacement != nil` を足して塞いだ
+- 検証（Fable実測・専用シミュレータ 7A632C5C・`.deriveddata-fable`）: 対象10件 TEST SUCCEEDED ／ アプリ全体 322件・18スキップ・0失敗 TEST SUCCEEDED（並行セッションが作業中の `ShieldArmingStateTests` `ShieldControllerRetiredGateTests` は除外。この2スイートの失敗は当該セッションの未完了作業で、課金・テーマ経路と無関係）／ Core 530件0失敗 ／ lint 2本 exit 0
+- ネガティブコントロール: 週次割り込みのテストは初版が空虚だった（20ms刻みのサンプリングが0.013秒の窓を跨いだ）。`layoutIfNeeded()` を毎tick挟む1ms刻みへ変えて、`HomeView` の修正だけ戻すと落ちることを隔離コピーで確認済み
+- 採用しなかった指摘（記録）: ①`PaywallView.model` を非Optionalにする（4つの提示経路はすべて `model:` を渡しており今日は問題なし。テスト2件へAppModel構築が波及するため見送り）②テストスキームの TestAction へ StoreKit 設定を追加 ③権利が提示直前に届くサブフレーム窓
+- Claude Code向け制約: **新しいペイウォール導線を足すときは必ず `model:` を渡す**（渡さないと保留の破棄も `applyPurchaseContinuationIfNeeded` も効かない）。`PaywallPlacement` にケースを足すと `PendingProThemePaywallPolicy` がコンパイルエラーになるので、そこで持ち込み可否を必ず決める。永続値 `settingsStore.lockTheme` は購入時に書き換えない（解約→再課金で以前のテーマが戻る挙動を守るため）
+- 未対応（既知）: 設定＞アカウントの「購入を復元」はペイウォールを経ないため、保留テーマが反映されうる
+
 ## 2026-09-04 — K-POPテーマの★左のピンク縦バーを廃止（★のX位置は据え置き）
 
 - 決定（オーナー）: 「kpopデザインのリストの星マークの左の縦線はいらない」。K-POPロックテーマの目標行から、★の左にあった5pt幅のピンク縦バーを削除する
@@ -1485,3 +1741,777 @@
 - 途中で入った依頼外の変更を撤回した記録: 実装1周目に `goalCount == 2` を `<= 2` へ変えたが、paddingでX位置を戻した後に実測すると delta の絶対値が両者0.5で同等だった。オリジナルの `== 2` へ戻してある
 - 体制: Codexが利用上限（復帰 2026-09-07 11:27）のため、実装はOpus5サブエージェント（effort xhigh）、レビューは別インスタンスのOpus5が担当
 - Claude Code向け制約: バーを復活させない。★の左余白は `5 * markerScale + 7` を維持する。この値を変えると★がノッチに重なるか、`availableWidth: 324` との整合が崩れて整列テストが落ちる
+
+## 2026-09-04 — 対象アプリの入れ替えを無料でも許可 ＋ 追加直後のショートカット案内
+
+- 前提事実（シミュレータで再現・推測ではない）: 無料枠1個の状態で対象アプリを外し、別のアプリを対象にすると、外したアプリのショートカット自動化が残っているため そのアプリを開くと「〇〇は一呼吸の対象外です」シートが出る。このとき `RootTabView.canRestoreNonTargetAutomation` が `canAddTargetTokens(currentCount:)` で判定するため「2個目の追加」と見なされ、主ボタンが「Proを再開する」になりペイウォールへ落ちていた。本文は「対象に戻すか 自動化を削除してください」と案内しており、画面上にその経路が無い矛盾があった。加えて一度もProを買っていない人にも「再開」と表示していた。ふたつ目の報告として、オンボーディング以外で対象アプリを追加したときに `AutomationGuideView` を提示する経路がコード上に存在せず、ホームのバナーだけが手掛かりだった。
+- オーナー決定（2026-09-04）: ①**入れ替えを許可する**（枠は1個のまま・ペイウォールを出さない）②**追加直後に案内を自動提示する**。
+- 作成・変更: `NonTargetAutomationRestorePolicy`（Core・純関数）を新設し `.add` / `.swap(displacedCatalogIDs:)` / `.requiresPro` を返す。`resultingCatalogIDs` は `(既存から復帰対象を除いた列 + 復帰対象).suffix(limit)` で決定的に並べる。`RootTabView` は `canRestoreNonTargetAutomation` を廃してこのポリシーへ委譲し、`NonTargetAutomationSheet` は決定に応じて文言とボタンを出し分ける。`TargetAppPickerSheet` に `onTargetAdded` / `onTargetRemoved` を追加し、`HomeView` / `SettingsView` が未検収アプリの追加を予約してピッカーのdismissで案内を開く。xcstringsへ4キー（swap / swap_generic × ボタン・本文）をja/en/koで追加。
+- 採用方針・却下案: `.clampedByEntitlement`（Pro失効クランプ）は**従来どおりペイウォールへ流す**（2026-09-03の決定を維持。あちらは再課金の導線であり、削除側だけ軽くすると再課金の理由が消える）。無料枠の個数、`EntitlementGate` の上限定義、ピッカー側の「2個目でペイウォール」は変更していない。押し出しが複数または名前解決できない場合に実名を出す案は却下し、汎用文言へ倒した（消えるアプリを取り違えて伝えるより、名前を出さないほうが安全）。`limit == 0` で `.swap([])` を返す防御分岐も却下し `.requiresPro` にした（全消し＋非対象で介入開始になるため）。
+- Claude Code向け制約: `NonTargetAutomationReason` はアプリターゲット宣言でCoreから参照できないため、Core側に同値の `Reason` を持ち `RootTabView` で網羅switch変換する（ケース追加時にビルドが落ちる形を保つ）。案内の予約は catalogID の `Set` で持ち、削除時に取り消し、提示時に空にする。予約は `isAnyChildModalPresented` に必ず含める（含めないとピッカーのdismissと `checkPending*` が同一ターンで走り、モーダルが1枚落ちる）。ホームのペイウォール提示は設定画面と同じ100ms遅延を通す。保存失敗は `model.alertMessage` ではなくシート内インラインで出す（シートを提示している側のアラートはSwiftUIが出さない）。対象リストの読み取り失敗は0件扱いにしない。
+
+## 2026-09-04 — ペイウォール見出しを「人生の{Y}年」へ＋見出しブロックの中央揃え＋機能行4→6
+
+- 決定（オーナー・引用可能な記録）: 「1,A／2,約いらない／3,入れない」＝ 見出し1行目は案A `「あと5分」が人生の{Y}年`／見出しに「約」は入れない／2行目の対抗案は入れず `開く前にブレーキ` を維持。設計正本は `.claude/specs/paywall-headline-v2.md`（§2.1b の対抗案Bは実装しない）
+- なぜ変えるか: 旧見出し `「あと5分」が1年で{N}日` は、O-03r →O-08b →ペイウォールで同じ日数を3回見せる再掲であり、直前の山場「50年で 人生の約5.2年」より弱い単位へ戻っていた（ピークエンドの「エンド」が弱い）。軽量ユーザーでは「年11日」となり「大したことない」と読める。人生換算なら1.5年で意味が残る
+- 作成・変更: `ios/DopaBreak/LossEstimatePresentation.swift` を新設し、`OnboardingFlow` の私有ヘルパー `dailyTimeText(minutes:)` / `lifetimeYearsText(yearlyDays:)` をここへ移設（オンボーディングとペイウォールで**同じ書式を二重実装しない**）。`PaywallView` は `resolvedDailyMinutes(snapshot:)` を追加し、`resolvedYearlyDays` と同じフォールバック（既定バケット「2-4時間」→150分／38日）で解決する。`header` を `alignment: .center` にし、`DOPABREAK PRO` overlay を `.topLeading`→`.top`、見出し2行・推計注記・サブコピーへ `multilineTextAlignment(.center)` と `frame(maxWidth: .infinity)` を当てた。新キー `paywall.header.estimate_note` をja/en/koで追加し、`line1.prefix` / `line1.suffix` を差し替えた
+- 採用方針（実画面レビュー後の最終形）: `featureList` / `planList` / `trialReminderCard` / `legalArea` / `fixedActionBar` と外側の `VStack(alignment: .leading)` は**触っていない**（チェックリストは左揃えのままが読みやすい）。見出しは**1行目・2行目とも `dopaDisplayClamp()`（1行固定＋縮小下限0.5＋AX2打ち止め）**で、他の大見出しと同じ扱いにする。`DOPABREAK PRO` ラベルは **`.topLeading`（padding 14）のまま**で、中央化するのは見出し2行・推計注記・サブコピーだけ。en は **` years gone`（全体29字）**を採用する
+- 数値の扱い: {Y} は `LossEstimator.lifetimeYears(fromYearlyDays:)` を `%.1f` で表示（Core側で切り捨て済み・**四捨五入しない**）。{T} は SelfCheck の1日の利用時間。どちらも固定値のハードコード禁止。50年という前提は推計注記に必ず出す（docs/07 O-03r 2026-07-29 と同じ景表法上の根拠）。accent色は{Y}の数値だけで、前後の語は本文色のまま。**既知の挙動変更**: `dailyTimeText` は `String(format:)`（locale なし）で組むため、小数点にカンマを使う地域でも O-03r の「1日約2.5時間」は `2.5` のまま出る（{Y} と同じ扱いで一貫させた・許容）
+- 検証（専用シミュレータ `PaywallV2-QA` 8317C79C ／ `-derivedDataPath .deriveddata-paywall-v2`）: `xcodegen generate` → BUILD SUCCEEDED。アプリ層 `xcodebuild test` は **324件・18スキップ・0失敗・TEST SUCCEEDED**（並行セッション作業中の `ShieldArmingStateTests` 7件 と `ShieldControllerRetiredGateTests` 4件 を `-skip-testing` で除外。ピア基準334件との差 -10 は「除外11件 + 新規1件」で説明がつく）。`lint-display-copy.py` exit 0（既存の要確認3件のみ・新規なし）、`audit-default-values.py` exit 0（calls=765／mismatches=0／missing=0）、`git diff --check` exit 0
+- 実画面（最終・`PaywallV2-Shots3` 27B456CE・設定→Proの案内行から提示・`output/screenshots/paywall-headline-v2/{ja,en,ko,en-xxxl}.png`）: ja `「あと5分」が人生の5.2年`／en `“5 more min” = 5.2 years gone`／ko `'5분만 더'가 인생의 5.2년` の3言語とも**1行・末尾省略（…）なし**。見出し・注記・本文は中央揃え、{Y}のみライム、注記は見出し直下、機能行6件、`DOPABREAK PRO` はキャラクターに掛からない左上。XXXL（Dynamic Type最大）でも en は1行に収まる（`en-xxxl.png`）
+- **実画面レビューでの差し戻し3件（同日・オーナー確認後に修正）**: ①`DOPABREAK PRO` ラベルを `.top` にすると3言語ともキャラクターの頭に重なるため `.topLeading`（padding 14）へ戻した（中央揃えは見出し・注記・本文だけに留める）②1行目の `lineLimit(2)` は en を3行（`“5 more min” = 5.2 years` / `of life` / `Pause before you open`）にしたため、2行目と同じ `lineLimit(1)` + `minimumScaleFactor(0.78)` へ戻し、en suffix を ` years of life`（32字）から ` years gone`（29字）へ短縮して1行に収めた③さらにレビュー指摘で XXXL（Dynamic Type最大）を実測すると `minimumScaleFactor(0.78)` では en が「years g…」と切れたため、両行を `dopaDisplayClamp()` へ寄せた（`output/screenshots/paywall-headline-v2/en-xxxl.png` が修正後）。なお `DOPABREAK PRO` ラベル自体はXXXLでキャラクターに掛かるが、これは `SmallLabel` 既存の挙動で今回の変更点ではない
+- **追加スコープ（同日オーナー指示・spec §7）**: 機能行を4→6行にした。順序は アプリ無制限 → 完全ブロック → **週単位のスケジュールブロック（新設 `paywall.feature.weekly_schedule`）** → 就寝中ブロック → **刺激を軽減する白黒モード（新設 `paywall.feature.grayscale`）** → ロック画面デザイン。実体は前者が Deep Focus の毎週の予定（`settings.deep_focus.schedule.*`・`DeepFocusScheduler`。Deep FocusはPro限定）、後者が Deep Focus 選択時のみ出す `AutomationGuideView` のカラーフィルタ案内（`shouldShowGrayscaleGuidance`）
+- **白黒モードのリスク（記録）**: カラーフィルタはiOSショートカット側の機能で、権利ゲートで制御できない＝Freeでも端末設定で再現できる。Pro行として掲出する以上「Proを買ったのに自分で設定が要る」型の不満・返金が残りうる。Fableがこの懸念を先に伝えた上でオーナーが再度指示したため実装した
+- Claude Code向け制約: 見出しの数値は**必ず** `LossEstimatePresentation` 経由で出す（`String(format:)` を画面側に書き直すと丸め方針が割れる）。推計注記の50年の明示を消さない。`paywall.header.*` に句読点（、。）とハードコード `\n` を入れない。`header` の中央揃えを外側の `VStack(alignment: .leading)` へ広げない。機能行を増減するときは docs/15 §3.2b の表・docs/11 §5・docs/06 §10・i18n-launch-inventory を同じバッチで揃える（行数を固定するテストはないため、ズレても自動では落ちない）
+
+## 2026-09-04 — 設定画面に白黒モードの導線を新設（全ユーザー常時表示）
+
+- 決定（オーナー）: 「設定画面に白黒モードの導線を作ってそこから案内して。手順書を見せて設定させて」
+- 背景: 白黒の手順案内は `AutomationGuideView` の中にしか無く、しかも Deep Focus を選んだ時だけ表示されていた（2026-08-10のオーナー指示による設計）。標準モードのユーザーは存在に気づけなかった。「白黒」という語も他の画面には一切出ていなかった
+- 置き場所: 設定の「一呼吸」カード内、`settings.target.automation`（開く前の一呼吸を設定）の直下に `SettingsDivider()` を挟んで新しい行を置く。同じ対象アプリに対する同じショートカットの設定なので、この並びが最も見つけやすい
+- **ゲートしない**: Deep Focus でも Pro でも出し分けず全ユーザーに常時表示する。実体はiOSのカラーフィルタの手順案内で、技術的なゲートが存在しないため。行に「設定済み／未設定」の状態は出さない（iOS側のカラーフィルタの状態はアプリから取得できない。取れない状態を表示すると嘘になる）
+- 作成・変更: `ios/DopaBreak/AutomationGuideView.swift` に `GrayscaleGuideStepsSection`（3ステップ＋手動設定カード＋注記の共通部）と新規シート `GrayscaleGuideSheet` を追加。`ios/DopaBreak/SettingsView.swift` に `grayscaleGuideRow` と `isGrayscaleGuidePresented` を追加。文言は `settings.target.grayscale` と `grayscale_guide.lead` の2キーをja/en/koで追加
+- **新規ファイルを作らなかった理由**: `.xcodeproj` は XcodeGen 生成物でgit未追跡。新規 `.swift` を足すと `xcodegen generate` が要るが、同じツリーで他セッションが同時にビルド中だったため再生成を避けた
+- **`AutomationGuideView` の既存セクションは残す**: この画面は App Store スクリーンショット10（`10-grayscale-guide`）の被写体で、撮影テストがスクロール位置を固定値で指定している（本ファイル 2026-08-25 の節）。共通化にあたり描画結果を1ptも変えないことを条件にした
+- 検証: 実装側が880×18000pxの全文レンダリングで変更前後の画素差0（15,840,000画素中0）とScrollView contentSize 4435.0pt一致を実測。独立レビュー側は移動コードのバイト同一性と、`VStack(spacing:16)`／`LazyVStack(spacing:24)` での親子抽出前後の実測（いずれも差0pt）で構造的等価性を追認した。ビルド成功・DopaBreakTests 336件0失敗・`audit-default-values.py` calls=776 mismatches=0・`lint-display-copy.py` exit 0
+- 共通部の `body` は VStack で包まず3兄弟をそのまま返す形にした。包むと親スタックの spacing 構造が変わるため
+- `isAnyChildModalPresented` に新しいシートを必ず含めた。ここに入れ忘れると、白黒シート提示中に `RootTabView` の週次ペイウォールやロック画面確認が割り込み、どちらかが落ちる
+- 体制: Codexが利用上限（復帰 2026-09-07 11:27）のため、実装はOpus5サブエージェント（effort xhigh）、レビューは別インスタンスのOpus5が担当
+- **決定（オーナー・2026-09-05）: 白黒モードは無料。ペイウォールの機能欄に載せない。** 理由は①アプリが実行しない唯一の項目でiOSの設定手順の案内にすぎない ②誰でも無料でできるためゲートが成立しない ③手順書を機能として売ると返金・低評価を招く（過去に課金クレームが多発した経緯） ④実装のない機能の掲出は誤解を招く表示と有利誤認の余地がある ⑤無料に置いた方が継続が上がり本命の課金導線への到達が増える。機能欄は実装を伴う5行のままにする（埋め草を足して6行にしない）
+- 確認（2026-09-05）: `PaywallView.featureList` は unlimited_apps / deep_focus / weekly_schedule / night_block / lock_theme の5行で、白黒の行は描画されていない。設定の導線もモードや権利で出し分けていない。決定と実装は一致している
+- 残件: カタログの `paywall.feature.grayscale`（ja/en/ko）が描画されないまま残っており、`ios/DopaBreakTests/MeasurementFoundationTests.swift` が値を固定している。ペイウォール担当セッションの持ち物なので本セッションでは触らない。上の決定により**この孤児キーをペイウォールへ配線してはならない**
+- 既知の負債（低）: 新シートの `openShortcutsApp()` と「ショートカットAppが見つかりません」アラートが `AutomationGuideView` 側と逐語で重複し、App Store ID `915249334` が2箇所にある。今の挙動は完全一致だが、片方だけ直すと乖離する
+- Claude Code向け制約: `AutomationGuideView` の白黒まわりを触るときは、スクショ10のスクロール位置が動かないことを実描画で確かめてから出す。設定の行にiOS側の状態表示を足さない。新シートを増やすときは `isAnyChildModalPresented` へ必ず登録する
+
+## 2026-09-05 — one sec・Opalとの競合比較と改善候補の監査（調査のみ）
+
+- 作成: `.claude/specs/competitive-product-audit-2026-09-05.md`、`competitor-profiles/one-sec-2026-09-05.md`、`competitor-profiles/opal-2026-09-05.md`、`competitor-profiles/_summary-2026-09-05.md`。外部調査の取得結果8件を `competitor-profiles/raw/cross-competitor/2026-09-05/` に保存。既存の競合資料と実装ソースは上書きしていない。
+- 結果: 公開前の対応4件、追加を強く勧める8件、次に検討する12件、後回しの8候補を整理した。**採否・実装は未決定**。明確な指摘は、科学的背景の57%が原著の「起動回数」なのに日本語UIでは「利用時間」になっていること、ブロック状態の表示に権利確認・監視失敗とのずれが残ること、白黒設定の無料提供とPro便益表示が食い違うこと。
+- 提案方針: 理由選択画面から直接「開かない」、常設のロック画面ウィジェット、任意の利用中再介入、複数予定、本人の振り返りを次の設定へ返す機能を優先候補とする。全面刷新、大量の介入種類、AIコーチ、タスク管理への拡張は初回リリース前には勧めない。リリース条件へ大きな追加機能の全件実装を積み増す意図はない。
+- Claude Code向け制約: 9/1の「入口=ショートカット／時間制御=Screen Time」と2リスト、朝の目標通知廃止、権利未確認時に既存Proを破壊しない方針を維持する。再介入を採用しても常時ゲートの復活とは扱わない。白黒便益・Pro失効後の削除導線の指摘は過去のオーナー決定を把握した上での再検討提案であり、撤回済みと読まない。オフラインでも検証済み権利を取得できる場合はあるため「機内モードなら必ず動かない」と断定しない。
+- 競合前提の更新: one secには感情・意図・会話型Reflection等がある。「振り返り一般が唯一無二」は現行比較として使わない。ただしDopaBreakの利用後5択と完全に同じ設計とは確認していない。Opalの旧ヘルプと現行Rulesベースのヘルプを区別する。無料枠は公式ページ間でも不一致のため未確定扱い。
+- 検証範囲: コードの静的な経路確認、公式サイト・現行ヘルプ・日米App Store・PNAS原著・Apple資料を照合。今回はビルド・テスト・実機操作・見た目のレンダリング監査・ASCライブ価格照会は実施していない。既存の実機未確認項目は未確認のまま。
+
+## 2026-09-05 — 競合監査で挙げた改善を実装
+
+- オーナー依頼: 「LiveActivityはいつ終わる？ 利用中の再介入って実装できる？ 実際の利用時間って情報取れるんだっけ？ 他は実装」。直前の回答のその他の改善を実装。質問対象の3領域（Live Activity/常設Widget、利用中再介入、実利用時間Report）は今回は保留。バックアップ等、監査報告の追加候補すべてまで採用したとは扱わない。
+- 成果物: `.claude/specs/competitive-improvements-implementation-2026-09-05.md` に詳細・移行・実機手順・3点への回答とApple/one sec出典を記載。アプリは `InterventionFlowModel.swift` / `InterventionFlowView.swift` の直接キャンセル、`SettingsView.swift` / `AppContainer.swift` / `DeepFocusScheduler.swift` / Coreの予定モデル・保存・窓判定の2予定化、`StrictSessionExitView.swift` と手動セッションの強化、Core `ReflectionInsightPolicy.swift` と `StatsView.swift` / `RootTabView.swift` の設定見直し導線を追加。
+- 採用方針: デザインは既存のSwiftUI・ダークカード・ライムを維持。2予定は共通の対象リストを使い、曜日・時刻を別々に編集。週次14＋セッション1＋夜間1の最大16監視に抑える。旧予定1をそのまま引き継ぎ、夜間との併用は新しい明示的オプトインに限定する。過去の非稼働予定が更新だけで動く移行案は却下。
+- 強いブロック: 有限の手動セッションだけに追加し、通常解除・モード/対象変更・セッション置換をモデル/スケジューラでも拒否。緊急解除は保存した開始日時から30秒待機後に行う。緊急解除は手動枠だけで、別の予定/就寝枠を外さない。無期限の強いロック・回数制限付き緊急パス・iOS権限取消やデータ削除まで封じる案は採用しない。UIに制約を明記。ホーム/設定のモーダル集約にも解除シートを含めた。
+- 状態・コピー: `ShieldArmingState.swift` で監視失敗も通知し、ホームの未確認状態を成功表示しない。再試行導線追加。部分監視失敗で登録できなかった曜日をSnapshotから除き、前面Shieldも実際の控えの窓を使う。重なる予定・就寝・手動の終了表示を結合し、手動終了通知も他ブロック継続を説明。`OnboardingFlow.swift` の57%を利用時間から対象アプリ起動回数へ修正。`PaywallView.swift` の白黒Pro便益を除外し、対応カタログ内の登録数上限解放という表現に変更（9/4の白黒特典掲出判断は今回の改善実装で更新、Freeの案内は維持）。ja/en/koとdocs 06/11/15・i18n一覧を同期。
+- 振り返り: 選択期間に5回答以上かつlostTime/feltWorseが60%以上の場合にだけ、実件数と設定へのリンクを提示。自動変更・利用時間推定・医学的推論はしない。アプリ/時間帯別の高度な分析は未実装。
+- 検証: Core 558件0失敗、専用iOS 26.5 Simulator `DopaBreak-Competitive-QA` でアプリ全体343件・18スキップ・0失敗、最終変更に関係する101件・1スキップ・0失敗。日英韓のdefaultValue監査不一致0、copy lint成功、diff check成功。`output/verify/competitive-improvements/{direct-cancel,emergency-exit}.png` を実レンダリングして目視確認。ログは `.claude/verification-logs/2026-09-05-competitive-improvements/`。Screen Time実機コールバック、OS更新/再起動・権限取消時の制限の実効性、実際の課金、ストア提出は未実施。既存のSwift 6移行警告は今回新設したものではない。
+
+## 2026-09-05 — 利用中の再介入と満足度質問のタイミング
+
+- オーナー判断: 「LiveActivityで十分。1日8時間も見れたらいい」「利用中の再介入は入れてください」。Live Activityは現状を採用し、常設Widgetの新規追加を見送る。利用中再介入は今回実装へ変更。
+- フロー: 初回に設定の「利用中の再介入」で対象SNSをScreen Timeの同じアプリ1件に接続。既存の一呼吸の後で5/10/15/30分を選択→実利用の累積閾値でシールド→DopaBreakへ戻る→既存の満足度を回答/スキップ→終了または呼吸＋時間追加。追加時に理由質問を繰り返さない。途中終了は同設定の「ここで終了して振り返る」。他アプリの上に独自質問を出す案、SNSを閉じた瞬間に自動質問する案はOS機能との不一致のため採用しない。
+- 作成: `ios/DopaBreak/ReinterventionScheduler.swift`、`ReinterventionSettingsView.swift`、`ios/Shared/ReinterventionShield.swift`、Core `Services/ReinterventionStore.swift`、対応Core/アプリテスト。変更: `AppContainer.swift`、`InterventionFlowModel.swift`、`InterventionFlowView.swift`、`RootTabView.swift`、`PostUseReflectionSheet.swift`、`SettingsView.swift`、`SettingsNotificationsView.swift`、Monitor/ShieldConfig/ShieldAction拡張、CoreのEngine/SQLite/Snapshot/全削除処理、`project.yml`、日英韓xcstrings。
+- UI方針: 既存の満足度画面とコピーを再利用。時間説明だけ利用の区切り/途中終了で変更。終了/追加画面は既存のPrimaryButtonStyle/SecondaryButtonStyle、ダーク背景、ライムを採用し、ScrollViewで拡大文字に対応。質問のスキップと明示的な終了操作を残す。保存エラー時は回答を再試行できる。
+- Claude Code向け制約: iOS17.4+の`includesPastActivity:false`で新しい利用を計測。正確な現在秒数や残り時間は取得しておらず、通過画面で12時間の監視有効期間を「残り利用時間」として見せない。通知設定OFFでもシールド/アプリ内質問は有効。既存の壁時計通知は接続された利用にだけ重複防止で抑制。OS26.5+のみシールドから親アプリを開くAPI、旧OSは通知/ホームから戻る案内。接続先の完全な自動照合は不透明トークンのため不可。
+- 保護: 再介入は独立ManagedSettingsStore。終了/追加は手動・週次・就寝ブロックを解除しない。UUIDで古い閾値イベントを無視、flockでアプリ/拡張の共有状態とシールド再計算を直列化。12時間の有効期限は分単位に合わせて残留ロックを防ぐ。未到達セッションの再開始による時間リセットは禁止。
+- 監視枠: 以前の週次14＋手動1＋就寝1=16本を、週次2（毎日コールバック、Coreで曜日照合）＋手動1＋就寝1＋再介入最大8=12本へ変更。旧曜日活動名は停止対象に残す。設定の曜日と予定2件は維持。
+- 検証: Core564件成功。専用iOS26.5 Simulatorでアプリ全体351件・18スキップ・0失敗。通知設定の最終差分は関連40件成功。画面画像は `output/verify/reintervention/{satisfaction,finish-or-extend}.png`。実際のScreen Timeイベント/シールドの実効性は実機検証が必要。詳しい制約・出典・受入手順は `.claude/specs/reintervention-implementation-2026-09-05.md`。
+
+## 2026-09-05 — 追加機能のペイウォール反映
+
+- オーナー依頼: 追加した機能のうちペイウォールに載せた方がよいものを追加。
+- `ios/DopaBreak/PaywallView.swift`: Pro特典に「解除に30秒待つ強いブロック」を追加。既存の週次予定行を「毎週のブロック予定を2つ設定」へ具体化し、一覧を5→6行に更新。既存の行コンポーネント・スクロール構成を再利用。
+- `ios/DopaBreak/Localizable.xcstrings` のja/en/ko、`docs/06_screen_design.md`、`docs/11_ui_copy.md`、`docs/15_pricing_design.md`、`.claude/specs/i18n-launch-inventory.md`を同期。既存の製品バンドル翻訳テストを更新。
+- 採用理由: 強いブロックの解除待機と2件の週次予定は、実装済みのPro機能の具体的な差分。30秒は緊急解除の待機であり、OS権限取消まで禁止する意味ではない。利用中の再介入・満足度・直接キャンセル・記録からの設定見直しは無料でも利用できるためPro特典の行には追加しない。料金や無料/Pro境界を変える依頼とは扱わない。
+- 検証: defaultValue監査は不足・不一致0、表示コピーlint成功。実機に既にインストール済みの版にはこのペイウォール差分はまだ含まれない。
+- ビルド・製品バンドルの3言語テストも成功（1件0失敗）。`git diff --check`成功。
+
+## 2026-09-05 — 必要な利用を邪魔しない再介入
+
+- オーナーが仕事中の中断による機能OFFを懸念し、提示した改善案の実装を依頼。
+- 仕事・調べもの・連絡・投稿は「今回は利用時間を決める」を初期OFFにする。ONなら時間選択・再介入を利用可能。暇つぶし・なんとなくは従来の時間選択。OFFでは開いた事実と理由のみを `recordUntimedOpen()` で保存し、架空の時間や満足度質問を作らない。
+- 再介入後の満足度/終了選択の両画面に「必要な用事のため今回は再介入せず続ける」を追加。質問未回答ならスキップし、そのSNSの再介入だけ終了。永久OFFや12時間の通過許可は保存せず、次のSNS起動は通常の確認に戻る。手動・週次・就寝の別ブロックは維持。
+- 変更: `ios/DopaBreak/InterventionFlowModel.swift`、`InterventionFlowView.swift`、`AppContainer.swift`、`PostUseReflectionSheet.swift`、`Localizable.xcstrings`（ja/en/ko）、`InterventionRoutingTests.swift`、`WinScreenReclaimedTimeTests.swift`。詳細は `.claude/specs/reintervention-implementation-2026-09-05.md` へ追記。
+- デザイン: 既存の時間選択画面にネイティブToggleを追加、OFF時は時間のグリッドを隠す。主ボタンは「時間を決めずに開く」。再介入の継続は既存SecondaryButtonStyle。新画面や全体設定への移動、満足度回答の強制は採用しない。
+- 検証: 関連106件、1スキップ、0失敗。仕事等4理由の初期値、時間ありへのオプトイン、暇つぶしの既定、振り返り非生成、接続維持、継続時の質問スキップ・強いセッション維持を検証。defaultValue監査不足/不一致0、表示コピーlintとdiff check成功。実機への再インストールは未実施。
+- 追加の実レンダリング1件成功。`output/verify/reintervention/work-untimed.png` と更新した `satisfaction.png` を目視確認。ログは `.claude/verification-logs/2026-09-05-work-reintervention/`。
+
+## 2026-09-05 — 仕事中も時間の区切りを残す
+
+- オーナー合意「OKそれでいこう」: 必要な利用も時間選択が基本、到達時は確認通知のみ。直前の「仕事等は時間初期OFF」を置き換える。時間なしは補助選択肢、強制ブロックは接続済みユーザーの任意ON。
+- `InterventionFlowModel.swift` / `InterventionFlowView.swift`: 仕事・調べもの・連絡・投稿の既定を時間ON・ブロックOFFへ変更。未接続は起動からの経過時間、接続済みは累積利用時間と説明を出し分ける。通知型では満足度質問を作らない。
+- Core `ReinterventionStore.swift` / `InterventionEngine.swift` / `NotificationRouting.swift`、`ReinterventionScheduler.swift`、`ReflectionNotificationScheduler.swift`、MonitorExtension、`AppContainer.swift`、`SettingsNotificationsView.swift`、`ReinterventionSettingsView.swift`を更新。旧セッションのブロックを保つoptionalモード属性、質問とは別の通知ID、確認通知取消、目的に応じた設定表示を追加。日英韓xcstringsと関連テストを同期。
+- 方針: 静かな気づきのため「まだ用事の途中ですか？」の通知を使い、必要な利用に回答・呼吸・満足度を強制しない。通知型から別ストアの強い/週次/就寝ブロックは解除しない。OS通知許可とアプリの振り返り通知設定が必要なことを画面に表示。
+- 検証: Core565件、関連57件すべて成功。通知型の非遮蔽、満足度非生成、通知IDとタップ先、通知OFF、旧JSON互換を確認。実機への再インストールは未実施。
+- 最終差分の関連39件も成功。`output/verify/reintervention/work-time-checkin.png` を実レンダリングして目視確認。defaultValue監査不一致/不足0、copy lintとdiff check成功。ログ: `.claude/verification-logs/2026-09-05-soft-reintervention/`。
+
+## 2026-09-05 — 購入後に追加される対象アプリのショートカット案内
+
+- 変更: `ios/DopaBreak/AppContainer.swift` に購入継続の `.addTargets` 成功時だけ立つ `pendingAutomationGuideAfterPurchase` を追加。`ios/DopaBreak/HomeView.swift` と `ios/DopaBreak/SettingsView.swift` はペイウォールの `onDismiss` でこのフラグを消費し、既存のピッカー後案内予約へ固定印 `"purchase"` を渡す。
+- 採用方針: 案内の表示方法とモーダル排他は既存の `pendingAutomationGuideAfterPicker` / `presentAutomationGuideAfterPickerIfNeeded()` を維持。追加されたcatalog IDの一時保存は表示内容に不要なため採用せず、空でない固定印のみとした。
+- 制約: 通知タップ用の `pendingAutomationGuideRequest` と共用しない。`.applyMode` では購入後案内フラグを立てない。ペイウォールを提示したHome/Settingsの `onDismiss` だけがフラグを消費する。
+
+## 2026-09-06 — ASC CLI人気語に基づくASOメタデータ改善
+
+- 対象: DopaBreak `6794221254` / iOS `1.0` / 準備中。採用正本は `output/aso/2026-09-06/after/`、変更前は同 `before/`、根拠・全差分・保存結果は `report.md`。`docs/16_aso_metadata_3markets.md` 末尾にも現行値を追記。
+- JPタイトルは「DopaBreak − スマホ制限・スクリーンタイム」、サブは「SNSを開く前にひと呼吸・勉強や睡眠中はアプリ制限」。ENのタイトルは維持、サブは「Pause, Block Apps & Focus」。KOタイトル/サブは維持。4localeのKWを市場別に整理（ja93 / en-US96 / en-GB99 / ko91文字）。
+- 採用理由: Apple Ads Insightsの8/23〜29 UTC週でJPスマホ制限60・スクリーンタイム61・アプリ制限54を確認。公開検索でも同種アプリへの関連を確認。米韓の既存タイトルを変える十分な根拠はなく維持。生データと候補ごとの実測/未返却は `research/` に保存。未返却は需要ゼロではなく、機能からの推測語は別扱い。
+- 却下: 全タイトルの刷新、高人気な競合名/第三者ブランド語の詰め込み、未実装のポモドーロ・広告除去・睡眠測定・勉強時間レポートを示唆する語。英語focusやblockの検索は他用途も混ざるため人気度だけで主軸にしない。
+- 現行仕様との整合: 一呼吸＋任意のProブロックを説明し、無条件の「禁止しない/Not a blocker」を廃止。57%は他社one sec研究の6週間後の対象アプリ起動回数に修正、効果非保証を維持。対応カタログ内の登録上限解除・2件の週次予定・通知/Live Activityへ説明を揃える。
+- Claude Code向け制約: 古いdoc16本文は履歴であり再アップロードしない。次回更新はASCから新しいディレクトリへpullしてから今回のafterとの差分を確認する。価格/課金条件/URL・スクショ・アプリコードは今回変更なし。審査提出時は対象ビルドに記載機能が含まれることを確認。
+- 検証: 文字数・完全一致語の重複・URL不変のローカル検査成功。ASC metadata validateは8ファイルerror0/warning0、dry-runは予定12項目のみで追加/削除なし。ASC保存は7レコードすべて成功。読み戻し結果はASOレポート末尾に記録する。審査提出は行っていない。
+
+## 2026-09-06 — 読者像と機能を具体的に伝えるストア説明文
+
+- オーナー依頼によりja/en-US/en-GB/koのdescriptionを全面改稿。最新正本は `output/aso/2026-09-06-description-rewrite/after/`、読みやすい全文は同 `copy/`、採否・検証は `README.md`。`docs/16_aso_metadata_3markets.md`にも参照を追記。
+- 方針: SNSを見続ける・勉強中につい開く・仕事でもSNSが必要という具体例で対象者を示し、一呼吸、利用中の区切り、集中/就寝/週次ブロック、目標、振り返りと記録を操作の流れに沿って説明。初回Shortcuts設定と動画案内も明示。
+- 却下: 機能名だけの箇条書き、抽象的な「意志」「変革」の訴求、体験談や効果の捏造、他社研究の数値を中心にした構成。57%段落は今回の説明文から外した。アプリ内の研究表示は変更していない。
+- 仕様整合: 無料でも目標数無制限・記録全期間であることを明記。Proは対応アプリ登録上限解除とブロック/テーマ等。強いブロックの30秒待機は時間指定の手動セッションに限定し、解除不能とは書かない。Live Activityの常設・終日表示や取り戻した時間の正確な実測を約束しない。
+- 制約: タイトル・サブ・KWと価格/課金条件/URLは今回不変。前のASOディレクトリは履歴であり、次回変更の前には最新ASCをpullする。アプリコード・スクショ・審査提出は今回対象外。
+- 検証: 4,000字以内（ja1,546 / en-US・en-GB3,173 / ko1,874）、説明文以外不変、購入条件4行とURL不変。ASC validateはerror0/warning0、dry-runはdescription4項目のみ、保存4件成功。2026-09-06 14:22 JSTに8 JSONを読み戻し、採用案との完全一致を確認。
+
+## 2026-09-06 — 起床・就寝バーの固定座標と細かな時刻入力
+
+- ユーザー報告: バーがぶれ、細かい時刻調整が難しい。
+- 変更パス: `ios/DopaBreak/SettingsView.swift`。バーに名前付き固定座標空間を置き、動くハンドルのローカル座標ではなく固定座標でDragGestureのtranslationを取得。バーの暗黙アニメーションを無効化し、ドラッグ中のシールド再登録は指を離すまで保留。
+- 起床・就寝の表示時刻を44pt以上のタップ領域を持つアクセント色のボタンに変更。既存の時刻ピッカーを直接ホイールで表示し、1分単位で指定可能にした。日英韓の既存ラベルを再利用。
+- 採用: バーで15分刻みの大まかな変更、時刻タップで1分単位の正確な設定。24時間を短いバーの1分刻みだけで操作する案は、1分が1px未満になり精密操作に向かないため却下。独立した就寝スケジュールを新設せず、既存の時刻保存・最低60分間隔・日跨ぎを維持。
+- 検証: シミュレータビルド成功、Core WakeSleepTimelinePolicyTests 12件成功。表示確認ログは `.claude/verification-logs/2026-09-06-timeline/`。実機の指ドラッグの感触と再インストールは未確認。
+
+
+## 2026-09-06 — App Storeスクショのロック画面デザイン選択訴求を評価（提案・未実装）
+
+- 依頼: 「ロック画面のデザインが選べることがわかる画面がないけど不要？」への判断。スクショ制作・ASC更新の依頼ではない。
+- 確認: `output/app-store-screenshots/v2/contact-sheet-ja.png` の現行8枚を目視。2枚目は黒とライムの目標表示のみで、テーマ選択や他の見た目は示していない。`LockTheme` は10ケース、`EntitlementGate.lockThemeAllowed` は無料e1のみ・Pro全件を許可する。
+- 推奨: デザイン選択を示す1枚を4枚目へ追加し、全9枚にする。先頭3枚の一呼吸・ロック画面の目標・集中を維持したうえで、好みの見た目を選べる価値を伝える。これは提案であり、既存アップロード順の確定事項を上書きしない。
+- 構図案: 実際のデザイン選択画面を主役にして、手書きノート・かわいいピンク・ゲーミングなど違いの大きい3種類の実装プレビューを読み取れる大きさで示す。見出し候補「目標を 好きなデザインで」、補足候補「10種類から選べるロック画面」、注記「標準デザインは無料 ほか9種類はPro」。選べる対象はロック画面上の目標カードであることを明確にする。
+- 見送る案: 省略継続（固定の黒とライムしか選べない印象が残る）、2枚目への小さい色見本だけの追加（書体・レイアウトの違いが伝わらず、目標表示の訴求も混雑する）。
+- 根拠・制約: Appleの公式案内は各スクショで主要な価値・機能を伝える方針 https://developer.apple.com/app-store/product-page/ 。4枚目という位置と構図は本アプリについての提案であり、CVR改善を実測した結論ではない。画像・コード・ASCは未変更。変更パスは本記録のみ。
+
+
+## 2026-09-06 — ショートカット設定の実操作撮影と差し替え
+
+- オーナー依頼: ショートカット設定の動画とスクリーンショットを実際の設定に置き換え、すべてCodexが撮影。
+- 変更パス: `ios/DopaBreak/AutomationGuideView.swift`、`Localizable.xcstrings`、`Assets.xcassets/AutomationTutorial/`、`Resources/automation-tutorial-{ja,en,ko}.mp4`、`ios/DopaBreakTests/AutomationTutorialVideoResourceTests.swift`、`scripts/prepare-shortcuts-tutorial.py`。原本と検証記録は `output/shortcut-capture/2026-09-06/README.md`。
+- 採用: AppleのShortcuts.appをiPhone 16 Pro / iOS 26.5 Simulatorで実際に操作し、Safariを例に日本語・英語・韓国語の動画3本と原寸1206×2622の画像21枚を撮影。設定保存まで録画。画像は原本をそのままAsset Catalogへ、動画は無操作区間を短縮して720×1566 H.264へ。7手順の簡略図を廃止し、既存カードの中に実画面を全幅・縦横比維持で表示。
+- 採用理由・却下: 架空UIの描き直し、他者のチュートリアルの流用、実際の画面を翻訳合成する案は依頼と合わないため採用しない。初回は「新規オートメーション」、既存設定があれば＋という実画面の分岐を説明へ反映。Safariが全員の設定対象と誤解されないよう3言語に例示の説明を追加。
+- 実装上の制約: 物理iPhoneでなくSimulatorの実App画面。動画と画像の言語選択は共通化し未知言語は英語。白黒モードの別ガイドと既存PiPの振る舞いは今回の変更対象外。撮影用設定の削除は自動承認レビューが明示承認不足として拒否したため残しており、物理iPhoneの設定は変更していない。
+- 検証: iOS 26.5でビルド成功、関連9件成功・失敗0。21枚の同梱・原寸、3動画のAVFoundation再生可否・尺、言語分岐、ガイドの実ウィンドウ描画を確認。FFmpeg全フレームデコード成功。defaultValue監査の不一致/欠落/未解決/型不一致0、表示コピーlint成功。原本・編集区間・SHA-256・テスト結果を成果物内に記録。
+- 表示確認: `SettingsDeviceFixesSnapshotCapture.testCaptureTimelinePrecisionControls` 1件成功。撮影専用initializerでモード・時刻を保存値から初期化し、`output/verify/settings-timeline-precision.png` の7:07/23:03とタップ可能な時刻ラベルを目視確認。通常のinitializerは変更していない。ホイール操作と指ドラッグの実機確認は未実施。
+
+
+## 2026-09-06 — ストア説明文へドーパミンの項目を追加
+
+- オーナー依頼「ドーパミン関連の内容を入れたい」により、ja/en-US/en-GB/koのdescriptionに短い項目を追加。最新メタデータ正本は `output/aso/2026-09-06-dopamine-copy/after/`、全文は同 `copy/`、追加原稿は `sections.json`、根拠・検証は `README.md`。前回のディレクトリは履歴として保持。
+- 採用方針: おすすめの人の後に「ドーパミンと、つい開いてしまう習慣」を配置。報酬への期待・行動の学習を平易に説明し、「次の動画」「反応を確かめる」という例から、一呼吸・利用理由/時間・振り返りの機能へつなぐ。
+- 根拠: Schultz et al. Science (1997) の報酬予測/学習、Lindström et al. Nature Communications (2021) の社会的報酬とSNS投稿行動。動画/反応の例は説明用で、実測や利用者の引用ではない。出典リンクと研究の対象範囲はREADMEに記録。
+- 却下した表現: ドーパミン排出、脳や受容体のリセット、分泌量の正常化、治療効果の断定。韓国語の表示コピーに디톡스は追加しない。ドーパミンの生理学的変化を測定したアプリとは説明しない。
+- 制約: 既存説明文に1項目ずつ挿入するだけで、タイトル・サブ・KW・料金・購入条件・URLは保持。アプリ内コピー/実装/スクショは今回対象外。古い説明文を次回再アップロードせず、最新ASCをpullして編集する。
+- 検証: ja1,746 / en-US・en-GB3,628 / ko2,124字で上限内。追加分を除くと変更前全文と完全一致。ASC metadata validate error0/warning0、dry-runはdescription4項目のみ。保存4件成功、2026-09-06 14:28 JSTの読み戻しで8 JSONすべて一致。審査提出なし。
+
+## 2026-09-06 — 設定ステータスカードの余白とアイコンの重なりを修正
+
+- 変更パス: `ios/DopaBreak/SettingsView.swift`、`ios/DopaBreak/AppIconView.swift`、`ios/DopaBreakTests/SettingsDeviceFixesSnapshotCapture.swift`。
+- 採用: 説明＋56ptリングを上段、アイコンと今日の回数を下段に配置。回数とラベルを横並びにしてカード下部の空白を縮小。設定カードのアイコン間隔は6ptとし、隣のアイコンが30%隠れる重なりを解消。共通部品に任意spacingを追加。
+- 却下: 文字の縮小や固定高さによる切り詰めは説明の読みやすさを損なうため不採用。既存の他画面の重なり表現は変更しない。
+- 検証: iOS 26.5 Simulatorビルド・描画テスト1件成功。日本語・夜だけ強化・カタログアイコン2件のカードを `output/verify/settings-compact-night-status.png` で目視確認。撮影fixtureの先頭位置はadjustedContentInsetを考慮するよう補正。
+- 制約: Screen Timeの実ApplicationTokenはSimulator fixtureで再現しておらず、実機の同アイコン表示とインストールは未確認。
+
+
+## 2026-09-06 — App Store追加画像としてLive Activity全10テーマを一覧化
+
+- オーナー依頼: 現行スクショのデザインに合わせて10種類を並べた画像を作成。スマホモックは省略可能。
+- 成果物: `output/app-store-screenshots/theme-gallery/ja/iphone-69/11-lock-designs.png`（1320×2868・RGB PNG）。撮影原本10枚、配置・フォント・SHA-256のmanifest、再生成手順は同ディレクトリ。既存8枚やASCは未変更。
+- 変更パス: `scripts/generate-appstore-theme-gallery.py`、`scripts/capture-appstore-theme-gallery.sh`、`ios/DopaBreakTests/LockThemeDensitySnapshotCapture.swift`、本記録。
+- 採用: 2列×5段で10種類を各1回。既存v2ジェネレータの暗色グラデ、Hiragino Sans W8/W4、ライムのピル、見出し位置240/340/680を再利用。「あなたの目標を / 好きなデザインで」「10種類から選べる 目標カードのデザイン」。各名称と無料/Proを表示し、黒とライム以外の9種類がProと明記。
+- 採用理由・却下: 端末枠とマスコットを置くと10カードが小さくなるため省略。前回の3種類の代表例案より、今回明示された全10種類を優先。AIによるUI描き直しや古いモックは使わず、現在の共有SwiftUI ViewをiOS 26.5の専用Simulatorで描画して正確な文字・フォント・K-POPの現行マーカーを維持した。
+- 制約: 日本語iPhone 6.9インチの単独追加画像。実ロック画面のリキッドグラスは背景の壁紙により外観が変わる。目標4件は既存ロック画面スクショと共通の撮影用データ。通常テストでは撮影をスキップし、xctestrun環境変数で明示した場合だけ原本を書き出す。撮影時・合成時の両方で空画像を拒否する。
+- 検証: build-for-testing成功、撮影1件・スキップ0・失敗0。原本10件の画像ハッシュがすべて異なること、無料1/Pro9、最終寸法とRGB形式、全カード・名称・バッジの範囲を検証。完成画像とリキッドグラスの実描画を目視確認。シェル/Python構文と関連diff checkも成功。
+
+
+## 2026-09-06 — ストア説明文を機能名ごとに整理
+
+- オーナー依頼「どんな機能があるか機能の名前ごとに説明した方がいい」に対応し、ja/en-US/en-GB/koのdescriptionを更新。最新メタデータ正本は `output/aso/2026-09-06-feature-names/after/`、全文は同 `copy/`、判断・検証は `README.md`。過去のASOディレクトリは履歴として保持する。
+- 採用: 「一呼吸（標準モード）」「利用中の再介入」「ディープフォーカス」「毎週の予定」「夜だけ強化」「強いブロック」「目標」「ロック画面の表示」「振り返り」「記録」の10項目。アプリ内の各言語の名称と照合し、直下に機能の内容・使う場面を平易に説明。Proの機能は見出しにも明記。
+- 却下: 集中・就寝・週次のブロックを一つの抽象的な見出しにまとめる構成と、機能名だけを並べる構成。目標とロック画面表示、振り返りと記録も分けて説明する。
+- 制約: 冒頭・おすすめの人・ドーパミン・無料/Pro・初期設定・購入条件の文章は全文保持。タイトル・サブ・KWなどdescription以外も不変。アプリコードやスクショは今回対象外。強いブロックの待機は時間指定の手動セッションに限定し、記録は一呼吸対象アプリの回数と取り戻した時間の目安として説明する。
+- 変更パス: 上記出力ディレクトリ、`docs/16_aso_metadata_3markets.md`、`.claude/specs/design-decisions.md`。古いスナップショットを再投入せず、次回も最新ASCから取得して編集する。
+- 検証: ja1,959 / en-US・en-GB3,646 / ko2,352字。ASC metadata validate error0/warning0、dry-runはdescription4項目だけ。保存4件成功、2026-09-06 14:38 JSTの読み戻しで8 JSONすべて一致。準備中バージョン1.0へ保存し、審査提出は行っていない。
+
+
+## 2026-09-06 — Liquid Glassの白文字固定を修正
+
+- 変更パス: `ios/WidgetsExtension/LockThemeLiveActivityView.swift`、`ios/WidgetsExtension/DopaBreakWidgets.swift`。
+- 調査: iOS 26では既に`glassEffect(.regular)`を使用しているが、目標・eyebrow・回数・区切り線・終了ボタンが白固定だった。明るい素材とのコントラスト不足を修正。過去のストア用撮影は黒背景・dark固定のためlightの検証になっていない。
+- 採用: 文字をsemantic primaryへ、区切り線と回数ピルをprimaryの低opacityへ変更し、文字の黒い影を除去。ネイティブglassEffectと旧OSのmaterialを維持する。
+- 却下: 黒い不透明背景を足す案はガラスの外観を失うため採用しない。
+- 検証・制約: コード差分を確認。iOS 26.5 Simulator向け既存LockThemeLiveActivityViewTestsを実行したが、Accelerateのコンパイル時にNo space left on deviceで停止。テスト未実行、実機ロック画面・light/darkの目視未確認。今回作成した/tmp/dopabreak-glass-checkのみ削除して容量を戻した。白い表示の原因がコントラスト不足だけか、WidgetKit側の描画問題も含むかは未確定。
+
+
+## 2026-09-06 — Live Activity全10テーマの英語・韓国語App Store画像
+
+- オーナー依頼: 日本語版と同じデザインで英語圏・韓国語版を作成。
+- 成果物: `output/app-store-screenshots/theme-gallery/{en-US,ko}/iphone-69/11-lock-designs.png`（各1320×2868 RGB PNG）、原本各10枚、capture.json、manifest、README。
+- 変更パス: `scripts/generate-appstore-theme-gallery.py`、`scripts/capture-appstore-theme-gallery.sh`、`ios/DopaBreakTests/LockThemeDensitySnapshotCapture.swift`、本記録。
+- 採用: 2列×5段・余白・コピー座標を維持。英語SF、韓国語Apple SD Gothic Neoで既存スクショと統一。名称はxcstrings、目標はLOCK_GOALSを直接使用。locale別Bundle/Localeで実描画し、韓国語のゲーミング/手書きはGalmuri11/NanumPen。
+- コピー: EN “Keep your goals / in a style you love”、KO「내 목표를 / 좋아하는 디자인으로」。各言語で10種類・無料1/Pro9を表示。
+- 却下: 外側の見出しだけを翻訳し日本語カードを残す案と、日本語フォントの共用。カード内も実アプリの各言語の見た目を優先した。
+- 制約: en-USを英語版として作成。iPad派生・ASCアップロードは今回対象外。日本語PNGはSHA-256一致で維持。リキッドグラスは実際の壁紙により外観が変わる。
+- 検証: ビルド成功、EN/KO撮影各1件・スキップ0・失敗0。完成画像2枚と手書き/ゲーミング原本を目視。20原本の言語/書体、10テーマ非重複、寸法・形式・配置、名称/目標一致、フォントfallbackなしを確認。関連構文/diff check成功。
+
+
+## 2026-09-06 — Live Activity blank glass surface
+
+- User screenshot IMG_9832.PNG confirms missing goals and counts, not merely a dark background. The earlier contrast-only diagnosis was insufficient.
+- Changed ios/WidgetsExtension/LockThemeLiveActivityView.swift and DopaBreakWidgets.swift: containerRelative Live Activity renders content without nested glassEffect and explicitly uses activityBackgroundTint(nil) for the system material. Fixed-shape in-app previews retain native glassEffect. Semantic foreground colors remain. Rejected an opaque black replacement. Exact remote-rendering failure remains unconfirmed.
+- Added light/dark content rendering regression in ios/DopaBreakTests/LockThemeLiveActivityViewTests.swift. iOS 26.5 simulator build and existing 23 tests passed; additional appearance test passed. Visually checked output/verify/liquid-glass-lock-screen/dark.png and light.png. These are solid-background content fixtures, not actual lock-screen material captures. Physical-device installation and Live Activity recreation remain unverified.
+- Apple reference: https://developer.apple.com/documentation/swiftui/view/activitybackgroundtint(_:)
+
+- Device deployment follow-up (2026-09-06 14:55 JST): user explicitly requested installation. Signed Debug device build succeeded using ios/.deriveddata-device. devicectl installed com.dopabreak.app on paired iPhone (196), iPhone 16 Pro, and successfully launched it. Actual Lock Screen appearance remains visually unverified.
+
+
+## 2026-09-06 — モノクロへ整理・レトロポップ廃止・新ガラス版
+
+- オーナー依頼: 現在のガラス表示をモノクロにし、レトロポップを除き、新しいリキッドグラスを作成。既存シンプルモノクロを旧ガラスの目標・区切り・実績ピルの構成で置換し、9テーマに整理。
+- 変更パス: `ios/WidgetsExtension/LockThemeLiveActivityView.swift`、`DopaBreakWidgets.swift`、`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift`、`ios/DopaBreak/LockScreenThemeDisplay.swift`、`Localizable.xcstrings`、関連3テストファイル、`scripts/generate-appstore-theme-gallery.py`。成果物と検証記録は `output/verify/liquid-glass-lock-screen/README.md`。
+- 採用: モノクロは明暗に追従する不透明背景。新ガラスは半透明の陰影、白文字、光の強弱がある縁、ActivityKitのalpha付き背景色で壁紙を透過。プレビューだけ参考背景を置く。本番は壁紙を使用し、不透明な色背景を置かない。
+- 保存値: 旧liquidGlass/yozora/retroPopはmonochromeへ。新ガラスはliquidGlassV3。読み出し・Codable・SettingsStoreの移行を検証。現在のデザインを保持するため、旧選択が新ガラスへ勝手に切り替わる案は不採用。
+- 却下・制約: リモート本文全体へのglassEffectは消失問題の再発リスクがあるため使わない。今回の新ガラスは透過と反射の表現であり、Appleの動的屈折APIと同等だとは扱わない。過去のプレビューだけで本番完成とした判断を繰り返さず、Simulatorの実Lock Screenで壁紙の透過と本文を確認。
+- 検証: Core9件、関連レイアウト・3言語・9件picker検査、追加alpha検査成功。撮影fixtureは1分間activeを確認して終了。実機向け署名ビルド成功、同じiPhone 16 Proへインストール成功。実機ロック画面の目視は未実施。撮影用SimulatorのLive Activity許可操作は、OS許可変更の明示承認がないとして自動レビューが拒否したため実行せず、許可ダイアログ付きで確認。ストア画像の再生成・公開は行っていない。
+
+
+## 2026-09-06 — 赤・青と蜘蛛の糸の追加テーマ案（相談・未実装）
+
+- 依頼: スパイダーマン本人を描かず、蜘蛛の糸と赤青を基調にした追加テーマの権利リスク確認。追加実装・公開は未実施。
+- 判断: 赤青・蜘蛛の糸という一般的な発想だけで侵害とは決まらないが、本人を省けば許諾不要とは断定できない。衣装の具体的な色分け・網目・蜘蛛紋章・目の輪郭などを組み合わせ、本質的特徴を再現する場合は著作権等の問題が残る。現時点は完成画も対象商標の調査もないため中リスクの暫定評価。
+- 提案: 一般的な蜘蛛の巣を独自に描き、配色・構図を独立させたオリジナルテーマへ。作品名・Marvel名・連想を売りにした販促、胸の紋章やマスクの目・衣装の配置再現は採用しない。名称だけ変える案や色を少し変えれば安全という基準は不採用。
+- 出典: CRIC https://www.cric.or.jp/qa/hajime/hajime1.html 、https://www.cric.or.jp/qa/shigoto/sigoto8_qa.html 。特許庁 https://www.jpo.go.jp/faq/yokuaru/trademark/new_shouhyou_faq.html 。経産省 https://www.meti.go.jp/policy/economy/chizai/chiteki/pdf/instagram_chizai.pdf 。日本法を中心とした一般的整理であり、具体案の適法性や海外配信のクリアランスを保証しない。
+
+
+## 2026-09-06 — ガラス版のグレー感を減らす透過率調整
+
+- オーナー依頼: 背景がグレーすぎてガラス感が足りないため、背景をさらに透過。
+- 変更パス: `ios/WidgetsExtension/LockThemeLiveActivityView.swift`、`ios/WidgetsExtension/DopaBreakWidgets.swift`。
+- 採用: 黒い面のalphaを0.38–0.46から0.18–0.24へ、白い反射面を0.18/0.04/0.08から0.07/0.015/0.025へ、ActivityKit背景tintを0.12から0.04へ低減。縁の反射は保持。読みやすさは文字周りの小さな黒い影で補助。
+- 却下: 全体の白い塗りを増やしてガラスらしさを出す案は、指摘されたグレー・白濁を増やすため不採用。文字保護用の薄い面まで完全透明にする案も見送った。動的屈折ではなく半透明・反射の表現という前提を保持。
+- 検証: iOS 26.5 Simulatorの明暗表示・alpha・比較画像の既存3テスト成功。比較と白背景fixtureを目視。変更前比較は `output/verify/liquid-glass-lock-screen/comparison-before-more-transparent.png`、変更後は同`comparison.png`。実機向け署名ビルド成功。実機ロック画面の今回の見え方は未確認。
+- 実機反映: 15:19 JST、iPhone (196) / iPhone 16 Proへ上書きインストール・起動成功。
+
+
+## 2026-09-06 — 青・赤・蜘蛛の糸の比較4案（未実装）
+
+- オーナー依頼: 青い面、赤いアクセント、隅または全体の細い蜘蛛の糸というデザインパターンを見せる。imagegenで4案を1枚の比較画像として作成。
+- 画像: `/Users/solotech/.codex/generated_images/01a0753b-5c28-7682-9e70-2280ca848caa/exec-be66fb86-68d3-478f-ac2f-96ddcbea4b9a.png`。A=角の糸＋赤い左ライン、B=対角の糸、C=全体に繊細な糸、D=全体に少し強い糸＋赤い下辺。
+- 共通: 白い目標3行と実績ピル、青主役・赤少量。キャラクター・目・蜘蛛紋章・作品名・衣装の色分けは含めない。権利確認済みという保証はしない。
+- 状態・制約: 見た目の検討用生成画像。SwiftUI実装、実機反映、パターン選択は未実施。画像のカード比率や文字密度は実装時に既存160ptの制約へ合わせる。
+
+
+## 2026-09-06 — 蜘蛛の糸テーマ4案を赤背景へ変更（未実装）
+
+- オーナー指示: 青背景より赤背景を希望。4案の糸配置・文字構成を維持し、赤を背景、青を細いアクセントへ入れ替えた比較画像を生成。
+- 新画像: `/Users/solotech/.codex/generated_images/01a0753b-5c28-7682-9e70-2280ca848caa/exec-2657097a-f4ef-44f2-b7ed-4b8019ad623f.png`。A=コーナー、B=対角、C=全体・繊細、D=全体・強め。白文字、淡い糸、赤系の実績ピルを採用。
+- 前の青背景画像は履歴として保持。ユーザーの選択・SwiftUI実装・実機反映は未実施。
+
+
+## 2026-09-06 — 蜘蛛の糸テーマの目標行へクモ記号（未実装）
+
+- オーナー指示: 文字横のリスト記号をクモへ。赤背景4案の各目標3行に白い一般的なクモのピクトグラムを追加した比較画像を生成。見出しと実績ピルには追加せず、配色と糸配置を保持。
+- 最新画像: `/Users/solotech/.codex/generated_images/01a0753b-5c28-7682-9e70-2280ca848caa/exec-75abf03c-020d-4b31-adf9-da896922703e.png`。既存ブランドの紋章ではなく、丸い胴体と8本脚の一般的形状として指示。
+- 状態: デザイン検討用画像のみ更新。4案からの選択、コード追加、実機反映は未実施。
+
+## 2026-09-06 — D案採用・Live Activityの外周を最適化
+
+- オーナー依頼: D案を採用。青い下辺とクモの色を検討し、ガラス・モノクロの四隅と偏った枠線を修正。
+- 採用: 赤背景と右側へ集まる細い蜘蛛の糸、白い一般的な8本脚のクモを目標の行頭に配置。青は実績ピルの細い枠と、左右を24pt内側へ寄せた1ptの下線に限定。新テーマspiderWebを加え全10種類。日本語・英語・韓国語の名称を追加。
+- 外周: 実Live Activityはシステムの角丸マスクと外周に任せ、ガラス本文の二重クリップと強弱付き外枠を除去。アプリ内プレビューのみ共通の連続角丸と均一なガラス枠を適用。モノクロのActivityKit背景色を本文と同じsystemBackgroundへ一致させた。ガラス内のピルはstrokeBorderで線の欠けを防止。前回の透過率は維持。
+- 却下: 太い青い外枠は主張が強くシステムの角丸で欠けやすいため不採用。青いクモは赤地の小サイズで識別しづらいため白を採用。細すぎる脚と行ごとの座標補正は、小サイズの描画差を増やすため不採用。脚の太さと最小14pt・整数サイズで調整。
+- 変更パス: ios/WidgetsExtension/LockThemeLiveActivityView.swift、DopaBreakWidgets.swift、ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Models/AppModels.swift、ios/DopaBreak/LockScreenThemeDisplay.swift、Localizable.xcstrings、関連テーマ/描画/一覧テスト、scripts/generate-appstore-theme-gallery.py。比較画像はoutput/verify/liquid-glass-lock-screen/comparison.png。
+- 検証: Core9件成功。Live Activity描画29件（撮影専用1件skip）失敗0。320/393/430ptのプレビュー四隅の透明度と対称性、実Activity向け本文が独自の明るい外周を描かないこと、クモの行頭整列を検査。10テーマ一覧テスト成功。コピーlint・ローカライズ監査（mismatch/missing 0）・Python構文・関連diff check成功。撮影fixtureは60秒activeを維持し正常終了したが、今回のロック画面撮影は時間内に取得できず、外観は比較画像で確認。
+- 実機: 16:01 JST、署名付きDebugビルド成功。以前と同じiPhone 16 Proへインストールを試みたがCoreDevice error 1011。端末一覧でunavailableを確認し、今回の更新は実機未反映。接続復帰後にインストールが必要。実機ロック画面の修正後の見え方は未確認。ストア画像の再生成・公開はしていない。
+- 制約: 新ガラスは半透明と反射の表現であり動的屈折ではない。システムの外周はOS/壁紙依存。参考: https://developer.apple.com/documentation/swiftui/view/containershape(_:) 、https://developer.apple.com/design/human-interface-guidelines/live-activities 。
+
+
+## 2026-09-06 — デザイン追加・名称変更後のApp Storeテーマ一覧を再生成
+
+- オーナー依頼: デザイン追加と名称変更を反映して前回の画像を作り直す。対象は既存の日本語・英語・韓国語の3枚。
+- 成果物: `output/app-store-screenshots/theme-gallery/{ja,en-US,ko}/iphone-69/11-lock-designs.png`。各1320×2868 RGB PNG。原本30枚・manifest・検証JSON・READMEも更新し、前の画像と廃止テーマ原本は同history/2026-09-06-before-theme-refreshへ保存。
+- 反映: retroPopをspiderWebへ、シンプルモノクロをモノクロへ置換。新しいmonochrome描画とliquidGlassV3を実アプリから取得。テーマ数は10のため、2列×5段・コピー・余白は維持。
+- 変更パス: 上記成果物、`ios/DopaBreakTests/LockThemeDensitySnapshotCapture.swift`、`scripts/generate-appstore-theme-gallery.py`、本記録。撮影側にallCasesのraw値一覧を記録し、生成側と不一致なら停止する検証を追加。製品コードは変更していない。
+- 採用・却下: 名称だけ差し替えて旧カードを残す案は現行デザインと一致しないため不採用。追加と廃止を確認した結果10種類のため、カード縮小や列数変更は不要と判断。ガラスは現在のアプリ内プレビューに含まれる参考背景ごと撮影し、壁紙依存の外観という制約をREADMEへ記録。
+- 検証: Simulatorビルド成功、3言語の撮影各1件・スキップ0・失敗0。完成3枚と変更カード原本を目視。テーマ順と現行enumの一致、名称とxcstringsの一致、目標文言、10種非重複、無料1/Pro9、RGB・PNG・寸法、文字とバッジの範囲、前版とコピー配置の完全一致を確認。Python/シェル構文・関連diff check成功。ASC公開・他のスクショ更新は未実施。
+
+
+## 2026-09-06 17:21 JST — 実機インストール再試行完了
+
+ユーザーの再依頼により、接続が復帰したiPhone (196) / iPhone 16 Proへ署名済みDebug版com.dopabreak.appをインストールし、起動成功。前回の接続不可は解消。実機ロック画面の外観は未確認。コード変更なし。
+
+
+## 2026-09-06 — テーマ一覧をApp Store Connectの4枚目へ追加
+
+- オーナー依頼: 最新のテーマ一覧をストアのスクリーンショットへ追加し、掲載位置を決める。追加権限は明示依頼による。
+- 採用: ひと呼吸・ロック画面の目標・集中の3枚に続く4枚目へ。日本語、米国英語、英国英語、韓国語のiPhone2サイズとiPad、計12セットを各9枚へ更新。元の8枚と相互の順序は保持。
+- 変更パス: scripts/generate-appstore-theme-gallery.py（iPad専用配置追加）、output/app-store-screenshots/theme-gallery/{ja,en-US,ko}/ipad-13、同asc-upload/（画像・実行計画・前後JSON・検証・README）、同README.md。
+- 却下: テーマ一覧を先頭3枚へ入れる案は、主要機能の理解を優先して不採用。iPadのカード幅760pxはラベルと次段が近いため700pxへ調整。スマホモックは一覧の可読性を優先して追加しない。
+- 検証: 12件の寸法・形式検証と追加1枚のdry-run成功。全12セットのAPI応答で9枚・4枚目の画像MD5一致・全画像COMPLETE・元8枚のID/MD5/相対順序一致。iPad3言語を目視確認、Python構文確認。
+- 制約: 4枚目のCVR優位は未実測。Appleの最初の1〜3枚に関する案内を参考にした配置判断（https://developer.apple.com/app-store/product-page/）。対象1.0はPREPARE_FOR_SUBMISSIONで審査提出や公開はしていない。今後全セットを置換する際は従来の8枚生成結果だけでなく今回の4枚目を含める。
+
+
+## 2026-09-06 — ひと呼吸画面の右上アプリ名ラベルを削除
+
+- オーナー依頼: どのアプリでも右上にINSTAGRAMと表示されるため、ラベルを削除。
+- 変更パス: `ios/DopaBreak/InterventionFlowView.swift`。
+- 採用: breathingScreenの右上ラベル用HStackと余白、使用箇所がなくなったtargetLabelを削除。上下のSpacerで見出しと呼吸キャラクターを中央に配置。
+- 却下: アプリ名の判定修正や別ラベルへの置換は、ラベル削除という依頼に合わないため採用しない。
+- 検証: iOS Simulator向けDebugビルド成功、対象Swiftファイルのgit diff --check成功。実機反映・画面の目視確認は未実施。
+
+## 2026-09-06 — TestFlight初回アップロードの画面方向設定
+
+- Appleのビルド1検証が90474（iPadのUISupportedInterfaceOrientations未指定）で失敗。
+- `ios/DopaBreak/Info.plist`と`ios/project.yml`にiPhoneの縦向き、iPadの4方向を明示。既存のユニバーサル対応を維持し、配布を通すためだけにiPad対応を削除する案は採用しない。
+- 再アップロード識別用に本体と4拡張のInfo.plistおよびproject.ymlのCFBundleVersionを2に統一。バージョンは1.0を維持。
+- 今回は配布検証の必須キー補完。iPad全画面の実機検証を完了したとは扱わない。アップロード結果は `.claude/verification-logs/2026-09-06-testflight/result.md` に記録。
+
+## 2026-09-06 — 設定のPro入口を無料・有料で分岐
+
+- ユーザー依頼: Freeはペイウォール、Proは購入管理画面に分ける。買い切りの実在も質問あり。
+- ASC読み取り: `dopabreak.pro.lifetime` / IAP `6802039793` / NON_CONSUMABLE / READY_TO_SUBMITの登録を確認。登録済みだが公開済みとは扱わない。商品登録や価格の変更・削除は行っていない。
+- 変更: `ios/DopaBreak/SettingsView.swift` の設定Pro行をisProで分岐。Freeは既存.settingsProStatusRowのfullScreenCoverへ直接、ProはSettingsAccountViewへ遷移。行の見た目・ハイライト・スクロール先IDは共通化して維持。
+- `ios/DopaBreak/SettingsAccountView.swift` から買い切り直接購入行と専用購入メソッドを除去。Proの現在プラン表示と復元を維持。画面表示中にFreeへ変わった場合のペイウォールへの導線は維持。
+- 方針: 購入は既存ペイウォールに集約し、Freeの復元はペイウォール内の既存ボタンを使用。新たな価格/プランを追加する案、既存lifetime権利と復元の処理を削除する案は今回の依頼範囲を超えるため不採用。
+- 本変更はTestFlight 1.0(2)配布後の変更。配布済みビルドには未反映。
+- 検証: 最終差分でSimulatorビルド成功。MeasurementFoundationTests 50件（49成功・撮影専用1スキップ）、失敗0。設定Proペイウォールの既存計測テストを含む。差分空白検査成功。ログ: `.claude/verification-logs/2026-09-06-pro-entry/final-tests.log`。実機タップとTestFlight更新は未実施。
+
+## 2026-09-06 — 買い切りを販売構成から除外
+
+- オーナー明示: 「今回の設計で買い切りは用意してないはず」。直前の登録維持方針を更新。
+- ASC: 商品ID dopabreak.pro.lifetime / IAP 6802039793 / READY_TO_SUBMITを再確認して削除。deleted:trueとIAP一覧0件を読み戻し確認。月額・年額サブスクの登録は変更していない。
+- `ios/DopaBreak/StoreService.swift`: 商品取得をallSubscriptionIDsへ限定し、lifetimeProductの保持/ペイウォール商品候補から除外。`ios/DopaBreak/DopaBreak.storekit`: 買い切りのテスト商品を削除。`docs/15_pricing_design.md`と課金検収表・リリーステスト一覧を現行方針に同期。
+- 旧テスト取引を認識するためのIDと権利判定/復元互換コードは残すが、販売対象・購入ボタン・商品取得からは除外。過去の購入者がいるとの意味ではない。
+- 誤解防止: 未使用の商品が登録されているだけで必ず審査落ちすると断定した対応ではなく、今回の販売設計にない商品をオーナー指示で整理したもの。
+- 証跡: `.claude/verification-logs/2026-09-06-no-lifetime/`。TestFlight 1.0(2)にはコード変更は未反映。
+- 検証: Simulatorビルド成功、MeasurementFoundationTests 50件中49成功・撮影専用1スキップ・失敗0。StoreKit設定JSONの構文と買い切り商品除外を確認。
+
+## 2026-09-06 — 課金導線修正をTestFlight 1.0 (3)へ反映
+
+- ユーザー依頼で、本体/4拡張のInfo.plistとproject.ymlをビルド3へ更新。Free/Proの入口分岐と買い切り除外を含むReleaseを既存内部グループへ配布。
+- Apple側VALID/IN_BETA_TESTINGを確認。直前の「TestFlight未反映」の記録はビルド3で解消。一般公開は未実施。証跡は `.claude/verification-logs/2026-09-06-testflight-b3/result.md`。
+
+
+## 2026-09-06 — 無料トライアルと終了前通知の適合性を再評価（検討のみ）
+
+- オーナー依頼: DopaBreakの性質に現在の無料期間・通知が合うか、期待値を検討。8/17の「OK維持で」を確認したうえで再評価。
+- 成果物: `docs/reviews/2026-09-06-trial-reminder-fit.md`。変更パスは同ファイルと本記録のみ。製品コード・課金設定は変更していない。
+- 推奨: 年額7日無料と終了前1回の通知を維持。生活の中で複数アプリ・集中/就寝ブロックを試す期間として7日が妥当。通知は注意と選択を守る用途に合うが、本アプリでCVR・売上向上は未実測。
+- UI提案（未承認・未実装）: 終了2日前を既定にし、購入前カードの2/3日前選択・許可/OS設定への分岐を簡素化。Duolingoの選択式通知の改善報告もあるため、選択肢を減らせば必ず改善するとは扱わない。過去の採用決定を自動撤回しない。
+- 優先事項: 初日にPro固有の機能を実際に使えることと、通知の約束の正確性。3日前選択でも日英韓タイトルが「あと2日」固定、プラン通知OFFでもOS許可だけで「通知します」と表示し得る不整合を静的確認。未修正としてレポートへ記録。
+- 却下: 3日への即短縮、14〜30日への即延長、他社CVR改善率を本アプリの予測に流用、トライアル開始率だけで採否判定。Freeの一呼吸・記録の成果とPro固有の便益は区別する。
+- 検証・制約: 現行Swift/StoreKit設定/xcstrings/関連決定を照合、one sec公式とRevenueCat 2026・Duolingo番組紹介を確認。アプリ横断の期間別転換率を因果と扱わない。ASCライブ価格、実機配信、ユーザー実測・売上、A/Bは未確認。検討のみのためビルド・テストは実行していない。
+
+
+## 2026-09-06 — 無料期間終了前通知の2つの不整合を修正
+
+- オーナー依頼「不整合は治して」に対応。7日無料・通知カード・2日前/3日前選択は維持。検討時のUI簡素化は実施していない。
+- 変更パス: `ios/DopaBreak/PaywallView.swift`、`AppContainer.swift`、`LockSurfaceCoordinator.swift`、`Localizable.xcstrings`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、`docs/11_ui_copy.md`、`.claude/specs/i18n-launch-inventory.md`、検討レポート、検証ログと本記録。
+- 採用: `TrialReminderNotificationSchedule`が正規化した選択日数・予約日・通知タイトルをまとめて保持し、3日前でも「あと2日」になる固定文を解消。ja/en/koを同じ数値引数へ変更。既存の通知IDは取り消し・タップ先との互換のため維持。
+- 採用: ペイウォールはOS許可とアプリ内のプラン通知設定の両方で表示を判定。プラン通知OFF時は専用説明を表示し、ピッカー・OS許可/設定ボタンを出さない。表示時・アプリ復帰時に設定を再取得する。
+- 却下: プラン通知を暗黙にONへ戻す案は利用者の設定を尊重するため不採用。2/3日前の選択を廃止する案は今回の修正範囲に含めない。
+- 検証: iOS26.5のDopaBreak専用QA Simulatorでアプリ/テストのビルド成功。MeasurementFoundationTests 54件中53成功・撮影専用1スキップ・失敗0。追加4テストでOS状態とプラン設定の6組み合わせ、2/3日前の予約日・日英韓のタイトル、不正保存値の正規化を確認。ローカライズ監査824呼び出し、mismatch/missing/unresolved/specifier-type/unknown-target全0。コピーlint成功（無関係の既存読点注意3件）。関連差分空白検査成功。
+- ログ: `.claude/verification-logs/2026-09-06-trial-reminder/`。本番購入・実機への通知配信・TestFlight更新は行っていない。既に端末に予約済みの通知は修正版の次回再スケジュール時に置き換わる。7日以外の試用期間への対応は引き続き別件。
+
+## 2026-09-06 — ショートカットの複数対象を先頭へ推測しない
+
+- 対象: `InterventionTargetResolutionPolicy.swift`、`AppContainer.swift`、`Localizable.xcstrings`および対応テスト。
+- 採用: アクションのアプリ未指定時は有効な対象が1種類だけの場合に限り解決。複数の場合は介入/設定済み記録を行わず、アプリ指定を案内。日本語/英語/韓国語を追加。
+- 却下: 並び順の先頭を採用する案は別アプリを設定済みにするため不可。既存履歴の一括リセットは正常な記録も失うため行わない。
+- 制約: ユーザーはX明示と回答しており、この修正が今回の原因だとは断定しない。実機でTikTok記録あり/X記録なしを確認し追加調査中。詳細とテスト結果は `.claude/verification-logs/2026-09-06-shortcut-target/result.md`。TestFlight未反映。
+
+## 2026-09-06 — オートメーションのチェックリストをユーザー申告へ変更
+
+- ユーザー明示: 自動で設定済みにせず、設定したかユーザーが選べるようにする。
+- 変更パス: `ios/DopaBreak/AutomationGuideView.swift`、`OnboardingFlow.swift`、`Localizable.xcstrings`、Coreの`Storage/SettingsStore.swift`、`DopaBreakCoreTests.swift`、`LocalDataResetterTests.swift`。
+- 採用: 設定ガイドとオンボーディングで共通の手動チェック行を利用。行全体が44pt以上のボタンで、チェックの付け外し、選択状態の読み上げ、再起動後の保存に対応。設定済み表示と進捗は新しいconfirmedAutomationCatalogIDsだけを見る。
+- 旧verifiedAutomationCatalogIDsは実行履歴として維持し、チェック状態へ移行しない。ショートカットを起動してもチェックは変わらない。履歴を介入/削除案内等から全面削除する案は、実際の自動化の実行処理に影響するため不採用。
+- 設定済みはユーザー申告であり、チェック操作がiOS側のオートメーションを作成/削除する機能ではない。ガイドに設定後のチェックと削除後の解除を案内。自動化の動作確認そのものは引き続き利用者が行う。
+- 検証: Core4件（保存・解除・自動履歴との独立・データリセット）成功。既存iOS介入ルーティング37件成功。日英韓ローカライズ監査826呼び出しでmissing/mismatch等0、差分空白検査成功。TestFlight・実機は未更新。
+
+## 2026-09-06 — 修正をTestFlight 1.0 (4)へ配布
+
+- ユーザーの再ビルド/アップロード依頼で、本体と4拡張のInfo.plistおよびproject.ymlのCFBundleVersionを4へ更新。チェックリスト手動化等、現行修正を含むReleaseを既存内部グループへ配布。
+- Apple VALID / IN_BETA_TESTINGを確認。直前のチェックリスト手動化の「TestFlight未反映」を更新する。ビルド中ソース変更なし、IPAの5対象のバージョン一致を検証。
+- 配布ログ: `.claude/verification-logs/2026-09-06-testflight-b4/result.md`。購入キャンセル②は実機未確認。Pro状態を強制解除するコードは追加していない。
+
+## 2026-09-06 — Free状態へ戻すTestFlight用テスト切替
+
+- ユーザー依頼: 購入済みProをFree状態へ戻したい。Sandbox履歴のクリア・復元・通常更新ではProが維持されたとの報告を受け、テスト専用のローカル切替を実装。
+- 変更: `ios/DopaBreak/StoreService.swift`、`SettingsView.swift`、Coreの`Storage/SettingsStore.swift`、`MeasurementFoundationTests.swift`、本体/4拡張Info.plistとproject.yml。
+- 採用: `DOPABREAK_TESTFLIGHT`コンパイル条件を明示したビルドだけで、設定Pro行の直下に「Freeでテスト（TestFlight限定）」を表示。オンではアプリの機能判定をFreeにするが、StoreKitの解決済み権利とキャッシュを保持。オフで元の権利へ戻る。再起動後も維持。購入が検証成功、または復元のAppStore.sync成功時に切替を解除。キャンセル/保留/エラーでは保持。
+- 通常のビルド設定にはこのコンパイル条件を追加しない。通常ビルドは保存済みのテスト設定を無視。ビルド5はテスト専用で、App Store公開用には条件なしで再ビルドする。
+- 却下: 本番の権利を強制失効させる案、全データを消去する案、Appleの購入を模擬成功/模擬キャンセルへ置換する案は採用しない。
+- 制約: Apple側の購入履歴は変えないため、未購入アカウントと同じ購入確認画面が必ず出るとは限らない。この切替だけでは購入キャンセル②の実機検証完了とは扱わない。Freeの制限は既存処理を通る（複数対象等の制限を含む）。
+- 検証: 新規iOSテスト成功。購入済みキャッシュ維持、Free表示、再起動維持、通常ビルドの無効化、解除時のPro復帰を確認。配布証跡は `.claude/verification-logs/2026-09-06-testflight-b5/`。
+
+- 上記のFreeテスト用ビルド1.0(5)をTestFlightへ配布完了。Apple VALID / IN_BETA_TESTING。通常公開用ビルドではDOPABREAK_TESTFLIGHT条件を付けないこと。端末上のFree切替操作は未実施。
+
+
+## 2026-09-07 — Annual Launchを今回の販売から除外
+
+- オーナー依頼「整理して…審査出して」に対応。StoreServiceの年額切替とLaunchへのフォールバックを削除し、販売商品取得は月額・通常年額の2商品へ限定。StoreKitテスト設定からもLaunchを除外。
+- 変更: ios/DopaBreak/StoreService.swift、ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/EntitlementGate.swift、ios/DopaBreak/DopaBreak.storekit、MeasurementFoundationTests、Info.plist5件、project.yml。公開ビルド7。
+- 旧商品IDは購入履歴の認識と復元互換のみ残す。旧権利を失効させる案や、日本語UIにJPY価格を固定する案は不採用。
+- 検証: MeasurementFoundationTests 56件中55成功、撮影専用1スキップ、失敗0。新規販売の2商品限定と旧商品認識を回帰確認。TestFlightのUSD/JPY不整合は今回のコード変更で解消したとは扱わない。
+
+
+## 2026-09-07 — 公開用1.0(7)を審査提出
+
+- Annual Launchの商品登録もオーナー意図を確認して削除。月額・通常年額・グループ・本体の同一提出物がWAITING_FOR_REVIEWに到達。承認後は手動公開。
+- RevenueCatはユーザー/収益分析の意図で設定済みだった。SDK不在から不要と判定した見立てを訂正し、サーバ通知URLを維持。RevenueCat管理画面で新規購入追跡ONと実受信を確認。
+- プライバシー申告を「ユーザID・購入履歴／分析／ユーザに関連付け／トラッキングなし」に訂正して公開。利用記録・Screen Timeの外部分析は追加しない。法務サイトprivacy-ja/en/koを既存Pages公開先で更新。
+- 証跡: .claude/verification-logs/2026-09-07-appstore-b7/result.md。TestFlightのUSD/JPY不整合は今回の変更で修正済みとはしない。
+
+## 2026-09-07 — オンボーディングのCVR改善仮説（レビューのみ）
+
+- 依頼: 現行オンボーディングで転換率を上げる施策を提案。
+- 変更パス: `docs/reviews/2026-09-07-onboarding-cvr.md`、本記録。製品コード変更なし。
+- 推奨: 通知許可・実ロック画面確認の後置を最初の実験にする。続いて課金割り込みの整理、短い操作デモ、目標の1タップ選択、回答とPro便益の接続を検証する。
+- 採用したレビュー方針: 最大18ステップと条件付きスキップ、16番目の主課金導線、複数対象/Proモードの早期課金を区別。既存の個別推計・テーマプレビュー・サマリーは維持対象として評価。
+- 却下: 画面数だけを根拠に全短縮、ショートカット設定を無条件に課金後へ移動、Free機能をProとして訴求、他社の改善率を予測へ転用。実際の設定成功と継続を損なう可能性があるため。
+- 制約: コード静的確認とApple/RevenueCat資料参照。実機・実ユーザーCVR・A/B結果は未確認。計測はローカル中心で、外部分析追加は端末内保存の説明と整合させる必要がある。既存の手動設定チェック方針は変更しない。レビューのみのためビルド/テストなし。
+
+## 2026-09-07 — Pro価値のオンボーディング確認（追加レビュー）
+
+- 変更パス: `docs/reviews/2026-09-07-onboarding-cvr.md`、本記録。製品変更なし。
+- 判定: 課金画面の機能説明は揃っているが、購入前の具体的体験はテーマに偏る。一呼吸デモはFreeの基本価値として区別する。
+- 次回候補: 既存モード/サマリー内で生活場面とPro便益を接続。新規の説明ステップ追加は負担が増すため優先しない。
+- 制約: ソース確認のみ。CVRの因果・実機挙動は未検証。ユーザーの審査時間ロス回避を優先し、再提出・実装は行わない。
+
+## 2026-09-07 — ショートカット・再介入の仕様照合監査
+
+- 成果物: `docs/reviews/2026-09-07-shortcut-reintervention-spec-audit.md` と同日のテスト証跡。既存の初期調査メモへ訂正を追記。アプリ/UI実装は変更していない。
+- 採用する基準: 9月5日の累積実利用時間・目的別通知/ブロック仕様と、9月6日の手動チェック仕様。時間枠内の再オープンは通過で正しい。
+- 確認: ホームだけ手動チェックを読まず設定未完了と断定する表示不整合。URL起動の自己起動判定欠落、古い要求の検証履歴化、旧正本との矛盾も報告。イベント棄却後/監視欠落時の回復不足は実機症状の候補として区別。
+- 却下: 毎回の起動に呼吸を追加、12時間期限を選択分数へ単純短縮、複数対象の先頭を推測、手動チェックを自動履歴で上書き、実機原因を設定ミスと断定する案。最新仕様や確認できる事実に合わないため。
+- 検証: 今回Core64件・iOS56件、計120件成功。本体/拡張ビルド成功。実機のOSイベント配送とインストール済みビルドは未照合。修正実装・配布は監査依頼の範囲外として未実施。
+
+## 2026-09-07 — ホームの手動チェック参照と設定状況への導線
+
+- ユーザー依頼: 手動で設定済みを選ぶ場所が分かりにくいため、ホームの参照修正と一緒に直す。
+- 変更パス: `ios/DopaBreak/HomeView.swift`、`AutomationGuideView.swift`、`OnboardingFlow.swift`、`Localizable.xcstrings`、`ios/DopaBreakTests/SettingsDeviceFixesSnapshotCapture.swift`。証跡は `.claude/verification-logs/2026-09-07-manual-automation/`。
+- 採用: ホームの案内をconfirmedAutomationCatalogIDsで判定。未チェックは「設定状況を確認」とし、直接チェック欄を開く文言に変更。対象アプリカードへ件数付きの常設リンクを追加し、全件チェック後も見直せる。ガイド内のチェック欄は動画・手順の前へ移す。既存カードと共通チェック行を再利用。タップで付け外しする説明を日英韓と初回設定に揃える。
+- 却下: 手動チェックを自動実行履歴で上書きする案、チェック欄専用の新しいモーダルを増やす案、ホーム上部に全対象のチェックリストを常時展開する案。ユーザー申告の意図を維持し、既存の導線を1タップで使え、ホームを長くしすぎない構成を採用した。
+- 制約: 未指定アプリのエラー、再介入の実利用時間計測、ショートカット自体の設定には変更なし。申告はiOS側の自動化の作成/削除を行わない。今回2枚目の症状は閉じている時間を含めて考えたことによる正常動作であり、仕様変更不要とユーザー確認済み。
+- 検証: 関連38件成功、共通文言修正後の描画1件再実行成功。本体/拡張ビルド、3言語文言監査、通常/大きな文字の画像確認済み。審査中ビルドの変更・配布・実機インストールは未実施。
+
+## 2026-09-08 — ペイウォールの法務リンクを購入ボタン下へ固定
+
+- 依頼: 利用規約・プライバシーを購入ボタンの後ろ/スクロール末尾ではなく、ボタン直下に固定する。
+- 変更パス: `ios/DopaBreak/PaywallView.swift`。証跡: `output/review/2026-09-08-legal-links/ipad-fixed-links.png`、`ipad-fixed-links-share.mp4`。
+- 採用: 既存safeAreaInsetのfixedActionBar内を購入ボタン→法務リンク→復元/あとでの順にする。リンクは14pt、primaryText、下線付き、各44pt以上のタップ領域。自動更新の説明は既存スクロール領域に残す。既存URLとローカライズキーを維持。
+- 却下: スクロール末尾にリンクを残す案は見つけにくさが残るため不採用。画面への重ね置きは購入ボタンとの重なりを生むため使わない。
+- 検証: Xcode Debugシミュレータビルド成功、変更ファイルdiffチェック成功。iPad Air 11-inch (M2) / iOS 26.5 / 英語UIで初期表示、スクロール、TermsとPrivacyの両ページ遷移を確認して録画。購入・復元の決済は実行していない。
+- 制約: ローカル検証ビルド。提出済みビルド7には未反映。新ビルドのアップロード・App Reviewへの送信は未実施。
+
+## 2026-09-08 — 固定法務リンクを含む1.0(8)を再提出
+
+- ユーザー依頼によりproject.yml・本体/4拡張Info.plistのビルド番号を8へ更新。既存の却下提出を再利用し、月額・年額・グループを維持してビルド8へ差替え。2026-09-08 19:40 JSTにWAITING_FOR_REVIEW。承認後は手動公開。
+- IPAの全バンドル署名、4対象のFamily Controls、Apple VALID、app/subscriptionsブロッカー0を確認。Review Notesへ固定リンクの導線を追記し、シミュレータ録画と明記した修正後動画を添付。
+- 返信は作成依頼に合わせてApp Store Connectへ下書き保存、未送信。重複提出・新規証明書作成・自動公開は不要なので採用しなかった。
+- 証跡: `.claude/verification-logs/2026-09-08-appstore-b8/result.md`。ローカル動画を提出済みバイナリそのものの録画とは扱わない。
+
+## 2026-09-10 — 海外オーガニック短編用の主人公案
+
+- 依頼: 参考アカウントの黒いキャラと同じにならない独自の主人公を作成。初回の頭の形への指摘と脳モチーフの相談を反映して修正。
+- 変更パス: `creatives/organic/characters/lavender-v1/`、`creatives/organic/characters/brain-v2/` の各 `character-sheet.png`、`README.md`、`prompt.txt`、本記録。
+- 制作方針: 手描き風2D、生成りのスウェットと青灰色のパンツ、成人の生活を描ける姿勢。修正版では丸い脳の輪郭・中央の溝・ローズピンクの肌に変更。全身、横向き、4表情、夜の使用場面を1枚に収録。組み込みimage_genで生成・編集し、全プロンプトを保存。最終採用・名称は未確定。
+- 却下: ラベンダー案の尖った頭は「形が意味不明」というユーザー指摘により不採用。黒い人物の単純な色替えも独自性が弱いため使わない。光沢3Dは直近の静かなイラスト短編の方向と合わないため今回は使用しない。
+- 確認: 生成画像を目視し、脳の輪郭と溝、服装、全身と表情、夜の場面を確認。workspaceへのコピーのバイト一致とPNG寸法を確認。
+- 制約: ラスターの初期デザイン案。個別透過ポーズ、レイヤー、動画リグ、動画は未制作。アプリ内キャラクターとアイコンは変更していない。物語の結末に毎回アプリ宣伝を入れない方針を維持。
+
+## 2026-09-10 — 英語引用ポスト用の実画面5枚
+
+- 変更パス: `output/social/2026-09-10-quote-en/`。アプリコード変更なし。
+- 採用: 英語の呼吸、目的選択、開くか決める画面、10分設定、実ロック画面を未加工PNGで保存。目標はApp Storeの現行英語素材と同じ4項目に統一。
+- 却下: 最初のSpeak English等の目標はユーザー指摘で不採用。App Store訴求枠と生成モックは使わない。
+- 確認・制約: 1320×2868の5枚を確認。iOS 26.5 Simulatorのインストール済みアプリ。目標編集に16文字制限があるため撮影データを直接設定。ロック時のActivity再生成競合があり、アプリを一時停止してOSの実カードを撮影後、再開。手順と制約をREADMEへ記録。物理端末や配布版の動作検証ではない。
+
+## 2026-09-11 — Apple Ads分析データの削除案内
+
+- 変更パス: `ios/DopaBreak/SettingsAboutView.swift`、`AppleAdsMeasurement.swift`、`Localizable.xcstrings`、`docs/marketing/apple-ads-privacy-ready/`。
+- 採用: プライバシー設定に匿名分析ID・コピー・サポートリンクを追加。既存カードとSettingsRowを再利用。未購入者も削除依頼できる。計測無効時は表示しない。日英韓対応。
+- 却下: ローカル削除ボタンで外部データまで削除できたと見せる案。実際の処理が異なるため。IDの自動メール送信も行わない。
+- 制約: 計測5テスト・本体ビルド成功。スタブ使用で外部送信なし。新しい表示の画像確認・公開ページ反映・App Privacy反映・アプリ配布は未実施。SDK送信フラグはNO。
+
+## 2026-09-11 — 計測有効版1.0.1 (9)の審査提出
+
+- 変更パス: `ios/project.yml`、本体/拡張Info.plist、`ios/Configs/Shared.xcconfig`、`docs/marketing/apple-ads-privacy-ready/`。計測ON、全5バンドルを1.0.1 (9)に統一。
+- 既存1.0.1の提出枠を使用。日英韓ポリシーを公開し、ユーザー明示承認後にApp Privacyの購入履歴・広告データ・製品の操作を公開。既存デザインは維持。
+- 検証: 起動・計測25件成功、Release archive/export成功、IPA署名・権限・計測ON、Apple VALID、提出ブロッカー0。19:01 JSTにWAITING_FOR_REVIEW確認。証跡 `.claude/verification-logs/2026-09-11-appstore-b9/result.md`。
+- 制約: 承認後は手動公開。実広告経由の本番購入・sandbox購入は今回未検証。重複提出と自動公開は不要のため実施しなかった。
+
+## 2026-09-13 — Gemini 3.8で全画面の日英韓文言を改善
+
+- 依頼: Gemini 3.8で日本語・英語・韓国語の全画面文言を修正する。
+- 変更パス: `ios/DopaBreak/Localizable.xcstrings`、`ios/ShieldConfigExtension/Localizable.xcstrings`、`ios/WidgetsExtension/Localizable.xcstrings`、対応するSwiftフォールバック11ファイル、`ios/DopaBreakTests/CoreScreensSnapshotCapture.swift`、`docs/11_ui_copy.md`。差分・元文・Gemini回答・採否・監査結果は `output/review/2026-09-13-gemini-copy/`。
+- 採用: `gemini-3.8-flash` を実APIで使用し、Monitorを含む全4カタログ2,310文字列（日769・英772・韓769）をレビュー。69キー94文字列（日26・英33・韓35）を改善。空白でつないだ日本語の説明、英語の硬さ、韓国語の翻訳調を整えた。Pro再開と自動化削除の異なる結果を明記し、「再介入」は通知またはブロックという表示に変更。元の数値・変数・改行数は維持。
+- 却下: GeminiのiOS 26→18、試行回数→実際の起動回数、起床時刻→朝、Deep Focus→Full Block、手動チェック→対象選択といった意味を変える案。引用されたOSの操作名・法務条件・テーマ名は維持。自然な既存文まで一律に書き換える案も採用しない。
+- 方針: `humanize-with-gemini` の通常対象外であるコード内文字列について、今回の明示依頼を優先して表示文言だけ抽出した。各表示文字列を独立した本文／ラベルとして監査し、無関係なラベルの連なりを記事の文体として矯正しない。採用94件は各言語の監査exit 0、Swiftフォールバック831呼び出しの不一致・欠落・未解決・型不一致は0。
+- 撮影テスト修正: `testCaptureCoreScreens` 系の目標fixtureは既に4件だったが、件数期待値だけ3件のままだったため4へ修正。別の3件fixtureは変更しない。
+- 制約: 文言カタログ全件のレビューであり、OSが表示するシステム文言や動画に焼き込まれた文字は改稿しない。公開・配布・実機へのインストールは行っていない。画面確認の結果は同ディレクトリのREADMEへ追記する。
+
+- 同日追加: 実画面で残存を確認した「再介入／재개입」についてGeminiで24文字列を追加レビューし、8キー16文字列を採用。最終77キー110文字列（日34・英33・韓43）、監査110件すべてexit 0。Swift変更は `PostUseReflectionSheet.swift`、`ReinterventionScheduler.swift` を含む13ファイル。機能名は「利用時間の通知・制限／사용 시간 알림·차단」。解除対象は接続、通知・制限を省く範囲は今回の利用であることを維持。
+
+- 最終表示調整: 英語設定画面の `3 seconds` がチップ内で3行へ折り返すことを確認。Geminiによる `3s / 5s / 8s` を採用し、80キー113文字列（日34・英36・韓43）へ。レイアウトは変えず表示文字数で解決。監査113件すべてexit 0。
+
+- 最終検証: 本体・拡張・テストビルド成功。関連30件に加え、追加修正後の関連8件も成功。撮影fixtureの不整合を修正し、日英韓各10画面を撮影。主要画面の目視確認と英語秒数チップの折返し解消を確認。検証専用4端末は削除済み。詳細は `output/review/2026-09-13-gemini-copy/verification.md`。配布・公開・実機インストールは未実施。
+
+## 2026-09-16 — 日本のX投稿向け3画面
+
+- 変更パス: `output/social/2026-09-16-x-ja/`。アプリソース変更なし。
+- 採用: 日本語の呼吸・Pro時間指定の既存実画面素材と、女性会社員向けサンプル目標3件のOSロック画面。TOEIC800点、12月までに3kg減、来年9月までに100万円貯金。
+- 却下: 生成モック・画像上の文字差し替えは実際の表示を示せないため使用しない。
+- 確認・制約: 3枚を目視確認。1320×2868 PNGとZIP。Simulator撮影であり実機検証ではない。ロック撮影時の一時停止・再開とデータ設定は同フォルダREADMEに記録。公開・投稿なし。
+
+## 2026-09-20 — 海外オーガニック短編動画パイプラインの設計（実装前）
+
+- 依頼: ピクサー風と手描き2Dの2画風で、同じ主人公（brain-v2）による英語短編を量産するパイプライン。biohackjapanの動画パイプラインを元にする。
+- 変更パス: `.claude/specs/organic-video-pipeline-2026-09-20.md`（設計書のみ。コード未着手。実装先は `video/organic-pipeline/`）。
+- 採用: 骨格は配布用 `~/Desktop/pixar-video-pipeline`、画風分岐だけ本家から移植。1本のパイプラインで `--style pixar|illust` を切替え、画風で変えるのはプリセット（キャラ記述・画風・動きの指示・参照画像）だけにして、尺・字幕・BGM・ナレーション・CTAは共通（2D/3D比較試験で画風以外を変数にしないため）。人物は喋らず、英語ナレーションをElevenLabsで別録りして重ねる。字幕はTTSの文字タイミングから作り、Whisperは使わない。字幕位置はReels/TikTokの安全領域を避け高さ60%。透かし・本編末尾の宣伝は入れない（企画方針を維持）。
+- 却下: 本家ベース（台本自動生成が不在で動かず、企画立案が栄養DB専用）。Veo 3.1（音声を消せず声も固定不可）。動画と声を一発で作る一体型（ナレーターの声を指定する仕組みがない）。GPT Image（公式ガイドがキャラ一貫性の崩れを明記）。
+- 確認・制約: モデルIDは公式ページで確認（`gemini-3.1-flash-image`／`grok-imagine-video-1.5`／ElevenLabs `/with-timestamps` は文字単位）。Grokの無音指定と2D画風の保持は公式に仕様がなく、小テストで判定する。生成・投稿は未実施。企画と台本は別途オーナーと議論する。
+
+
+## 2026-09-20 — ASA是正バッチ S1〜S5
+
+- 変更パス: `ios/DopaBreak/{OnboardingFlow,HomeView,AppContainer,DopaBreakApp,StoreService,PaywallView,AppleAdsMeasurement,InterventionFlowModel,InterventionFlowView}.swift`、`Localizable.xcstrings`、Coreの`SettingsStore.swift`・`ReviewPromptPolicy.swift`、対応するアプリ/Coreテスト、`docs/11_ui_copy.md`・`docs/18_retention_notification_review_design.md`。全ファイル一覧・検証ログ・画面は `output/verify/asa-fix-2026-09-20/`。
+- S1: blockSetupの「あとで」はreadyへ進むだけ。選択中モードとpendingInterventionMode、ルール、Pro判定を保持する。未設定バナーから既存ブロック設定へ誘導。シールドを張る前提条件は変更しない。
+- S2: StoreServiceの商品取得をloading/loaded/failedで表現。空・不足結果もfailed。価格のスケルトン、失敗文言、購入ガード、再読み込みを追加。取得失敗や読み込み中も復元導線を維持し、法務リンクは購入ボタン直下のまま。
+- S3: SettingsStoreに任意Intの進捗を保存。welcome/selfCheck以外を再開し、完了時にクリア。途中クイズの回答も端末内保存し、再開後に最後の回答を保存できない不具合を防ぐ。選択アプリ・選択モード・保存済み結果も復元。AppleAdsMeasurementの既存クライアント経路でonboarding_last_stepを1秒デバウンスして更新。SNS名や回答内容は送らない。
+- S4: レビュー閾値を2回・0日に変更。90日クールダウン、365日3回、通常win表示1.5秒後と失敗時抑止を維持。体験中は要求しない。
+- S5: AppIntent/URLの検証を共通で受け取り、permission画面上に既存InterventionFlowViewを全画面提示。体験フラグで通常の呼吸・理由・時間・winを通し、時間決定は「一呼吸の体験を終える」として外部SNSを起動しない。体験中は既存の利用時間枠を変更しない。winに「これが一呼吸です」を足し、閉じるとnotificationGuideへ。完了を永続化し、同時提示と完了後の再提示を抑止。breathing_completedも通常と同じ完了処理で立てる。検証発火なしの既存導線は維持。
+- 却下: S6の体験シールド・無料/Pro境界変更、blockSetup延期時のstandardへの降格、オンボ体験からSNSを起動してオンボから離脱させる案。今回の範囲と体験完走に合わないため。EntitlementGateは触れていない。通知許可の位置も変更しない。
+- 検証: Simulator本体/拡張/テストビルド成功、Core全569件成功。アプリ関連120件成功（既存の文言期待値1件を修正して再実行、最終UI変更後の関連7件成功を含む）。日本語3画面・PNG4枚の描画を確認。実機のShortcuts/FamilyControlsと本番RevenueCat受信・実購入は未検証。公開・配布なし。
+
+
+## 2026-09-20 — ASA S1〜S5 レビュー修正
+
+- 変更パス: `ios/DopaBreak/OnboardingFlow.swift`、`ios/DopaBreak/PaywallView.swift`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`。
+- 採用: blockSetupはProまたは権利未確認ならusesShield条件で表示する。「あとで」は購入処理中のみ無効化する。延期後の未設定状態とホームのバナー表示条件を両ブロックモードで検証する。
+- 却下: isProのみでのスキップ判定（購入直後の権利未確認で設定を飛ばすため）、商品取得中の閉じる操作の無効化（読み込み待ちから退出できなくなるため）。
+- 検証・制約: iOS Simulator向けbuild成功、S1回帰テスト1件成功、DopaBreakCore全569件成功。実購入・実機FamilyControlsの確認は今回の対象外。
+
+## 2026-09-20 — S6（改）呼吸画面の目標表示
+
+- 変更パス: `ios/DopaBreak/InterventionFlowView.swift`、`ios/DopaBreak/Localizable.xcstrings`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、`docs/11_ui_copy.md`、本記録。
+- 採用: 呼吸アニメーションの下に「目標を思い出しましょう」を中央・1行で表示し、flow.goalsの先頭最大5件を既存順で表示。usageSummaryScreenの丸印・18pt太字・行間を共通関数で再利用し、目標0件では見出しとカードを非表示にする。日英韓の指定文言を追加。呼吸時間・進行・タップ操作と利用状況画面の編集導線は維持。
+- 却下: 体験シールド案はオーナー決定に従い採用しない。現行呼吸画面にCTAはないため新しい操作は追加しない。空目標の案内を呼吸画面へ複製する案も非表示要件に合わないため不採用。
+- 検証: iOS Simulatorの本体・拡張・テストビルド成功。追加1テストは目標0件/5件×375×667/440×956の4描画を保存し、OCRで見出し・各目標の有無を検証して成功。小画面の2画像を目視確認。初回の描画失敗はテスト用ウィンドウのscene未接続を修正し、再ビルド・再実行で解消。既存の呼吸・体験・文言関連14テストも成功。3言語のカタログ値と差分の空白検査も成功。
+- 制約: Simulator上での検証。実機確認・公開・配布は未実施。ビルドとテストログは `/tmp/dopabreak-s6-build.log`、`/tmp/dopabreak-s6-tests.log`、`/tmp/dopabreak-s6-snapshot.log`、画像は成功したテストのxcresult添付に保存。
+
+## 2026-09-20 — 呼吸画面のDynamic Typeレビュー修正
+
+- 変更パス: `ios/DopaBreak/InterventionFlowView.swift`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、本記録。
+- 採用: 呼吸画面をScrollViewで包み、stepScaffoldと同じ `.scrollBounceBehavior(.basedOnSize)` を適用。画面高を最小高にして短い内容の中央配置を維持し、長い目標は文字サイズを制限せずスクロールで到達可能にする。
+- 却下: 目標へのdopaDisplayClamp適用は拡大表示を維持するため採用しない。呼吸画面には下部ボタンが存在しないため追加しない。
+- 検証: `.accessibility5`・長い目標5件で375×667/440×956の上端から下端まで撮影し、見出しと全5目標のOCR検査・下端到達検査に成功。両サイズの上端・下端を目視確認。既存の0件/5件表示検査もスクロール下端を含めて成功。撮影中のタイマーはfixtureで停止。Git HEADから識別子安定性テストを復元し、既存blockSetup追加後の18ステップとanalyticsIdentifierの一致を検証。
+- 結果・制約: Simulator本体・拡張・テストビルド成功。関連10件成功、撮影fixture修正後に表示2件成功（最終12件成功）。最初の端末でテスト開始待ちが続いたため呼吸画面用Simulatorへ切替。ログ `/tmp/dopabreak-breath-review-build.log`、`/tmp/dopabreak-breath-review-tests-retry.log`、`/tmp/dopabreak-breath-review-snapshots.log`。成功画像 `/tmp/dopabreak-breath-review-images/`。実機は未検証。
+
+
+## 2026-09-20 — App Store S9/S10（改）9枚セット
+
+- 変更パス: `scripts/generate-appstore-screenshots-v2.py`、`scripts/generate-appstore-theme-gallery.py`、`scripts/capture-appstore-breathing-goals.sh`、`scripts/validate-appstore-s9-s10.py`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`の撮影fixture、`output/app-store-screenshots/v2/`、`output/verify/appstore-s9-s10-2026-09-20/`。
+- 採用: 目標表示→ロック画面→一呼吸→完全ブロック→夜→白黒→本音→時間→テーマの9枚。1枚目は実際のSwiftUI画面を440×956ptのSimulatorで3言語撮影し、目標3件を全体表示。1・3枚目のみラベル・見出し・副文を新規作成し、肯定形・1行見出し・中央・体言止め。その他の承認済み表示コピーは維持。
+- 構図: 斜めライムと既存の帯・円・左右ウェッジ・リボンの変化を維持。新規1枚目は全端末を収める細帯構図。テーマは既存実画面カードを再利用し、価格掲載なし条件で料金バッジとフッターを外しawakeを1体追加。各画像ちょうど1体。
+- 却下: 目標を画像上で描き足すモック（実画面撮影要件を満たさない）、1枚目へ旧呼吸パネルの大きなクロップを流用する案（目標が切れる）、6.5版を縦横別倍率で引き伸ばす案（字形が変わる）。intentは単独枠から外し一呼吸の副文へ統合。stats・intentの元素材と6.9生成経路は保管。
+- 検証: テストビルド成功、3言語の撮影テスト計3件成功。3言語×3サイズ×9枚の81枚が内部検証PASS。ascローカル検証は全9セットready9/9・error0・warning0。枠1・3の18画像で表示コピーと目標のOCR欠落0。humanizer-en/ko全ゲートPASS、jpはスクリプト不在のため手動監査。
+- 制約: 物理実機ではなくSimulator実UI撮影。その他画面は既存素材を再利用。iPadはiPhone画面を使う既存マーケティング仕様。6.5の座標メタデータは6.9原寸座標＋変換情報。App Store Connectへのアップロードなし。詳細と全文コピーは `output/verify/appstore-s9-s10-2026-09-20/README.md`。
+
+
+## 2026-09-20 — App Store画像のオーナー修正
+
+- 変更パス: `scripts/generate-appstore-screenshots-v2.py`、`scripts/validate-appstore-s9-s10.py`、`output/app-store-screenshots/v2/`、`output/verify/appstore-owner-feedback-2026-09-20/`。
+- 採用: 呼吸単独枠を外した8枚順を3言語・3サイズへ反映。枠1は指定見出しを維持し、重複する副文を短縮。iPhone端末幅1100px・iPad1040px、見出し→副文→端末の間隔32px。斜めライム帯・1体・目標3件を含む端末全体の表示を維持。内部生成IDは素材参照のため保持し、アップロード名とupload_positionは01〜08へ連番化。
+- 却下: 元の900/920px端末と固定副文位置は余白が大きいため不採用。目標リストを切る端末拡大は要件に反するため不採用。
+- 検証: 全72枚のスクリプト検証PASS。ASCローカル検証9セット・72枚ready・error/warning各0。英韓コピーは各表示欄ごとのhumanizer初回・最終比較監査PASS。3言語iPhone/iPadの枠1を目視確認。
+- 制約: 既存Simulator画像を再利用。iPadは既存仕様のiPhone画面素材。アップロード・公開なし。詳細は今回の検証README。
+
+## 2026-09-20 — 無料トライアル終了前リマインダーの廃止（オーナー決定）
+
+- 変更パス: `ios/DopaBreak/{AppContainer.swift,LockSurfaceCoordinator.swift,PaywallView.swift,Localizable.xcstrings}`、`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/{Services/NotificationRouting.swift,Services/RetentionNotificationPolicy.swift,Storage/SettingsStore.swift}`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、`ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/{NotificationRoutingTests.swift,RetentionNotificationPolicyTests.swift,SettingsStoreTests.swift}`、`docs/11_ui_copy.md`、`docs/18_retention_notification_review_design.md`、本記録。
+- 採用: 終了前通知の予約・日付計算・日数設定・ペイウォールカードと専用通知権限要求・ja/en/koの13文言キーを削除。旧ID `dopabreak.trialday5` は廃止済み通知一覧にのみ保持し、既存の起動時cleanupで予約済み・配信済み通知を解除する。権限やentitlementの確定を待たずに実行する既存経路を使用。専用通知カテゴリ・専用Settingsトグルは存在しない。
+- 維持: トライアル自体、StoreServiceとentitlement判定、他の通知（D1/D3/D7、無料月次、振り返りを含む）。プラン通知の共通トグルは月次・年次更新等にも使うため維持。
+- 却下: 旧通知IDを完全消去する案は既存予約を解除できなくなるため不採用。共通プラン通知トグルの削除は他通知の設定を変えるため不採用。本決定を以前のトライアル通知選択UI・通知維持方針より優先する。
+- 検証: iOS Simulator本体・拡張ビルド成功。Core関連53件、Simulator関連18件、ペイウォール実表示3件、合計74件成功・失敗0。削除対象以外のxcstringsエントリが変更されていないことと差分の空白検査を確認。
+- 制約: 実機の既存通知予約を使うアップグレード検証は未実施。SimulatorテストはローカルStoreKit fixtureを使用し、本番購入・公開・配布なし。ログは `/tmp/dopabreak-trial-build.log`、`/tmp/dopabreak-trial-core.log`、`/tmp/dopabreak-trial-tests.log`、`/tmp/dopabreak-trial-ui-tests.log`。
+
+## 2026-09-21 — オンボーディングv3（2026-09-20オーナー仕様）
+
+- 変更パス: `ios/DopaBreak/{OnboardingFlow.swift,HomeView.swift,SettingsView.swift,SettingsAboutView.swift,Localizable.xcstrings}`、`ios/DopaBreakTests/{MeasurementFoundationTests.swift,HomeGoalsCopyTests.swift,InterventionMergeCopyTests.swift,OnboardingMotionCapture.swift}`、`docs/07_onboarding_design_lifefocus.md` §4・§8、`docs/11_ui_copy.md`の見出し・画面数・ロック画面導線、本記録。
+- 採用: 目標→対象アプリ→自己申告→スクロールと後悔の1問→損失と回復の1画面→モード→体験→通知→要約→Proブロック設定→完了の最大11画面。目標1件を必須とし、既存例文を選択できるプリセットと指定の日英韓見出しを追加。Deep Focusを既定・おすすめにし、モード画面では選択だけを保存する。ルールへの適用は専用プラン確認後とする。
+- 維持: 作業ツリーのS1〜S6、ブロック設定延期と権利未確認時の表示、S3の途中再開、S5の体験完走・再提示抑止、S6の目標表示、ペイウォールCTA。トランジションアニメーションは追加しない。
+- 移設: 科学的背景の既存17文言キーと免責全文を設定の「仕組み」へ移す。ロック画面確認とテーマ選択はオンボーディングから外し、初回体験完了またはwinの記録があればホームの確認行から案内を開ける。テーマ選択の既存ホームカードと、目標保存時のLive Activity開始は維持する。
+- 永続化: 保存済みの旧rawValueを再利用し、表示順・前後移動・進捗はallCasesから計算する。削除・統合画面の旧値は対応する新画面へ移行。新計測IDは`scroll_regret`、`loss_recovery`、全11識別子は設計書§8に記録。
+- 却下: rawValueを0から振り直す案は既存ユーザーの再開先が変わるため不採用。モード選択時の課金提示・Freeへの選択降格、目標スキップ、別ScrollViewへの回復表示は指定フローに合わないため不採用。表示コピーは指定見出し・新しい設定行とおすすめラベル以外は既存の承認済み文言を使用。
+- 制約: Simulatorで確認。実機のShortcuts・FamilyControls・Live Activity掲出と実購入・配布は今回実施していない。
+- 最終表示修正: 375×667ptの描画で目標見出しの省略と旧rawValue由来の進捗番号を確認して修正。見出し全文と`01 / 11`をOCRで検証。目標を未保存のまま中断した旧フローは、目標必須条件を満たすためgoalSetupへ戻す。
+- 検証結果: iOS Simulator本体・拡張・テストのbuild-for-testing成功。DopaBreakCore全562件成功。アプリ全396件は失敗0・既存条件によるスキップ19件。最終表示修正後の関連73件も失敗0。小画面6画面と回復部分を描画し、目標見出し全文・進捗のOCR、単一ScrollView、目視を確認。初回の旧見出し改行期待値1件は更新して解消。表示コピーlintは既存文言3件の要確認のみ、差分の空白検査成功。ログは`/tmp/dopabreak-v3-{final-build,core,app-final,regression}.log`、描画は`/tmp/dopabreak-v3-screens/`。
+
+
+## 2026-09-21 — オンボーディング11画面の改行修正
+
+- 変更パス: `ios/DopaBreak/{OnboardingFlow.swift,DesignTokens.swift,InterventionModeDisplay.swift,Localizable.xcstrings}`、`ios/DopaBreakTests/{HomeGoalsCopyTests.swift,MeasurementFoundationTests.swift}`、`docs/{11_ui_copy.md,07_onboarding_design_lifefocus.md}`、`output/verify/onboarding-linebreaks-2026-09-21/`、本記録。
+- 採用: 375pt・左右20pt・見出し34ptを基準に前置きを短縮。中央揃えで設計サイズの1行を優先し、共有DopaDisplayTextのViewThatFitsが収まらない場合のみ翻訳のU+200Bを意味区切りとして2行へ切り替える。本文16pt、下部注記13ptも共通表示を使用。英韓は空白区切りの単語内にword joinerを適用するフォールバックを持つ。VoiceOverにはマーカーを除いた全文を渡す。
+- 確認: dopaDisplayClampは既に巨大数値専用のため維持。目標見出しの40%縮小・ほかの見出しの74%縮小指定を削除。損失/回復の数値と集計ロジックは維持。モードカードの夜の説明も1行へ短縮し、設定画面の共有表示を検証。
+- 却下: コード内の強制改行、2行を既定にする案、文字縮小で長文を押し込む案、幅だけで日本語の任意位置に改行させる案。いずれも今回のオーナー要件を満たさない。
+- 検証: 修正前後それぞれ11画面×2サイズ×3言語を実SwiftUIウィンドウで撮影（132枚＋下端50枚）。READMEに文言・表示行数の比較表と画像リンクを保存。ビルド成功、撮影/幅/文言21件＋関連回帰93件が最終成功、失敗0。最初の英語幅超過を短縮で修正し、旧文言を言語判定に使っていた既存テスト1件も修正・再実行で成功。
+- 制約: Simulatorの固定寸法UIWindow（375×812／430×932pt、PNGは1倍）、実機未確認。Dynamic Type拡大時は全文を読めるよう追加の自然改行を許可。説明段落・利用者入力は短いディスプレイコピーと区別する。配布・公開なし。
+
+## 2026-09-21 — オンボーディングv3レビュー修正
+
+- 変更パス: `ios/DopaBreak/{OnboardingFlow.swift,DesignTokens.swift,Localizable.xcstrings}`、`ios/DopaBreakTests/{MeasurementFoundationTests.swift,HomeGoalsCopyTests.swift}`、`docs/{07_onboarding_design_lifefocus.md,11_ui_copy.md}`、`output/verify/onboarding-linebreaks-2026-09-21/`、本記録。
+- 採用: 旧readyのraw 16はreadyへ移行。blockSetupは未使用の18へ移して新規保存と旧値を区別し、現行readyの17は維持。復元とinitialStepの両経路で共通のshouldSkipを適用。Free確定時とstandardはreadyへ進み、権利未確認のブロック系モードは既存方針を維持。
+- 採用: 目標見出しを指定の日英韓全文へ戻し、日本語の対象アプリ・完全ブロック・モード見出しと韓国語の追加・変更案内も復元。34ptを維持し、収まらない場合は意味区切り1箇所で2行。DopaDisplayTextの1行・自然改行・VoiceOverが共用するplainTextに空白区切りを残し、日本語5キーにも空白を明示。
+- 却下: 16をblockSetupのまま復元する案（旧readyと衝突）、見出しの短縮・縮小（指定された意味と設計サイズを保てない）、U+200Bの単純削除（句が連結する）。
+- 検証・制約: Simulatorビルド、Core全件、アプリ全件、3言語×2サイズの実SwiftUI再撮影。最終件数・結果と画像は検証READMEに記録。実機固有のShortcuts・FamilyControls・購入は未検証。
+
+
+## 2026-09-21 — 目標入力のIMEクリア・追加行の視認性
+
+- 変更パス: `ios/DopaBreak/OnboardingFlow.swift`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、`output/verify/onboarding-goal-field-2026-09-21/`、本記録。
+- 採用: 確定時に入力を空にしてTextFieldの世代IDを更新し、旧フィールドのresign後にFocusStateを復帰。回転プレースホルダーとカウンターの状態は既存のまま維持。入力直下に追加一覧を置き、新規行へ600msのアクセント枠を表示。既存の触覚を維持。
+- 採用: 一覧は最大144ptのScrollViewで高さを抑えて最新行へ移動。画面側のScrollViewReaderもキーボード表示完了後に一覧へ移動し、入力欄と最新行の同時表示を確保。Reduce Motion時は挿入・スクロールをアニメーションなしにする。
+- 却下: bindingへの空文字代入だけでは未確定文字が残るため不採用。一覧を無制限に伸ばして末尾へ画面全体をスクロールする案は入力欄が画面外へ押し出されるため不採用。データモデル、正規化、保存・重複判定の変更は不要。
+- 検証: Simulator本体・拡張ビルドと関連31件成功、失敗0。実UITextFieldの未確定文字を含む再生成・空欄・フォーカス、0/16、追加行の可視性、表示座標順、4件連続追加を検証。375×812日本語の修正前後画像とログを上記ディレクトリへ保存。
+- 制約: 実機の日英韓IME操作は未検証。固定UIWindowの画像には別ウィンドウのシステムキーボードを含めず、キーボードによる表示領域変更を反映。公開・配布なし。
+
+
+## 2026-09-21 — まとめ画面とモード選択の是正（第2弾）
+
+- 変更パス: `ios/DopaBreak/{OnboardingFlow.swift,Localizable.xcstrings}`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、`ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Storage/SettingsStore.swift`、`ios/Packages/DopaBreakCore/Tests/DopaBreakCoreTests/SettingsStoreTests.swift`、`docs/{07_onboarding_design_lifefocus.md,11_ui_copy.md}`、本記録、`output/verify/onboarding-summary-2026-09-21/`。
+- 採用: まとめ／完了の目標を既存リスト順で最大5件表示し、未追加の入力も重複なく末尾へ含め、超過分を「ほかN件」にする。時間のラベルを「1年でSNSに使う時間」、値を「約N日」に変更。ラベル／値の上下配置で375ptでも通常サイズの1行を確保し、長い入力と拡大文字は自然に折り返す。
+- 採用: Deep Focusと夜だけ強化に設定画面と同じProカプセル様式を付け、Deep Focusのおすすめを維持。まとめに止める強さと非Pro時の（Pro）を表示する。未購入の専用プラン退出をready用の待機状態として保存し、ready到達時だけ一度案内する。待機／表示履歴は設定ストアへ保存し、pendingInterventionModeとルールを変更しない。後からPro権利が反映されると既存Resolverで復帰する。
+- 却下: 選択モードをstandardで上書きする案はS1の購入後復帰を壊すため不採用。長い時間ラベルを狭い左右2列へ押し込む案は1行表示条件に合わない。中断するアラートは使わずready本文へ案内を置く。
+- 検証: Simulatorビルド、Core全563件、アプリ全件と追加の目標／文言／案内／Pro復帰テスト、375×812の日本語実SwiftUI撮影。最終件数と再実行結果は検証READMEへ記録する。
+- 制約: ローカルStoreKit取引APIはSimulatorの構成・権限エラーにより実行できなかったため、購入後の回帰は購入済み権利の永続化fixtureで実際のStoreService・EntitlementGate・保存済みルール・Resolverを通して検証。実購入・実機・公開・配布は未実施。並行して加えられた目標入力関連の編集は保持し、専用のビルド先とSimulatorで最終状態を検証した。
+- 最終結果: Simulatorビルド成功、Core563件成功。アプリ全408件はiOS 26.2で388件成功・19件スキップ・既存商品取得1件失敗。同じ最終ビルドでその1件をiOS 26.5へ再実行し成功、最終389件成功・19件スキップ。追加5件とPNG7枚のOCR・寸法・目視確認成功。未解消のテスト失敗なし。
+
+
+## 2026-09-21 — ブロック機能と独立した3つのきっかけ
+
+- 変更パス: `ios/Packages/DopaBreakCore/` のBlockConfiguration・SettingsStore・ShieldSyncPolicy・Activity属性とテスト、`ios/DopaBreak/` のAppContainer・両Scheduler・ShieldController・SettingsView・HomeView・OnboardingFlow・StoreService・PaywallView・LockSurfaceCoordinator・文言、`ios/{WidgetsExtension,ShieldConfigExtension,MonitorExtension}/`、`ios/DopaBreakTests/`、`docs/{06_screen_design,11_ui_copy}.md`、`.claude/release-check/monetization-check.md`、`output/aso/2026-09-20-v1.0.2/description/`、`output/verify/block-model-2026-09-21/`。
+- 採用: 一呼吸は無料で常時利用。Proのブロックは手動・毎週の予定・就寝中を独立選択する。保存済みの旧モードは一度だけ変換し、以後は新モデルを正とする。権利喪失では作動を停止して選択を保持し、再購入時に復帰する。終了済みの手動セッションは復活させない。
+- 採用: 設定はProでロックする3スイッチ、ホームは選択中のきっかけを表示。Live Activityとシールドは重なったきっかけも残り時間・終了時刻・起床時刻で表示する。新規オンボーディングは無料を既定とする二択で、明示的にブロックを選ぶと3つを選択状態にする。5目標・年間時間ラベル・未購入案内・S1〜S6を維持する。
+- 採用: まとめCTAは無料「このプランで始める」、対象者のブロック選択はStoreKitの実期間・ゼロ価格から生成。日英韓のpaywall fallbackに期間の数字を置かない。StoreKitテストfixtureのみ3日に変更し、価格は維持。1.0.2説明文は現行公開文から試用期間だけ3日に更新し、出典を保存する。
+- 却下: 旧モードの排他選択と夜の予定用追加フラグは同時利用を妨げるため廃止。権利喪失時に選択まで消す案は再購入で復帰できないため不採用。StoreKit未取得時に3日を補う案は実オファーとの不一致を生むため不採用。InterventionModeは移行・既存API互換の型として残す。
+- 検証: 各段階でSimulatorビルド・Core全件・アプリ全件を実行し、変更前仕様の期待値を是正して関連テストを再実行。最終結果とログは検証ディレクトリのREADMEに記録。日本語の設定・ホーム・二択画面を実SwiftUIから撮影し、OCRと目視で確認する。
+- 制約: SimulatorではFamily Controls実権限、実機での監視時間境界・同時ブロック、バックグラウンドLive Activity、実購入の期限切れ／再購入は検証できない。実機確認項目を課金チェックへ追記。Opus5レビュー・実機検証・公開・配布は実施していない。
+- 最終結果: 全4段階のSimulatorビルド成功。Core最終568件成功、アプリ全415件は19件スキップ・失敗0。追補CTAとDynamic Islandを含む追加111件（1スキップ）および最終11件も失敗0。指定の日本語PNG3枚をOCR・目視確認し、変更ファイル一覧と圧縮ログを保存した。
+
+
+## 2026-09-21 — ブロックモデルのレビュー修正と追補2
+
+- 変更パス: `ios/DopaBreak/{AppContainer,StoreService,SettingsView,ShieldController,OnboardingFlow,InterventionModeDisplay}.swift`、`Localizable.xcstrings`、Coreの`BlockConfiguration.swift`と回帰テスト、アプリの`SettingsDeviceFixesSnapshotCapture`・`ShieldControllerRetiredGateTests`・`MeasurementFoundationTests`、`docs/11_ui_copy.md`、検証ディレクトリ。
+- 採用: Pro権利確定時に空のきっかけを3種で補完し、通常の購入反映と購入継続処理へ適用する。スイッチの表示値は`allows`、操作の権利条件は画面と同じ`strictModeAllowed`へ統一。未確定権利による既存ブロックの解除は行わない。
+- 採用: 追補2の日英韓コピーを反映。バッジを独立行に置いて長い英韓見出しの幅を確保し、Proカードに3項目とStoreKit由来の試用注記を表示。見出しとリードは中央揃え、縦間隔は24ptから16ptへ短縮。英語見出しは375pt幅で1pt超過するため既存の任意意味区切りU+200Bをhowの後へ置き、表示文言を変えず小画面の2行フォールバックを維持。試用対象外・未取得時は試用注記を表示しない。英語注記の差し込み値は「期間 (ゼロ価格)」とし、既存プランカードの「$0 for 3 days」をそのまま入れた際のfor重複を避ける。期間・価格の取得と価格書式はStoreKitの既存処理を使用。
+- 却下: 未確定権利をFreeと見なす案はS1を壊すため不採用。期間・ゼロ価格のハードコードは実オファーと不一致になるため不採用。日英韓の見出しを縮小する案は表示コピー規則に合わないため不採用。
+- 制約: 実アプリ遮断と実購入は実機未検証。Simulatorのローカルfixtureで検証し、最終件数・画像は`output/verify/block-model-2026-09-21/README.md`のレビュー修正欄に記録する。
+
+- 最終検証: Simulatorビルド成功、Core570件成功。アプリ全420件（19スキップ）で検出した3ケースを修正し、関連30件（3スキップ）と最終表示15件・英韓各1件が失敗0。3言語PNGと仕様表33文言を確認。StoreKit取引作成とManagedSettings実書き込みはSimulatorで拒否されたため、実際のアプリ反映処理・名前付き出力先をfixtureで検証し、実機検証とは区別する。
+
+## 2026-09-23 — 目標設定見出しの年間日数統一
+
+- 変更パス: `ios/DopaBreak/OnboardingFlow.swift`、`ios/DopaBreakTests/MeasurementFoundationTests.swift`、本記録。
+- 採用: 「取り戻すN日で何をする？」のNは、直前の年間損失表示と同じ`summaryYearlyDays`を使用する。2〜4時間のfixtureでは「38日」となり、前画面の「1年で約38日」と一致する。
+- 却下: 半減後の`recoveredYearlyDays`（同fixtureでは19日）を使い続ける案は、年間日数を示す前画面との数値差を生むため不採用。コピー、レイアウト、ローカライズ形式は変更しない。
+- 検証・制約: 375×667ptの実SwiftUI描画をOCR・目視し、「取り戻す38日で何をする？」を確認。対象スナップショットテスト1件成功・失敗0。Simulator確認で、実機・公開・配布は未実施。
+
+
+## 2026-09-23 — 海外オーガニック短編はコード描画のアニメで作る
+
+- 依頼: オーナーが試作3本（AI静止画＋ズーム）を「キャラに動きがなさすぎる。なんで静止画なの？javascriptで動画作って」と却下。
+- 変更パス: `video/organic-shorts/src/{rig,sets,scenes,v1,v2,v3}/`、`scripts/finish.py`、`.claude/specs/organic-shorts-code-drawn.md`（作り方の正本）、`docs/marketing/organic-scripts/2026-09-23-three-videos.md`、成果物 `creatives/organic/videos/2026-09-23/`（旧版は `_rejected-stills/`）。
+- 採用: 人物・背景・小物をRemotionのSVGで毎フレーム描く。人物は丸い頭の人間1人。常時の動き（瞬き・呼吸・親指・線の揺れ・手持ち風のカメラ）に加え、2〜4秒ごとに台本の単語へ合わせた動作を置く（起き上がりかけて戻る・あくび・頭をかく・通知でびくっ→ため息・布団の中で足をばたつかせる・居眠りしてはっと起きる・身を乗り出して肩を落とす）。時間の経過は早回し（窓の昼夜点滅・姿勢が3フレームごとに別の日へ飛ぶ・床に物がたまる）で見せる。明るい2D・太い黒線・フラット塗り。字幕は黒い箱に単語ハイライト、中心1120px。
+- 却下（オーナー）: AI静止画にズームと重ね物だけ動かす方式（上記）。
+- 採らなかった案（制作側の判断・オーナー決定ではない）: 動画生成AIで人物を動かす案。キャラと画風の一貫性を保ちにくく、細かな動作を台本の単語に合わせられないため。オーナーの依頼もJavaScriptでの制作だった。
+- 検証・制約: 3本とも0.5秒ごとのコマ並べと連続フレームで動きを確認。音量 -14.0〜-14.2 LUFS。Codexの独立レビュー指摘1件（V1の親指の速さが変わる瞬間にスマホ画面が巻き戻る）を累積スクロール方式で修正し、全560フレームで巻き戻り0を確認。声の質とBGMは未確定。投稿はしていない。
+
+## 2026-09-24 オンボーディングの購入導線の是正（CVR再チェック）
+- **まとめ画面のボタンは、未購入なら止め方の選択に関係なく全員にペイウォールを出す**（`needsPlanReview = !isPro`）。9/21の二択化の実装で無料側だけペイウォールを出さない形になっており、オーナー承認の「全員が9画面目で通る」設計から外れていた。閉じれば無料のまま次へ進む。ブロックを選んで買わなかった人だけ完了画面で案内を出す（従来どおり）。
+- 本人がまとめ画面へ戻ってボタンを押し直した場合はペイウォールを再表示する（1.0.1と同じ）。迷い直して戻った人に買う機会を残すため、1回限りの制御は入れない（Codexレビュー指摘を検討した上での判断）。
+- **新規は先頭（1日のSNS時間）から始める**。`OnboardingStep.restored` が「目標が無ければ目標画面」のままで、並べ替えた質問3画面を新規ユーザーが一度も見ない不具合を修正。目標が無いまま目標画面より後へは進ませない規則は維持。
+- 目標画面のデザイン一覧でProデザインを選んだとき、シートを閉じ終えてからペイウォールを出す（同時に出すと表示が捨てられることがある）。
+- 目標5件で入力欄を無効化し、進むボタンの空振りをなくした。
+- 英語見出しを狭い画面（34pt極太・幅335pt）に収まる長さへ: goal「%lld days back. / What will you do?」、regret「Mindless scrolling, / then regret」。
+- 計測: RevenueCat属性に `onboarding_block_choice`（free/block）と `paywall_viewed`＋`paywall_last_placement` を追加。試用しなかった人が「見ていない」のか「見て断った」のかを分ける。
+
+## 2026-09-24 オンボーディング12画面化と課金画面の中身（オーナー承認）
+- 順番: SNS時間 → 後悔 → 人生換算 → 目標 → アプリ → 止め方 → **一呼吸の体験（アプリ内・ショートカット不要）** → 通知 → まとめ → 課金画面（未購入なら全員1回） → **ショートカット設定（全員）** → ブロック設定（Proのみ） → 完了。
+- 理由: 旧構成は体験がショートカットの自動化に依存し、設定しないと価値を一度も見ないまま課金画面へ進んでいた。外のアプリへ移って戻らない人は課金画面に届かなかった。
+- まとめ画面の「あとで」を撤去（課金画面自体に閉じる導線がある）。見出しは設定状況で切り替えず「プランができました」。
+- 課金画面: 見出しv2（「あと5分」が人生の{Y}年／開く前にブレーキ）は維持。本文の無料機能説明を撤去し「あなたの目標」＋目標最大3件。機能はブロック（完全／毎週の予定／就寝中）を先頭に。
+
+## 2026-09-26 ロック画面の許可の案内（完了画面）と許可オフ時のホーム表示（オーナー承認「OK実装して」）
+- 背景: オンボーディングからロック画面確認（画面を消させる手順）を外したままにする判断をオーナーと確認（離脱要因のため戻さない）。iOSは最初にロック画面でライブアクティビティを見せるとき「許可／許可しない」を聞くため、外したことで案内なしの確認になった。「許可しない」を選ぶと目標がロック画面に出ず、ホームはプレビューを出し続けるので本人が気づけない。
+- 採用: ①完了画面の完了ボタンのすぐ上に `lock_check.permission_note` を出す（目標があり、端末で許可されているときだけ・`OnboardingReadyLockScreenNotePolicy`）。最初は目標カードの末尾に置いたが、6.1インチ（393×852）でボタンが2つ並ぶ状態（ショートカット未設定）だと目標2件以上で2行目がボタンに隠れる計算になったため、スクロールに左右されないボタンの上へ移した。②ホームのロック画面カードは、端末でライブアクティビティが許可されていないときプレビューの代わりに `lock_check.title.blocked`／`lock_check.lead.blocked`／「設定を開く」（`LockScreenSettingsLink`）を出す（`HomeLockScreenCardPolicy`）。見た目は既存の注意喚起バナー（見出し20pt・説明14pt・SecondaryButtonStyle）と同じ組み方。③許可状態は `ActivityAuthorizationInfo` が@Observableでないため `AppModel.areLiveActivitiesAllowed` に写し、`refresh()` とアプリ全体の前面復帰（`DopaBreakApp.handleAppActive`）で取り直す。
+- 文言は新設しない（ロック画面確認の既存キーを流用し、日英韓は既存訳のまま）。画面数・手順は増やさない。
+- 却下（オーナーと確認済み）: ロック画面確認をオンボーディングへ戻す案（アプリの画面を離れる唯一の手順で、課金画面の手前で離脱を生む）。
+- 不採用（Claude判断・オーナー未確認）: 確認を課金画面の後ろへ置く案（ショートカット設定と並んで外へ出る手順が2つになり、設定完了を落とす恐れ）。完了画面で許可オフの人にも注記を出す案（もう来ない確認への答え方になる。ホームのカードが設定へ案内する）。
+- Claude Code向け制約: 許可の判定は `areLiveActivitiesAllowed` の写しを読む。Viewから `ActivityAuthorizationInfo` を直接読まない（変化が画面に届かない）。前面復帰の取り直し（`DopaBreakApp.handleAppActive` と `refresh()`）を外さない。アプリ内のライブアクティビティ設定をオフにしている人にはカードごと出さない既存挙動を維持する。
+
+## 2026-09-26 課金画面の年額カードを「請求額が大きい」並びへ（オーナー承認・審査3.1.2対応）
+- 経緯: 1.0.2（ビルド10）が審査3.1.2で却下（オーナー談「総額表示」）。Appleの規定は「請求される額が最も目立つ価格表示で、月あたりなどの内訳は年額より下・小さく」（https://developer.apple.com/app-store/subscriptions/）。オーナーの最初の指示は「総額を少しだけ大きく」だったが、¥415/月（24pt）より小さいままでは規定を満たさないため、本番を触らずに比較モック（`output/screenshots/paywall-billed-amount-mock/ja/compare.png`）を出し、右の案でオーナー承認（「いいよ」）。オーナーは本当は年額を小さくしたい意向だが、再却下の可能性が高いと説明したうえでの承認。
+- 採用: 年額カードの大きい数字を `paywall.plan.annual.price`（ja「%@/年」・en「%@/yr」・ko「%@/년」）。補足行を `paywall.plan.annual.monthly_equivalent`（ja「月あたり%@」・en「Works out to %@/mo」・ko「월 %@」）＋トライアル表記。旧 `paywall.plan.annual.charge`（年間%@を一括請求）は削除。月額カード・法務文言・CTAは変更なし。
+- 経緯の事実: 1.0（9/8）・1.0.1（9/11）も同じ月換算ヒーロー表示で承認されていた（9/4のHEADと planCard／planPrice の作りが同じ）。表示の変更ではなく審査の見方の差。
+- 検証: `SettingsDeviceFixesSnapshotCapture.testPaywallShowsBilledAnnualAmountLargerThanMonthlyEquivalent`（StoreKitの価格で実画面を描き、文字認識の高さで請求額＞月あたり×1.5を確認・通貨と言語に依存しない）。アプリ側テスト430件で失敗はこのテストの初版1件のみ（ドル表示の環境で円の文字を探していた）→修正後に課金画面関連39件成功。
+- Codexレビュー（medium）: ①（高）トライアル対象者には固定の「3日間 ¥0で始める」が常に見え、年額はスクロールしないと見えないため再却下の余地が残る。→ ボタンの ¥0 表記は8/28のオーナー承認済み例外で、今回の比較提示でも「そのまま残す」と伝えて承認を得ているため変更しない。再却下時の第一候補として記録。②（中）テストが日本語前提 → 通貨・言語非依存へ修正済み。
+- Claude Code向け制約: 年額カードで月あたりの額を請求額より大きく・上に出さない（旧「月換算ヒーロー表示」に戻さない）。月あたりは補足行の小さい文字のまま。
+
+## 2026-09-26 止め方の画面: Proを上・おすすめ・初期選択に（オーナー指示・次の更新向け）
+- オーナー指示（逐語）: 「Proを上に置いておすすめにしてデフォルト選択済みにして」「3日間０ドルで試せるはペイウォールのみに止め方の画面には出さないで。」
+- 採用: カードの並びを Pro（一呼吸＋完全ブロック）→無料 に。印は Pro＝`onboarding.block.pro_badge`「Pro・おすすめ」（アクセント色）、無料＝`onboarding.block.free_badge`「無料」（通常色）。Proカードのトライアル行（`onboarding.block.trial`・`trial_offer`）は削除。
+- 初期選択: `OnboardingProgress.initialModeSelection`。まだ止め方を確定していない人は Pro を選んだ状態。確定済みの人（`SettingsStore.onboardingBlockChoiceSaved`、`saveModePreference` で立てる・データ削除で消える）は、戻ってから再起動した場合も含めて保存済みの選択（`preferredMode`）。保存値は「ブロックのきっかけが空＝無料」で未選択と区別できないため確定の記録を別に持つ。記録のない旧版からの途中再開は、止め方の画面より後から始まるかで判断する。`preferredMode` 自体の既定（無料）は変えていない。Codexレビュー（medium）の「無料確定→戻る→再起動でProに戻る」指摘を受けてこの形にした。
+- 変えていないもの: 課金画面はどちらを選んでも未購入なら全員に1回（9/21 オーナー承認）。Proを選んで買わなかった人は完了画面で「いまは一呼吸で始めます」を案内。
+- 2026-09-27 追記: まとめ画面のボタンも「トライアルは課金画面だけ」に合わせ、選択に関係なく「このプランで始める」に統一（確認への返答「OK 審査提出して」を変更の承認と解釈）。`OnboardingSummaryPresentation.actionTitle` を固定文言にし、`StoreService.annualIntroOfferOnboardingCTAText`・`IntroOfferDisplayPolicy.ctaText(forOnboarding:)`・`onboarding.summary.action.intro` を削除。ゼロ価格の文言はペイウォールのボタン（`paywall.action.start_zero_price`）だけに残る。
+- 経緯: 9/20 は「Deep Focus を既定・おすすめ」、9/21 の2択化で「無料を既定・おすすめ」になっていたのを、今回 Pro へ戻した。1.0.2（ビルド11）は提出済みのため、この変更は次の更新に入る。
+- Claude Code向け制約: 止め方の画面に価格・トライアルの表記を出さない。初期選択を `preferredMode` の既定の変更で実装しない（保存値の意味が変わり、途中再開で無料を選んだ人の選択を上書きするため）。
+
+## 2026-09-26 オンボーディングの一呼吸の体験はSNSで見せる（オーナー指示）
+- オーナー指示（逐語）: 「体験する画面の Safariを開いた時じゃなくSNSにして」
+- 採用: `OnboardingExperienceAppPolicy.app(from:)`。選んだアプリの中で最初のSNS（Safari以外）を体験に使う。説明文と呼吸画面の「{アプリ名}を開きます」はこのアプリ名になる。
+- Safariだけを選んだ人はSafariのまま。当初は見本のInstagramにしたが、Codexレビュー（low）の指摘どおり、体験の「開かなかった」は本物の記録（ルール作成・開こうとした回数・取り戻した時間）になるため、選んでいないInstagramの記録が残る。記録を残さない見本モードは介入フローの中心に手が入るため今回は見送り、オーナーへ報告。何も選んでいないときは従来どおり見本のInstagram。
+- 変えていないもの: ショートカット設定中に実際に開いたアプリで出る体験（`presentExperienceIfNeeded`）は、そのアプリのまま（本物の動作のため）。
+- Claude Code向け制約: 非SNSの判定は `nonSNSCatalogIDs`（現在はSafariのみ）。カタログにSNS以外を足したときはここにも足す。
+
+## 2026-09-28 App Storeスクショを7枚へ作り直し（訴求と画面の照合・オーナー承認）
+- オーナー指摘（逐語）: 「SNSブロックアプリを探してるのに１枚目のブロックしないという表現はよくないし、１枚目の画像に改修した目標が確認できるのが見えない、２枚目はロック画面だし」「訴求が画面とあってない」。提案した並びと直し方に「OKそれで作り直して」。
+- 採用: 並びは 目標（開いた瞬間）→完全ブロック→ロック画面の目標→夜だけ強化→白黒→取り戻した時間→テーマ の7枚。見られやすい最初の3枚に、他社にない目標表示と、検索で探されている「SNSが止まる」の両方を置く。見たあとの本音と理由を選ぶ枚は外した。
+- 採用: 夜だけ強化は、ブロック中にiOSが出す画面（完全ブロック中＋起床時刻の7:00まで）で見せる。iOSが描く画面のため撮影できず、ロック画面・白黒ホームと同じくアプリの色と文字のままスクリプトで描いた。完全ブロックの枚は今の設定画面を撮り直して使う（当初は両方ブロック中の画面にしたが、オーナー「完全ブロックの画像は設定画面のほうがいいかも、2枚ただ完全ブロックの画像出てるので微妙」で変更）。
+- 採用: ロック画面の見出しを「無意識に手に取っても／まず目標が見える」へ（en「Pick up your phone／and your goals come first」、ko「무심코 폰을 들면／목표부터 떠요」）。旧「SNSを開くたびに目標を確認」はロック画面の場面と合わず、1枚目と同じ主張だった。
+- 採用: 1枚目・ホーム・テーマは今のアプリで撮り直し。1枚目の目標はロック画面と同じ4件に揃えた。ホームは設定途中の案内が出ない状態で「312時間 13日分」を見せる。
+- 却下: 目的選択・時間選択・満足度入力の単独枠（手続きや作業の画面で、得られるものを見せない）。1.0.2の公開前取り下げはオーナー判断待ち（承認済みの版はスクショを差し替えられない）。
+- Claude Code向け制約: スクショを出す前に、各枚の見出しと副文が画面に見えているものを指しているかを1枚ずつ照合する。画面素材の撮影日以降にアプリの画面が変わっていたら撮り直す。同じ種類の画面を2枚並べない。設定画面か働いている画面かは、その枚の副文が指す中身で選ぶ。raw-core は他セッションも書くため、納品に使う素材は `output/verify/appstore-rebuild-2026-09-28/raw/` に写してから生成する。
+
+## 2026-09-28 設定画面の完全ブロックの時間チップを折り返す
+- 経緯: スクショ作り直しで、英語の「Until you unblock it」が横スクロールの行から画面外へはみ出していた（440pt幅）。スクロールできることに気づかないと、この選択肢が見つからない。オーナー指示「修正して審査提出」。
+- 採用: `SettingsView.sessionOptionChips` を ViewThatFits に。1行に収まれば従来どおり1行、収まらなければ時間の3つと「解除するまで」を2行に分ける。2行でも収まらない大きな文字サイズのときだけ従来の横スクロール。
+- Claude Code向け制約: チップを足すときも「画面外に選択肢を隠さない」を守る。撮影テストの設定画面は15:00固定（平日20:00〜22:00の予定の時間帯に入ると表示が変わるため）。
+
+## 2026-10-05 1日に開ける回数（回数上限で完全ブロック・Pro）
+- オーナー指示（逐語）: 「1日何回以上開いたら完全ブロックする仕組みを追加したいが君はどう思う？」→ 逃げ道の3案（A 翌朝まで止まる・30秒待てばその場で1回だけ開ける・緩める変更は翌日から／B 一切開けない／C 設定でいつでも外せる）を提示 →「Aを有料機能に入れて」
+- 前提として提示し異論がなかった案（オーナーの明示決定はA・有料の2点）: 呼吸中に「今日あと{n}回」／上限は本人の記録から目安を出す／止まった画面は理由と終わる時刻だけ／SNS合計で数える／区切りは起床時刻
+- 経緯: 8/22の回数上限は常時シールドの一部で、9/1の一呼吸と完全ブロックの分離で常時シールドごと外れた。今回はふだんは一呼吸だけで、使い切ったときだけ完全ブロックがかかる（前回の「砂時計の一呼吸と完全ブロックが重なる」分かりにくさは起きない）。`TargetRule.maxOpensPerDay` は使っていない
+- 採用: 数える＝`attempt_logs.opened=1` を `COALESCE(completed_at, started_at)` で `[数え始め, 次の起床)` に数える（素通し・キャンセルは数えない・対象から外しても当日分は戻らない）。止める対象＝有効で選択データを持つルールすべて。止まり始め＝最後の1回の決めた時間の終わり（最後の1回は時間なしを出さない）。止まり終わり＝次の起床時刻。15分未満の窓・対象なし・監視の登録失敗はシールドを掛けず、一呼吸の入口の上限画面だけで止める
+- 採用（Codex Astra medium との設計議論・2026-10-05）: 控えは `DailyOpenLimitStore`（`ReinterventionStore` と同じファイルロック）で読み書きし、シールドへの反映もロックの中で行う／Monitorは開始・終了の区別に頼らず、どの通知でも最新の控えで掛け外しを決め直す（`DailyOpenLimitShield.sync`）／監視の登録に成功したときだけ控えを残す／緊急は止め直しの監視を先に登録してから外す（登録できなければ外さない）／夜・予定・手動が重なるときは緊急の導線を出さない（外せるのは回数上限ぶんだけ）／「開く」確定の直前にも残りを確かめ直す／「明日」は日付で出し分ける
+- 採用: 緊急で開く＝待ち始めた時刻を保存（画面を閉じても短縮できない）・30秒後から5分以内だけ有効・使ったら消費。開ける範囲は選んだ時間のあいだ対象全体（カタログIDとScreen Timeのトークンを突き合わせられないため）。回数の上限は付けない（9/5の「回数制限付き緊急パス」不採用とそろえる）
+- 採用: 設定の変更は、オンにする・減らす＝すぐ、増やす・オフ＝次の起床時刻から（`pendingChange`）。オンにした日はオンにした時刻以降だけを数える。Freeへ落ちたら監視・控え・シールドを外し設定値は残す。権利未確定のあいだは控えを作らず消さず、終わった窓の掃除だけ行う
+- 画面: 設定「ブロック」カードに行を追加（Picker・今日の残り・変更待ち・目安・補足）。就寝中だけオンのときの補足は回数上限オンなら「日中は1日の回数を使い切るまで開けます」へ。回数上限で止まっているあいだは「いま完全ブロック中のアプリはありません」を出さない。ホームは使い切ったら状態行と「30秒待って開く」、そのあいだ「ブロックを設定する」は出さない。シールドは回数上限だけなら題「今日は{n}回開きました」、iOS 26.5以降は副ボタン「DopaBreakを開く」
+- Codexコードレビュー（Astra medium）の7件を是正: 同期で監視の登録を確かめて張り直す／起床時刻の変更で止まり終わりを合わせ直す／足した対象はすぐ止め外した対象は翌朝まで止める／緊急で開くときは再介入の区切りも終える／古い上限画面は緊急ボタンで状態を取り直す／開けている時間中は「{時刻} まで開けます」／同じ日の朝に効く変更待ちに「明日」を付けない
+- Codex再レビュー（2回目）の3件を是正: 監視の照合を `schedule(for:)` の時刻で行う／「{時刻} まで開けます」は覚えた終わりの時刻だけで出し止まっている最中は出さない／上限画面は前面復帰と1分ごと・緊急の確定直前に確かめ直す
+- Codex再レビュー（3回目）の1件を是正: 控えを作り直すときの止まり始めに素通しの許可の期限（再介入ありで最大12時間）を使わず、最後の1回で覚えた終わりの時刻を使う
+- やらないこと（今回）: Live Activityのブロック表示、ペイウォールの機能行、アプリ別の回数、統計での表示
+- Claude Code向け制約: 回数上限のシールドは専用ストア `dopabreak.openlimit` と活動名 `dopabreak.openlimit` だけを使う（夜・予定・手動のストアに混ぜない）。`suppressesIntervention` に回数上限を含めない（含めると上限画面が出ない）。控えを書いたら必ず監視を登録し、失敗したら控えを消す。シールドを掛ける判断は `DailyOpenLimitPolicy.isBlockActive` だけで行う
+- 検証: Core 598件0失敗（うち新規27件）、アプリ側の回数上限30件＋撮影3件0失敗、アプリ全体465件0失敗・23件スキップ（専用シミュレータ）、撮影 `output/verify/open-limit-2026-10-05/`。Screen Timeのシールドが実際に掛かる・外れる・iOS 26.5のボタンでDopaBreakが開くは実機でのみ確認できる（未確認）
+
+## 2026-10-05 ペイウォールの機能一覧に「1日に開ける回数」を追加
+- オーナー指示（逐語）: 「2先に作って」（直前の報告の「ペイウォールの機能一覧にはまだ載せていません。載せる場合は文言案を出します」への返答）
+- 採用: 4行目（ブロックのきっかけの並び＝手動・毎週・就寝中の次）に `paywall.feature.daily_open_limit`。ja「開きすぎた日は翌朝まで開けない」／en「Block apps until morning after too many opens」／ko「너무 자주 연 날은 아침까지 완전 차단」。機能一覧は7行
+- 文言の決め方: 訴求の手順（sales-copywriting: ペイウォール＝認知段階⑤・市場成熟度4〜5、案5つを4Uで比較）。オンボーディングの利用者の言葉「気づけばSNSを開き」の「開く」で返す。既存行が「〜ブロック」で終わる行ばかりになり、直上の「就寝中は自動で完全ブロック」と同じ終わり方が続くため、「完全ブロック」案より「開けない」で終える案を採った。humanizer-en/ko の監査は前後とも exit 0、humanizer-jp はパターン該当なし。表示規則（、。なし・1行）を満たす
+- 却下した案: 「開きすぎた日は翌朝まで完全ブロック」（〜ブロックの連続）／「決めた回数を超えたら完全ブロック」（同）／「1日に開ける回数を決められる」（結果が伝わらない）／「開く回数が上限に届いたら翌朝まで停止」（停止が硬い）／「「ちょっとだけ」が積み重なる前に止める」（何で止めるかが分からない）
+- 検証: 実寸（393×852）と全体の撮影 `output/verify/open-limit-2026-10-05/paywall-{top,full}.png`。各行1行に収まる。実寸の最初の画面には6行目まで見え、7行目と年額カードはスクロールした先（年額カードは追加前もボタンの下に隠れていた）。3言語の値が製品に載っていることを `MeasurementFoundationTests.testPaywallHeadlineAndFeatureCopyIsShippedInEverySupportedLanguage` に追加して確認
+- **同日改訂（オーナー指示・逐語）**: 「解除に30秒っておかしいから 1日の開く回数を制限してブロック という文言に変えて。開きすぎた日は翌朝まで開けないという文言も違和感しかない」→ `strict_block`（解除に30秒待つ強いブロック）の行を一覧から外し、その位置（4行目）を `paywall.feature.daily_open_limit`「1日の開く回数を制限してブロック」に。「開きすぎた日は翌朝まで開けない」は取り下げ。一覧は6行に戻った。en「Block apps after your daily open limit」／ko「하루에 여는 횟수를 제한해 차단」（humanizer-en/ko 前後 exit 0）。`strict_block` のキーはカタログに残す（`grayscale` と同じ）。手動セッションの強いブロック自体はProに残る
+- Claude Code向け制約: ペイウォールの✓一覧は、機能が何をするかを平易な1行で書く。「開きすぎた日は」のような場面語や、利用者の手間（解除に30秒待つ）を売り文句にした行を戻さない
+

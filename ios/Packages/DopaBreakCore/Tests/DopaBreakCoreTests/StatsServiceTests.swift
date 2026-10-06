@@ -220,6 +220,161 @@ final class StatsServiceTests: XCTestCase {
         XCTAssertEqual(try stats.reclaimedCancellationCount(from: secondDayStart, to: thirdDayStart), 1)
     }
 
+    func testReclaimedStartWindowKeepsHeroRuleIntentAndCancellationCountsAlignedAcrossDayBoundary() throws {
+        let log = try makeLogStore()
+        let firstDayStart = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
+        let secondDayStart = calendarDate(year: 2026, month: 7, day: 2, hour: 0)
+        let thirdDayStart = calendarDate(year: 2026, month: 7, day: 3, hour: 0)
+        let firstRule = uuid(10)
+        let secondRule = uuid(20)
+
+        let crossesMidnight = AttemptLog(
+            id: uuid(501),
+            ruleId: firstRule,
+            startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 23, minute: 59, second: 50),
+            completedAt: calendarDate(year: 2026, month: 7, day: 2, hour: 0, minute: 0, second: 10),
+            decision: .cancelled,
+            intent: .communication,
+            selectedDurationSeconds: nil,
+            attemptCount24h: 1,
+            opened: false
+        )
+        try log.insertCancelledAttempt(crossesMidnight, reclaimedSeconds: 300)
+        try log.insertCancelledAttempt(
+            attempt(
+                id: 502,
+                ruleId: secondRule,
+                startedAt: calendarDate(year: 2026, month: 7, day: 1, hour: 12),
+                decision: .cancelled,
+                intent: .research
+            ),
+            reclaimedSeconds: 180
+        )
+        try log.insertCancelledAttempt(
+            attempt(
+                id: 503,
+                ruleId: secondRule,
+                startedAt: secondDayStart,
+                decision: .cancelled,
+                intent: .boredom
+            ),
+            reclaimedSeconds: 999
+        )
+
+        let stats = makeStats(log: log, now: secondDayStart)
+        let heroSeconds = try stats.reclaimedSecondsByStartWindow(
+            from: firstDayStart,
+            to: secondDayStart
+        )
+        let appSeconds = try stats.reclaimedSecondsByRuleInStartWindow(
+            from: firstDayStart,
+            to: secondDayStart
+        )
+        let intentSeconds = try stats.reclaimedSecondsByIntentInStartWindow(
+            from: firstDayStart,
+            to: secondDayStart
+        )
+        let summary = try stats.attemptSummary(from: firstDayStart, to: secondDayStart)
+
+        XCTAssertEqual(heroSeconds, 480)
+        XCTAssertEqual(appSeconds, [firstRule: 300, secondRule: 180])
+        XCTAssertEqual(appSeconds.values.reduce(0, +), heroSeconds)
+        XCTAssertEqual(intentSeconds, [.communication: 300, .research: 180])
+        XCTAssertEqual(intentSeconds.values.reduce(0, +), heroSeconds)
+        XCTAssertEqual(summary.cancelled, 2, "根拠行とlegendは同じstarted_at窓のsummaryを使う")
+
+        XCTAssertEqual(
+            try stats.reclaimedSecondsByStartWindow(from: secondDayStart, to: thirdDayStart),
+            999
+        )
+    }
+
+    func testReclaimedSecondsByRuleUsesLedgerBoundaryAndSumsEachRule() throws {
+        let log = try makeLogStore()
+        let start = date(100)
+        let end = date(200)
+        try log.insertCancelledAttempt(
+            attempt(id: 1, ruleId: uuid(10), startedAt: start, decision: .cancelled),
+            reclaimedSeconds: 120
+        )
+        try log.insertCancelledAttempt(
+            attempt(id: 2, ruleId: uuid(10), startedAt: date(150), decision: .cancelled),
+            reclaimedSeconds: 180
+        )
+        try log.insertCancelledAttempt(
+            attempt(id: 3, ruleId: uuid(20), startedAt: date(199), decision: .cancelled),
+            reclaimedSeconds: 240
+        )
+        try log.insertCancelledAttempt(
+            attempt(id: 4, ruleId: uuid(20), startedAt: end, decision: .cancelled),
+            reclaimedSeconds: 999
+        )
+
+        XCTAssertEqual(
+            try makeStats(log: log, now: end).reclaimedSecondsByRule(from: start, to: end),
+            [uuid(10): 300, uuid(20): 240]
+        )
+    }
+
+    func testReclaimedSecondsByIntentExcludesNilAndSumsEachIntent() throws {
+        let log = try makeLogStore()
+        let start = date(100)
+        let end = date(300)
+        try log.insertCancelledAttempt(
+            attempt(id: 1, ruleId: uuid(1), startedAt: date(110), decision: .cancelled, intent: .research),
+            reclaimedSeconds: 120
+        )
+        try log.insertCancelledAttempt(
+            attempt(id: 2, ruleId: uuid(1), startedAt: date(120), decision: .cancelled, intent: .research),
+            reclaimedSeconds: 180
+        )
+        try log.insertCancelledAttempt(
+            attempt(id: 3, ruleId: uuid(1), startedAt: date(130), decision: .cancelled, intent: .boredom),
+            reclaimedSeconds: 240
+        )
+        try log.insertCancelledAttempt(
+            attempt(id: 4, ruleId: uuid(1), startedAt: date(140), decision: .cancelled),
+            reclaimedSeconds: 999
+        )
+
+        XCTAssertEqual(
+            try makeStats(log: log, now: end).reclaimedSecondsByIntent(from: start, to: end),
+            [.research: 300, .boredom: 240]
+        )
+    }
+
+    func testAttemptStartTimesIncludesStartExcludesEndRegardlessOfOrder() throws {
+        let log = try makeLogStore()
+        let start = date(100)
+        let middle = date(150)
+        let end = date(200)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: middle, decision: .opened))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: start, decision: .opened))
+        try log.insert(attempt(id: 3, ruleId: uuid(1), startedAt: end, decision: .opened))
+        try log.insert(attempt(id: 4, ruleId: uuid(1), startedAt: date(99), decision: .opened))
+
+        XCTAssertEqual(Set(try log.attemptStartTimes(from: start, to: end)), Set([start, middle]))
+    }
+
+    func testHourlyAttemptBreakdownUsesInjectedCalendarTimeZone() throws {
+        let log = try makeLogStore()
+        let start = calendarDate(year: 2026, month: 7, day: 1, hour: 0)
+        let end = calendarDate(year: 2026, month: 7, day: 2, hour: 0)
+        let first = calendarDate(year: 2026, month: 7, day: 1, hour: 15)
+        let second = calendarDate(year: 2026, month: 7, day: 1, hour: 15, minute: 30)
+        try log.insert(attempt(id: 1, ruleId: uuid(1), startedAt: first, decision: .opened))
+        try log.insert(attempt(id: 2, ruleId: uuid(1), startedAt: second, decision: .cancelled))
+
+        var tokyoCalendar = Calendar(identifier: .gregorian)
+        tokyoCalendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        let utcStats = StatsService(logStore: log, calendar: utcCalendar(), now: { end })
+        let tokyoStats = StatsService(logStore: log, calendar: tokyoCalendar, now: { end })
+
+        XCTAssertEqual(try utcStats.hourlyAttemptBreakdown(from: start, to: end), [15: 2])
+        XCTAssertEqual(try tokyoStats.hourlyAttemptBreakdown(from: start, to: end), [0: 2])
+        XCTAssertNil(try tokyoStats.hourlyAttemptBreakdown(from: start, to: end)[1])
+    }
+
     func testReclaimedSecondsAllTimeDoesNotShrinkWhenMedianLaterDrops() throws {
         let log = try makeLogStore()
         let highDurationDate = calendarDate(year: 2026, month: 7, day: 1, hour: 9)

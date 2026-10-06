@@ -107,11 +107,17 @@ struct LockThemePreviewCard: View {
                 .scaleEffect(scale, anchor: .center)
                 .frame(width: 393 * scale, height: 160 * scale)
                 .clipShape(
-                    RoundedRectangle(cornerRadius: 18 * scale, style: .continuous)
+                    RoundedRectangle(
+                        cornerRadius: LockThemeLiveActivityView.previewCornerRadius * scale,
+                        style: .continuous
+                    )
                 )
                 .overlay {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 18 * scale, style: .continuous)
+                        RoundedRectangle(
+                            cornerRadius: LockThemeLiveActivityView.previewCornerRadius * scale,
+                            style: .continuous
+                        )
                             .stroke(DesignTokens.accent, lineWidth: 2)
                     }
                 }

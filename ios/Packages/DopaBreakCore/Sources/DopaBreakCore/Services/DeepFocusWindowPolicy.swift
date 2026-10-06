@@ -18,9 +18,6 @@ public enum DeepFocusConstants {
     /// これを消し忘れると「窓が終わったのに開けない」が更新直後の全員に起きる。
     public static let legacyShieldStoreName = "dopabreak.rules"
 
-    /// 「いますぐ」の4択で既定に置く長さ（分）。残りの選択肢は画面側が持つ。
-    public static let defaultSessionDurationMinutes = 60
-
     /// 予定の既定の時間帯（20:00→22:00）。夜だけ強化の既定（23:00→7:00）と重ならない位置に置く。
     public static let defaultScheduleStartMinutes = 1_200
     public static let defaultScheduleEndMinutes = 1_320
@@ -44,20 +41,26 @@ public enum DeepFocusConstants {
         return weekday
     }
 
+    public static func dailyScheduleActivityName(index: Int) -> String { "dopabreak.deepfocus.daily\(index)" }
+
+    public static func scheduleActivityName(index: Int, weekday: Int) -> String {
+        index == 0 ? scheduleActivityName(weekday: weekday) : "dopabreak.deepfocus.second.weekday\(weekday)"
+    }
+
     /// 完全ブロックの窓を動かすための活動か。拡張はこれで分岐する。
     public static func isWindowActivity(_ activityName: String) -> Bool {
-        activityName == sessionActivityName || scheduleWeekday(activityName: activityName) != nil
+        allWindowActivityNames.contains(activityName)
     }
 
     /// 登録しうる活動名の全部。張り直しの前に、いま要らないものまで含めて止めるために使う。
     public static var allWindowActivityNames: [String] {
-        [sessionActivityName] + allWeekdays.map(scheduleActivityName(weekday:))
+        [sessionActivityName] + (0..<2).map(dailyScheduleActivityName(index:)) + (0..<2).flatMap { index in allWeekdays.map { scheduleActivityName(index: index, weekday: $0) } }
     }
 }
 
 /// いま完全ブロックの窓の中にいるかを決める純関数。
 ///
-/// 窓は2種類ある。「いますぐ」で始めたセッションと、週に1本の予定。
+/// 窓は2種類ある。「いますぐ」で始めたセッションと、週に最大2本の予定。
 /// どちらか一方でも開いていれば窓の中とみなす（両方が同時に開くこともある）。
 /// 時計を読むのは呼び出し側で、ここへは `now` を渡す。
 public enum DeepFocusWindowPolicy {
@@ -151,6 +154,36 @@ public enum DeepFocusWindowPolicy {
         return schedule.weekdays.contains(previousWeekday(weekday)) && minute < end
     }
 
+    public static func isScheduleActive(now: Date, schedules: [DeepFocusSchedule], calendar: Calendar) -> Bool {
+        schedules.contains { isScheduleActive(now: now, schedule: $0, calendar: calendar) }
+    }
+
+    /// Return the end of the connected union of active and immediately following windows.
+    /// Calendar dates (rather than fixed 24-hour offsets) preserve local time across DST.
+    public static func scheduleWindowEnd(now: Date, schedules: [DeepFocusSchedule], calendar: Calendar, session: DeepFocusSession? = nil) -> Date? {
+        var windows: [(start: Date, end: Date)] = []
+        if let active = activeSession(session, now: now) {
+            guard let end = active.endsAt else { return nil }
+            windows.append((active.startedAt, end))
+        }
+        for offset in -1...8 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)) else { continue }
+            for schedule in schedules where isScheduleUsable(schedule) && schedule.weekdays.contains(calendar.component(.weekday, from: day)) {
+                guard let start = calendar.date(bySettingHour: schedule.startMinutes / 60, minute: schedule.startMinutes % 60, second: 0, of: day),
+                      let endDay = calendar.date(byAdding: .day, value: crossesMidnight(startMinutes: schedule.startMinutes, endMinutes: schedule.endMinutes) ? 1 : 0, to: day),
+                      let end = calendar.date(bySettingHour: schedule.endMinutes / 60, minute: schedule.endMinutes % 60, second: 0, of: endDay) else { continue }
+                windows.append((start, end))
+            }
+        }
+        var boundary = windows.filter { $0.start <= now && now < $0.end }.map(\.end).max()
+        for window in windows.sorted(by: { $0.start < $1.start }) {
+            if let end = boundary, window.start <= end, window.end > end { boundary = window.end }
+        }
+        // A week-long union has no finite next end. Do not invent an end time.
+        if let end = boundary, end.timeIntervalSince(now) > 7 * 86_400 { return nil }
+        return boundary
+    }
+
     // MARK: - セッションの窓
 
     /// 終わる時刻を過ぎているか。「自分で戻すまで」は過ぎない。
@@ -208,12 +241,8 @@ public enum DeepFocusWindowPolicy {
         snapshot: DeepFocusShieldSnapshot,
         calendar: Calendar
     ) -> Bool {
-        isWindowActive(
-            now: now,
-            session: snapshot.session,
-            schedule: snapshot.schedule,
-            calendar: calendar
-        )
+        isSessionActive(now: now, session: snapshot.session)
+            || isScheduleActive(now: now, schedules: snapshot.schedules, calendar: calendar)
     }
 
     /// いま開いている窓に対して、拡張がシールドへ流す選択データを返す。
@@ -238,7 +267,7 @@ public enum DeepFocusWindowPolicy {
         if isSessionActive(now: now, session: snapshot.session) {
             appendUnique(snapshot.sessionSelectionDataList ?? snapshot.selectionDataList)
         }
-        if isScheduleActive(now: now, schedule: snapshot.schedule, calendar: calendar) {
+        if isScheduleActive(now: now, schedules: snapshot.schedules, calendar: calendar) {
             appendUnique(snapshot.selectionDataList)
         }
         return result

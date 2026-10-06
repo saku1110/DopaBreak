@@ -4,8 +4,8 @@
 The composition is defined by:
   .claude/specs/appstore-screenshots-v2-diagonal.md
 
-The legacy generator remains the source of truth for gradients and the
-approved en-US / ko copy used by panels 01-04 and 06-07. This module owns the
+The legacy generator remains the source of truth for gradients and unchanged
+approved copy. S9/S10 revised copy and the eight-slot order are owned here. This module owns the
 locale-specific typography and v2 lock-screen mock. Core app screens come
 from the real-window XCTest captures in output/app-store-screenshots/raw-core/.
 The legacy filename contains hyphens, so it is loaded with importlib without
@@ -43,7 +43,7 @@ IPHONE_CANVAS_SIZE = (1320, 2868)
 IPAD_CANVAS_SIZE = (2064, 2752)
 SCREEN_ASPECT = (1320, 2868)
 SUPPORTED_LOCALES = ("ja", "en-US", "ko")
-SUPPORTED_DEVICES = ("iphone-69", "ipad-13")
+SUPPORTED_DEVICES = ("iphone-69", "iphone-65", "ipad-13", "all")
 LOCALE = "ja"
 DEVICE = "iphone-69"
 AA_SCALE = 4
@@ -117,12 +117,22 @@ LOCK_THEME_E1 = {
     "secondary_text": (139, 146, 158),
 }
 LOCK_ACTIVITY_CARD_MARGIN = lock_pt_to_px(14)
+# 2026-09-28: the card is the real LockThemeLiveActivityView (theme e1) captured by
+# LockThemeDensitySnapshotCapture at 393 x 160 pt. It is scaled to the 412 pt lock
+# screen container width, so the box height follows the capture aspect ratio and the
+# bottom edge stays at y=2280 (the LOCK_PHONE_WIDTH fit depends on it).
+LOCK_CAPTURED_CARD_SIZE = (1179, 480)
 LOCK_ACTIVITY_CARD_BOX = (
     LOCK_ACTIVITY_CARD_MARGIN,
-    1860,
+    2280 - round(LOCK_CAPTURED_CARD_SIZE[1] * (CANVAS_WIDTH - 2 * LOCK_ACTIVITY_CARD_MARGIN) / LOCK_CAPTURED_CARD_SIZE[0]),
     CANVAS_WIDTH - LOCK_ACTIVITY_CARD_MARGIN,
     2280,
 )
+THEME_GALLERY_RAW_ROOT = ROOT / "output" / "app-store-screenshots" / "theme-gallery" / "raw"
+# Breathing, home, deep focus settings and the e1 theme card from
+# scripts/capture-appstore-rebuild-2026-09-28.sh are copied here right after each capture,
+# so other sessions writing raw-core/ or theme-gallery/ cannot swap the pixels under this delivery.
+REBUILD_RAW_ROOT = ROOT / "output" / "verify" / "appstore-rebuild-2026-09-28" / "raw"
 LOCK_ACTIVITY_CARD_RADIUS = lock_pt_to_px(18)
 LOCK_CALLOUT_WIDTH = round(CANVAS_WIDTH * 0.894)
 LOCK_CALLOUT_VERTICAL_CLEARANCE = 40
@@ -136,7 +146,7 @@ LOCK_CALLOUT_SHADOW_OPACITY = 0.45
 LOCK_CALLOUT_SHADOW_BLUR = 50
 LOCK_CALLOUT_SHADOW_OFFSET = (0, 24)
 
-PANEL_IDS = (1, 2, 3, 4, 5, 6, 8, 9, 10)
+PANEL_IDS = (1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12)
 SLUGS = (
     "breath",
     "home",
@@ -147,19 +157,22 @@ SLUGS = (
     "intent",
     "reflection",
     "grayscale-home",
+    "lock-designs",
+    "breathing-goals",
 )
+# 2026-09-28 rebuild (owner approved): goals when opening -> full block -> lock screen goals
+# -> night block -> grayscale -> reclaimed time -> lock designs. reflection/intent are out.
 UPLOAD_ORDER = (
-    (1, "breath"),
-    (3, "lockscreen"),
+    (12, "breathing-goals"),
     (6, "deepfocus"),
-    (2, "home"),
+    (3, "lockscreen"),
     (4, "night"),
-    (8, "intent"),
-    (9, "reflection"),
     (10, "grayscale-home"),
+    (2, "home"),
+    (11, "lock-designs"),
 )
 
-# Layout IDs stay attached to upload positions. Only their screen/copy content moves.
+# Preserve existing layout/content IDs independently of the revised upload positions.
 CONTENT_PANEL_BY_LAYOUT = {
     1: 2,   # breath
     2: 1,   # home
@@ -169,6 +182,8 @@ CONTENT_PANEL_BY_LAYOUT = {
     6: 6,   # deep focus
     8: 8,   # intent
     9: 9,   # reflection
+    11: 11, # theme gallery
+    12: 12, # breathing with three goals
     10: 10, # grayscale home
 }
 LAYOUT_SURFACES = {
@@ -181,22 +196,33 @@ LAYOUT_SURFACES = {
     8: "lime",
     9: "dark",
     10: "dark",
+    11: "dark",
+    12: "dark",
 }
 
 SOURCE_PATHS: tuple[Path | None, ...] = (
-    RAW_CORE_ROOT / "home.png",
+    REBUILD_RAW_ROOT / "ja" / "home.png",
     RAW_CORE_ROOT / "breath.png",
     RAW_CORE_ROOT / "stats.png",
-    RAW_CORE_ROOT / "nightmode.png",
     None,
-    RAW_CORE_ROOT / "deepfocus.png",
+    None,
+    REBUILD_RAW_ROOT / "ja" / "deepfocus.png",
     RAW_CORE_ROOT / "intent.png",
     RAW_CORE_ROOT / "reflection.png",
     None,
+    None,
+    REBUILD_RAW_ROOT / "ja" / "breathing-goals.png",
 )
 
 # Panels whose screen is drawn by this module instead of an XCTest capture.
-MOCK_SOURCE_NAMES = {5: "mock_lock", 10: "mock_home_grayscale"}
+# 2026-09-28 owner: two block-screen panels look the same, so only the night panel shows
+# the block screen. The full-block panel shows the settings screen its sub line describes.
+MOCK_SOURCE_NAMES = {
+    4: "mock_shield_night",
+    5: "mock_lock",
+    10: "mock_home_grayscale",
+    11: "real_theme_gallery",
+}
 
 
 def source_labels(paths: Sequence[Path | None], locale: str) -> tuple[str, ...]:
@@ -222,11 +248,13 @@ SCREEN_CHARACTER_COUNTS = (
     0,  # intent
     1,  # reflection（1問目・未選択）
     0,  # grayscale home mock
+    0,  # theme gallery
+    1,  # breathing goals
 )
 
 # 最終コンポジットに見える画面内キャラ数。statsだけは配置後の可視領域から算出する。
 VISIBLE_SCREEN_CHARACTER_COUNTS: tuple[int | None, ...] = (
-    1, 1, None, 0, 0, 0, 0, 1, 0
+    1, 1, None, 0, 0, 0, 0, 1, 0, 0, 1
 )
 STATS_PHONE_WIDTH = MAX_STRAIGHT_PHONE_WIDTH
 STATS_PHONE_VISUAL_TOP = 930
@@ -262,7 +290,7 @@ BREATH_SOURCE_OFFSET_Y = 400
 @dataclass(frozen=True)
 class CopySpec:
     eyebrow: str
-    headline: tuple[str, str]
+    headline: tuple[str, ...]
     sub: str
     eyebrow_y: int
     headline_y: int
@@ -279,7 +307,7 @@ def _copy_spec(
 ) -> CopySpec:
     return CopySpec(
         eyebrow=eyebrow,
-        headline=(headline_1, headline_2),
+        headline=tuple(line for line in (headline_1, headline_2) if line),
         sub=sub,
         eyebrow_y=COPY_EYEBROW_Y,
         headline_y=COPY_HEADLINE_Y,
@@ -486,6 +514,49 @@ COPY: dict[str, tuple[CopySpec, ...]] = {
     ),
 }
 
+APPROVED_COPY = COPY.copy()
+
+# S9/S10 revised: only new goals and breath display copy changes.
+REVISED_COPY = {
+    "ja": {
+        "goals": ("SNSを開いたその瞬間", "開くたびに目標を思い出す", "", "SNSの前にひと呼吸"),
+        "breath": ("反射で開く前のひと呼吸", "SNSの前にひと呼吸", "", "使う理由を選んでからのSNS時間"),
+    },
+    "en-US": {
+        "goals": ("WHEN YOU OPEN SOCIAL MEDIA", "Your goals every time you open", "", "Take a breath before social media"),
+        "breath": ("A PAUSE BEFORE THE SCROLL", "Room for a breath", "", "A moment to choose your reason for opening"),
+    },
+    "ko": {
+        "goals": ("SNS를 여는 순간", "열 때마다 떠오르는 나의 목표", "", "SNS 전에 잠깐 숨 고르기"),
+        "breath": ("무심코 열기 전 잠깐의 여유", "SNS 전에 숨 고르기", "", "쓸 이유부터 고르는 SNS 시간"),
+    },
+}
+for _locale, _new in REVISED_COPY.items():
+    _specs = list(COPY[_locale])
+    _specs[1] = _copy_spec(*_new["breath"], "lime")
+    _gallery_copy = {
+        "ja": ("選べるロック画面", "あなたの目標を", "好きなデザインで", "10種類から選べる 目標カードのデザイン"),
+        "en-US": ("LOCK SCREEN STYLES", "Keep your goals", "in a style you love", "Choose from 10 lock screen designs"),
+        "ko": ("골라 쓰는 잠금 화면", "내 목표를", "좋아하는 디자인으로", "잠금 화면 목표 카드 10종 중에서 골라보세요"),
+    }
+    _specs.extend((_copy_spec(*_gallery_copy[_locale], "dark"),
+                   _copy_spec(*_new["goals"], "dark")))
+    COPY[_locale] = tuple(_specs)
+
+# 2026-09-28: the lock screen is what you see when you pick up the phone, not when you
+# open social media. Headline only; eyebrow and sub stay approved. humanizer-en/ko audits:
+# output/verify/appstore-rebuild-2026-09-28/humanizer-{en,ko}-lock.txt (exit 0).
+LOCK_REBUILD_HEADLINES = {
+    "ja": ("無意識に手に取っても", "まず目標が見える"),
+    "en-US": ("Pick up your phone", "and your goals come first"),
+    "ko": ("무심코 폰을 들면", "목표부터 떠요"),
+}
+LOCK_COPY_INDEX = PANEL_IDS.index(5)
+for _locale, _headline in LOCK_REBUILD_HEADLINES.items():
+    _specs = list(COPY[_locale])
+    _specs[LOCK_COPY_INDEX] = replace(_specs[LOCK_COPY_INDEX], headline=_headline)
+    COPY[_locale] = tuple(_specs)
+
 COPY_SPECS = COPY[LOCALE]
 
 
@@ -564,19 +635,22 @@ LOCK_DATES = {
 
 LOCK_GOALS = {
     "ja": (
-        "英語で商談できる自分になる",
-        "朝のランニングを続ける",
-        "読書を30分する",
+        "1000万円貯める",
+        "12月までにTOEIC800点を取る",
+        "毎朝30分歩く",
+        "今日は0時までに寝る",
     ),
     "en-US": (
-        "Hold my own in English meetings",
-        "Keep up my morning run",
-        "Read for 30 minutes",
+        "More time with family and friends",
+        "Save $10,000 by December",
+        "Hit the gym three times a week",
+        "In bed by 11 tonight",
     ),
     "ko": (
-        "영어로 상담할 수 있는 나 되기",
-        "아침 러닝 계속하기",
-        "30분 독서하기",
+        "종잣돈 1억 모으기",
+        "12월까지 토익 900점 넘기기",
+        "아침에 30분 걷기",
+        "오늘은 12시 전에 자기",
     ),
 }
 
@@ -757,7 +831,7 @@ def validate_legacy_copy_reuse(locale: str) -> None:
     if locale not in ("en-US", "ko"):
         return
     days = LEGACY.PANEL_DAYS[locale][DEVICE]
-    for panel_id in (1, 2, 3, 4, 6):
+    for panel_id in (1, 3, 4, 6):
         legacy = LEGACY.COPY[locale][panel_id - 1]
         expected = (
             legacy["eyebrow"],
@@ -788,15 +862,17 @@ def configure_locale(locale: str) -> None:
     SLOTS_PATH = OUTPUT_ROOT / f"slots-{locale}.json"
     RAW_CORE_ROOT = ROOT / "output" / "app-store-screenshots" / "raw-core" / locale
     SOURCE_PATHS = (
-        RAW_CORE_ROOT / "home.png",
+        REBUILD_RAW_ROOT / locale / "home.png",
         RAW_CORE_ROOT / "breath.png",
         RAW_CORE_ROOT / "stats.png",
-        RAW_CORE_ROOT / "nightmode.png",
         None,
-        RAW_CORE_ROOT / "deepfocus.png",
+        None,
+        REBUILD_RAW_ROOT / locale / "deepfocus.png",
         RAW_CORE_ROOT / "intent.png",
         RAW_CORE_ROOT / "reflection.png",
         None,
+        None,
+        REBUILD_RAW_ROOT / locale / "breathing-goals.png",
     )
     SOURCE_LABELS = source_labels(SOURCE_PATHS, locale)
     SCREEN_CHARACTER_COUNTS = (
@@ -809,11 +885,35 @@ def configure_locale(locale: str) -> None:
         0,
         1,
         0,
+        0,
+        1,
     )
-    VISIBLE_SCREEN_CHARACTER_COUNTS = (1, 1, None, 0, 0, 0, 0, 1, 0)
+    VISIBLE_SCREEN_CHARACTER_COUNTS = (1, 1, None, 0, 0, 0, 0, 1, 0, 0, 1)
     COPY_SPECS = COPY[locale]
 
     validate_legacy_copy_reuse(locale)
+    for index, approved in enumerate(APPROVED_COPY[locale]):
+        if index == LOCK_COPY_INDEX:
+            spec = COPY_SPECS[index]
+            if (spec.eyebrow, spec.sub) != (approved.eyebrow, approved.sub):
+                raise ValueError(f"Lock screen eyebrow/sub changed: {locale}")
+            if spec.headline != LOCK_REBUILD_HEADLINES[locale]:
+                raise ValueError(f"Lock screen headline differs from the 2026-09-28 copy: {locale}")
+            joined = " ".join(spec.headline)
+            if any(mark in joined for mark in "、。！？!?.,:;’'／/¥$₩"):
+                raise ValueError(f"Punctuation or price in lock headline: {joined}")
+            continue
+        if index != 1 and COPY_SPECS[index] != approved:
+            raise ValueError(f"Approved copy changed: {locale} content {PANEL_IDS[index]}")
+    for content_panel in (2, 12):
+        spec = COPY_SPECS[PANEL_IDS.index(content_panel)]
+        if len(spec.headline) != 1:
+            raise ValueError("Revised headlines must fit on one line")
+        text = " ".join((spec.eyebrow, *spec.headline, spec.sub))
+        if any(mark in text for mark in "、。！？!?.,:;’'／/¥$₩"):
+            raise ValueError(f"Punctuation or price in revised copy: {text}")
+        if any(negative in text.lower() for negative in ("ブロックしない", "don't block", "don’t block", "막지 않아요")):
+            raise ValueError(f"Negative breath copy: {text}")
     font_manifest(locale)
     live_activity_copy(locale)
 
@@ -1001,130 +1101,33 @@ def tracked_text_image(
     return image
 
 
+def captured_lock_card(locale: str) -> Image.Image:
+    """Theme e1 Live Activity card rendered by the app's own SwiftUI view."""
+    directory = REBUILD_RAW_ROOT / locale / "theme"
+    manifest = json.loads((directory / "capture.json").read_text(encoding="utf-8"))
+    if tuple(manifest["goals"]) != LOCK_GOALS[locale]:
+        raise ValueError(f"Theme capture goals differ from LOCK_GOALS: {locale}")
+    with Image.open(directory / "e1.png") as raw:
+        card = raw.convert("RGB")
+    if card.size != LOCK_CAPTURED_CARD_SIZE:
+        raise ValueError(f"Unexpected e1 capture size: {locale} {card.size}")
+    return card
+
+
 def draw_live_activity_card(canvas: Image.Image, locale: str) -> dict[str, Any]:
-    """Draw the lock-screen Live Activity from liveActivityView()."""
-    localized_copy = live_activity_copy(locale)
+    """Paste the lock-screen Live Activity captured from LockThemeLiveActivityView."""
     left, top, right, bottom = LOCK_ACTIVITY_CARD_BOX
-    radius = LOCK_ACTIVITY_CARD_RADIUS
-    padding = lock_pt_to_px(16)
-    vstack_spacing = lock_pt_to_px(10)
-    goal_spacing = lock_pt_to_px(5)
-    goal_hstack_spacing = lock_pt_to_px(8)
-    summary_spacing = lock_pt_to_px(14)
-    accent_width = lock_pt_to_px(3)
-    goal_bar_width = lock_pt_to_px(10)
-    goal_bar_height = lock_pt_to_px(2)
-
-    card_mask = rounded_mask(CANVAS_SIZE, LOCK_ACTIVITY_CARD_BOX, radius)
-    canvas.paste(
-        LOCK_THEME_E1["card"],
-        LOCK_ACTIVITY_CARD_BOX,
-        card_mask.crop(LOCK_ACTIVITY_CARD_BOX),
-    )
-
-    accent_mask = Image.new("L", CANVAS_SIZE, 0)
-    ImageDraw.Draw(accent_mask).rectangle(
-        (left, top, left + accent_width - 1, bottom - 1),
-        fill=255,
-    )
-    accent_mask = ImageChops.multiply(accent_mask, card_mask)
-    canvas.paste(
-        LOCK_THEME_E1["accent"],
-        (0, 0, CANVAS_WIDTH, CANVAS_HEIGHT),
-        accent_mask,
-    )
-
-    content_left = left + padding
-    content_right = right - padding
-    content_y = top + padding
-
-    eyebrow = tracked_text_image(
-        localized_copy["eyebrow_rendered"],
-        font(locale, lock_pt_to_px(10), True),
-        LOCK_THEME_E1["secondary_text"],
-        tracking=lock_pt_to_px(1.4),
-    )
-    canvas.paste(eyebrow, (content_left, content_y), eyebrow.getchannel("A"))
-    content_y += eyebrow.height + vstack_spacing
-
-    goal_font = font(locale, lock_pt_to_px(15), True)
-    goal_titles = LOCK_GOALS[locale]
-    goal_boxes = []
-    for index, title in enumerate(goal_titles):
-        title_image = text_image_with_font(title, goal_font, LOCK_THEME_E1["primary_text"])
-        title_x = content_left + goal_bar_width + goal_hstack_spacing
-        bar_y = content_y + round((title_image.height - goal_bar_height) / 2)
-        ImageDraw.Draw(canvas).rectangle(
-            (
-                content_left,
-                bar_y,
-                content_left + goal_bar_width - 1,
-                bar_y + goal_bar_height - 1,
-            ),
-            fill=LOCK_THEME_E1["accent"],
-        )
-        canvas.paste(title_image, (title_x, content_y), title_image.getchannel("A"))
-        goal_boxes.append(
-            [
-                content_left,
-                content_y,
-                title_x + title_image.width,
-                content_y + title_image.height,
-            ]
-        )
-        content_y += title_image.height
-        if index < len(goal_titles) - 1:
-            content_y += goal_spacing
-
-    content_y += vstack_spacing
-    divider_y = content_y
-    ImageDraw.Draw(canvas, "RGBA").line(
-        (content_left, divider_y, content_right - 1, divider_y),
-        fill=(*LOCK_THEME_E1["secondary_text"], round(255 * 0.25)),
-        width=1,
-    )
-    content_y += 1 + vstack_spacing
-
-    summary_font = font(locale, lock_pt_to_px(12), True)
-    cancelled = text_image_with_font(
-        localized_copy["cancelled"],
-        summary_font,
-        LOCK_THEME_E1["accent"],
-    )
-    attempted = text_image_with_font(
-        localized_copy["attempted"],
-        summary_font,
-        LOCK_THEME_E1["secondary_text"],
-    )
-    attempted_x = content_left + cancelled.width + summary_spacing
-    canvas.paste(cancelled, (content_left, content_y), cancelled.getchannel("A"))
-    canvas.paste(attempted, (attempted_x, content_y), attempted.getchannel("A"))
-    summary_bottom = content_y + max(cancelled.height, attempted.height)
-
-    if attempted_x + attempted.width > content_right:
-        raise ValueError("Live Activity summary exceeds the 16pt horizontal padding")
-    if summary_bottom + padding > bottom:
-        raise ValueError("Live Activity content exceeds the 16pt vertical padding")
-
+    card = captured_lock_card(locale).resize((right - left, bottom - top), Image.Resampling.LANCZOS)
+    card_mask = rounded_mask(CANVAS_SIZE, LOCK_ACTIVITY_CARD_BOX, LOCK_ACTIVITY_CARD_RADIUS)
+    canvas.paste(card, (left, top), card_mask.crop(LOCK_ACTIVITY_CARD_BOX))
     return {
         "locale": locale,
-        "copy": {
-            **localized_copy,
-            "goals": list(goal_titles),
-        },
+        "source": (REBUILD_RAW_ROOT / locale / "theme" / "e1.png").relative_to(ROOT).as_posix(),
+        "goals": list(LOCK_GOALS[locale]),
         "source_box": list(LOCK_ACTIVITY_CARD_BOX),
-        "corner_radius_px": radius,
+        "corner_radius_px": LOCK_ACTIVITY_CARD_RADIUS,
         "horizontal_margin_px": LOCK_ACTIVITY_CARD_MARGIN,
-        "padding_px": padding,
-        "vstack_spacing_px": vstack_spacing,
-        "goal_spacing_px": goal_spacing,
-        "accent_bar_width_px": accent_width,
-        "goal_bar_size_px": [goal_bar_width, goal_bar_height],
-        "divider_height_px": 1,
-        "goal_boxes": goal_boxes,
-        "summary_box": [content_left, content_y, attempted_x + attempted.width, summary_bottom],
     }
-
 
 def draw_lock_status_icons(canvas: Image.Image) -> None:
     draw = ImageDraw.Draw(canvas, "RGBA")
@@ -1513,8 +1516,8 @@ def baseline_text_image(
     return image
 
 
-def draw_home_status_bar(canvas: Image.Image) -> None:
-    clock = text_image_with_font("9:41", sf_font(56, 600), (248, 249, 247))
+def draw_home_status_bar(canvas: Image.Image, clock_text: str = "9:41") -> None:
+    clock = text_image_with_font(clock_text, sf_font(56, 600), (248, 249, 247))
     canvas.paste(clock, (150, 70), clock.getchannel("A"))
 
     draw = ImageDraw.Draw(canvas, "RGBA")
@@ -1633,6 +1636,133 @@ def mock_home_grayscale(size: tuple[int, int], locale: str) -> Image.Image:
     return ImageOps.grayscale(image).convert("RGB")
 
 
+# ---------------------------------------------------------------------------
+# Screen Time block screen (2026-09-28 rebuild).
+# iOS draws this screen itself from ShieldConfigExtension, so it cannot be
+# captured from XCTest or the Simulator. The mock reproduces the system layout
+# (hourglass, title, subtitle, one capsule button) with the exact colors and
+# localized strings that ios/ShieldConfigExtension sets. Layout ratios follow a
+# real device capture of a custom shield (icon top 38%, title centre 49.6%,
+# subtitle centre 54.2%, button centre 92.1%, button width 43% of the screen).
+SHIELD_COLORS = {
+    "background": (10, 11, 13),   # ShieldColors.inkBlack
+    "title": (244, 245, 242),     # ShieldColors.paper
+    "subtitle": (126, 134, 148),  # ShieldColors.muted
+    "button": (199, 249, 77),     # ShieldColors.electricLime
+    "button_label": (10, 11, 13), # ShieldColors.inkBlack
+    "hourglass": (99, 99, 104),
+    "sand": (242, 242, 242),
+}
+# ios/ShieldConfigExtension/Localizable.xcstrings (shield.title / block.shield.* / shield.action.close).
+SHIELD_STRINGS = {
+    "ja": {"title": "完全ブロック中", "manual": "手動ブロック あと42分",
+           "night": "起床時刻の7:00までブロック", "close": "閉じる"},
+    "en-US": {"title": "Full Block is on", "manual": "Manual block: 42 minutes left",
+              "night": "Blocked until wake-up at 7:00\u202fAM", "close": "Close"},
+    "ko": {"title": "완전 차단 중", "manual": "수동 차단 42분 남음",
+           "night": "기상 시각 오전 7:00까지 차단", "close": "닫기"},
+}
+# The status-bar clock tells the viewer when the shield appeared: an evening
+# focus session vs. after bedtime. en-US uses the 12-hour status bar clock.
+SHIELD_CLOCKS = {
+    "manual": {"ja": "20:18", "en-US": "8:18", "ko": "20:18"},
+    "night": {"ja": "0:12", "en-US": "12:12", "ko": "0:12"},
+}
+
+
+def draw_shield_hourglass(canvas: Image.Image, center_x: int, top: int) -> tuple[int, int, int, int]:
+    """Filled hourglass with sand settled in the lower bulb (iOS default shield icon).
+
+    The silhouette is traced from a smooth half-width profile: rounded top and
+    bottom edges, near-vertical shoulders, then an eased curve into a narrow waist.
+    """
+    width, height = 111, 186
+    scale = AA_SCALE
+    w, h = width * scale, height * scale
+    full = w / 2
+    waist = w * 0.085
+    corner = w * 0.16
+
+    def half_width(y: float) -> float:
+        distance = min(y, h - y)            # distance from the nearest flat edge
+        if distance < corner:                # rounded outer corner
+            dy = corner - distance
+            return full - corner + math.sqrt(max(0.0, corner * corner - dy * dy))
+        u = distance / (h / 2)               # 0 at the edge, 1 at the waist
+        start = 0.22
+        t = min(1.0, max(0.0, (u - start) / (1 - start)))
+        eased = t * t * (3 - 2 * t)
+        return waist + (full - waist) * (1 - eased)
+
+    steps = 240
+    right = [(w / 2 + half_width(h * i / steps), h * i / steps) for i in range(steps + 1)]
+    left = [(w - x, y) for x, y in reversed(right)]
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    draw.polygon(right + left, fill=SHIELD_COLORS["hourglass"] + (255,))
+    apex = h * 0.68
+    base = h * 0.93
+    spread = w * 0.38
+    draw.polygon(
+        [(w / 2, apex), (w / 2 + spread, base), (w / 2 - spread, base)],
+        fill=SHIELD_COLORS["sand"] + (255,),
+    )
+    icon = layer.resize((width, height), Image.Resampling.LANCZOS)
+    left_x = center_x - width // 2
+    canvas.paste(icon, (left_x, top), icon.getchannel("A"))
+    return left_x, top, left_x + width, top + height
+
+
+def mock_shield(size: tuple[int, int], locale: str, kind: str) -> Image.Image:
+    """Screen Time block screen shown when opening an app during a DopaBreak block."""
+    if size != CANVAS_SIZE:
+        raise ValueError(f"The v2 shield mock is fixed to {CANVAS_SIZE}, got {size}")
+    if locale not in SUPPORTED_LOCALES:
+        raise ValueError(f"Unsupported shield mock locale: {locale}")
+    if kind not in ("manual", "night"):
+        raise ValueError(f"Unsupported shield kind: {kind}")
+    strings = SHIELD_STRINGS[locale]
+    width, height = size
+    image = Image.new("RGB", size, SHIELD_COLORS["background"])
+    draw_home_status_bar(image, SHIELD_CLOCKS[kind][locale])
+
+    icon_top = round(height * 0.382)
+    draw_shield_hourglass(image, width // 2, icon_top)
+
+    title = text_image_with_font(strings["title"], font(locale, 102, True), SHIELD_COLORS["title"])
+    paste_centered_image(image, title, round(height * 0.496 - title.height / 2))
+    subtitle = text_image_with_font(strings[kind], font(locale, 51, False), SHIELD_COLORS["subtitle"])
+    if subtitle.width > width - 2 * 60:
+        raise ValueError(f"Shield subtitle does not fit: {locale} {kind}")
+    paste_centered_image(image, subtitle, round(height * 0.542 - subtitle.height / 2))
+
+    button_width, button_height = round(width * 0.43), 150
+    button_center_y = round(height * 0.921)
+    button_box = (
+        (width - button_width) // 2,
+        button_center_y - button_height // 2,
+        (width + button_width) // 2,
+        button_center_y + button_height // 2,
+    )
+    scale = AA_SCALE
+    button = Image.new("RGBA", (button_width * scale, button_height * scale), (0, 0, 0, 0))
+    ImageDraw.Draw(button).rounded_rectangle(
+        (0, 0, button_width * scale - 1, button_height * scale - 1),
+        radius=button_height * scale // 2,
+        fill=SHIELD_COLORS["button"] + (255,),
+    )
+    button = button.resize((button_width, button_height), Image.Resampling.LANCZOS)
+    image.paste(button, button_box[:2], button.getchannel("A"))
+    label = text_image_with_font(strings["close"], font(locale, 51, False), SHIELD_COLORS["button_label"])
+    image.paste(
+        label,
+        (width // 2 - label.width // 2, button_center_y - label.height // 2),
+        label.getchannel("A"),
+    )
+    ImageDraw.Draw(image, "RGBA").rounded_rectangle(HOME_INDICATOR_BOX, radius=8, fill=(255, 255, 255, 245))
+    return image
+
+
 def tight_text_image(text: str, size: int, fill: tuple[int, int, int], *, bold: bool) -> Image.Image:
     selected_font = font(LOCALE, size, bold)
     bbox = selected_font.getbbox(text)
@@ -1694,7 +1824,7 @@ def paste_solid_rounded_rect(
     canvas.paste(fill, box, mask.crop(box))
 
 
-def draw_copy_block(canvas: Image.Image, spec: CopySpec) -> dict[str, Any]:
+def draw_copy_block(canvas: Image.Image, spec: CopySpec, *, compact: bool = False) -> dict[str, Any]:
     if spec.surface == "lime":
         pill_fill = COLORS["ink"]
         pill_text = COLORS["lime"]
@@ -1735,7 +1865,7 @@ def draw_copy_block(canvas: Image.Image, spec: CopySpec) -> dict[str, Any]:
     sub_box, sub_metric = paste_centered_text(
         canvas,
         spec.sub,
-        spec.sub_y,
+        headline_boxes[-1][3] + 32 if compact else spec.sub_y,
         44,
         sub_fill,
         bold=False,
@@ -2638,6 +2768,8 @@ def source_for(panel: int) -> Image.Image:
     source_path = SOURCE_PATHS[PANEL_IDS.index(panel)]
     if panel == 5:
         source = mock_lock(CANVAS_SIZE, LOCALE).convert("RGB")
+    elif panel == 4:
+        source = mock_shield(CANVAS_SIZE, LOCALE, "night")
     elif panel == 10:
         source = mock_home_grayscale(CANVAS_SIZE, LOCALE).convert("RGB")
     else:
@@ -2652,6 +2784,21 @@ def source_for(panel: int) -> Image.Image:
     if panel == 2:
         source = breath_countdown_source(source)
     return source
+
+
+IPAD_SHIELD_SOURCE_OFFSET_Y = 600
+
+
+def lifted_source(
+    source: Image.Image,
+    offset_y: int,
+    fill: tuple[int, int, int] = SHIELD_COLORS["background"],
+) -> Image.Image:
+    """Crop the top of a screen capture and pad the bottom with the screen background."""
+    width, height = source.size
+    image = Image.new("RGB", source.size, fill)
+    image.paste(source.crop((0, offset_y, width, height)), (0, 0))
+    return image
 
 
 def breath_countdown_source(source: Image.Image) -> Image.Image:
@@ -2684,7 +2831,49 @@ def source_box_is_visible(
     return visible, geometry
 
 
+def render_added_panel(panel: int, source: Image.Image | None = None) -> tuple[Image.Image, dict[str, Any]]:
+    ipad = DEVICE == "ipad-13"
+    if panel == 11:
+        module_spec = importlib.util.spec_from_file_location("theme_gallery", ROOT / "scripts/generate-appstore-theme-gallery.py")
+        module = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(module)
+        canvas, manifest = module.generate(LOCALE, DEVICE, store_set=True)
+        return canvas, {
+            "slot": {"type": "theme_gallery", "ground_shadow": None, "cards": manifest["themes"]},
+            "character": manifest["character"], "corner_attachment": None,
+            "character_count": {"source_screen": 0, "screen": 0, "external": 1, "total": 1},
+            "copy_geometry": manifest["copy_geometry"], "phone_width_ratio": None,
+            "horizontal_screen_containment": True, "horizontal_chassis_containment": True,
+        }
+    canvas = dark_background()
+    # A narrow diagonal ribbon leaves the three goals as the first panel's focal point.
+    draw_lime_polygon(canvas, ((0, 1040), (CANVAS_WIDTH, 780),
+                              (CANVAS_WIDTH, 1010), (0, 1270)))
+    spec = COPY_SPECS[PANEL_IDS.index(12)]
+    copy_geometry = (draw_ipad_copy_block(canvas, spec, compact=True) if ipad else
+                     draw_copy_block(canvas, replace(spec, eyebrow_y=140, headline_y=240), compact=True))
+    if source is None:
+        source = source_for(12)
+    width = 1100 if not ipad else 1040
+    device = prepare_device(source, width, expected_source_size=IPHONE_CANVAS_SIZE)
+    top = copy_geometry["sub_box"][3] + 32
+    center = center_for_visual_top(device, rotation_deg=0, visual_top=top, center_x=CANVAS_WIDTH / 2)
+    geometry = place_device(canvas, device, center=center, rotation_deg=0)
+    # The complete captured screen, including all three goal rows, must fit.
+    points = list(geometry["outer_corners"].values())
+    if not all(0 <= x <= CANVAS_WIDTH and 0 <= y <= CANVAS_HEIGHT for x, y in points):
+        raise ValueError("Breathing goals phone is clipped")
+    return canvas, {
+        "slot": geometry, "character": None, "corner_attachment": None,
+        "character_count": {"source_screen": 1, "screen": 1, "external": 0, "total": 1},
+        "copy_geometry": copy_geometry, "phone_width_ratio": width / CANVAS_WIDTH,
+        "horizontal_screen_containment": True, "horizontal_chassis_containment": True,
+    }
+
+
 def render_panel(panel: int) -> tuple[Image.Image, dict[str, Any]]:
+    if panel in (11, 12):
+        return render_added_panel(panel)
     if panel not in PANEL_IDS:
         raise ValueError(panel)
     content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
@@ -3100,7 +3289,7 @@ def configure_device_context(device: str, locale: str) -> None:
     SCREENSHOT_ROOT = OUTPUT_ROOT / locale / device
 
 
-def draw_ipad_copy_block(canvas: Image.Image, spec: CopySpec) -> dict[str, Any]:
+def draw_ipad_copy_block(canvas: Image.Image, spec: CopySpec, *, compact: bool = False) -> dict[str, Any]:
     """Draw centered iPad copy at native font widths, capped at 1.25x iPhone."""
     if spec.surface == "lime":
         pill_fill = COLORS["ink"]
@@ -3172,7 +3361,7 @@ def draw_ipad_copy_block(canvas: Image.Image, spec: CopySpec) -> dict[str, Any]:
     sub_box, sub_metric = paste_centered_text(
         canvas,
         spec.sub,
-        IPAD_COPY_SUB_Y,
+        headline_boxes[-1][3] + 32 if compact else IPAD_COPY_SUB_Y,
         55,
         sub_fill,
         bold=False,
@@ -3349,6 +3538,8 @@ def render_ipad_panel(
     sources: dict[int, Image.Image],
 ) -> tuple[Image.Image, dict[str, Any]]:
     """Render one iPad 13-inch asset using an iPhone phone mock as the hero."""
+    if panel in (11, 12):
+        return render_added_panel(panel, sources.get(panel))
     content_panel = CONTENT_PANEL_BY_LAYOUT[panel]
     canvas = dark_background()
     copy_lime_mask: Image.Image | None = None
@@ -3384,6 +3575,11 @@ def render_ipad_panel(
         )
 
     source = sources[content_panel]
+    if panel == 4:
+        # The iPad phone is large enough that only the upper half of the screen is on the
+        # canvas, which cut the "until wake-up" line of the block screen. Lift the block
+        # screen content the same way breath_countdown_source lifts the breath stage.
+        source = lifted_source(source, IPAD_SHIELD_SOURCE_OFFSET_Y)
     straight = IPAD_STRAIGHT_PHONE_WIDTH
     rotated = IPAD_ROTATED_PHONE_WIDTH
     phone_width = rotated if panel in (4, 6) else straight
@@ -3640,7 +3836,7 @@ def write_ipad_slots(panel_records: Sequence[dict[str, Any]]) -> None:
     loaded = json.loads(SLOTS_PATH.read_text(encoding="utf-8"))
     if loaded["canvas"] != {"width": 2064, "height": 2752}:
         raise ValueError(loaded["canvas"])
-    if len(loaded["screenshots"]) != 8:
+    if len(loaded["screenshots"]) != len(UPLOAD_ORDER):
         raise ValueError("iPad slots must contain exactly eight screenshots")
 
 
@@ -3661,7 +3857,7 @@ def sync_ipad_upload_order(files_by_panel: dict[int, Path]) -> None:
         validate_png(target_path, IPAD_CANVAS_SIZE)
         if source_path.read_bytes() != target_path.read_bytes():
             raise ValueError(f"iPad upload copy differs from source: {target_path}")
-    if len(tuple(upload_root.glob("*.png"))) != 8:
+    if len(tuple(upload_root.glob("*.png"))) != len(UPLOAD_ORDER):
         raise ValueError(f"iPad upload-order must contain exactly eight PNGs: {upload_root}")
 
 
@@ -3672,7 +3868,7 @@ def generate_ipad_locale(locale: str) -> None:
     sources = {
         content_panel: source_for(content_panel)
         for content_panel in dict.fromkeys(
-            CONTENT_PANEL_BY_LAYOUT[panel] for panel, _ in UPLOAD_ORDER
+            CONTENT_PANEL_BY_LAYOUT[panel] for panel, _ in UPLOAD_ORDER if panel != 11
         )
     }
     configure_device_context("ipad-13", locale)
@@ -3722,7 +3918,7 @@ def generate_ipad_locale(locale: str) -> None:
     validate_png(CONTACT_SHEET_PATH, expected_contact_size)
     write_ipad_slots(records)
     sync_ipad_upload_order({panel: generated[panel][0] for panel, _ in UPLOAD_ORDER})
-    print(f"Generated 8 iPad screenshots in {SCREENSHOT_ROOT}")
+    print(f"Generated {len(UPLOAD_ORDER)} iPad screenshots in {SCREENSHOT_ROOT}")
     print(f"Contact sheet: {CONTACT_SHEET_PATH} ({expected_contact_size[0]}x{expected_contact_size[1]} RGB)")
     print(f"Slots: {SLOTS_PATH} (8 entries)")
     configure_device_context("iphone-69", locale)
@@ -3821,9 +4017,9 @@ def generate_locale(locale: str) -> None:
         == len(SOURCE_LABELS)
         == len(SCREEN_CHARACTER_COUNTS)
         == len(VISIBLE_SCREEN_CHARACTER_COUNTS)
-        == 9
+        == 11
     ):
-        raise ValueError("Expected exactly nine aligned panel specifications")
+        raise ValueError("Expected exactly eleven aligned panel specifications")
     expected_copy_positions = (COPY_EYEBROW_Y, COPY_HEADLINE_Y, COPY_SUB_Y)
     if any(
         (spec.eyebrow_y, spec.headline_y, spec.sub_y) != expected_copy_positions
@@ -3925,6 +4121,73 @@ def generate_locale(locale: str) -> None:
     print(f"Slots: {SLOTS_PATH} ({len(panel_records)} entries)")
 
 
+def write_upload_readme(locale: str) -> None:
+    root = OUTPUT_ROOT / "upload-order" / locale
+    root.mkdir(parents=True, exist_ok=True)
+    lines = [f"# {locale} アップロード順 — 2026-09-20 — 8枚", "",
+             "正本: .claude/specs/asa-fix-batch-2026-09-20.md の S9/S10（改）", "",
+             "| 順序 | 内容 | 生成ID |", "|---:|---|---:|"]
+    lines.extend(f"| {position} | {slug} | {panel:02d} |"
+                 for position, (panel, slug) in enumerate(UPLOAD_ORDER, 1))
+    lines.extend(["", "各フォルダの01〜08をファイル名順で使用", "",
+                  "- iphone-69: 1320×2868 RGB PNG",
+                  "- iphone-65: 1284×2778 RGB PNG 6.9版を縦横比維持で縮小し左右に背景色を補完",
+                  "- ipad-13: 2064×2752 RGB PNG iPad用の専用配置",
+                  "", "再生成: `python3 scripts/generate-appstore-screenshots-v2.py --device all`",
+                  "", "目標表示は実際のSwiftUIキャプチャ 3件すべてを表示",
+                  "呼吸単独枠・intent・statsはアップロード対象外",
+                  "テーマの承認済み見出しと副文を維持 料金バッジと料金フッターは掲載しない",
+                  "App Store Connectへのアップロードは未実施", ""])
+    (root / "README.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def generate_iphone65_locale(locale: str) -> None:
+    """Derive the existing 6.5-inch delivery size without stretching glyphs."""
+    target_size = (1284, 2778)
+    source_manifest = json.loads((OUTPUT_ROOT / f"slots-{locale}.json").read_text())
+    root = OUTPUT_ROOT / locale / "iphone-65"
+    upload = OUTPUT_ROOT / "upload-order" / locale / "iphone-65"
+    root.mkdir(parents=True, exist_ok=True)
+    upload.mkdir(parents=True, exist_ok=True)
+    expected_generated = {f"{panel:02d}-{slug}.png" for panel, slug in UPLOAD_ORDER}
+    expected_upload = {f"{position:02d}-{slug}.png" for position, (_, slug) in enumerate(UPLOAD_ORDER, 1)}
+    for directory, expected in ((root, expected_generated), (upload, expected_upload)):
+        for stale in directory.glob("*.png"):
+            if stale.name not in expected:
+                stale.unlink()
+    records = []
+    thumbnails = []
+    for position, ((panel, slug), record) in enumerate(zip(UPLOAD_ORDER, source_manifest["screenshots"]), 1):
+        source_path = OUTPUT_ROOT / record["file"]
+        with Image.open(source_path) as source:
+            fitted = ImageOps.contain(source, target_size, Image.Resampling.LANCZOS)
+        offset = ((target_size[0] - fitted.width) // 2, (target_size[1] - fitted.height) // 2)
+        image = Image.new("RGB", target_size, COLORS["background"])
+        image.paste(fitted, offset)
+        target = root / f"{panel:02d}-{slug}.png"
+        image.save(target, compress_level=7)
+        upload_path = upload / f"{position:02d}-{slug}.png"
+        shutil.copyfile(target, upload_path)
+        validate_png(target, target_size)
+        validate_png(upload_path, target_size)
+        if target.read_bytes() != upload_path.read_bytes():
+            raise ValueError("6.5-inch upload copy differs")
+        record["file"] = str(target.relative_to(OUTPUT_ROOT))
+        record["geometry_coordinate_space"] = "iphone-69 source pixels"
+        record["canvas_transform"] = {"scale_x": fitted.width / 1320, "scale_y": fitted.height / 2868,
+                                      "translate_x": offset[0], "translate_y": offset[1]}
+        records.append(record)
+        thumbnails.append(image.resize((400, round(400 * 2778 / 1284)), Image.Resampling.LANCZOS))
+    source_manifest.update({"device": "iphone-65", "canvas": {"width": 1284, "height": 2778},
+                            "screenshots": records})
+    (OUTPUT_ROOT / f"slots-iphone65-{locale}.json").write_text(json.dumps(source_manifest, ensure_ascii=False, indent=2) + "\n")
+    sheet = Image.new("RGB", (400 * len(thumbnails), thumbnails[0].height))
+    for index, thumbnail in enumerate(thumbnails):
+        sheet.paste(thumbnail, (400 * index, 0))
+    sheet.save(OUTPUT_ROOT / f"contact-sheet-iphone65-{locale}.png")
+    print(f"Generated {len(records)} iPhone 6.5 screenshots in {root}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate DopaBreak App Store screenshots v2 by locale."
@@ -3940,7 +4203,7 @@ def parse_args() -> argparse.Namespace:
         "--device",
         choices=SUPPORTED_DEVICES,
         default="iphone-69",
-        help="Generate iPhone 6.9-inch (default) or iPad 13-inch marketing assets.",
+        help="Generate iPhone 6.9-inch (default), 6.5-inch, iPad 13-inch, or all sizes.",
     )
     return parser.parse_args()
 
@@ -3949,11 +4212,14 @@ def main() -> None:
     args = parse_args()
     locales = tuple(dict.fromkeys(args.locales or SUPPORTED_LOCALES))
     for locale in locales:
-        if args.device == "ipad-13":
-            generate_ipad_locale(locale)
-        else:
+        if args.device in ("iphone-69", "iphone-65", "all"):
             configure_device_context("iphone-69", locale)
             generate_locale(locale)
+        if args.device in ("iphone-65", "all"):
+            generate_iphone65_locale(locale)
+        if args.device in ("ipad-13", "all"):
+            generate_ipad_locale(locale)
+        write_upload_readme(locale)
 
 
 if __name__ == "__main__":

@@ -3,33 +3,36 @@ import Foundation
 import Observation
 import UIKit
 
-/// 一呼吸を始める対象。カタログ起動とシールドからの一時開放を同じ流れへ載せる。
+/// ショートカット経由で一呼吸を始める対象。
 enum InterventionTarget: Equatable {
     case catalog(SNSAppCatalogItem)
-    case gateToken(tokenData: Data, ruleId: UUID)
+    case catalogPassThrough(SNSAppCatalogItem, until: Date)
 
     /// SwiftUIの介入ルートを対象単位で作り直すための安定した識別子。
     var presentationID: String {
         switch self {
         case .catalog(let target):
             return "catalog:\(target.catalogID)"
-        case .gateToken(let tokenData, let ruleId):
-            return "gate:\(ruleId.uuidString):\(tokenData.base64EncodedString())"
+        case .catalogPassThrough(let target, let until):
+            return "catalog-pass-through:\(target.catalogID):\(until.timeIntervalSince1970)"
         }
     }
 }
 
 /// 一呼吸フロー（S-01〜S-05・doc12 §2）の画面状態。
 enum InterventionFlowStage: Equatable {
-    case reflection(ReflectionLog)
     case breathing
     case usageSummary
     case reasonSelection
     case durationSelection
     case opening(fallbackMessage: String?)
-    case limit(GateDenial)
+    case passingThrough(remainingMinutes: Int)
     case win
     case failed(String)
+    /// 1日に開ける回数を使い切ったあとに呼ばれた。
+    case limitReached
+    /// 使い切ったあと、緊急で開くための30秒を待っている。
+    case emergencyWaiting
 }
 
 /// 一呼吸フローで選べる「なんのために開く？」の理由（doc11 §7 S-04選択肢）。
@@ -95,27 +98,79 @@ enum InterventionDuration: Int, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class InterventionFlowModel {
+    typealias OpenURL = @MainActor (
+        URL,
+        @escaping @MainActor @Sendable (Bool) -> Void
+    ) -> Void
+
+    let isOnboardingExperience: Bool
     let target: InterventionTarget
     private let model: AppModel
     private let settingsStore: SettingsStore
+    private let openURL: OpenURL
 
     private(set) var stage: InterventionFlowStage = .breathing
     private(set) var breathRemainingSeconds: Int
     private(set) var breathTotalSeconds: Int
     private(set) var todayAttemptDisplayCount = 0
     private(set) var selectedReason: InterventionReason?
+    var blocksNecessaryUse = false
+    var usesTimeLimit = true
+    var isGentleCheckIn: Bool { canChooseUntimed && usesTimeLimit && !blocksNecessaryUse }
+    var canBlockNecessaryUse: Bool {
+        if case .catalog(let app) = target { return model.isReinterventionConnected(catalogID: app.catalogID) }
+        return false
+    }
+    /// 最後の1回は時間なしを選べない。決めた時間の終わりから止まり始めるため。
+    var canChooseUntimed: Bool { selectedReason?.interventionStyle == .direct && !isLastOpenForDailyLimit }
+
+    /// 1日に開ける回数の状態。段階の切り替わりで取り直し、描画のたびに記録を読まない。
+    private(set) var dailyOpenLimitStatus: DailyOpenLimitStatus?
+    /// 使い切ったあと、30秒待って緊急で開こうとしている。
+    private(set) var isEmergencyOpen = false
+
+    /// 呼吸中に出す残りの回数。オフ・使い切ったあとは `nil`。
+    var remainingOpensForDisplay: Int? {
+        guard let remaining = dailyOpenLimitStatus?.remaining, remaining > 0 else { return nil }
+        return remaining
+    }
+
+    /// これを開くと今日の回数を使い切る。
+    var isLastOpenForDailyLimit: Bool {
+        !isEmergencyOpen && dailyOpenLimitStatus?.isLastOpen == true
+    }
+
+    var dailyOpenLimitOpenedCount: Int { dailyOpenLimitStatus?.openedCount ?? 0 }
+    var dailyOpenLimitDayEndsAt: Date? { dailyOpenLimitStatus?.dayEndsAt }
+    var dailyOpenLimitEmergencyState: DailyOpenLimitPolicy.EmergencyState { model.dailyOpenLimitEmergencyState }
+    /// 夜・予定・手動のブロックが重なっているか。緊急で外せるのは回数上限ぶんだけなので、緊急の導線を出さない。
+    var isOtherHardBlockActive: Bool { model.isOtherHardBlockActive }
+    var isUntimedPassThrough: Bool {
+        if case .catalogPassThrough(let app, _) = target {
+            return model.catalogAllowanceStore.activeAllowance(catalogID: app.catalogID, at: model.currentDate) == nil
+        }
+        return false
+    }
     private(set) var selectedDuration: InterventionDuration = .tenMinutes
     private(set) var isAwaitingTargetOpen = false
     private(set) var winReclaimedSeconds = 0
     private(set) var winLifetimeReclaimedSeconds = 0
     private(set) var winEstimatedMinutesPerCancellation = 1
+    private(set) var winConsecutiveDays = 0
     private(set) var winMilestone: ReclaimedTimeMilestone?
 
     private var breathTask: Task<Void, Never>?
+    private var passThroughTask: Task<Void, Never>?
     private var startGeneration = 0
 
     private static let breathTimerTickNanoseconds: UInt64 = 250_000_000
 
+    var hasMonitoredUsageBudget: Bool {
+        switch target {
+        case .catalog(let app), .catalogPassThrough(let app, _):
+            return model.reinterventionSession(catalogID: app.catalogID) != nil
+        }
+    }
     var goals: [Goal] { model.goals }
     var todayCancelledCountForDisplay: Int { model.todayCancelledCount }
     var todayAttemptCountForDisplay: Int { todayAttemptDisplayCount }
@@ -128,7 +183,8 @@ final class InterventionFlowModel {
     }
 
     func reviewPromptRequestDateIfEligible() -> Date? {
-        model.reviewPromptRequestDateIfEligible(
+        guard !isOnboardingExperience else { return nil }
+        return model.reviewPromptRequestDateIfEligible(
             sessionBlocked: model.purchaseOrRestoreFailedThisSession
         )
     }
@@ -137,17 +193,23 @@ final class InterventionFlowModel {
         model.recordReviewPromptShown(at: date)
     }
 
-    init(target: InterventionTarget, model: AppModel, settingsStore: SettingsStore) {
+    init(
+        target: InterventionTarget,
+        model: AppModel,
+        settingsStore: SettingsStore,
+        isOnboardingExperience: Bool = false,
+        openURL: @escaping OpenURL = { url, completion in
+            UIApplication.shared.open(url, options: [:], completionHandler: completion)
+        }
+    ) {
+        self.isOnboardingExperience = isOnboardingExperience
         self.target = target
         self.model = model
         self.settingsStore = settingsStore
+        self.openURL = openURL
         let breathDurationSeconds = settingsStore.breathDurationSeconds
         self.breathRemainingSeconds = breathDurationSeconds
         self.breathTotalSeconds = breathDurationSeconds
-        if case .gateToken(let tokenData, _) = target {
-            let minutes = model.gateAppSetting(for: tokenData).sessionMinutes
-            selectedDuration = InterventionDuration(rawValue: minutes) ?? .tenMinutes
-        }
     }
 
     convenience init(
@@ -161,7 +223,22 @@ final class InterventionFlowModel {
     func start() {
         breathTask?.cancel()
         breathTask = nil
+        passThroughTask?.cancel()
+        passThroughTask = nil
         startGeneration += 1
+
+        if case .catalogPassThrough(let catalogTarget, let until) = target {
+            beginPassThrough(to: catalogTarget, until: until)
+            return
+        }
+
+        isEmergencyOpen = false
+        refreshDailyOpenLimitStatus()
+        if dailyOpenLimitStatus?.isExhausted == true {
+            // 使い切ったあとは一呼吸を始めない。記録も作らず、上限画面だけを出す。
+            stage = .limitReached
+            return
+        }
 
         guard let engine = model.interventionEngine else {
             stage = .failed(
@@ -173,45 +250,17 @@ final class InterventionFlowModel {
             return
         }
         do {
-            if let reflection = try engine.pendingReflection() {
-                stage = .reflection(reflection)
-                return
-            }
             try beginInterventionAndBreathing(using: engine)
         } catch {
             stage = .failed(String(localized: "intervention.error.preparation", defaultValue: "準備できませんでした"))
         }
     }
 
-    func recordReflection(_ satisfaction: PostUseSatisfaction) {
-        guard case .reflection(let reflection) = stage,
-              let engine = model.interventionEngine else { return }
-        do {
-            try engine.recordPostUseReflection(
-                id: reflection.id,
-                satisfaction: satisfaction,
-                happinessDelta: satisfaction.impliedHappinessDelta
-            )
-            try beginInterventionAndBreathing(using: engine)
-        } catch {
-            stage = .failed(String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした"))
-        }
-    }
-
-    func skipReflection() {
-        guard case .reflection(let reflection) = stage,
-              let engine = model.interventionEngine else { return }
-        do {
-            try engine.skipReflection(id: reflection.id)
-            try beginInterventionAndBreathing(using: engine)
-        } catch {
-            stage = .failed(String(localized: "reflection.error.data_save", defaultValue: "データを保存できませんでした"))
-        }
-    }
-
     func stop() {
         breathTask?.cancel()
         breathTask = nil
+        passThroughTask?.cancel()
+        passThroughTask = nil
     }
 
     /// 画面離脱で停止した呼吸だけを再開する。進行中Taskや他ステージには触れない。
@@ -277,8 +326,14 @@ final class InterventionFlowModel {
         do {
             // 呼吸中は開始状態を維持し、理由画面を表示する直前に intentSelection へ揃える。
             try engine.beginIntentSelection()
+            AppleAdsMeasurement.shared.record(.breathingCompleted)
             breathRemainingSeconds = 0
-            stage = .reasonSelection
+            if !isOnboardingExperience, case .catalog(let target) = target, model.reinterventionSession(catalogID: target.catalogID)?.resumeRequested == true {
+                try engine.advanceStep()
+                stage = .durationSelection
+            } else {
+                stage = .reasonSelection
+            }
         } catch {
             stage = .failed(String(localized: "intervention.error.progression", defaultValue: "進められませんでした"))
         }
@@ -299,6 +354,8 @@ final class InterventionFlowModel {
         guard let engine = model.interventionEngine else { return }
         do {
             selectedReason = reason
+            usesTimeLimit = true
+            blocksNecessaryUse = false
             try engine.recordIntent(reason.intentCategory)
             try engine.advanceStep() // intentSelection -> decision
             switch reason.interventionStyle {
@@ -313,9 +370,12 @@ final class InterventionFlowModel {
     }
 
     func chooseCancel() {
-        guard stage == .usageSummary || stage == .durationSelection else { return }
+        guard stage == .reasonSelection || stage == .usageSummary || stage == .durationSelection else { return }
         guard let engine = model.interventionEngine else { return }
         do {
+            if !isOnboardingExperience, case .catalog(let catalogTarget) = target, model.reinterventionSession(catalogID: catalogTarget.catalogID) != nil {
+                try model.finishReintervention(catalogID: catalogTarget.catalogID)
+            }
             let reclaimedSeconds = try engine.recordCancel()
             model.refresh()
             let lifetimeReclaimedSeconds = try model.reclaimedSecondsAllTime()
@@ -327,6 +387,7 @@ final class InterventionFlowModel {
                 todayCancellationCount: model.todayCancelledCount,
                 fallbackSeconds: reclaimedSeconds
             )
+            winConsecutiveDays = try model.consecutiveDaysWithCancellations()
             winMilestone = ReclaimedTimeMilestoneTracker.claimNewMilestone(
                 previousTotalSeconds: lifetimeReclaimedSeconds - reclaimedSeconds,
                 totalSeconds: lifetimeReclaimedSeconds,
@@ -350,29 +411,144 @@ final class InterventionFlowModel {
 
     func confirmSelectedDuration() {
         guard stage == .durationSelection else { return }
-        switch target {
-        case .catalog(let catalogTarget):
-            openCatalogTarget(catalogTarget, for: selectedDuration)
-        case .gateToken(let tokenData, let ruleId):
-            openGateTarget(
-                tokenData: tokenData,
-                ruleId: ruleId,
-                for: selectedDuration
-            )
+        guard case .catalog(let catalogTarget) = target else { return }
+        if isOnboardingExperience {
+            chooseCancel()
+            return
         }
+        if isEmergencyOpen {
+            // 時間を選んでいるあいだに朝を迎えた・Freeへ戻ったなら、緊急ではなく通常の一呼吸からやり直す。
+            guard restartIfLimitNoLongerApplies() == false else { return }
+            openForEmergency(catalogTarget, for: selectedDuration)
+            return
+        }
+        // 画面を出してから確定までのあいだに使い切っていないか、確定の直前にも確かめる。
+        refreshDailyOpenLimitStatus()
+        if dailyOpenLimitStatus?.isExhausted == true {
+            try? model.interventionEngine?.resetToIdle()
+            stage = .limitReached
+            return
+        }
+        openCatalogTarget(catalogTarget, for: selectedDuration)
     }
 
     private func proceedToOpenOrDurationSelection() {
         stage = .durationSelection
+        prepareDurationSelectionForDailyOpenLimit()
     }
 
-    private func recordCatalogOpen(for duration: InterventionDuration) {
-        guard let engine = model.interventionEngine else { return }
+    /// 時間選択の画面へ入るときに、最新の残り回数で最後の1回かを決め直す。最後の1回は時間ありに固定する。
+    private func prepareDurationSelectionForDailyOpenLimit() {
+        refreshDailyOpenLimitStatus()
+        if isLastOpenForDailyLimit {
+            usesTimeLimit = true
+        }
+    }
+
+    // MARK: - 1日に開ける回数
+
+    private func refreshDailyOpenLimitStatus() {
+        dailyOpenLimitStatus = isOnboardingExperience ? nil : model.dailyOpenLimitStatus
+    }
+
+    /// 上限画面から、緊急で開くための30秒の待ちを始める。待ち時間が切れたあとの出し直しにも使う。
+    func requestEmergencyOpen() {
+        guard stage == .limitReached || stage == .emergencyWaiting, !isOtherHardBlockActive else { return }
+        guard restartIfLimitNoLongerApplies() == false else { return }
+        model.requestDailyOpenLimitEmergency()
+        stage = .emergencyWaiting
+    }
+
+    /// 上限画面・緊急の待ちを出しているあいだに呼ぶ（前面へ戻ったとき・1分ごと）。
+    /// 上限がもう効いていなければ、通常の一呼吸からやり直す。
+    func refreshLimitStateIfNeeded() {
+        guard stage == .limitReached || stage == .emergencyWaiting else { return }
+        _ = restartIfLimitNoLongerApplies()
+    }
+
+    /// 上限画面を開いたまま起床時刻を過ぎた・Freeへ戻ったときは、上限はもう効いていない。
+    /// 古い上限画面のまま待たせず、通常の一呼吸からやり直す。
+    /// - Returns: やり直したか。
+    private func restartIfLimitNoLongerApplies() -> Bool {
+        refreshDailyOpenLimitStatus()
+        guard dailyOpenLimitStatus?.isExhausted != true else { return false }
+        start()
+        return true
+    }
+
+    /// 待ち終わったら時間選択へ進む。待ちの途中・猶予切れでは進まない。
+    func proceedAfterEmergencyWait() {
+        guard stage == .emergencyWaiting else { return }
+        guard restartIfLimitNoLongerApplies() == false else { return }
+        guard model.dailyOpenLimitEmergencyState == .ready else {
+            if model.dailyOpenLimitEmergencyState == .notRequested {
+                stage = .limitReached
+            }
+            return
+        }
+        isEmergencyOpen = true
+        selectedReason = nil
+        usesTimeLimit = true
+        blocksNecessaryUse = false
+        stage = .durationSelection
+    }
+
+    private func openForEmergency(_ catalogTarget: SNSAppCatalogItem, for duration: InterventionDuration) {
+        guard model.openForDailyOpenLimitEmergency(durationSeconds: duration.seconds, catalogTarget: catalogTarget) else {
+            isEmergencyOpen = false
+            refreshDailyOpenLimitStatus()
+            stage = model.dailyOpenLimitEmergencyState == .notRequested ? .limitReached : .emergencyWaiting
+            return
+        }
+        launchCatalogTarget(catalogTarget)
+    }
+
+    @discardableResult
+    private func recordCatalogOpen(for duration: InterventionDuration) -> Bool {
+        guard let engine = model.interventionEngine, case .catalog(let catalogTarget) = target else { return false }
+        var prepared: ReinterventionSession?
+        var createdReflection: ReflectionLog?
         do {
-            try engine.recordCatalogOpen(durationSeconds: duration.seconds)
+            model.reflectionNotificationScheduler.cancelWorkCheckIn(catalogID: catalogTarget.catalogID)
+            if canChooseUntimed && !usesTimeLimit {
+                try engine.recordUntimedOpen()
+                try model.finishReintervention(catalogID: catalogTarget.catalogID)
+                model.cancelReflectionNotification()
+                model.refresh()
+                return true
+            }
+            prepared = try model.reinterventionScheduler.prepare(catalogID: catalogTarget.catalogID,
+                minutes: duration.rawValue, authorized: model.screenTimeAuthorizationStatus == .approved, notificationsEnabled: model.reinterventionNotificationsEnabled, blocksAtLimit: !isGentleCheckIn)
+            if isGentleCheckIn {
+                try engine.recordUntimedOpen(selectedDurationSeconds: duration.seconds)
+                model.cancelReflectionNotification()
+                if let prepared {
+                    model.catalogAllowanceStore.grant(catalogID: catalogTarget.catalogID, until: prepared.expiresAt)
+                } else {
+                    model.catalogAllowanceStore.grant(catalogID: catalogTarget.catalogID, until: model.currentDate.addingTimeInterval(Double(duration.seconds)))
+                    model.reflectionNotificationScheduler.scheduleWorkCheckIn(catalogID: catalogTarget.catalogID, minutes: duration.rawValue,
+                        isEnabled: model.reinterventionNotificationsEnabled, now: model.currentDate)
+                }
+                model.refresh()
+                return true
+            }
+            let reflection = try engine.recordCatalogOpen(durationSeconds: duration.seconds, deferReflection: prepared != nil)
+            createdReflection = reflection
+            if let prepared {
+                try model.reinterventionScheduler.attach(reflectionID: reflection.id, to: prepared)
+                model.catalogAllowanceStore.grant(catalogID: catalogTarget.catalogID, until: prepared.expiresAt)
+                model.cancelReflectionNotification()
+            } else {
+                model.catalogAllowanceStore.grant(catalogID: catalogTarget.catalogID, until: reflection.promptedAt)
+                model.scheduleReflectionNotification(for: reflection, appDisplayName: catalogTarget.displayName, declaredMinutes: duration.rawValue)
+            }
             model.refresh()
+            return true
         } catch {
-            stage = .failed(String(localized: "intervention.error.record", defaultValue: "記録できませんでした"))
+            if let createdReflection { try? engine.skipReflection(id: createdReflection.id) }
+            if prepared != nil { try? model.finishReintervention(catalogID: catalogTarget.catalogID) }
+            stage = .failed(error.localizedDescription)
+            return false
         }
     }
 
@@ -380,111 +556,42 @@ final class InterventionFlowModel {
         _ catalogTarget: SNSAppCatalogItem,
         for duration: InterventionDuration
     ) {
+        let isUntimed = canChooseUntimed && !usesTimeLimit
+        guard recordCatalogOpen(for: duration) else { return }
+        // 使い切ったら、決めた時間の終わりから完全ブロックを始める。
+        model.didRecordOpenForDailyOpenLimit(durationSeconds: isUntimed ? nil : duration.seconds)
+        launchCatalogTarget(catalogTarget)
+    }
+
+    /// 記録を済ませたあとに、対象アプリを開く。開けなければホーム画面から開くよう案内する。
+    private func launchCatalogTarget(_ catalogTarget: SNSAppCatalogItem) {
         let fallbackMessage = String(
             localized: "intervention.opening.manual_fallback",
             defaultValue: "ホーム画面から\(catalogTarget.displayName)を開いてください"
         )
         guard let urlScheme = catalogTarget.urlScheme, let url = URL(string: urlScheme) else {
             stage = .opening(fallbackMessage: fallbackMessage)
-            // URLスキームがないアプリは、この案内から手動で開く前提で宣言時間を記録する。
-            recordCatalogOpen(for: duration)
+            // Monitoring is armed before the user opens the app manually.
             return
         }
 
         isAwaitingTargetOpen = true
         stage = .opening(fallbackMessage: nil)
-        UIApplication.shared.open(url, options: [:]) { [weak self] success in
+        model.markSelfOpened(catalogID: catalogTarget.catalogID)
+        openURL(url) { [weak self] success in
             guard let self else { return }
-            if success {
-                self.recordCatalogOpen(for: duration)
-            } else {
+            self.model.discardPendingInterventionTarget(ifMatching: self.target)
+            if !success {
                 self.stage = .opening(fallbackMessage: fallbackMessage)
-                // URL起動失敗時も、この案内から手動で開く前提で宣言時間を記録する。
-                self.recordCatalogOpen(for: duration)
+                // The same budget remains armed for a manual launch.
             }
             self.isAwaitingTargetOpen = false
         }
     }
 
-    private func openGateTarget(
-        tokenData: Data,
-        ruleId: UUID,
-        for duration: InterventionDuration
-    ) {
-        guard let engine = model.interventionEngine else {
-            stage = .failed(
-                String(
-                    localized: "intervention.error.record_store_unavailable",
-                    defaultValue: "記録データを準備できませんでした"
-                )
-            )
-            return
-        }
-
-        let validation: Result<Void, GateDenial>
-        do {
-            validation = try model.canGrantGate(tokenData: tokenData)
-        } catch {
-            stage = .failed(
-                String(localized: "intervention.error.record", defaultValue: "記録できませんでした")
-            )
-            return
-        }
-
-        switch validation {
-        case .success:
-            break
-        case .failure(.alreadyOpen):
-            showGateOpening(for: duration)
-            return
-        case .failure(let denial):
-            do {
-                try engine.recordCancel()
-                model.refresh()
-                stage = .limit(denial)
-            } catch {
-                stage = .failed(
-                    String(localized: "intervention.error.record", defaultValue: "記録できませんでした")
-                )
-            }
-            return
-        }
-
-        // ここから先はopenedとして記録済みになるため、grant内部の再検証は拒否に使わない。
-        // alreadyOpen競合は既存grantを再利用し、limit/cooldown競合も開放を完了させる。
-        do {
-            try engine.recordOpen(durationSeconds: duration.seconds)
-            try model.grantGate(
-                tokenData: tokenData,
-                ruleId: ruleId,
-                minutes: duration.rawValue
-            )
-            model.refresh()
-            showGateOpening(for: duration)
-        } catch {
-            stage = .failed(
-                String(localized: "intervention.error.record", defaultValue: "記録できませんでした")
-            )
-        }
-    }
-
-    private func showGateOpening(for duration: InterventionDuration) {
-        stage = .opening(
-            fallbackMessage: String(
-                localized: "intervention.gate.opening.back",
-                defaultValue: "左上の◀をタップすると、\(duration.rawValue)分間開けます"
-            )
-        )
-    }
-
     private func beginInterventionAndBreathing(using engine: InterventionEngine) throws {
-        let resolvedRuleID: UUID
-        switch target {
-        case .catalog(let catalogTarget):
-            resolvedRuleID = try model.ruleStore.catalogTargetRule(for: catalogTarget).id
-        case .gateToken(_, let gateRuleID):
-            resolvedRuleID = gateRuleID
-        }
+        guard case .catalog(let catalogTarget) = target else { return }
+        let resolvedRuleID = try model.ruleStore.catalogTargetRule(for: catalogTarget).id
         let current = try engine.currentStep()
         let resumable: Set<InterventionStep> = [.idle, .cancelled, .postUseReflection]
         if !resumable.contains(current) {
@@ -493,7 +600,41 @@ final class InterventionFlowModel {
         try engine.beginIntervention(ruleId: resolvedRuleID)
         todayAttemptDisplayCount = model.todayAttemptCount(for: resolvedRuleID) + 1
         selectedReason = nil
+        usesTimeLimit = true
+        blocksNecessaryUse = false
         beginBreathing()
+    }
+
+    private func beginPassThrough(to catalogTarget: SNSAppCatalogItem, until: Date) {
+        let remainingMinutes = max(
+            1,
+            Int(ceil(until.timeIntervalSince(model.currentDate) / 60))
+        )
+        stage = .passingThrough(remainingMinutes: remainingMinutes)
+        isAwaitingTargetOpen = true
+        let fallbackMessage = String(
+            localized: "intervention.opening.manual_fallback",
+            defaultValue: "ホーム画面から\(catalogTarget.displayName)を開いてください"
+        )
+
+        passThroughTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard let self, !Task.isCancelled else { return }
+            guard let urlScheme = catalogTarget.urlScheme, let url = URL(string: urlScheme) else {
+                self.isAwaitingTargetOpen = false
+                self.stage = .opening(fallbackMessage: fallbackMessage)
+                return
+            }
+            self.model.markSelfOpened(catalogID: catalogTarget.catalogID)
+            self.openURL(url) { [weak self] success in
+                guard let self else { return }
+                self.model.discardPendingInterventionTarget(ifMatching: self.target)
+                if !success {
+                    self.stage = .opening(fallbackMessage: fallbackMessage)
+                }
+                self.isAwaitingTargetOpen = false
+            }
+        }
     }
 
 }

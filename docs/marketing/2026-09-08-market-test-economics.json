@@ -1,0 +1,230 @@
+{
+  "as_of": "2026-09-08",
+  "status": "planning_assumptions",
+  "markets": {
+    "JP": {
+      "inputs": {
+        "currency": "JPY",
+        "annual": 4980,
+        "tax": 0.1,
+        "fee": 0.15,
+        "refund": 0.04,
+        "annual_variable_cost": 200
+      },
+      "annual_contribution_before_acquisition": 3494.254545454545,
+      "download_cost_limits": [
+        {
+          "download_to_annual_paid": 0.02,
+          "break_even": 69.8850909090909,
+          "retain_30_percent_of_contribution": 48.919563636363634,
+          "target_cpt_at_50_percent_tap_to_download": 24.459781818181817
+        },
+        {
+          "download_to_annual_paid": 0.04,
+          "break_even": 139.7701818181818,
+          "retain_30_percent_of_contribution": 97.83912727272727,
+          "target_cpt_at_50_percent_tap_to_download": 48.919563636363634
+        },
+        {
+          "download_to_annual_paid": 0.06,
+          "break_even": 209.65527272727272,
+          "retain_30_percent_of_contribution": 146.7586909090909,
+          "target_cpt_at_50_percent_tap_to_download": 73.37934545454544
+        },
+        {
+          "download_to_annual_paid": 0.08,
+          "break_even": 279.5403636363636,
+          "retain_30_percent_of_contribution": 195.67825454545454,
+          "target_cpt_at_50_percent_tap_to_download": 97.83912727272727
+        },
+        {
+          "download_to_annual_paid": 0.1,
+          "break_even": 349.42545454545456,
+          "retain_30_percent_of_contribution": 244.59781818181818,
+          "target_cpt_at_50_percent_tap_to_download": 122.29890909090909
+        }
+      ]
+    },
+    "US": {
+      "inputs": {
+        "currency": "USD",
+        "annual": 39.99,
+        "tax": 0,
+        "fee": 0.15,
+        "refund": 0.04,
+        "annual_variable_cost": 1.5
+      },
+      "annual_contribution_before_acquisition": 31.131840000000004,
+      "download_cost_limits": [
+        {
+          "download_to_annual_paid": 0.02,
+          "break_even": 0.6226368000000001,
+          "retain_30_percent_of_contribution": 0.43584576,
+          "target_cpt_at_50_percent_tap_to_download": 0.21792288
+        },
+        {
+          "download_to_annual_paid": 0.04,
+          "break_even": 1.2452736000000002,
+          "retain_30_percent_of_contribution": 0.87169152,
+          "target_cpt_at_50_percent_tap_to_download": 0.43584576
+        },
+        {
+          "download_to_annual_paid": 0.06,
+          "break_even": 1.8679104000000002,
+          "retain_30_percent_of_contribution": 1.30753728,
+          "target_cpt_at_50_percent_tap_to_download": 0.65376864
+        },
+        {
+          "download_to_annual_paid": 0.08,
+          "break_even": 2.4905472000000004,
+          "retain_30_percent_of_contribution": 1.74338304,
+          "target_cpt_at_50_percent_tap_to_download": 0.87169152
+        },
+        {
+          "download_to_annual_paid": 0.1,
+          "break_even": 3.1131840000000004,
+          "retain_30_percent_of_contribution": 2.1792288,
+          "target_cpt_at_50_percent_tap_to_download": 1.0896144
+        }
+      ]
+    },
+    "KR": {
+      "inputs": {
+        "currency": "KRW",
+        "annual": 49000,
+        "tax": 0.1,
+        "fee": 0.15,
+        "refund": 0.04,
+        "annual_variable_cost": 2000
+      },
+      "annual_contribution_before_acquisition": 34349.090909090904,
+      "download_cost_limits": [
+        {
+          "download_to_annual_paid": 0.02,
+          "break_even": 686.9818181818181,
+          "retain_30_percent_of_contribution": 480.8872727272726,
+          "target_cpt_at_50_percent_tap_to_download": 240.4436363636363
+        },
+        {
+          "download_to_annual_paid": 0.04,
+          "break_even": 1373.9636363636362,
+          "retain_30_percent_of_contribution": 961.7745454545452,
+          "target_cpt_at_50_percent_tap_to_download": 480.8872727272726
+        },
+        {
+          "download_to_annual_paid": 0.06,
+          "break_even": 2060.945454545454,
+          "retain_30_percent_of_contribution": 1442.6618181818178,
+          "target_cpt_at_50_percent_tap_to_download": 721.3309090909089
+        },
+        {
+          "download_to_annual_paid": 0.08,
+          "break_even": 2747.9272727272723,
+          "retain_30_percent_of_contribution": 1923.5490909090904,
+          "target_cpt_at_50_percent_tap_to_download": 961.7745454545452
+        },
+        {
+          "download_to_annual_paid": 0.1,
+          "break_even": 3434.9090909090905,
+          "retain_30_percent_of_contribution": 2404.4363636363632,
+          "target_cpt_at_50_percent_tap_to_download": 1202.2181818181816
+        }
+      ]
+    }
+  },
+  "jp_scenarios": [
+    {
+      "name": "weak",
+      "spend": 100000,
+      "download_to_trial": 0.05,
+      "trial_to_annual_paid": 0.3,
+      "download_to_annual_paid": 0.015,
+      "cost_per_download": 350,
+      "downloads": 285.7142857142857,
+      "annual_payers_before_refunds": 4.285714285714286,
+      "paid_cac": 23333.333333333336,
+      "contribution_after_ad_spend": -85024.62337662338,
+      "contribution_roas": 0.1497537662337662
+    },
+    {
+      "name": "base",
+      "spend": 100000,
+      "download_to_trial": 0.08,
+      "trial_to_annual_paid": 0.5,
+      "download_to_annual_paid": 0.04,
+      "cost_per_download": 250,
+      "downloads": 400.0,
+      "annual_payers_before_refunds": 16.0,
+      "paid_cac": 6250.0,
+      "contribution_after_ad_spend": -44091.92727272728,
+      "contribution_roas": 0.5590807272727273
+    },
+    {
+      "name": "strong",
+      "spend": 100000,
+      "download_to_trial": 0.12,
+      "trial_to_annual_paid": 0.6,
+      "download_to_annual_paid": 0.072,
+      "cost_per_download": 150,
+      "downloads": 666.6666666666666,
+      "annual_payers_before_refunds": 47.99999999999999,
+      "paid_cac": 2083.3333333333335,
+      "contribution_after_ad_spend": 67724.21818181814,
+      "contribution_roas": 1.6772421818181815
+    }
+  ],
+  "jp_plan_mix": {
+    "annual_share_of_new_payers_assumption": 0.8,
+    "monthly_contribution_per_billing": 706.9818181818181,
+    "first_billing_contribution_with_annual_cost_reserved": 2936.8,
+    "first_12_months_contribution": {
+      "3": 3219.592727272727,
+      "6": 3643.7818181818184,
+      "9": 4067.970909090909
+    },
+    "note": "Months are expected paid billings within 12 months, not guaranteed retention."
+  },
+  "jp_sensitivity": {
+    "annual_contribution_if_fee_30_percent": 2842.327272727272,
+    "two_annual_periods_contribution_by_first_renewal_probability": {
+      "0.25": 4367.818181818182,
+      "0.4": 4891.956363636363,
+      "0.6": 5590.807272727273
+    },
+    "note": "Second annual term starts at month 12 after first payment; undiscounted and not immediate cash."
+  },
+  "published_benchmark_stress_tests": [
+    {
+      "source": "Adapty 2026-07-13",
+      "country": "JP",
+      "cost_per_download_usd": 1.49,
+      "planning_usdjpy_not_spot_fx": 150,
+      "break_even_download_to_annual_paid": 0.06396214044873663,
+      "retain_30_percent_required_conversion": 0.09137448635533806
+    },
+    {
+      "source": "MobileAction 2026 report, 2025 data",
+      "country": "JP",
+      "cost_per_download_usd": 2.89,
+      "planning_usdjpy_not_spot_fx": 150,
+      "break_even_download_to_annual_paid": 0.12406079590392541,
+      "retain_30_percent_required_conversion": 0.17722970843417918
+    },
+    {
+      "source": "Adapty 2026-07-13",
+      "country": "US",
+      "cost_per_download_usd": 2.51,
+      "planning_usdjpy_not_spot_fx": 150,
+      "break_even_download_to_annual_paid": 0.08062485224130664,
+      "retain_30_percent_required_conversion": 0.11517836034472376
+    },
+    {
+      "source": "MobileAction 2026 report, 2025 data",
+      "country": "US",
+      "cost_per_download_usd": 3.85,
+      "planning_usdjpy_not_spot_fx": 150,
+      "break_even_download_to_annual_paid": 0.12366760204343848,
+      "retain_30_percent_required_conversion": 0.17666800291919782
+    }
+  ]
+}

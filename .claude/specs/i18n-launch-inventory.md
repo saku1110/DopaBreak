@@ -12,6 +12,9 @@ Updated: 2026-08-15 (home fact-copy redesign: updated the 6 `home.first_day.*` /
 
 Updated: 2026-08-15 (welcome CTA transcreation: `onboarding.welcome.tagline` ja + `onboarding.welcome.action` ja/en/ko rewritten and new `onboarding.welcome.action_note` added in 3 languages; native review + humanizer-en/ko audits exit 0)
 
+Updated: 2026-09-04 (paywall headline v2: `paywall.header.line1.prefix` / `.suffix` rewritten to the lifetime-years unit and new `paywall.header.estimate_note` added in ja/en/ko; the stale `paywall.header.body` row was corrected to the live catalog value; en line 1 is `“5 more min” = {Y} years gone` — the first draft ` years of life` was shortened to keep the headline on one line)
+
+
 Scope: main app target (`ios/DopaBreak/*.swift`) plus the user-facing strings in `WidgetsExtension` and `ShieldConfigExtension`.
 
 Completion status:
@@ -119,7 +122,7 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.notification.action | 通知をオンにする | Onboarding |
 | onboarding.notification.eyebrow | NOTIFICATION | Onboarding |
 | onboarding.notification.fallback | 通知はあとで設定できます。 | Onboarding |
-| onboarding.notification.lead | 朝の通知とLive Activityで、目標を毎日思い出します。 | Onboarding |
+| onboarding.notification.lead | ライブアクティビティで目標を毎日ロック画面に表示します 記録と振り返りの通知もここでオンにできます | Onboarding |
 | onboarding.notification.preview.app_name | DOPABREAK | Onboarding |
 | onboarding.notification.preview.cancelled | 開かずに戻れた | Onboarding |
 | onboarding.notification.preview.count | %lld回 | Onboarding |
@@ -172,7 +175,7 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | onboarding.science.principle3.title | 3. 自己モニタリング | Onboarding |
 | onboarding.science.principle4.detail | 見た後の満足感を記録する | Onboarding |
 | onboarding.science.principle4.title | 4. 自己観察 | Onboarding |
-| onboarding.science.research | 開く前にワンクッション置く手法は、\n査読付き研究（PNAS, 2023）で\nSNS利用を平均57%減らすことが\n示されています。 | Onboarding |
+| onboarding.science.research | one secを使った査読付き研究（PNAS, 2023）では、6週間継続した参加者が対象アプリを実際に開いた回数が平均57%減少しました。 | Onboarding |
 | onboarding.science.title | 意志の力では、\n勝てない | Onboarding |
 | onboarding.self_check.eyebrow | 質問 1 / 3 | Onboarding |
 | onboarding.self_check.hint | ざっくりでOKです | Onboarding |
@@ -211,13 +214,16 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | paywall.alert.error.title | エラー | Paywall |
 | paywall.brand.pro | DOPABREAK PRO | Paywall |
 | paywall.error.product_load | 商品情報を読み込めませんでした | Paywall |
-| paywall.feature.full_history | 記録を全期間さかのぼれる | Paywall |
-| paywall.feature.lock_theme | ロック画面テーマを着せ替え | Paywall |
-| paywall.feature.unlimited_apps | 止めるアプリを何個でも追加できる | Paywall |
-| paywall.feature.unlimited_goals | 目標を何個でも追加できる | Paywall |
-| paywall.header.body | がんばって我慢するアプリではありません。開く前に毎回ひと呼吸が入るだけ。開かずに戻れた回数が毎日ホームに積み上がります。 | Paywall |
-| paywall.header.line1.prefix | 「あと5分だけ」が年 | Paywall |
-| paywall.header.line1.suffix | 日 | Paywall |
+| paywall.feature.deep_focus | 選んだアプリを完全にブロック | Paywall |
+| paywall.feature.lock_theme | ロック画面のデザインを選べる | Paywall |
+| paywall.feature.night_block | 就寝中は自動で完全ブロック | Paywall |
+| paywall.feature.unlimited_apps | 対応アプリの登録数制限を解除 | Paywall |
+| paywall.feature.strict_block | 解除に30秒待つ強いブロック | Paywall |
+| paywall.feature.weekly_schedule | 毎週のブロック予定を2つ設定 | Paywall |
+| paywall.header.body | ずっと我慢するためのアプリではありません。SNSを開く前に一呼吸はさみ、開かずにすんだ回数をホームに残します。 | Paywall |
+| paywall.header.estimate_note | 1日約%@が50年続いた場合の推計 | Paywall |
+| paywall.header.line1.prefix | 「あと5分」が人生の | Paywall |
+| paywall.header.line1.suffix | 年 | Paywall |
 | paywall.header.line2 | 開く前にブレーキ | Paywall |
 | paywall.legal.annual_intro | %@の無料期間終了後、年額%@で自動更新。いつでも解約できます。購入はApple IDに請求されます | Paywall |
 | paywall.legal.auto_renew | 解約しない場合、期間終了時に自動更新されます\n購入はApple IDに請求されます | Paywall |
@@ -259,7 +265,6 @@ The source strings below are the exact Japanese values stored in `Localizable.xc
 | settings.header.title | 設定 | Settings |
 | settings.lock_screen.check | ロック画面で確かめる | Settings |
 | settings.lock_screen.live_activity | Live Activity | Settings |
-| settings.lock_screen.morning_notification | 朝の目標通知 | Settings |
 | settings.lock_screen.notification_time | 通知時刻 | Settings |
 | settings.lock_screen.section | ロック画面の表示 | Settings |
 | settings.lock_screen.theme | テーマ | Settings |
@@ -454,7 +459,7 @@ The inventory below is retained as the historical source-location checklist used
 | LockSurfaceCoordinator.swift:123 | `・` | Morning notification / goal separator |
 | LockSurfaceCoordinator.swift:145 | `今週のふりかえり` | Weekly notification / title |
 | LockSurfaceCoordinator.swift:146 | `開かずに戻れた \(weeklySummary.cancelled)回 / 開こうとした \(weeklySummary.attempts)回` | Weekly notification / body |
-| LockSurfaceCoordinator.swift:196 | `無料期間はあと2日です` | Trial day-5 notification / title |
+| LockSurfaceCoordinator.swift / TrialReminderNotificationSchedule | `無料期間はあと\(leadDays)日です` | Trial reminder / title; selected 2 or 3 days |
 | LockSurfaceCoordinator.swift:198 | `ここまでに開かずに戻れた \(trialDay5.cancelledCount)回。7日目に年額プランへ切り替わります。解約はいつでもできます。` | Trial day-5 notification / body with count |
 | LockSurfaceCoordinator.swift:200 | `7日目に年額プランへ切り替わります。解約はいつでもできます。` | Trial day-5 notification / fallback body |
 | LockSurfaceCoordinator.swift:215 | `この1ヶ月のふりかえり` | Month-1 notification / title |
@@ -588,3 +593,35 @@ The inventory below is retained as the historical source-location checklist used
 Files in `ios/DopaBreak` that were already clear before batch 2: `AppURLs.swift`, `DesignTokens.swift`, `DopaBreakApp.swift`, `NotificationDelegate.swift`, `ScreenTimeCenter.swift`, and `ShieldController.swift`.
 
 Extension completion: `ios/WidgetsExtension/DopaBreakWidgets.swift` uses `ios/WidgetsExtension/Localizable.xcstrings`; `ios/ShieldConfigExtension/ShieldConfigurationExtension.swift` uses `ios/ShieldConfigExtension/Localizable.xcstrings`. Shield Action and Monitor contain no user-facing strings, so no empty catalog was added for those targets.
+
+## 2026-09-05 競合監査の改善で追加（ja/en/ko）
+
+| キー | ja |
+| --- | --- |
+| home.block.check | ブロックの準備を確認してください |
+| home.block.continues | 設定したブロックが続いています |
+| settings.block.check_notice | ブロックの準備を確認できません。権限と通信状態を確認して、再試行してください。既存のブロックは残る場合があります。 |
+| settings.block.retry | 再試行 |
+| settings.schedule.add | 予定を追加 |
+| settings.schedule.continuous | 予定が続く間 |
+| settings.schedule.first | 予定1 |
+| settings.schedule.night_optin | 就寝中のブロックに予定を追加 |
+| settings.schedule.remove | 予定2を削除 |
+| settings.schedule.scope | 予定は2件まで設定できます。夜だけ強化では、就寝中のブロックと両方が適用されます。 |
+| settings.schedule.second | 予定2 |
+| settings.schedule.section | 起床・就寝時刻 |
+| settings.schedule.select | 編集する予定 |
+| settings.strict.change_blocked | 強いブロック中は変更できません。必要な場合は、セッションの解除から緊急解除してください。 |
+| settings.strict.description | 終了まで通常の解除と対象・モードの変更を止めます。緊急解除には30秒の待機が必要です。iOS設定での権限取り消しは防げません。 |
+| settings.strict.exit.confirm | 手動セッションを緊急解除 |
+| settings.strict.exit.continue | ブロックを続ける |
+| settings.strict.exit.countdown | 解除まであと%lld秒 |
+| settings.strict.exit.description | 終了時刻まで続ける設定です。緊急で必要なときは、30秒待って手動セッションを解除できます。毎週の予定と就寝中のブロックは別に続きます。 |
+| settings.strict.exit.done | セッションは終了しました |
+| settings.strict.exit.request | 緊急解除の待機を始める |
+| settings.strict.exit.title | 緊急解除 |
+| settings.strict.toggle | 途中で解除しにくくする |
+| stats.insight.action | ブロックの設定を見直す |
+| stats.insight.evidence | この期間の回答%lld件のうち%lld件が「時間を失った」「気分が悪くなった」でした。 |
+| stats.insight.suggestion | 見たくない時間が決まっているなら、その時間だけブロックする予定を試してみませんか。設定は自分で選べます。 |
+| stats.insight.title | 次の使い方を決める |

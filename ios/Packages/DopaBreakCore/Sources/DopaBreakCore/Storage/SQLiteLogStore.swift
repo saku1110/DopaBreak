@@ -125,6 +125,25 @@ public final class SQLiteLogStore: @unchecked Sendable {
         }
     }
 
+    /// 期間内に「開く」を選んだ回数。1日に開ける回数の数え上げに使う。
+    /// 開くと決めた時刻（`completed_at`）で数え、無い古い行は始めた時刻で数える。
+    public func openedAttemptCount(from start: Date, to end: Date) throws -> Int {
+        try attemptDatabase.perform { db in
+            let sql = """
+            SELECT COUNT(*)
+            FROM attempt_logs
+            WHERE opened = 1
+              AND COALESCE(completed_at, started_at) >= ?
+              AND COALESCE(completed_at, started_at) < ?
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            return try fetchCount(statement, db: db, sql: sql)
+        }
+    }
+
     public func cancelledAttemptCount() throws -> Int {
         try attemptDatabase.perform { db in
             let sql = "SELECT COUNT(*) FROM attempt_logs WHERE decision = ?"
@@ -169,6 +188,146 @@ public final class SQLiteLogStore: @unchecked Sendable {
         }
     }
 
+    /// 指定期間に開始した試行へ紐づく永久台帳の推定秒数。`end` は排他。
+    public func reclaimedSecondsByStartWindow(from start: Date, to end: Date) throws -> Int {
+        guard start < end else { return 0 }
+        return try attemptDatabase.perform { db in
+            let sql = """
+            SELECT COALESCE(SUM(l.seconds), 0)
+            FROM reclaimed_ledger l
+            JOIN attempt_logs a ON a.id = l.attempt_id
+            WHERE a.started_at >= ? AND a.started_at < ?
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            return try fetchCount(statement, db: db, sql: sql)
+        }
+    }
+
+    /// 指定期間に開始した試行へ紐づく推定秒数をルール別に返す。`end` は排他。
+    public func reclaimedSecondsByRuleInStartWindow(
+        from start: Date,
+        to end: Date
+    ) throws -> [UUID: Int] {
+        guard start < end else { return [:] }
+        return try attemptDatabase.perform { db in
+            let sql = """
+            SELECT a.rule_id, SUM(l.seconds)
+            FROM reclaimed_ledger l
+            JOIN attempt_logs a ON a.id = l.attempt_id
+            WHERE a.started_at >= ? AND a.started_at < ?
+            GROUP BY a.rule_id
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            let rows = try fetchRows(statement, db: db, sql: sql) { statement in
+                (try uuid(statement, 0, column: "rule_id"), int(statement, 1))
+            }
+            return Dictionary(rows, uniquingKeysWith: +)
+        }
+    }
+
+    /// 指定期間に開始した試行へ紐づく推定秒数を理由別に返す。理由未回答は除外する。
+    public func reclaimedSecondsByIntentInStartWindow(
+        from start: Date,
+        to end: Date
+    ) throws -> [IntentCategory: Int] {
+        guard start < end else { return [:] }
+        return try attemptDatabase.perform { db in
+            let sql = """
+            SELECT a.intent, SUM(l.seconds)
+            FROM reclaimed_ledger l
+            JOIN attempt_logs a ON a.id = l.attempt_id
+            WHERE a.started_at >= ? AND a.started_at < ? AND a.intent IS NOT NULL
+            GROUP BY a.intent
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            let rows = try fetchRows(statement, db: db, sql: sql) { statement in
+                let rawValue = try requiredText(statement, 0, column: "intent")
+                guard let intent = IntentCategory(rawValue: rawValue) else {
+                    throw CoreError.sqliteDecoding(column: "intent", value: rawValue)
+                }
+                return (intent, int(statement, 1))
+            }
+            return Dictionary(rows, uniquingKeysWith: +)
+        }
+    }
+
+    /// 指定期間に永久台帳へ確定した推定秒数をルール別に返す。`end` は排他。
+    public func reclaimedSecondsByRule(from start: Date, to end: Date) throws -> [UUID: Int] {
+        guard start < end else { return [:] }
+        return try attemptDatabase.perform { db in
+            let sql = """
+            SELECT a.rule_id, SUM(l.seconds)
+            FROM reclaimed_ledger l
+            JOIN attempt_logs a ON a.id = l.attempt_id
+            WHERE l.recorded_at >= ? AND l.recorded_at < ?
+            GROUP BY a.rule_id
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            let rows = try fetchRows(statement, db: db, sql: sql) { statement in
+                (try uuid(statement, 0, column: "rule_id"), int(statement, 1))
+            }
+            return Dictionary(rows, uniquingKeysWith: +)
+        }
+    }
+
+    /// 指定期間に永久台帳へ確定した推定秒数を理由別に返す。理由未回答は除外し、`end` は排他。
+    public func reclaimedSecondsByIntent(
+        from start: Date,
+        to end: Date
+    ) throws -> [IntentCategory: Int] {
+        guard start < end else { return [:] }
+        return try attemptDatabase.perform { db in
+            let sql = """
+            SELECT a.intent, SUM(l.seconds)
+            FROM reclaimed_ledger l
+            JOIN attempt_logs a ON a.id = l.attempt_id
+            WHERE l.recorded_at >= ? AND l.recorded_at < ? AND a.intent IS NOT NULL
+            GROUP BY a.intent
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            let rows = try fetchRows(statement, db: db, sql: sql) { statement in
+                let rawValue = try requiredText(statement, 0, column: "intent")
+                guard let intent = IntentCategory(rawValue: rawValue) else {
+                    throw CoreError.sqliteDecoding(column: "intent", value: rawValue)
+                }
+                return (intent, int(statement, 1))
+            }
+            return Dictionary(rows, uniquingKeysWith: +)
+        }
+    }
+
+    /// 指定期間に開始した全試行の開始日時だけを返す。`end` は排他。
+    public func attemptStartTimes(from start: Date, to end: Date) throws -> [Date] {
+        guard start < end else { return [] }
+        return try attemptDatabase.perform { db in
+            let sql = """
+            SELECT started_at
+            FROM attempt_logs
+            WHERE started_at >= ? AND started_at < ?
+            """
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(start, to: statement, at: 1, db: db, sql: sql)
+            try bindDate(end, to: statement, at: 2, db: db, sql: sql)
+            return try fetchRows(statement, db: db, sql: sql) { date($0, 0) }
+        }
+    }
+
     func reclaimedLedgerEntryCount() throws -> Int {
         try attemptDatabase.perform { db in
             let sql = "SELECT COUNT(*) FROM reclaimed_ledger"
@@ -190,6 +349,28 @@ public final class SQLiteLogStore: @unchecked Sendable {
             defer { sqlite3_finalize(statement) }
             try bindReflection(log, to: statement, db: db)
             try stepDone(statement, db: db, sql: sql)
+        }
+    }
+
+    public func makeReflectionReady(id: UUID, at date: Date) throws {
+        try reflectionDatabase.perform { db in
+            let sql = "UPDATE reflection_logs SET prompted_at = ? WHERE id = ? AND prompted_at > ? AND answered_at IS NULL AND skipped = 0"
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindDate(date, to: statement, at: 1, db: db, sql: sql)
+            try bindText(id.uuidString, to: statement, at: 2, db: db, sql: sql)
+            try bindDate(date, to: statement, at: 3, db: db, sql: sql)
+            try stepDone(statement, db: db, sql: sql)
+        }
+    }
+
+    public func reflection(id: UUID) throws -> ReflectionLog? {
+        try reflectionDatabase.perform { db in
+            let sql = "SELECT \(reflectionColumns) FROM reflection_logs WHERE id = ?"
+            let statement = try prepare(db, sql)
+            defer { sqlite3_finalize(statement) }
+            try bindText(id.uuidString, to: statement, at: 1, db: db, sql: sql)
+            return try fetchRows(statement, db: db, sql: sql, decode: decodeReflection).first
         }
     }
 

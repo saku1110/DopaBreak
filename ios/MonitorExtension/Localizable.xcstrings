@@ -1,5 +1,98 @@
 {
   "sourceLanguage": "ja",
-  "strings": {},
+  "strings": {
+    "reintervention.notification.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだ利用時間になりました"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your selected usage time is up"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택한 사용 시간이 되었습니다"
+          }
+        }
+      }
+    },
+    "reintervention.notification.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreakで振り返り、終了か延長を選んでください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reflect in DopaBreak, then finish or add time."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DopaBreak에서 돌아보고 종료 또는 연장을 선택하세요."
+          }
+        }
+      }
+    },
+    "reintervention.soft.question": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ用事の途中ですか？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still working on your task?"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 필요한 일을 하고 있나요?"
+          }
+        }
+      }
+    },
+    "reintervention.soft.reached": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選んだ利用時間になりました。必要な用事を続けているか確認しましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your selected usage time is up. Check whether you are still doing what you came for."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택한 사용 시간이 되었어요. 필요한 일을 계속하고 있는지 확인해 보세요."
+          }
+        }
+      }
+    }
+  },
   "version": "1.0"
 }

@@ -44,11 +44,16 @@ final class WinScreenSnapshotCapture: XCTestCase {
                 reclaimedSeconds: 480,
                 lifetimeReclaimedSeconds: entry.lifetime,
                 todayCancelledCount: 3,
+                consecutiveDays: 7,
                 estimatedMinutesPerCancellation: 8,
                 goals: Array(goals),
                 milestone: entry.milestone
             )
-            .frame(width: 393, height: 720, alignment: .top)
+            .frame(width: 353, height: 652, alignment: .top)
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            .padding(.bottom, 40)
+            .frame(width: 393, height: 720)
             .background(DesignTokens.background)
             .environment(\.colorScheme, .dark)
 

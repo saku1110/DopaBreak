@@ -78,7 +78,7 @@ public struct RuleStore: Sendable {
         ruleId: UUID? = nil
     ) throws -> TargetRule {
         guard !selectionData.isEmpty else {
-            throw CoreError.validation(message: "止めるアプリを選択してください")
+            throw CoreError.validation(message: "完全にブロックするアプリを選択してください")
         }
 
         let validatedName = try validatedRuleName(name)

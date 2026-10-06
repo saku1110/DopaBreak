@@ -25,7 +25,7 @@
 
 - **土台**: competitor「one sec」の「開くまでの遅延・摩擦」。ただし完全コピーはしない（IP/コモディティ回避）。
 - **唯一無二の武器（主役）**: `利用後リフレクション`（「何も得られなかった」の可視化＝損失回避の体験化）。one sec / Opal が「ブロックで矯正」なのに対し、本アプリは「本人が自発的にやめたくなる」。
-- **看板（ヒーロー）**: ロック画面に**戻る先（人生の方向性）を毎日表示** — 朝の目標通知＋デイリーLive Activity（2026-07-02: 常設ウィジェット廃止・手動設置ゼロ化）。SNS断ち × 人生の目標 × ロック画面の掛け合わせは日本語市場で手薄＝ASO/差別化の勝ち筋。
+- **看板（ヒーロー）**: ロック画面に**戻る先（人生の方向性）を毎日表示** — デイリーLive Activityに一本化（2026-09-03: 朝の目標通知を廃止）。SNS断ち × 人生の目標 × ロック画面の掛け合わせは日本語市場で手薄＝ASO/差別化の勝ち筋。
 
 ---
 
@@ -140,13 +140,13 @@ MVPは「開く前の遅延・意図確認・使用可視化・必要時間だ�
 - **Apple API**: FamilyControls（権限・対象選択）/ DeviceActivity（スケジュール・閾値・監視）/ ManagedSettings(+UI)（シールド）/ WidgetKit / StoreKit 2 / UserNotifications / SwiftData or SQLite / App Groups。
 - **Extension間共有**: App Group（`group.com.dopabreak.shared`）に goals/rules/attempt_logs/reflection_logs/widget_snapshot/intervention_state を軽量snapshotで置く。Extensionで重いDB処理をしない。
 
-**データモデル（要点）**: `Goal` / `TargetRule`(activitySelectionData=FamilyActivitySelection) / `AttemptLog` / `ReflectionLog`(trigger, satisfaction, happinessDelta) / `WidgetSnapshot`(Home用) + `LockSurfaceState`(通知/Live Activity/テーマ・2026-07-02改訂)。
+**データモデル（要点）**: `Goal` / `TargetRule`(activitySelectionData=FamilyActivitySelection) / `AttemptLog` / `ReflectionLog`(trigger, satisfaction, happinessDelta) / `WidgetSnapshot`(Home用) + `LockSurfaceState`(週次通知/Live Activity/テーマ・2026-09-03改訂)。
 
 **介入状態遷移**: `Idle → ShieldPresented → Breathing → UsageSummary → GoalReminder → IntentSelection → Decision →(Cancelled | TimeSelection → TemporarilyAllowed → ReShieldScheduled → PostUseReflection)`。
 
-**ロック画面表示ルール（2026-07-02改訂）**: 常設ウィジェット廃止。朝の目標通知＋デイリーLive Activity（ActivityKit・カスタムUI・テーマ6種・8時間制限は更新で延長・「今日の実績」ライブ更新で審査要件を満たす）。短縮表示名12-16文字はHome Widget/Dynamic Island/介入で使用。タスク/期限/チェックリストは出さない。
+**ロック画面表示ルール（2026-09-03改訂）**: 常設ウィジェットと朝の目標通知を廃止し、デイリーLive Activityに一本化（ActivityKit・カスタムUI・テーマ6種・8時間制限は更新で延長・「今日の実績」ライブ更新で審査要件を満たす）。短縮表示名12-16文字はHome Widget/Dynamic Island/介入で使用。タスク/期限/チェックリストは出さない。
 
-**実装順（Codexへの分割単位）**: (1)App Group+ローカル保存 →(2)目標作成 →(3)FamilyControls権限 →(4)FamilyActivityPicker →(5)ManagedSettingsシールド →(6)ShieldConfiguration表示 →(7)ShieldAction(開かない/続ける) →(8)時間選択と一時開放 →(9)利用後リフレクション →(10)AttemptLog/ReflectionLogと統計 →(11)ロック画面サーフェス（朝の通知＋Live Activity＋Home Widget・テーマ6種） →(12)StoreKit 2 →(13)Onboarding/Paywall polish。
+**実装順（Codexへの分割単位）**: (1)App Group+ローカル保存 →(2)目標作成 →(3)FamilyControls権限 →(4)FamilyActivityPicker →(5)ManagedSettingsシールド →(6)ShieldConfiguration表示 →(7)ShieldAction(開かない/続ける) →(8)時間選択と一時開放 →(9)利用後リフレクション →(10)AttemptLog/ReflectionLogと統計 →(11)ロック画面サーフェス（Live Activity＋Home Widget・テーマ6種） →(12)StoreKit 2 →(13)Onboarding/Paywall polish。
 
 参照: [詳細設計](./05_detailed_design.md) / [機能要件](./04_functional_requirements.md)
 
@@ -245,7 +245,7 @@ Fableはこの表を「成功要因の抜け漏れ検知」に使う。★＝MVP
 - [ ] ★ 選択アプリにカスタムシールドを段階表示できる（技術検証1-2）
 - [ ] ★ 指定時間だけ一時開放→再シールドできる（技術検証3）
 - [ ] ★ 利用後リフレクションが近似トリガーで自然に出る（審査/UX両立）
-- [ ] ★ ロック画面（通知/Live Activity）で「戻る先」が主役として読める（可読性・許可率60%+）
+- [ ] ★ ロック画面（Live Activity）で「戻る先」が主役として読める（可読性・有効率40%+）
 - [ ] 介入が「面倒」でなく「役立つ」短さ（D7で制限ON継続25%+）
 - [ ] 目標は軽量（ヒーロー1＋1年1）。タスク管理化しない
 

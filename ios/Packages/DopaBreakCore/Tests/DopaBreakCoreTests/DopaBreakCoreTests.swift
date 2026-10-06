@@ -189,8 +189,7 @@ final class DopaBreakCoreTests: XCTestCase {
     func testLockSurfaceStateJSONRoundTripWithNilOptionals() throws {
         try assertJSONRoundTrip(
             LockSurfaceState(
-                morningNotificationEnabled: true,
-                morningNotificationTime: time(hour: 7, minute: 0),
+                weeklyReportNotificationTime: time(hour: 7, minute: 0),
                 weeklyReportEnabled: false,
                 liveActivityEnabled: true,
                 liveActivityStartedAt: nil,
@@ -202,8 +201,7 @@ final class DopaBreakCoreTests: XCTestCase {
     func testLockSurfaceStateJSONRoundTripWithPopulatedOptionals() throws {
         try assertJSONRoundTrip(
             LockSurfaceState(
-                morningNotificationEnabled: false,
-                morningNotificationTime: time(hour: 8, minute: 30),
+                weeklyReportNotificationTime: time(hour: 8, minute: 30),
                 weeklyReportEnabled: true,
                 liveActivityEnabled: true,
                 liveActivityStartedAt: date(19),
@@ -520,6 +518,9 @@ final class DopaBreakCoreTests: XCTestCase {
         XCTAssertEqual(store.breathDurationSeconds, 3)
         XCTAssertNil(store.pendingStartInterventionCatalogID)
         XCTAssertFalse(store.pendingStartInterventionAutoResolve)
+        XCTAssertNil(store.pendingStartInterventionRequestedAt)
+        XCTAssertNil(store.lastSelfOpenedCatalogID)
+        XCTAssertNil(store.lastSelfOpenedAt)
         XCTAssertEqual(store.verifiedAutomationCatalogIDs, [])
         XCTAssertNil(store.firstLaunchDate)
         XCTAssertNil(store.wakeTimeMinutes)
@@ -530,6 +531,11 @@ final class DopaBreakCoreTests: XCTestCase {
         store.breathDurationSeconds = 5
         store.pendingStartInterventionCatalogID = "instagram"
         store.pendingStartInterventionAutoResolve = true
+        let requestedAt = Date(timeIntervalSince1970: 1_750_000_001)
+        let selfOpenedAt = Date(timeIntervalSince1970: 1_750_000_002)
+        store.pendingStartInterventionRequestedAt = requestedAt
+        store.lastSelfOpenedCatalogID = "instagram"
+        store.lastSelfOpenedAt = selfOpenedAt
         store.verifiedAutomationCatalogIDs = ["instagram"]
         let firstLaunchDate = Date(timeIntervalSince1970: 1_750_000_000)
         store.firstLaunchDate = firstLaunchDate
@@ -541,6 +547,9 @@ final class DopaBreakCoreTests: XCTestCase {
         XCTAssertEqual(store.breathDurationSeconds, 5)
         XCTAssertEqual(store.pendingStartInterventionCatalogID, "instagram")
         XCTAssertTrue(store.pendingStartInterventionAutoResolve)
+        XCTAssertEqual(store.pendingStartInterventionRequestedAt, requestedAt)
+        XCTAssertEqual(store.lastSelfOpenedCatalogID, "instagram")
+        XCTAssertEqual(store.lastSelfOpenedAt, selfOpenedAt)
         XCTAssertEqual(store.verifiedAutomationCatalogIDs, ["instagram"])
         XCTAssertEqual(store.firstLaunchDate, firstLaunchDate)
         XCTAssertEqual(store.wakeTimeMinutes, 0)
@@ -552,6 +561,9 @@ final class DopaBreakCoreTests: XCTestCase {
         store.lastAppVersion = nil
         store.pendingStartInterventionCatalogID = nil
         store.pendingStartInterventionAutoResolve = false
+        store.pendingStartInterventionRequestedAt = nil
+        store.lastSelfOpenedCatalogID = nil
+        store.lastSelfOpenedAt = nil
         store.verifiedAutomationCatalogIDs = []
         store.firstLaunchDate = nil
         store.wakeTimeMinutes = nil
@@ -559,10 +571,30 @@ final class DopaBreakCoreTests: XCTestCase {
         XCTAssertNil(store.lastAppVersion)
         XCTAssertNil(store.pendingStartInterventionCatalogID)
         XCTAssertFalse(store.pendingStartInterventionAutoResolve)
+        XCTAssertNil(store.pendingStartInterventionRequestedAt)
+        XCTAssertNil(store.lastSelfOpenedCatalogID)
+        XCTAssertNil(store.lastSelfOpenedAt)
         XCTAssertEqual(store.verifiedAutomationCatalogIDs, [])
         XCTAssertNil(store.firstLaunchDate)
         XCTAssertNil(store.wakeTimeMinutes)
         XCTAssertNil(store.bedTimeMinutes)
+    }
+
+    func testManualAutomationChecklistDoesNotInheritExecutionHistory() {
+        let suite = "ManualChecklistTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = SettingsStore(userDefaults: defaults)
+        store.markAutomationVerified(catalogID: "tiktok")
+        XCTAssertEqual(store.confirmedAutomationCatalogIDs, [])
+        store.setAutomationConfirmed(catalogID: "x", confirmed: true)
+        store.setAutomationConfirmed(catalogID: "x", confirmed: true)
+        let reopened = SettingsStore(userDefaults: UserDefaults(suiteName: suite)!)
+        XCTAssertEqual(reopened.confirmedAutomationCatalogIDs, ["x"])
+        reopened.setAutomationConfirmed(catalogID: "x", confirmed: false)
+        store.markAutomationVerified(catalogID: "x")
+        XCTAssertEqual(store.confirmedAutomationCatalogIDs, [])
+        XCTAssertEqual(store.verifiedAutomationCatalogIDs, ["tiktok", "x"])
     }
 
     func testSettingsStoreMarksAutomationVerificationIdempotently() {

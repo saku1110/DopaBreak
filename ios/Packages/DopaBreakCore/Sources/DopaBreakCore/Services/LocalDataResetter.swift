@@ -80,13 +80,9 @@ public struct LocalDataResetter {
         // 完全ブロックの窓の控えも同じ理由で消す。残すと、ルールを消したあとの
         // 窓の境界で拡張が同じ対象を張り直す。
         attempt { try snapshotStore.remove(.deepFocusShieldSnapshot) }
-        // ゲート4ファイルも全削除の対象。降格時は設定・台帳を残すが、明示的な
-        // 全データ削除では、拡張が再適用・再通知できる根拠をすべて消す。
-        attempt { try snapshotStore.remove(.gateAppSettings) }
-        attempt { try GateLedgerStore(snapshotStore: snapshotStore).remove() }
-        attempt { try snapshotStore.remove(.gateShieldSnapshot) }
-        attempt { try snapshotStore.remove(.gateUnlockRequest) }
-
+        // 回数上限の控えも同じ。残すと、起床時刻までの窓で拡張が張り直す。
+        attempt { try snapshotStore.remove(.dailyOpenLimitShieldSnapshot) }
+        attempt { try ReinterventionStore(snapshotStore: snapshotStore).transaction { $0 = .init() } }
         settingsStore.resetToDefaults()
         successfulOperationCount += 1
 

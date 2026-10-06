@@ -29,7 +29,14 @@ final class NightShieldScheduler {
     private let clearNightShield: @MainActor () -> Void
     private let now: () -> Date
 
-    private(set) var didLastRebuildFail = false
+    /// 直近の張り直しがどこで止まったか。
+    /// 「落ちた」と「権利が確かめられていないので何も置いていない」を分けて持つ。
+    private(set) var lastRebuildOutcome: ShieldArmingOutcome = .ready
+
+    /// 夜間ブロックの実体が動いていないか。`ready` 以外はすべて未武装として扱う。
+    var didLastRebuildFail: Bool {
+        lastRebuildOutcome != .ready
+    }
 
     init(
         ruleStore: RuleStore,
@@ -56,8 +63,17 @@ final class NightShieldScheduler {
     @discardableResult
     func rebuild(entitlementGate: EntitlementGate, hasConfirmedEntitlement: Bool) -> Bool {
         guard hasConfirmedEntitlement else {
+            // 何も触らないのは正しいが、黙って何も起きない状態でもある。
+            // 画面は解放されたままなので、ここを残しておかないと未武装が誰にも見えない。
+            lastRebuildOutcome = .entitlementUnconfirmed
             return false
         }
+
+        if let rules = try? ruleStore.allRules() {
+            settingsStore.migrateBlockConfigurationIfNeeded(rules: rules)
+        }
+        settingsStore.reconcileBlockEntitlement(isPro: entitlementGate.tier == .pro,
+                                                hasConfirmedEntitlement: hasConfirmedEntitlement)
 
         // Freeだと確定した時点で、ルールを読む前に止める。
         // ルールの読み取りに失敗する端末でも、降格の後始末だけは必ず通す。
@@ -84,11 +100,12 @@ final class NightShieldScheduler {
         // Proのまま読めなかったときは触らない。読めないことを理由に、
         // 効いている夜間ブロックの予定を消さない。
         guard let rules = try? ruleStore.allRules() else {
+            lastRebuildOutcome = .failed
             return false
         }
 
         let selectionDataList = rules
-            .filter { $0.isEnabled && $0.mode == .nightOnly && !$0.activitySelectionData.isEmpty }
+            .filter { $0.isEnabled && settingsStore.blockConfiguration.allows(.night) && !$0.activitySelectionData.isEmpty }
             .map(\.activitySelectionData)
 
         guard !selectionDataList.isEmpty else {
@@ -109,7 +126,7 @@ final class NightShieldScheduler {
                 to: .nightShieldSnapshot
             )
         } catch {
-            didLastRebuildFail = true
+            lastRebuildOutcome = .failed
             return false
         }
 
@@ -124,7 +141,7 @@ final class NightShieldScheduler {
                 ),
                 events: [:]
             )
-            didLastRebuildFail = false
+            lastRebuildOutcome = .ready
             return true
         } catch {
             // 張れなかったときは、朝に解除を出す担い手が拡張側にいなくなる。
@@ -135,7 +152,7 @@ final class NightShieldScheduler {
             monitoringCenter.stopMonitoring([Self.activityName])
             clearNightShield()
             try? snapshotStore.remove(.nightShieldSnapshot)
-            didLastRebuildFail = true
+            lastRebuildOutcome = .failed
             return false
         }
     }
@@ -157,12 +174,12 @@ final class NightShieldScheduler {
 
         do {
             try snapshotStore.remove(.nightShieldSnapshot)
-            didLastRebuildFail = false
+            lastRebuildOutcome = .ready
             return true
         } catch {
             // 監視は止まっているため、新たな境界で拡張が起きることはない。
             // 残った控えは次の同期で消し直す。
-            didLastRebuildFail = true
+            lastRebuildOutcome = .failed
             return false
         }
     }

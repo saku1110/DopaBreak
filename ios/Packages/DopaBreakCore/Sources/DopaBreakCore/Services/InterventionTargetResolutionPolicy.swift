@@ -20,11 +20,12 @@ public enum InterventionTargetResolutionPolicy {
             return .target(catalogID: requested)
         }
 
-        guard let firstValidSelected = selected.first(where: {
-            SNSAppCatalog.contains(catalogID: $0)
-        }) else {
+        // A shortcut does not tell us which app triggered it when its parameter is empty.
+        // Never attribute an ambiguous request to whichever app happens to be first.
+        let validSelected = Set(selected.filter { SNSAppCatalog.contains(catalogID: $0) })
+        guard validSelected.count == 1, let onlyTarget = validSelected.first else {
             return .none
         }
-        return .target(catalogID: firstValidSelected)
+        return .target(catalogID: onlyTarget)
     }
 }

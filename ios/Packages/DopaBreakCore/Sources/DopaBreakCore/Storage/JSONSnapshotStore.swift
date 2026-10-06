@@ -1,6 +1,7 @@
 import Foundation
 
 public enum SnapshotFile: String, Codable, Equatable, Sendable, CaseIterable {
+    case reintervention = "reintervention.json"
     case goals = "goals.json"
     case rules = "rules.json"
     case widgetSnapshot = "widget_snapshot.json"
@@ -11,10 +12,7 @@ public enum SnapshotFile: String, Codable, Equatable, Sendable, CaseIterable {
     case funnelEvents = "funnel_events.json"
     case nightShieldSnapshot = "night_shield_snapshot.json"
     case deepFocusShieldSnapshot = "deepfocus_shield_snapshot.json"
-    case gateAppSettings = "gate_app_settings.json"
-    case gateLedger = "gate_ledger.json"
-    case gateShieldSnapshot = "gate_shield_snapshot.json"
-    case gateUnlockRequest = "gate_unlock_request.json"
+    case dailyOpenLimitShieldSnapshot = "openlimit_shield_snapshot.json"
 }
 
 public struct JSONSnapshotStore: Sendable {

@@ -9,15 +9,37 @@ public struct DeepFocusSession: Codable, Equatable, Sendable {
     /// 終わる時刻。`nil` は「自分で戻すまで」。
     public var endsAt: Date?
 
-    public init(startedAt: Date, endsAt: Date?) {
+    public var isStrict: Bool
+    public var emergencyExitRequestedAt: Date?
+
+    public init(startedAt: Date, endsAt: Date?, isStrict: Bool = false, emergencyExitRequestedAt: Date? = nil) {
         self.startedAt = startedAt
         self.endsAt = endsAt
+        self.isStrict = isStrict && endsAt != nil
+        self.emergencyExitRequestedAt = emergencyExitRequestedAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(startedAt: try c.decode(Date.self, forKey: .startedAt),
+                  endsAt: try c.decodeIfPresent(Date.self, forKey: .endsAt),
+                  isStrict: try c.decodeIfPresent(Bool.self, forKey: .isStrict) ?? false,
+                  emergencyExitRequestedAt: try c.decodeIfPresent(Date.self, forKey: .emergencyExitRequestedAt))
+    }
+
+    public func emergencyExitRemainingSeconds(now: Date) -> TimeInterval {
+        guard let requestedAt = emergencyExitRequestedAt else { return 30 }
+        return min(30, max(0, 30 - now.timeIntervalSince(requestedAt)))
+    }
+
+    public func canEnd(now: Date, emergency: Bool = false) -> Bool {
+        !isStrict || endsAt.map { now >= $0 } == true
+            || (emergency && emergencyExitRequestedAt != nil && emergencyExitRemainingSeconds(now: now) == 0)
     }
 }
 
-/// 週に1本だけ持つ、完全ブロックの時間帯。
+/// 完全ブロックの時間帯。最大2件まで保存する。
 ///
-/// 曜日を増やせるだけのルールビルダーにはしない（1本に固定する）。
 /// 跨日（22:00→翌6:00）は開始した曜日のぶんとして数える。
 public struct DeepFocusSchedule: Codable, Equatable, Sendable {
     public var isEnabled: Bool
@@ -73,6 +95,9 @@ public struct DeepFocusShieldSnapshot: Codable, Equatable, Sendable {
     /// `selectionDataList` を手動セッションにも使う。
     public var sessionSelectionDataList: [Data]?
     public var schedule: DeepFocusSchedule
+    /// 旧バージョンには存在しない。未保存は追加予定なし。
+    public var additionalSchedules: [DeepFocusSchedule]?
+    public var schedules: [DeepFocusSchedule] { [schedule] + (additionalSchedules ?? []) }
     /// 進行中のセッション。無ければ `nil`。
     public var session: DeepFocusSession?
     public var updatedAt: Date
@@ -81,12 +106,14 @@ public struct DeepFocusShieldSnapshot: Codable, Equatable, Sendable {
         selectionDataList: [Data],
         sessionSelectionDataList: [Data]? = nil,
         schedule: DeepFocusSchedule,
+        additionalSchedules: [DeepFocusSchedule]? = nil,
         session: DeepFocusSession?,
         updatedAt: Date
     ) {
         self.selectionDataList = selectionDataList
         self.sessionSelectionDataList = sessionSelectionDataList
         self.schedule = schedule
+        self.additionalSchedules = additionalSchedules.map { Array($0.prefix(1)) }
         self.session = session
         self.updatedAt = updatedAt
     }

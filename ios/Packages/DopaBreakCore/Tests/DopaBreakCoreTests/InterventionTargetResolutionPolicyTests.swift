@@ -22,13 +22,13 @@ final class InterventionTargetResolutionPolicyTests: XCTestCase {
         )
     }
 
-    func testOmittedRequestWithMultipleTargetsResolvesFirstSelectedTarget() {
+    func testOmittedRequestWithMultipleTargetsDoesNotGuess() {
         XCTAssertEqual(
             InterventionTargetResolutionPolicy.resolve(
                 requested: nil,
                 selected: ["youtube", "instagram", "x"]
             ),
-            .target(catalogID: "youtube")
+            .none
         )
     }
 
@@ -49,13 +49,13 @@ final class InterventionTargetResolutionPolicyTests: XCTestCase {
         )
     }
 
-    func testOmittedRequestUsesFirstValidSelectedTarget() {
+    func testOmittedRequestWithMultipleValidTargetsDoesNotGuess() {
         XCTAssertEqual(
             InterventionTargetResolutionPolicy.resolve(
                 requested: nil,
                 selected: ["unknown-app", "youtube", "instagram", "youtube"]
             ),
-            .target(catalogID: "youtube")
+            .none
         )
     }
 

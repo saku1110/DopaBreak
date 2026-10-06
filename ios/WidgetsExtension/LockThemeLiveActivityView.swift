@@ -33,12 +33,21 @@ enum LockThemeFontPolicy {
     }
 }
 
+enum LockThemeSurfaceShape: Equatable {
+    /// Live Activity / ウィジェット本番。システムのコンテナ角丸へ自動一致。
+    case containerRelative
+    /// アプリ内プレビュー。コンテナが無いので固定値を使う。
+    case fixed(CGFloat)
+}
+
 /// The canonical lock-screen card used by both the Widget Extension and the in-app preview.
 /// A full-height 160pt canvas and shrinking goal rows keep every theme within WidgetKit's limit.
 struct LockThemeLiveActivityView: View {
     static let maximumHeight: CGFloat = 160
     static let maximumGoals = 5
     static let cardInset: CGFloat = 16
+    /// iPhone 17 Pro Max / iOS 26.5で実測した23.5ptに近いプレビュー用代表値。
+    static let previewCornerRadius: CGFloat = 22
 
     static func goalFontIncrease(forGoalCount count: Int) -> CGFloat {
         switch count {
@@ -80,6 +89,8 @@ struct LockThemeLiveActivityView: View {
     let goalTitles: [String]
     let cancelledCount: Int
     let attemptCount: Int
+    var blockWindows: [BlockWindowStatus] = []
+    var surfaceShape: LockThemeSurfaceShape = .fixed(Self.previewCornerRadius)
     var isMeasuring = false
     var localizationBundle: Bundle = .main
     var locale: Locale = .autoupdatingCurrent
@@ -87,6 +98,28 @@ struct LockThemeLiveActivityView: View {
 
     private var titles: [String] { Array(goalTitles.prefix(Self.maximumGoals)) }
     private var goalCount: Int { max(titles.count, 1) }
+    private var surfaceClipShape: AnyShape {
+        switch surfaceShape {
+        case .containerRelative:
+            return AnyShape(ContainerRelativeShape())
+        case .fixed(let radius):
+            return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private func surfaceBorder<S: ShapeStyle>(
+        _ style: S,
+        lineWidth: CGFloat
+    ) -> some View {
+        switch surfaceShape {
+        case .containerRelative:
+            ContainerRelativeShape().strokeBorder(style, lineWidth: lineWidth)
+        case .fixed(let radius):
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(style, lineWidth: lineWidth)
+        }
+    }
     private var goalFontIncrease: CGFloat { Self.goalFontIncrease(forGoalCount: goalCount) }
     private var summaryFontIncrease: CGFloat { Self.summaryFontIncrease(forGoalCount: goalCount) }
     private var eyebrow: String {
@@ -96,6 +129,29 @@ struct LockThemeLiveActivityView: View {
             table: nil
         )
     }
+    private var blockOrCancelledText: Text {
+        Self.blockStatusText(blockWindows, localizationBundle: localizationBundle) ?? Text(cancelled)
+    }
+
+    static func blockStatusText(_ windows: [BlockWindowStatus], localizationBundle: Bundle = .main) -> Text? {
+        guard let block = windows.first(where: { $0.endsAt.map { $0 > Date() } ?? true }) else { return nil }
+        let key: String
+        let fallback: String
+        switch block.trigger {
+        case .manual: key = "block.live.manual"; fallback = "手動 残り "
+        case .weeklySchedule: key = "block.live.weekly"; fallback = "予定 終了 "
+        case .night: key = "block.live.night"; fallback = "就寝中 起床 "
+        }
+        let label = localizationBundle.localizedString(forKey: key, value: fallback, table: nil)
+        guard let end = block.endsAt else {
+            return Text(localizationBundle.localizedString(forKey: "block.live.continues", value: "ブロック中", table: nil))
+        }
+        if block.trigger == .manual {
+            return Text(label) + Text(timerInterval: min(Date(), end)...end, countsDown: true)
+        }
+        return Text(label) + Text(end, style: .time)
+    }
+
     private var cancelled: String {
         localizedFormat(
             key: "live_activity.summary.cancelled",
@@ -122,6 +178,17 @@ struct LockThemeLiveActivityView: View {
                     .clipped()
             }
         }
+        .background {
+            if theme == .liquidGlass, case .fixed = surfaceShape {
+                LockThemeGlassPreviewBackdrop()
+                    .clipShape(surfaceClipShape)
+            }
+        }
+        .modifier(LockThemeOuterSurface(
+            surfaceShape: surfaceShape,
+            enabled: theme == .liquidGlass || theme == .monochrome || theme == .spiderWeb,
+            showsPreviewRim: theme == .liquidGlass
+        ))
         .layoutAnchor(.cardBounds)
         .overlayPreferenceValue(LockThemeLayoutAnchorKey.self) { anchors in
             GeometryReader { proxy in
@@ -147,7 +214,7 @@ struct LockThemeLiveActivityView: View {
             case .kawaiiPink: kawaiiPink
             case .note: note
             case .blueprint: blueprint
-            case .retroPop: retroPop
+            case .spiderWeb: spiderWeb
             }
         }
     }
@@ -193,7 +260,7 @@ struct LockThemeLiveActivityView: View {
             Rectangle().fill(rgb(139, 146, 158).opacity(0.25)).frame(height: 1)
                 .layoutAnchor(.e1Divider)
             HStack(spacing: 14) {
-                Text(cancelled).foregroundStyle(rgb(184, 255, 61)).layoutAnchor(.cancelledSummary)
+                blockOrCancelledText.foregroundStyle(rgb(184, 255, 61)).layoutAnchor(.cancelledSummary)
                 Text(attempted).foregroundStyle(rgb(139, 146, 158)).layoutAnchor(.attemptedSummary)
             }
             .font(.system(size: adaptiveSummarySize(12), weight: .semibold))
@@ -209,6 +276,7 @@ struct LockThemeLiveActivityView: View {
         .frame(height: Self.maximumHeight)
         .background(rgb(20, 23, 27))
         .overlay(alignment: .leading) { Rectangle().fill(rgb(184, 255, 61)).frame(width: 3) }
+        .clipShape(surfaceClipShape)
     }
 
     private var gaming: some View {
@@ -257,7 +325,7 @@ struct LockThemeLiveActivityView: View {
                 }
                 RepeatingDashes().stroke(rgb(0, 229, 255).opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [5, 5])).frame(height: 1)
                 HStack(spacing: 12) {
-                    Text(cancelled).foregroundStyle(rgb(0, 229, 255)).layoutAnchor(.cancelledSummary)
+                    blockOrCancelledText.foregroundStyle(rgb(0, 229, 255)).layoutAnchor(.cancelledSummary)
                     Spacer(minLength: 4)
                     Text(attempted).foregroundStyle(rgb(138, 143, 168)).layoutAnchor(.attemptedSummary)
                 }
@@ -272,18 +340,17 @@ struct LockThemeLiveActivityView: View {
         }
         .frame(height: Self.maximumHeight)
         .overlay {
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [rgb(0, 229, 255), rgb(124, 77, 255), rgb(255, 46, 138)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 2
-                )
+            surfaceBorder(
+                LinearGradient(
+                    colors: [rgb(0, 229, 255), rgb(124, 77, 255), rgb(255, 46, 138)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                lineWidth: 2
+            )
                 .shadow(color: rgb(124, 77, 255).opacity(0.55), radius: 5)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .clipShape(surfaceClipShape)
     }
 
     private var asagiri: some View {
@@ -324,47 +391,21 @@ struct LockThemeLiveActivityView: View {
     }
 
     private var monochrome: some View {
-        VStack(alignment: .leading, spacing: densityValue(one: 15, two: 7, three: 6, four: 4.5, five: 3)) {
-            eyebrowText(color: rgb(118, 118, 118), tracking: 1.8)
+        VStack(alignment: .leading, spacing: densityValue(one: 19, two: 9, three: 6, four: 4.5, five: 3)) {
+            eyebrowText(color: .primary.opacity(0.8), tracking: 2)
             VStack(spacing: 0) {
                 ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    goalText(title, size: adaptiveGoalSize(19), weight: .black, color: rgb(18, 18, 18))
-                        .frame(height: densityValue(one: 48, two: 35, three: 27, four: 20, five: 17))
-                        .layoutAnchor(.goal(index))
-                    if index < titles.count - 1 {
-                        Rectangle().fill(rgb(230, 230, 230)).frame(height: 1)
-                    }
-                }
-            }
-            Rectangle().fill(rgb(18, 18, 18)).frame(height: 2)
-            summaryRow(primary: rgb(18, 18, 18), secondary: rgb(118, 118, 118), size: adaptiveSummarySize(10.5))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .layoutAnchor(.contentBounds)
-        .padding(.vertical, 8)
-        .padding(.horizontal, Self.cardInset)
-        .frame(height: Self.maximumHeight)
-        .background(rgb(250, 250, 250))
-    }
-
-    @ViewBuilder
-    private var liquidGlass: some View {
-        let content = VStack(alignment: .leading, spacing: densityValue(one: 19, two: 9, three: 6, four: 4.5, five: 3)) {
-            eyebrowText(color: .white.opacity(0.8), tracking: 2)
-            VStack(spacing: 0) {
-                ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    goalText(title, size: adaptiveGoalSize(15), weight: .bold, color: .white)
-                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    goalText(title, size: adaptiveGoalSize(15), weight: .bold, color: .primary)
                         .frame(height: densityValue(one: 46, two: 33, three: 25, four: 20, five: 17))
                         .layoutAnchor(.goal(index))
                     if index < titles.count - 1 {
-                        Rectangle().fill(.white.opacity(0.26)).frame(height: 1)
+                        Rectangle().fill(Color.primary.opacity(0.18)).frame(height: 1)
                     }
                 }
             }
             HStack(spacing: 7) {
-                glassCapsule(cancelled).layoutAnchor(.cancelledSummary)
-                glassCapsule(attempted).layoutAnchor(.attemptedSummary)
+                glassCapsule(blockOrCancelledText).layoutAnchor(.cancelledSummary)
+                glassCapsule(Text(attempted)).layoutAnchor(.attemptedSummary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -372,20 +413,102 @@ struct LockThemeLiveActivityView: View {
         .padding(.vertical, 8)
         .padding(.horizontal, Self.cardInset)
         .frame(height: Self.maximumHeight)
-        .overlay(alignment: .top) {
-            LinearGradient(colors: [.white.opacity(0.9), .white.opacity(0.12), .clear], startPoint: .leading, endPoint: .trailing)
-                .frame(height: 1.5)
-                .padding(.horizontal, 10)
+        .background(Color(uiColor: .systemBackground))
+    }
+
+    /// Wallpaper translucency belongs to ActivityKit. Keep content out of glassEffect:
+    /// WidgetKit remote rendering can flatten that modifier and lose the text.
+    private var liquidGlass: some View {
+        VStack(alignment: .leading, spacing: densityValue(one: 19, two: 9, three: 6, four: 4.5, five: 3)) {
+            eyebrowText(color: .white.opacity(0.9), tracking: 2)
+                .shadow(color: .black.opacity(0.55), radius: 1, y: 1)
+            VStack(spacing: 0) {
+                ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                    goalText(title, size: adaptiveGoalSize(15), weight: .bold, color: .white)
+                        .shadow(color: .black.opacity(0.6), radius: 1.5, y: 1)
+                        .frame(height: densityValue(one: 46, two: 33, three: 25, four: 20, five: 17))
+                        .layoutAnchor(.goal(index))
+                    if index < titles.count - 1 {
+                        Rectangle().fill(.white.opacity(0.24)).frame(height: 1)
+                    }
+                }
+            }
+            HStack(spacing: 7) {
+                glassCapsule(blockOrCancelledText, translucent: true).layoutAnchor(.cancelledSummary)
+                glassCapsule(Text(attempted), translucent: true).layoutAnchor(.attemptedSummary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .layoutAnchor(.contentBounds)
+        .padding(.vertical, 8)
+        .padding(.horizontal, Self.cardInset)
+        .frame(height: Self.maximumHeight)
+        .background {
+            // The translucent scrim protects white labels without painting an opaque card.
+            LinearGradient(colors: [.black.opacity(0.18), .black.opacity(0.24)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(stops: [
+                .init(color: .white.opacity(0.07), location: 0),
+                .init(color: .white.opacity(0.015), location: 0.28),
+                .init(color: .clear, location: 0.55),
+                .init(color: .white.opacity(0.025), location: 1)
+            ], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
 
-        if #available(iOS 26.0, *) {
-            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else {
-            content
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(0.42), lineWidth: 1) }
+    }
+
+    private var spiderWeb: some View {
+        let goalSize = adaptiveGoalSize(15)
+        let goalUIFont = UIFont.systemFont(ofSize: goalSize, weight: .bold)
+        let markerSize = max(14, goalSize * 0.82).rounded()
+        return VStack(alignment: .leading, spacing: densityValue(one: 19, two: 9, three: 6, four: 4.5, five: 3)) {
+            eyebrowText(color: .white.opacity(0.9), tracking: 1.5)
+            VStack(spacing: 0) {
+                ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        LockThemeSpiderMarker().fill(.white)
+                            .frame(width: markerSize, height: markerSize)
+                            .offset(y: scaledGoalCapCenterOffset(title: title, font: goalUIFont, availableWidth: 331))
+                            .layoutAnchor(.goalMarker(index))
+                            .markerCenterAlignedToCapHeight(of: goalUIFont)
+                            .accessibilityHidden(true)
+                        goalText(title, size: goalSize, weight: .bold, color: .white)
+                            .layoutAnchor(.goal(index))
+                    }
+                    .frame(height: densityValue(one: 46, two: 33, three: 25, four: 20, five: 17))
+                }
+            }
+            HStack(spacing: 7) {
+                webSummaryPill(blockOrCancelledText).layoutAnchor(.cancelledSummary)
+                webSummaryPill(Text(attempted)).layoutAnchor(.attemptedSummary)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .layoutAnchor(.contentBounds)
+        .padding(.vertical, 8)
+        .padding(.horizontal, Self.cardInset)
+        .frame(height: Self.maximumHeight)
+        .background {
+            LinearGradient(colors: [rgb(202, 22, 40), rgb(150, 12, 33)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LockThemeWebPattern()
+                .stroke(LinearGradient(colors: [.white.opacity(0.08), .white.opacity(0.36)], startPoint: .leading, endPoint: .trailing), lineWidth: 0.55)
+        }
+        .overlay(alignment: .bottom) {
+            // An inset accent avoids painting over the system's curved outer edge.
+            Capsule().fill(rgb(66, 153, 255).opacity(0.85))
+                .frame(height: 1)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 3)
+        }
+    }
+
+    private func webSummaryPill(_ text: Text) -> some View {
+        text
+            .font(.system(size: adaptiveSummarySize(11.5), weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1).minimumScaleFactor(0.58)
+            .padding(.horizontal, 9).frame(minHeight: 24)
+            .background(Capsule().fill(.black.opacity(0.12)))
+            .overlay { Capsule().strokeBorder(rgb(66, 153, 255).opacity(0.72), lineWidth: 0.75) }
     }
 
     private var kpop: some View {
@@ -439,7 +562,7 @@ struct LockThemeLiveActivityView: View {
                 }
             }
             HStack(spacing: 8) {
-                Text(cancelled).layoutAnchor(.cancelledSummary)
+                blockOrCancelledText.layoutAnchor(.cancelledSummary)
                 Text("★").foregroundStyle(rgb(238, 52, 137))
                 Text(attempted).layoutAnchor(.attemptedSummary)
             }
@@ -462,8 +585,8 @@ struct LockThemeLiveActivityView: View {
                 LinearGradient(colors: [.clear, rgb(53, 195, 232).opacity(0.12), rgb(238, 52, 137).opacity(0.12)], startPoint: .bottomLeading, endPoint: .topTrailing)
             }
         }
-        .overlay { RoundedRectangle(cornerRadius: 18).stroke(LinearGradient(colors: [rgb(238, 52, 137), rgb(138, 77, 232), rgb(53, 195, 232)], startPoint: .leading, endPoint: .trailing), lineWidth: 2.5) }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay { surfaceBorder(LinearGradient(colors: [rgb(238, 52, 137), rgb(138, 77, 232), rgb(53, 195, 232)], startPoint: .leading, endPoint: .trailing), lineWidth: 2.5) }
+        .clipShape(surfaceClipShape)
     }
 
     private var kawaiiPink: some View {
@@ -503,7 +626,7 @@ struct LockThemeLiveActivityView: View {
                 }
             }
             HStack(spacing: 8) {
-                Text(cancelled)
+                blockOrCancelledText
                     .font(roundFont(size: adaptiveSummarySize(11), weight: .bold)).foregroundStyle(.white)
                     .padding(.horizontal, 10).padding(.bottom, 3).frame(height: 25)
                     .background { SpeechBubbleShape().fill(rgb(242, 94, 137)) }
@@ -561,7 +684,7 @@ struct LockThemeLiveActivityView: View {
                     }
                 }
                 HStack(spacing: 12) {
-                    Text(cancelled)
+                    blockOrCancelledText
                         .font(customFont(font, size: adaptiveSummarySize(11.5), fallbackWeight: .regular))
                         .foregroundStyle(rgb(199, 80, 80))
                         .layoutAnchor(.cancelledSummary)
@@ -613,7 +736,7 @@ struct LockThemeLiveActivityView: View {
                     }
                 }
                 HStack(spacing: 0) {
-                    Text(cancelled)
+                    blockOrCancelledText
                         .frame(maxWidth: .infinity)
                         .layoutAnchor(.blueprintCancelledText)
                         .layoutAnchor(.cancelledSummary)
@@ -641,71 +764,9 @@ struct LockThemeLiveActivityView: View {
             .padding(.vertical, 8).padding(.horizontal, Self.cardInset)
         }
         .frame(height: Self.maximumHeight)
-        .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white, lineWidth: 1.5).padding(1) }
+        .overlay { surfaceBorder(Color.white, lineWidth: 1.5) }
         .overlay { RoundedRectangle(cornerRadius: 15).stroke(.white.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [5, 4])).padding(7) }
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-    }
-
-    private var retroPop: some View {
-        let goalSize = adaptiveGoalSize(15)
-        let markerSize = 16 * goalSize / 15
-        let goalUIFont = roundUIFont(size: goalSize)
-        let markerUIFont = UIFont.systemFont(ofSize: markerSize, weight: .bold)
-        return ZStack(alignment: .topTrailing) {
-            rgb(245, 233, 214)
-            RetroRings().frame(width: 115, height: 90).offset(x: 20, y: -20)
-            VStack(alignment: .leading, spacing: densityValue(one: 10, two: 7, three: 5, four: 4, five: 3)) {
-            Text(eyebrow)
-                    .font(roundFont(size: 10, weight: .bold)).foregroundStyle(rgb(74, 51, 32))
-                .padding(.horizontal, 13).frame(height: 22)
-                .background(rgb(232, 163, 61)).clipShape(Capsule())
-                .layoutAnchor(.eyebrow)
-                VStack(spacing: densityValue(one: 4, two: 3, three: 1.5, four: 1.25, five: 1)) {
-                ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                        HStack(alignment: .firstTextBaseline, spacing: 7) {
-                            Text("✽").font(.system(size: markerSize, weight: .bold)).foregroundStyle(rgb(232, 99, 43))
-                                .baselineOffset(glyphCapCenterOffset(markerFont: markerUIFont, goalFont: goalUIFont))
-                                .offset(
-                                    y: (goalCount >= 3
-                                        ? (goalTextRequiresScaling(title: title, font: goalUIFont, availableWidth: 342)
-                                            ? -0.5
-                                            : (index == 0 ? (goalCount == 3 ? -1.5 : -1) : -0.5))
-                                        : 0)
-                                        + scaledGoalCapCenterOffset(
-                                            title: title,
-                                            font: goalUIFont,
-                                            availableWidth: 342
-                                        )
-                                )
-                                .layoutAnchor(.goalMarker(index))
-                        goalText(title, font: roundFont(size: goalSize, weight: .bold), color: rgb(74, 51, 32))
-                            .layoutAnchor(.goal(index))
-                        }.frame(height: densityValue(one: 57, two: 33, three: 22, four: 18, five: 15))
-                        if index < titles.count - 1 {
-                            RepeatingDashes().stroke(rgb(201, 168, 124), style: StrokeStyle(lineWidth: 1, dash: [2, 4])).frame(height: 1)
-                        }
-                    }
-                }
-                HStack(spacing: 8) {
-                    Text(cancelled)
-                        .font(roundFont(size: adaptiveSummarySize(10.5), weight: .bold)).foregroundStyle(rgb(245, 233, 214))
-                        .padding(.horizontal, 9).frame(height: 21).background(rgb(232, 99, 43)).clipShape(Capsule())
-                        .layoutAnchor(.cancelledSummary)
-                    Text(attempted).font(roundFont(size: adaptiveSummarySize(10.5), weight: .regular)).foregroundStyle(rgb(107, 74, 50))
-                        .layoutAnchor(.attemptedSummary)
-                }.lineLimit(1).minimumScaleFactor(0.62)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutAnchor(.contentBounds)
-            .padding(.vertical, 8).padding(.horizontal, Self.cardInset)
-            VStack(spacing: 0) {
-                Spacer()
-                rgb(232, 99, 43).frame(height: 3)
-                rgb(232, 163, 61).frame(height: 3)
-                rgb(107, 74, 50).frame(height: 3)
-            }
-        }
-        .frame(height: Self.maximumHeight)
+        .clipShape(surfaceClipShape)
     }
 
     private func eyebrowText(color: Color, tracking: CGFloat) -> some View {
@@ -715,9 +776,10 @@ struct LockThemeLiveActivityView: View {
 
     private func asagiriCancelledText() -> Text {
         let summarySize = adaptiveSummarySize(11)
+        if !blockWindows.isEmpty { return blockOrCancelledText.font(.system(size: summarySize)).foregroundColor(rgb(91, 105, 119)) }
         let count = String(cancelledCount)
         guard let range = cancelled.range(of: count) else {
-            return Text(cancelled)
+            return blockOrCancelledText
                 .font(.system(size: summarySize, weight: .regular))
                 .foregroundColor(rgb(91, 105, 119))
         }
@@ -770,7 +832,7 @@ struct LockThemeLiveActivityView: View {
 
     private func summaryRow(primary: Color, secondary: Color, size: CGFloat) -> some View {
         HStack(spacing: 10) {
-            Text(cancelled).foregroundStyle(primary).layoutAnchor(.cancelledSummary)
+            blockOrCancelledText.foregroundStyle(primary).layoutAnchor(.cancelledSummary)
             Spacer(minLength: 3)
             Text(attempted).foregroundStyle(secondary).layoutAnchor(.attemptedSummary)
         }
@@ -778,13 +840,14 @@ struct LockThemeLiveActivityView: View {
         .monospacedDigit().lineLimit(1).minimumScaleFactor(0.62)
     }
 
-    private func glassCapsule(_ text: String) -> some View {
-        Text(text)
+    private func glassCapsule(_ text: Text, translucent: Bool = false) -> some View {
+        text
             .font(.system(size: adaptiveSummarySize(11.5), weight: .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(translucent ? Color.white : Color.primary)
+            .shadow(color: .black.opacity(translucent ? 0.55 : 0), radius: 1, y: 1)
             .lineLimit(1).minimumScaleFactor(0.58)
             .padding(.horizontal, 9).frame(minHeight: 24)
-            .background(.white.opacity(0.2)).overlay { Capsule().stroke(.white.opacity(0.4), lineWidth: 1) }.clipShape(Capsule())
+            .background(translucent ? Color.black.opacity(0.18) : Color.primary.opacity(0.08)).overlay { Capsule().strokeBorder(translucent ? Color.white.opacity(0.28) : Color.primary.opacity(0.18), lineWidth: 1) }.clipShape(Capsule())
     }
 
     private func noteAttemptedText() -> Text {
@@ -1005,12 +1068,93 @@ private struct SpeechBubbleShape: Shape {
     }
 }
 
-private struct RetroRings: View {
+
+/// Illustrative wallpaper for in-app previews; never rendered by the Live Activity.
+struct LockThemeGlassPreviewBackdrop: View {
     var body: some View {
-        ZStack {
-            Circle().stroke(Color(red: 232 / 255, green: 99 / 255, blue: 43 / 255), lineWidth: 18)
-            Circle().stroke(Color(red: 232 / 255, green: 163 / 255, blue: 61 / 255), lineWidth: 12).padding(18)
-            Circle().stroke(Color(red: 107 / 255, green: 74 / 255, blue: 50 / 255), lineWidth: 7).padding(33)
-        }.opacity(0.85)
+        LinearGradient(
+            colors: [Color(red: 0.26, green: 0.46, blue: 0.54),
+                     Color(red: 0.58, green: 0.48, blue: 0.31),
+                     Color(red: 0.3, green: 0.35, blue: 0.49)],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+    }
+}
+
+/// System-hosted Live Activities already own their outer mask and rim.
+/// Only app previews need us to supply an explicit continuous rounded shape.
+private struct LockThemeOuterSurface: ViewModifier {
+    let surfaceShape: LockThemeSurfaceShape
+    let enabled: Bool
+    let showsPreviewRim: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled, case .fixed(let radius) = surfaceShape {
+            content
+                .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay {
+                    if showsPreviewRim {
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .strokeBorder(.white.opacity(0.3), lineWidth: 1)
+                    }
+                }
+        } else {
+            content
+        }
+    }
+}
+
+/// Generic eight-legged spider, drawn independently of any character emblem.
+struct LockThemeSpiderMarker: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        }
+        var result = Path()
+        result.addEllipse(in: CGRect(x: rect.minX + rect.width * 0.36, y: rect.minY + rect.height * 0.38, width: rect.width * 0.28, height: rect.height * 0.36))
+        result.addEllipse(in: CGRect(x: rect.minX + rect.width * 0.4, y: rect.minY + rect.height * 0.24, width: rect.width * 0.2, height: rect.height * 0.2))
+        var legs = Path()
+        let bends: [(CGFloat, CGFloat, CGFloat, CGFloat, CGFloat)] = [
+            (0.37, 0.29, 0.25, 0.25, 0.08),
+            (0.43, 0.18, 0.35, 0.09, 0.24),
+            (0.51, 0.17, 0.56, 0.07, 0.7),
+            (0.6, 0.28, 0.72, 0.2, 0.92)
+        ]
+        for (bodyY, bendX, bendY, endX, endY) in bends {
+            for mirror in [false, true] {
+                func x(_ value: CGFloat) -> CGFloat { mirror ? 1 - value : value }
+                legs.move(to: point(x(0.42), bodyY))
+                legs.addQuadCurve(to: point(x(bendX), bendY), control: point(x(0.28), bodyY))
+                legs.addLine(to: point(x(endX), endY))
+            }
+        }
+        result.addPath(legs.strokedPath(StrokeStyle(lineWidth: rect.width * 0.085, lineCap: .round, lineJoin: .round)))
+        return result
+    }
+}
+
+private struct LockThemeWebPattern: Shape {
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.width * 0.97, y: rect.height * 0.27)
+        let reach = hypot(rect.width, rect.height) * 1.25
+        let angles = (0...15).map { CGFloat.pi * (0.38 + CGFloat($0) * 0.084) }
+        func point(radius: CGFloat, angle: CGFloat) -> CGPoint {
+            CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
+        var path = Path()
+        for angle in angles {
+            path.move(to: center)
+            path.addLine(to: point(radius: reach, angle: angle))
+        }
+        for radius in stride(from: CGFloat(18), through: reach, by: 27) {
+            for index in 0..<(angles.count - 1) {
+                let a = angles[index]
+                let b = angles[index + 1]
+                path.move(to: point(radius: radius, angle: a))
+                path.addQuadCurve(to: point(radius: radius, angle: b), control: point(radius: radius * 0.88, angle: (a + b) / 2))
+            }
+        }
+        return path
     }
 }

@@ -57,7 +57,6 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertEqual(gate.targetRulesLimit, 1)
         XCTAssertEqual(gate.targetAppTokensLimit, 1)
         XCTAssertFalse(gate.strictModeAllowed)
-        XCTAssertFalse(gate.gateAllowed)
         XCTAssertFalse(gate.themesAllowed)
     }
 
@@ -69,7 +68,6 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertNil(gate.targetRulesLimit)
         XCTAssertNil(gate.targetAppTokensLimit)
         XCTAssertTrue(gate.strictModeAllowed)
-        XCTAssertTrue(gate.gateAllowed)
         XCTAssertTrue(gate.themesAllowed)
     }
 

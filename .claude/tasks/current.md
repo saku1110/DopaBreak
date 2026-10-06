@@ -1,5 +1,249 @@
 # 現在のタスク状況
 
+## 2026-10-05 — 1日に開ける回数（回数上限で完全ブロック・Pro）（オーナー決定A・✅ 実装・検証済み／実機未確認・未コミット・担当 完全ブロック機能の設計 [60643d]）
+
+- 指示: 「1日何回以上開いたら完全ブロックする仕組み」→ 逃げ道は案A（翌朝まで止まる・30秒待てばその場で1回だけ開ける・緩める変更は翌日から）→「Aを有料機能に入れて」
+- 設計: `.claude/specs/daily-open-limit-2026-10-05.md`。数える＝一呼吸のあと開いた回（SNS合計・素通しは数えない）／区切り＝起床時刻／止める＝完全ブロックの対象アプリ（一呼吸だけの対象は入口の上限画面で止める）／止まり始め＝最後の1回の決めた時間の終わり
+- 触るファイル（並行セッションは編集前にここを見る）: Core（DailyOpenLimit系の新規・SettingsStore・JSONSnapshotStore・SQLiteLogStore・InterventionEngine・EntitlementGate・LocalDataResetter）、アプリ（AppContainer・InterventionFlowModel/View・SettingsView・HomeView・新規DailyOpenLimitController）、拡張（Monitor・ShieldConfig・ShieldAction・Shared/ReinterventionShield）、xcstrings 4本、docs/04・06・11・15
+- [x] Codex設計議論（取り入れた点は設計書の追記節） → [x] Core＋テスト（598件0失敗・新規27件） → [x] アプリ・拡張（全7ターゲットBUILD SUCCEEDED） → [x] 文言3言語（DopaBreak 28キー・ShieldConfig 8キー） → [x] 回数上限のアプリ側テスト30件＋撮影3件0失敗 `output/verify/open-limit-2026-10-05/` → [x] アプリ全体465件0失敗・23スキップ（6.9インチ専用シミュレータ） → [x] Codexレビュー3往復（7件→3件→1件をすべて是正） → [x] docs 04/06/11/15・CHANGELOG・design-decisions・課金チェック証跡に未確認行
+- 注意（並行セッション向け）: `DopaBreak/Localizable.xcstrings` と `ShieldConfigExtension/Localizable.xcstrings` を他セッションと同じ書式（Pythonの標準出力・HEAD順＋末尾追加）で保存した。9/4以降に他セッションが末尾へ足した215項目は元の並びが分からず名前順に並べ直した（中身は同じ）
+- [x] ペイウォールの機能一覧（オーナー「2先に作って」→同日改訂「解除に30秒っておかしいから 1日の開く回数を制限してブロック に変えて」）: 4行目を「1日の開く回数を制限してブロック」、「解除に30秒待つ強いブロック」の行は外して6行。撮影 `output/verify/open-limit-2026-10-05/paywall-{top,full}.png`
+- 未確認（実機のみ）: シールドが実際に掛かる・起床時刻に外れる、iOS 26.5のシールドの副ボタンでDopaBreakが開く、緊急で外して決めた時間後にまた止まる。リリース前の課金チェック証跡には有料機能の行として足す必要がある
+
+## 2026-10-05 — 「直近28日の新規64人が全員無料」の切り分け（オーナー報告・✅ 調査済み）
+
+- ASC実数（9/11〜10/3・分析レポート）: 初回DL約20件（JP11・KR2・US2ほか）／トライアル開始2件（9/13＝オーナー本人・9/14＝実ユーザー1件・どちらも試用中に解約）／有料0
+- RevenueCatの64人はストアの初回DL（約20件）と合わない。開発機・TestFlight・再インストールで作られたIDが混ざっている可能性（推測・RevenueCat側で本番のみに絞って要確認）
+- 新しいオンボーディングと課金画面（1.0.2ビルド12以降）を通った新規は10/3のKR 1件だけ。約20人のほぼ全員が旧1.0.1を通っている＝新しい流れはまだ試されていない
+- ストア表示は9/13〜15の1日265〜431人から、広告停止後は1日20〜60人へ。9/19以降の初回DLはほぼ0
+- 1.0.3は承認・公開済み（9/30〜）。下の「1.0.3 審査待ち」の記述は古い。課金チェック証跡は ❌ のまま
+- 取れなかったもの: Sales and Trends（ベンダー番号が未設定）・1.0.2/1.0.3の利用者数（Appleの閾値で行が落ちる）
+- 生データ: scratchpad/asc-28d/（このセッション限り）
+
+## 2026-10-03 — オマージュ元Reels 8本の構成分析＋オマージュ絵コンテ7本（オーナー指示・✅ 絵コンテ提示・オーナー確認待ち）
+
+- 指示: 「これらの動画を分析してオマージュ動画を作るのでまずは各投稿の構成を確認して、ストーリーボード画像を作って」（Instagram Reels 8本）
+- [x] 8本を yt-dlp で取得、0.5秒刻みフレームで構成確認。分析: `docs/marketing/2026-10-03-reels-benchmark-8.md`、フレーム: `docs/marketing/reference/2026-10-03-reels/`。音声は未確認（外部文字起こしAPIを使わない方針）
+- [x] オマージュ7本（3と8は同じ型で統合）の6コマ絵コンテを Codex CLI（gpt-image-2）で生成: `output/organic/2026-10-03-homage-8/storyboard-h1〜h7.png`、一覧 `storyboard-all-7.png`、コマ単位 `panels/`、指示文 `prompts/`
+- 置き換え方針: 脳は別キャラにしない・本の代わりに犬・燃える家は失うものを順に燃やす・文字なし。各本の末尾は固定エンディング（lamp-ending）
+- オーナー追加指示（同日）: ①画風は元を踏襲してよい（ピクサー風・アニメ調・鉛筆線画・絵本調。画風ごとの反応テスト）②Aの舞台は渋谷でなくニューヨーク ③主人公を全本同じにしない → v3で1本ごとに別人（性別・年齢・体型を変更）。v1（全部実写・同一男性）は `frames-v1/`、v2途中版は `frames-v2-same-hero/`
+- [x] v3 生成・シート化（2026-10-03）。主人公: A 手足の生えた脳（元の構図・オーナー指摘で差し戻し）／B 50代男性と70代の母／C 20代前半女性／D 30代半ば女性／E 40代男性／F 20歳前後男性／G 20代後半女性
+- [x] オーナー決定（2026-10-03）: 7本すべて動画化 →「9:16の画像にして」
+- [x] 9:16キー画像 42枚（7本×6コマ・941×1672）を生成済み: `output/organic/2026-10-03-homage-8/key/`（指示文 `key/prompts/`・一覧 `key/sheet-all-42.png`）。各コマの絵コンテと1コマ目を参照に渡して人物と画風を保つ
+- [x] 検品: 全42枚を本ごとに並べて確認、手が大きく映る8枚は等倍で左右・指・つながりを確認。文字の混入なし
+- [x] A案のキー画像6枚を作り直し（オーナー指摘「スマホから手が出て脳を掴む」構造に修正。誤った版は `key-v1-wrong-creature/`）
+- [x] A案の構成を元どおりに修正（オーナー指摘: 歩くのではなく、道路中央で四つん這いの脳の後ろにスマホが自分の脚で立ち、腰を振って突く固定1カット・5秒ループ）。キー画像 `key/h1-loop.png`（元動画の原寸コマを土台に背景だけNYへ描き替え・2キャラの大きさは元と一致。脚の長さを言葉で調整した没案は `key-v3-loop-drafts/`）、動画の指示 `video/h1/loop.json`（最初と最後に同じ画像でループ・腰振りを強めた指示）。ローカルH3の試作 `video/h1/local/loop-s11.mp4` は動きが弱く手足が崩れる→公開版は fal ロック解除後に生成
+- [x] （破棄）歩く版を fal で動画化: `video/_discarded/walking/`（15.6秒・1080×1920・-15.2 LUFS・音はH3の同時生成）。使った費用は約$1.75（作り直し分を含む）
+- [ ] BGM・効果音: fal の残高切れでロック（「User is locked. Reason: TOP_UP.」）。オーナーのチャージ待ち。案: ElevenLabs Music の歌なし（15秒で約$0.15）、MMAudio の効果音（15秒で約$0.015）。指示文は `video/h1/bgm.json`
+- [ ] 残り6本（B〜G）の動画化
+- [ ] 採用した型は12枚以上のキー画像へ展開 → 実写風AI動画（Hailuo/fal）
+- [ ] 投稿はしない（オーナーの明示指示があるまで）
+
+## 2026-09-23 — 海外オーガニック試作3本をコード描画アニメで作り直し（オーナー指示・✅ 書き出し済み・オーナー確認待ち）
+
+- 指示: 「あなたがいくつか動画を作ってサウンドやナレーションも入れて」→「javascriptでアニメーション作れない？」→「キャラに動きがなさすぎる。なんで静止画なの？javascriptで動画作って」
+- [x] 人物のリグ（`video/organic-shorts/src/rig/`）・背景3種（`src/sets/`）・場面（`src/scenes/`）をSVGで実装
+- [x] V1 Six hundred days（18.8秒）／V2 Revenge（32.0秒）／V3 Want（32.1秒）を描画版に差し替え。台本に合わせた動作を追加
+- [x] 書き出しと音量正規化（`scripts/finish.py`）→ `creatives/organic/videos/2026-09-23/`。旧版は `_rejected-stills/`
+- [x] 確認: 0.5秒ごとのコマ並べ・連続フレームで動き・ebur128（-14.0〜-14.2 LUFS）
+- [x] Codexレビュー（Astra medium）の指摘1件を修正（V1のスクロール巻き戻り）。修正後の差分はCodex（Astra low）の再レビューで指摘なし（全560フレームで巻き戻り0・床の物は減らない・決定的）
+- [ ] オーナー確認（動きの量・絵柄・テンポ）
+- [ ] オーナー判断: 声（Charon のまま／Sulafat／ElevenLabs）、BGM（許諾済みの曲に差し替えるか）
+- [ ] 投稿はしない（オーナーの明示指示があるまで）
+- 正本: 作り方 `.claude/specs/organic-shorts-code-drawn.md`、台本と根拠 `docs/marketing/organic-scripts/2026-09-23-three-videos.md`
+
+## 2026-09-20 — 海外オーガニック短編動画パイプライン（ピクサー風/手描き2D切替）（オーナー指示・📝 設計書提示・実装未着手）
+
+- 指示: 「オーガニックコンテンツとしてピクサー風とイラスト風の動画パイプラインを作る。biohacklabのパイプラインをコピーしてカスタマイズ」→ 追加「ナレーション（人物の声合わせでなく別録り）が欲しい」「英語・海外向け」「モデル指定を最新に」
+- 調査（Fable 5.1サブエージェント2体・Fableが公式ページで要点を再確認）: 本家 `~/Desktop/biohackjapan/src/video` は台本自動生成 `generate()` が不在で壊れており、企画立案は栄養DB専用。配布用 `~/Desktop/pixar-video-pipeline` の方が薄く整理済み（バグ修正含む）。画風分岐だけ本家にある
+- オーナー決定: 骨格=配布用＋画風分岐は本家移植／1パイプライン `--style pixar|illust`／25秒前後・人物は喋らない・英語ナレーション別録り／ピクサー風主人公=brain-v2の3D化／画像 `gemini-3.1-flash-image`・動画 `grok-imagine-video-1.5`（`generate_audio=False`）・TTS ElevenLabs `eleven_v3`／企画・台本は別途議論
+- [x] 設計書: `.claude/specs/organic-video-pipeline-2026-09-20.md`（オーナー確認待ち）
+- [ ] 実装 B0 骨格 → B1 生成 → B2 仕上げ（Codex Astra medium・各バッチ後 Fable 5.1 レビュー）
+- [ ] 小テスト（Grok無音・2D画風保持・ElevenLabs timestamps）
+- [ ] オーナー用意: ElevenLabs APIキーと `voice_id`／静かなBGM 2〜3曲／3D参照シートの採用判断
+- 依頼外1行: `biohackjapan/test_kling.py` `test_veo3.py` にAPIキー平文。今回はコピーしない
+
+## 2026-09-05 — 止めるアプリ追加時のショートカット案内を毎回出す＋設定行のラベル是正（オーナー指示・✅ 実装済み・未コミット）
+
+- 指示: 「止めるアプリを追加するたびにショートカットの手順案内して」→ 9/4実装済みと報告 →「選び直した時も出して」「また設定画面からショートカット設定方法が見れるようにして」
+- [x] Home/Settingsの `onTargetAdded` から検収済み除外を撤去（Codex Luna）。追加すれば毎回案内が開く。追加→同シートで削除は従来どおり出ない
+- [x] 設定の行ラベル `settings.target.automation` を「開く前の一呼吸を設定」→「ショートカットの設定方法」（en/ko同時）。行自体は以前からあり、名前で分からなかったのが原因
+- [x] Opus5独立レビュー: 無料枠上限→購入→購入後に黙って追加される経路（`applyPurchaseContinuationIfNeeded` の `.addTargets`）で案内が出ない抜けを検出 → 設計を specs/target-swap-and-automation-guide-2026-09-04.md 末尾に追記 → Codex Sol実装（`pendingAutomationGuideAfterPurchase`・ペイウォール `onDismiss` で消費・通知用フラグとは分離）
+- [x] シミュレータビルド BUILD SUCCEEDED（2回）
+- [ ] 実機確認・コミット（次回）
+- 留意（レビューの低確度指摘・未対応）: ペイウォール提示を100ms遅延Taskで行う既存経路で、代入が失われると案内予約が残り `isAnyChildModalPresented` が固着しうる。再現なし
+
+## 2026-09-04 — 対象アプリの入れ替えでペイウォールが出る／追加時にショートカット案内が出ない（オーナー報告・🔄 実装中）
+
+- 報告: 「一度止めるアプリから外してもう一度止めるアプリを設定しようとすると有料ペイウォールが出てくる。また止めるアプリ追加時にショートカット案内がもう一度出てこない」
+- **①の真因（Fableがシミュレータで再現・確定）**: 出るのはアプリ選択シートではなく「〇〇は一呼吸の対象外です」シート。`RootTabView.canRestoreNonTargetAutomation` が `canAddTargetTokens(currentCount:)` で判定するため、外したあと別のアプリを対象にすると無料枠1個が埋まり、**入れ替えのつもりでも「2個目の追加」と見なされて課金導線へ落ちる**。本文は「対象に戻すか」と案内するのに主ボタンは「Proを再開する」で、未購入者にも「再開」と出る
+- 再現手順: 無料 → Instagram を外す → X を対象にする → `dopabreak://intervene?app=instagram` → 主ボタン「Proを再開する」→ ペイウォール（実測・スクショ取得済み）
+- **②の真因**: オンボーディング以外で対象アプリを追加したとき `AutomationGuideView` を出す経路がコードに無い。`isAutomationGuidePresented = true` は設定の行タップとホームのバナーのみ。追加直後はホームのバナーだけで、設定から追加した人はホームへ戻らない限り何も見ない
+- オーナー決定（2026-09-04）: ①**入れ替えを許可**（枠は1個のまま・ペイウォールを出さない）②**追加直後に自動で案内を出す**
+- 設計正本: `.claude/specs/target-swap-and-automation-guide-2026-09-04.md`
+- [x] 実装（**Opus5・L3**。Codex Sol/Luna は 9/7 まで利用上限のため恒久ルールどおりフォールバック）: Core に `NonTargetAutomationRestorePolicy`（`.add` / `.swap(displacedCatalogIDs:)` / `.requiresPro`）＋テスト17件を新設。RootTabView・NonTargetAutomationSheet・TargetAppPickerSheet(`onTargetAdded`)・HomeView・SettingsView・xcstrings ja/en/ko 2キー追加。`CoreScreensSnapshotCapture.swift` は3つ目の呼び出し元のため1行のみ追従
+- 実装側の申告した仕様差異（Fable受け入れ）: `NonTargetAutomationReason` はアプリターゲット宣言でCoreから参照できないため、Core側に同値の `Reason` を持ち RootTabView で網羅switch変換する。将来ケース追加時はビルドが落ちる
+- [x] Fable実測: Core **547件・失敗0**（`swift test`・自分で再実行）
+- [x] Fable実測（シミュレータ D8BEFB03・専用）: ①枠が埋まった状態で外したアプリを開く → 主ボタン「Xと入れ替える」・**ペイウォールなし**・対象が `["x"]`→`["instagram"]` ②未検収アプリ追加 → 案内が自動で開く ③検収済みアプリを選び直し → 案内は開かない
+- [x] アプリ側テスト: 335件・18スキップ・**失敗2**。2件とも `LockThemeLiveActivityViewTests.testEveryGoalMarkerAlignsWithRenderedCapHeightCenterForAllSupportedDensities`（kpopテーマのgoalマーカーがcap-height中心と1pt ずれる）。**本件の差分とは無関係**＝`ios/WidgetsExtension/LockThemeLiveActivityView.swift` と同テストは別セッションが編集中（mtime 16:48・本件の実装 16:36-16:37 より後）。単独再実行でも同じ2件で決定的。ロック画面/Live Activity のコードは本件で一切触っていない
+- [x] レビュー（Opus5サブエージェント・独立性維持。Codexが利用上限のため別インスタンスのOpus5が担当）: **🔴0・🟡6・🟢2**。入れ替えの計算・上限クランプ・Pro失効経路のペイウォール維持・重複保存・ピッカー側ゲートはいずれも正
+- [x] 差し戻し8件（Fable裁定）→ 実装（Opus5）で全件反映:
+  ①追加→同シートで削除したとき案内の予約が残り空の案内が開く → `onTargetRemoved` を追加し予約をSetでcatalogID単位に取り消し ②予約が `isAnyChildModalPresented` に入らずモーダル同時提示で片方が落ちうる → 両画面に追加（設計書F節の「変更不要」はFableの誤り） ③ホームがペイウォールを閉じ切る前に立てていた → 設定と同じ100ms遅延へ統一（外れるとフラグが宙に浮き `isChildModalActive` が固着して他モーダルが全停止する経路だった） ④保存失敗のアラートがシートに隠れて出ない → シート内インライン表示へ ⑤⑥押し出しが複数/名前解決不可のとき実名1個表示・`.add`文言へ誤フォールバック → 1個かつ解決可能なときだけ実名、他は汎用キー2本を新設 ⑦対象リストの読み取り失敗を0件扱い → 実行経路は `try` で読み失敗時は中止（`AppContainer.swift:1306-1312` の不変条件に整合） ⑧`limit == 0` の防御分岐が全消し → `.requiresPro`
+- [x] **Fable最終ゲート（実測）**: Core **548件・失敗0**／アプリ **334件・18スキップ・失敗0 TEST SUCCEEDED**／シミュレータ実測4件（入れ替えでペイウォールなし・未検収追加で案内が開く・追加→削除では開かない・検収済み再選択でも開かない＝予約の消費も確認）
+- ⚠️ 途中経過の記録: 1回目のアプリ側テストは `LockThemeLiveActivityViewTests` で失敗2件だったが、これは別セッションがLive Activityを編集中だったため。2回目は失敗0。**本件の差分はロック画面/Live Activityに一切触れていない**
+- ✅ **Fable受け入れ済み**。オーナーの実機確認待ち
+- 📌 コミット時の注意: `ios/DopaBreak/Localizable.xcstrings` には別セッションの「止める」→「一呼吸をはさむ」改名（`target_app_picker.title` ほか2キー）が同居している。`git add` すると一緒に入る
+- **担当宣言**: このセッションが `ios/DopaBreak/RootTabView.swift` / `NonTargetAutomationSheet.swift` / `TargetAppPickerSheet.swift` / `HomeView.swift` / `SettingsView.swift` / `Localizable.xcstrings` の automation.non_target.* と、新規 Core `NonTargetAutomationRestorePolicy.swift` を触っています。他セッションは同ファイルの編集前に声をかけてください（stats.* 側には触りません）
+- 未コミット。コミットはオーナー判断
+
+
+## 2026-09-04 — リファクタ＋コードレビュー＋テスト（担当 test-project-f5・✅ コード側完了／実機待ち）
+
+- 依頼: 「リファクタリング、コードレビュー、テストを実行してリリースできる状態まで持っていって」
+- **担当宣言**: このセッションが `NightShieldScheduler` / `DeepFocusScheduler` / `ShieldController` / `ShieldArmingState`(新規) /
+  `AppContainer`(syncShield周辺) / `SettingsView`(注意行) / `Core/Models/AppModels`(isValid) /
+  `OneShotNotificationTrigger`(新規) / `WeeklySummaryPlaceholder`(新規) / `Localizable.xcstrings` を触りました
+
+### レビュー（Opus5独立×3 → 指摘に対応 → Opus5独立レビュー）
+- 🔴 **判定割れ**: 夜だけ強化・Deep FocusはUI解放が `isPro`（キャッシュ可）／強制が `hasConfirmedEntitlement`。
+  StoreKit未到達だと画面は「残りXX分」なのに1つもブロックしない。`didLastRebuildFail` は存在するのにどの画面も読んでいなかった
+- 廃止ゲートの `DeviceActivity` 監視が `stopMonitoring` されず残留（旧ビルドから上げた端末で監視枠を消費）
+- 振り返りの通知タップ着地が、消費が遅れる状況（別モーダル表示中など）で30分で弾かれていた
+
+### 対応（設計 `.claude/specs/release-fixes-2026-09-04.md` / `.claude/specs/refactor-safe-2026-09-04.md`）
+- **Codexは利用上限（復帰 2026-09-07）のため、実装=Opus5サブエージェント／レビュー=別インスタンスのOpus5**（規定どおり）
+- 修正1: `lastRebuildOutcome` 3値化＋設定画面に注意行（新規キー `settings.block.store_unreachable_notice` ja/en/ko）
+- 修正2: `dopabreak.gate` プレフィックスの監視を停止。R1で「空スキャンならフラグを立てず次回再試行」、R2で掃除をrebuildより前へ
+- 修正3: `PendingNotificationDestination` の有効期間を宛先別に（`.reflection` のみ3時間・自分で開いた場合の30分は据え置き）
+- リファクタ: 未参照コード152行＋孤児ローカライズ21キー（504行）＋重複2件を削除。**挙動が変わりうるものはDEFER**
+  （`performNotificationReschedule` 376行の分割／`retentionNotificationSchedules`／
+  `AppContainer` の「今日の範囲」5重複＝`Calendar.current` と `autoupdatingCurrent` が混在しており統一すると日跨ぎ・DSTで挙動が変わる／
+  `SettingsView`・`OnboardingFlow` の分割／`EntitlementGate` 未配線4件）
+
+### Fable実測（すべて自分で再実行）
+- Core **530件・失敗0**（着手時 524）
+- アプリ **334件・18スキップ・失敗0 TEST SUCCEEDED**（着手時 321）
+- `lint-display-copy.py` exit 0 ／ `audit-default-values.py` exit 0（calls=762・mismatches/missing/unresolved 0）
+- xcstrings 681→660キー・新規キー健在。レビュー側が**ネガティブコントロール実施**（本体を戻すと新規10件中6件が落ちる→復元して緑）
+
+### 📌 このセッションで判明した測定上の落とし穴（再発防止）
+1. **`xcodegen generate` を先に走らせないと、追加したテストが黙って走らない**まま TEST SUCCEEDED が出る（実際に発生）。
+   件数でなく**スイート名の一覧**を前後比較して確認する
+2. **シミュレータを別セッションと共有すると偽の失敗が出る**。共有中は 6 failures、専用機（`3CAEAD04-…`）では 0 failures（コード無変更）
+3. `xcodebuild ... | tail -N` にすると**終了コードがtailのものになり exit 0 に見える**。判定はログ本文の `TEST SUCCEEDED` を見る
+4. 件数の増減を退行と決めつけない。13:55に別セッションが `MeasurementFoundationTests` へ4件追加していた（mtimeで確認）
+
+### 残（コードでは埋められない）
+- **リリース証跡は `総合: ❌` のまま**。理由はコードでなく実機検証の不足（`.claude/release-check/monetization-check.md`）
+- オーナー2026-09-04申告分は転記済み（Deep Focus・夜だけ強化・ロック画面テーマの購入直後／再起動後・Sandbox）
+- ⚠️ **「解放された」が①ONにできた か ②実際にブロックされた か未確定**。②でなければ✅の根拠にならない（証跡に確認事項として記載）
+- 未確認: 対象アプリ無制限／**オフライン（今回の欠陥を踏む唯一の経路）**／復元／ライフサイクル境界／TestFlight／Bブロック全部
+- 既知の軽微な残り: `TimeLedgerMotif` 削除で新たに孤児化した4キー
+  （`onboarding.welcome.ledger.{accessibility_label,body,elapsed_time,eyebrow}`）。実害なし・仕様の21キー外だったため未削除
+- 未コミット（オーナー判断）。コミット前に `git checkout -- output/verify/` で生成PNGを戻す
+
+
+## 2026-09-04 — 保留中のProテーマは「デザインを選ぶ導線」からの購入でだけ反映する（✅ Fable受け入れ済み・実機確認待ち）
+
+- 依頼（逐語）: 「オンボーディングや有料デザイン選択以外の画面からペイウォールでProにした場合はデフォルトのLiveActivityデザインになるようにして。」
+- 現状（Fable調査・コードで確定）: ロック済みテーマのタップで立つ `pendingProThemeSelection` は**非永続だがプロセスが生きている間ずっと残る**。Pro成立の監視（`RootTabView.swift:259,271` / `OnboardingFlow.swift:352,372,378`）は placement を見ずに一律 `applyPendingProThemeSelectionIfNeeded` を呼ぶため、別画面のペイウォールで購入しても保留テーマが実機に出る
+- 決定: 保留を持ち込めるのは `settingsThemeGate` / `homeThemeGate` / オンボーディング3種のみ。それ以外の placement のペイウォールは**提示時**に保留を破棄する（購入時に消すと、提示中のピッカー表示と購入後の結果が食い違うため）
+- 設計正本: `.claude/specs/lock-theme-pending-selection-placement-2026-09-04.md`
+- 実装=Opus5サブエージェント（L3。**Codexは利用上限で不可＝2026-09-04 04:50にプローブで確認・復帰は9/7 11:27**）→ レビューは別インスタンスのOpus5 → 受け入れ判断はFable
+- 永続値 `settingsStore.lockTheme` には触らない（解約→再課金で以前のテーマが戻る挙動を壊さない）
+- 対象外（報告のみ）: 設定＞アカウントの「購入を復元」はペイウォールを経ないため、この変更後も保留テーマが反映されうる
+- [x] 実装（Opus5・L3）: `PendingProThemePaywallPolicy`（全placement列挙・`default` なし）＋ `PaywallView.onAppear` での破棄。テスト4件（真理値表・破棄・保持2種）
+- [x] Fable実測（対象9件・専用シミュレータ 7A632C5C／`.deriveddata-fable`）: `TEST SUCCEEDED` 0失敗
+- [x] 独立レビュー（別インスタンスのOpus5）: 許可リスト・計測順・不可侵リスト・テストの非空虚性は合格。指摘5件のうち2件を採用
+  - **F1（採用・重大）**: `HomeView.isAnyChildModalPresented` が `pendingThemePaywallPlacement` を数えないため、ピッカーを閉じた瞬間に `isChildModalActive` が false になり、週次ペイウォールが先に出て保留を破棄しうる（＝ホームで選んで買ったのにデフォルトに戻る＝依頼の不具合が別経路で再発）。Fableがソースで順序を確認済み
+  - **F3（採用・軽微）**: 破棄を `didRecordAppearance` ガードの外へ出す（placement差し替え時に飛ぶ余地を消す。計測の順序と回数は不変）
+  - 不採用3件（記録のみ）: `model` を非Optionalにする／テストスキームへStoreKit設定を足す／権利が提示直前に届くサブフレーム窓
+- [x] 差し戻しF1/F3を実装（Opus5）→ **F1のネガティブコントロールを隔離コピーで実施**。初版テストは空虚（20ms刻みで0.013秒の窓を跨いでいた）→1ms刻み＋`layoutIfNeeded()`へ直し、`HomeView`だけ戻すと落ちることを確認
+- [x] **Fable実測（最終）**: 対象10件 TEST SUCCEEDED ／ アプリ全体 322件・18スキップ・0失敗 TEST SUCCEEDED（並行セッションの `ShieldArmingStateTests` `ShieldControllerRetiredGateTests` は `-skip-testing` で除外。両スイートの6失敗は当該セッションの未完了作業で課金・テーマ経路と無関係）／ Core 530件0失敗 ／ lint 2本 exit 0
+- [ ] オーナー実機確認: ①ホームか設定でロック済みデザインをタップ→そのままペイウォールで購入→**選んだデザインになる** ②何も選ばず設定のPro行や週次ペイウォールから購入→**黒とライム（既定）のまま** ③オンボーディングでProデザインを選ぶ→その場のペイウォールで購入→選んだデザインになる
+- 未コミット（コミットはオーナー判断）
+- **担当宣言**: このセッションが `ios/DopaBreak/PaywallView.swift` `ios/DopaBreak/HomeView.swift`（`isAnyChildModalPresented` の1行のみ）`ios/DopaBreakTests/MeasurementFoundationTests.swift` を触っています
+
+
+## 2026-09-03 — 通知タップでアプリが起動しない（オーナー再報告・🔄 実装中）
+
+- 報告: 「SNSを見た後の気持ち通知を押してもアプリが起動しない」。オーナー確認では**画面に何も出ずSNS／ロック画面のまま**（9/2の同報告の再発）
+- **真因（実機クラッシュログで確定・推測ではない）**: `NotificationDelegate` が `UNUserNotificationCenterDelegate` の **async 版** `userNotificationCenter(_:didReceive:)` を**非 @MainActor のクラス**に実装している。`await MainActor.run { … }` の中断から協調プール（`com.apple.root.user-initiated-qos.cooperative`）で再開し、コンパイラ生成の完了ハンドラ（`@objc closure #1`）を**メインスレッド外**で呼ぶ。UIKit はその中で `-[UIApplication _updateSnapshotAndStateRestorationWithAction:windowScene:]` を実行するため NSAssertion → `objc_exception_throw` → SIGABRT。**タップ→起動→画面が出る前に即死**するので「何も起きない」に見える
+- 証跡: `DopaBreak-2026-09-02-195524.ips` / `DopaBreak-2026-09-03-135924.ips`（端末 systemCrashLogs・**同一スタック**）。取得手順はメモリ `reference_device_crash_logs.md`
+- 影響範囲: 着地先が解決できる通知（振り返り・週次・D1/D3・プラン・オートメーションガイド）**すべて**で落ちる。ルーティング対象外の識別子は中断が起きないため落ちない。**リリースブロッカー**
+- ⚠️ **9/2 の A-6／A-7（古い自動化要求の失効・通す抑止）は別経路の修正で、この真因には触れていない**。だから翌日そのまま再発した。端末の `lastSelfOpenedAt` は 13:48:33 のままで、9/2に疑った「通す動作でSNSへ戻る」は今回**起きていない**ことも確認済み
+- 端末に入っているビルド: **9/2 20:46**（`DopaBreak.dyld4` の更新時刻で判定）。今日の自分自身ブロック是正（A／B-1／B-2／F1〜F5）は未搭載
+- [x] 実装（Opus5・L3。オーナー指示「SOLは制限が近いのでOPUSで実装」）: `willPresent` / `didReceive` を完了ハンドラ版（同期シグネチャ）へ置き換え、保存 → `NotificationCenter.post` → `completionHandler()` を `onMainThread(_:)`（メインなら直接・違えば `DispatchQueue.main.async`）経由で実行。実処理は `nonisolated func handleResponse(identifier:actionIdentifier:completion:)` へ切り出し。変更は `ios/DopaBreak/NotificationDelegate.swift` と新規 `ios/DopaBreakTests/NotificationDelegateRoutingTests.swift` のみ（pbxprojはgit管理外の生成物）
+- [x] 回帰テスト4件（バックグラウンド起点でも完了が `Thread.isMainThread == true` ／ reflectionPrompt+デフォルトで `.reflection` 保存＋変更通知ポスト ／ Dismissは非保存かつ完了 ／ 未ルーティング識別子は非保存かつ完了）。**ネガティブコントロール実施**＝メインホップを外すと該当テストが落ちることを実装側が確認しバックアップから復元・diff一致
+- [x] Fable実測: Core **524件・失敗0**（`swift test` exit 0）／アプリ **317件・18スキップ・失敗0 TEST SUCCEEDED**（exit 0）
+- [x] 実機ビルド（`DopaBreak-Sandbox` / `id=A39FB8EE…` / `-allowProvisioningUpdates`）→ **14:29ビルドを端末へインストール済み**
+- [x] レビュー（Codex Luna・独立性維持のためOpus5実装分はCodexが担当）: **指摘0**。完了ハンドラの単一呼び出し・メインスレッド確定・キャプチャ寿命・ルーティングのゲート・提示オプション・カテゴリ掃除すべて正。「メインホップを外せばバックグラウンド起点のテストは落ちる」も独立に確認
+- [ ] オーナー実機再現確認: 一呼吸で5分を選んでSNSを開く → 時間経過後の通知をタップ → 期待「振り返りが出る・落ちない・SNSへ戻らない」
+
+## 2026-09-03 — DopaBreak自身が一呼吸・完全ブロックの対象になる件（オーナー報告）（🔄 レビュー反映済み・実機待ち）
+
+- 報告: 「DopaBreakのアプリを開いた時にも一呼吸アニメーションやスクリーンタイムブロックが出る」
+- 原因A（Fable調査・確定）: 一呼吸完了 → DopaBreakがSNSのURLを開く → その反響で自動化(`StartInterventionIntent`)が再発火して要求を書き残す → DopaBreakが前面化しないと要求がApp Groupに残る → ユーザーが後でアイコンから開くと `AutomationRequestPolicy` が自己起動と判定せず(`now - lastSelfOpenedAt >= 8秒`)、鮮度60秒も通って `.consume` → 一呼吸が出る
+- 原因B（同）: 完全ブロックの対象選択がAppleの `familyActivityPicker` 素のままで、DopaBreak自身もカテゴリも選べる。カテゴリは `ShieldController.swift:169` の `applicationCategories = .specific(...)` で分類のアプリを全部止めるため、本人に見えないままDopaBreak自身を巻き込む。`ShieldActionExtension` は全経路 `.close` で解除口がなく、窓が終わるまで開けない
+- 📌 判明した制約: **`ApplicationToken` は不透明で、コードから「これは自分のアプリだ」と判別できない**（`Application(token:).bundleIdentifier` はnil固定／`Application(bundleIdentifier:).token` もnil）。よって「保存時に自分を除外」は実装不能。予防はUIで行う方針に変更した
+- 設計正本: `.claude/specs/self-target-fixes-2026-09-02.md`（A／B-1／B-2 ＋ レビュー後のF1〜F5）
+- [x] 実装（Codex Sol・L2）: A=自己起動判定を**要求時刻基準**へ変更＋鮮度短縮／B-1=`familyActivityPicker(footerText:)` に注意書き／B-2=カテゴリを含む選択は保存前に確認alert。ja/en/ko 3ロケール
+- [x] レビュー（Opus5独立）: 🔴0・🟡4件（alert提示のタイミングでフラグが残り自動化ガイド導線が死ぬ／変更なしでも毎回警告が出て抜け道がない／オンボのモードガード欠落／ペイウォール分岐の評価順）＋鮮度10秒は正規経路を細くする指摘
+- [x] 差し戻しF1〜F5（Codex Sol・L2）。**F5はFable裁定で鮮度10秒→20秒**（短すぎると中核機能の失敗になる。誤発火は要求時刻基準の自己起動判定が既に捨てているため鮮度は二重の防御に留める）
+- [x] Fable実測: Core 517件失敗0／lint 2本 exit 0
+- [x] Fable実測: アプリ側 310件（18スキップ）失敗0 **TEST SUCCEEDED**（2回目の一括実行）。1回目は `MeasurementFoundationTests` のOCR測定 `testSettingsModeCardsRenderAllJapaneseCopyWithoutTruncation` 1件だけが落ちたが、単独実行では成功し、2回目の一括では失敗0
+- ⚠️ 恒久メモ: このOCR測定テストは**間欠的に落ちる**（ウィンドウを他テストと奪い合うため。前回セッションも安定性を理由にOCR1件を分けて実行している＝design-decisions.md:1656）。一括1回の失敗だけを見て回帰と判断せず、単独実行と再実行で切り分けること
+- [ ] オーナー実機検証: runbook §9（9-1が今回の再現手順・9-3が正常経路の非破壊確認）
+- 変更なし: `ShieldController` のトークン適用と権利上限、`ShieldActionExtension` の `.close`（解除口は作らない。作ると完全ブロックが無意味になる）、`saveBlockedAppSelection` の保存契約
+- 未コミット（オーナー判断）。ツリーには9/1〜9/2の別バッチの未コミット変更も同居する。stash / checkout -- 禁止
+
+
+## 2026-09-02 — 記録画面を時間中心にする（✅ Fable受け入れ済み・担当 test-project-20）
+
+- 依頼: 「統計の内容薄くない？日、週、全期間で開かないで無駄にしなかった時間出してもいいんじゃない？」
+- 診断: 記録画面だけが回数と割合の世界に残っていた（ホームのヒーローは8/25、一呼吸の完了画面は9/1に時間へ移行済み）。4枚のカードが全部「回」なので、スクロールしても分かることが増えない。ヒーローの「開かなかった割合」は悪い日に下がる数字
+- 報告した限界: 台帳の秒数は全体共通の中央値なので、アプリ別・理由別を時間にしても回数×定数と同じ並びになる（情報は増えず単位が変わるだけ）
+- オーナー決定: ①ヒーロー＋内訳を時間にする ②1回あたりの推定はアプリ別にしない ③代わりに時間帯カード（何時に開こうとしているか）を新設する
+- 設計書 `.claude/specs/stats-reclaimed-time-2026-09-02.md`（正本）
+- 実装=Codex Sol（L2）→ Opus5レビュー「accept with fixes」→ 差し戻し（設計書末尾のA/B/C/D）→ Codex Sol修正 → Opus5再レビュー（進行中）
+- 差し戻しの核心: 集計の窓が `recorded_at`（台帳）と `started_at`（試行ログ）で混在し、①同じ「開かなかった」が根拠行とlegendで違う数になりうる ②アプリ別秒数の合計がヒーローと一致しない、の2件。記録画面内は `started_at` 窓へ一本化して解消
+- Fable実測ゲート: lint 2本 exit 0／xcstrings有効／Core 517件・失敗0／アプリ310件（18skip）・失敗0 TEST SUCCEEDED
+- 撮影確認: `output/screenshots/redesign-phase2/stats-pro.png`（今週タブ）。27回×約10分＝4時間30分、アプリ別合計＝ヒーロー、27/41＝66% で整合
+- **オーケストレーターの事故と復旧（記録）**: `stats.metric.count` 等の en を「欠落」と誤検知（`variations` の複数形を見落とし）し、正しい複数形定義を平坦化してしまった → 復元済み。あわせて xcstrings 全体を再整形してしまい差分が2万行に膨張 → 区切り文字を元書式に合わせて約3千行まで縮小。畳まれていたエントリが展開された分（約1800行）の差分ノイズは残存
+- 第2回差し戻し（E/F）も完了。E=削除済みルールの秒数を「対象から外したアプリ」集約行にまとめてアプリ別合計＝ヒーローを維持／F=撮影シード側も固定カレンダーへ統一
+- **最終ゲート（Fable実測・2026-09-03）**: lint 2本 exit 0／xcstrings有効・`stats.apps.removed` 3言語・`stats.metric.count` の en 複数形は無傷／Core 517件失敗0／アプリ311件（18skip）失敗0 TEST SUCCEEDED／**撮影2回のSHA-256一致（97d24355c0b9d69a…）＝撮影の決定性を確認**
+- オーナー判断で対応しないもの: ①ホームと記録で「今日」の境目が違う（ホームは台帳基準・記録は試行開始基準。ずれるのは日跨ぎ1回分）②時間帯カードは24本のまま実データを見てから判断
+- 未コミット。コミットはオーナー判断
+- 残課題（別タスク）: ①全期間タブの同期クエリがメインスレッドで増えている（既存も同じ作りのため今回は不対応）②撮影フィクスチャが実時刻依存で、時間帯カードのスクショが実行時刻で変わる ③時間帯カードは試行が数時間に集中すると空に見える（3時間ずつ8本に束ねる案を保留中・オーナー判断待ち）
+- **担当宣言**: このセッションが `ios/DopaBreak/StatsView.swift` / `HourBars.swift`(新規) / `Localizable.xcstrings` の stats.* / `SQLiteLogStore.swift` / `StatsService.swift` / 関連テストを触っています。他セッションは同ファイルの編集前に声をかけてください
+
+## 2026-09-02 — 記録「アプリごと」がスクリーンタイムの選択と食い違う件（オーナー報告）
+
+- 報告: 「記録画面のアプリごとで、スクリーンタイムで選択したアプリと表示名が違う」
+- 原因（Fable調査・確定）: アプリ内に対象リストが2本ある。①一呼吸の対象＝内蔵カタログ8種（`SNSAppCatalog.swift:29`）②完全ブロックの対象＝スクリーンタイムの選択（1本のルールに丸ごと格納・新規時の名前は固定文字列 "SNS"・`AppContainer.swift:1238`）。記録の行は attempt の `ruleId` 単位（`StatsService.swift:85`）で、その `ruleId` は一呼吸開始時のカタログルールしか入らない（`InterventionFlowModel.swift:407`）。**②のアプリは記録に1行も出ない**。行名は `rule.name` 直出し（`StatsView.swift:731`）
+- 付随して判明: 完全ブロック中に開こうとした操作は一切記録していない（`ShieldActionExtension.swift` は `.close` を返すだけ）。カタログの選択を外しても過去のルールは消えないため、いま選んでいないアプリの行も残り続ける（`AppContainer.swift:1147`）
+- オーナー決定: **見出しを実態に合わせる（最小）**。「完全ブロックのアプリも記録に出す」「今選んでいないアプリの行を隠す」は不採用（今回は見送り）
+- [x] 実装（Codex Luna・L1）: `stats.apps.title`→「一呼吸をはさんだアプリ」／`stats.apps.empty`→「まだ一呼吸の記録がありません」／新規 `stats.apps.caption`「完全ブロックで止めたアプリは含みません」を見出し直下に常時表示。ja/en/ko の3ロケール＋Swift defaultValue を一致
+- 集計ロジックは非変更（`StatsAppMetric`／`appMetrics`／`iconSource` は無改変）
+- 📌 未対応として残る本質: 完全ブロックの記録が存在しない。オーナーが必要と判断したら「シールドのボタン押下をトークン単位で記録し、実アプリ名で行を出す」を別タスクで（壁を見て閉じただけの回はiOSがイベントをくれないため取りこぼす制約あり）
+
+## 2026-09-02 — 全体監査（設計穴＋CVR構造）→ オーナー決定3件 → 振り返り通知（案A）実装（🔄 進行中）
+
+- 依頼: 「設計・機能に穴がないか。最もユーザーが使いやすくCVRが高まる構造か」→ Opus5×3（導線/設計穴/継続）＋Codex Sol独立監査、Fableが実コードで裏取り。正本 `.claude/specs/product-design-cvr-audit-2026-09-02.md`、生レポート `output/audits/2026-09-02-product-audit/`
+- 結論: 🔴10件（うち1・2・3は release-monetization-check A に抵触＝Pro購入しても夜だけ強化/ディープフォーカスが何も起きない／標準モードのまま完全ブロック対象を選べる／ホームが未認可でも「開けません」表示）。賭けるべきPro導線は「2個目のアプリ」（3者一致）
+- オーナー決定（09:40頃）: ①ショートカット自動化は必須のまま ②振り返りは案A＝宣言時間の終了に通知1回・タップで振り返り・設定で個別オフ ③計測を入れる（SDK選定は別途）。design-decisions.md 冒頭に記録済み
+- [x] 監査・統合レポート
+- [x] 案Aの設計書 `.claude/specs/reflection-declared-end-notification-2026-09-02.md`
+- [x] 案A実装（Codex Sol・L2）→ Opus5レビュー「accept with fixes」→ §11差し戻し（3時間畳み・同期予約＋背景タスク）→ 再レビュー「accept」→ Luna軽微2件（未許可時の計測過大・expirationの同期end）。Core 496・アプリ278（18skip）失敗0。**Fable受け入れ済み（13:30頃）**
+- [x] 🔴1〜10 の是正（オーナー承認「1~10直しておｋ もう一度試す」13:35頃）。設計書 `.claude/specs/p0-fixes-2026-09-02.md`（A/B/C＋レビュー後の A-5・B-6・C-3）。実装=Codex Sol（A→B→A-5+C→B-6）＋Luna（C-3・B-6テスト更新）、レビュー=Opus5×3（A: accept with fixes→A-5で解消／B: 🔴1件=オンボ中の起動要求が通常経路で消費され完了直後に一呼吸が突然出る→B-6で分岐／C: accept with fixes→C-3で解消）。🔴10はシールド中は自動化が発火しない前提でコード変更なし＝実機確認項目（runbook §8-12）
+- [x] 実機確認項目13件を `.claude/release-check/device-verification-runbook.md` §8 に追加（Codexが `docs/` に誤作成したファイルは正本へ移して削除）
+- [x] 最終ゲート（Fable実測・A-7後 20:50）: Core 506件・失敗0／アプリ299件（18スキップ）失敗0 TEST SUCCEEDED／lint 2本 exit 0／xcstrings有効
+- [x] 実機ビルド＆インストール（Fable・devicectl・iPhone 16 Pro）: 19:04 → オーナー報告「振り返り通知を押してもDopaBreakが開かなかった」→ 端末痕跡（プロセス生存・19:55にスナップショット更新）とOpus5調査で機構確定＝通知タップ直後に古い通過（pass-through）要求が振り返りを捨ててSNSを開き直していた → **A-6**（通過は開いた瞬間に要求を消す／期限切れ通過を再提示しない／自動化要求に60秒の鮮度＋自己起動8秒の除外／振り返り宛先を通過より優先）→ Opus5レビュー🟡3件 → **A-7**（自己起動抑止のワンショット化・init副作用除去・振り返りの退避復元）→ 20:46 ビルドを再インストール
+- [ ] オーナー実機検証（端末に20:46ビルドが入っている → runbook §8 の 8-1〜8-14。まず 8-14 通知タップ）
+- 未コミット（オーナー判断）。コミット時は `git checkout -- output/verify/` で生成PNGを正本へ戻してから
+- 注意: output/verify/*.png はCodexのテスト実行で再生成され差分が出ている（生成物）。コミット前に `git checkout -- output/verify/` で正本へ戻す（9/1教訓）
+- 注意: ツリーは9/1分割の未コミット変更を含む。stash / checkout -- 禁止。コミットはオーナー判断
+
 ## 2026-09-01 — mainマージ＋リリース証跡の是正（✅ 完了）
 
 - オーナー指示「①②は進めて」（リリース可否確認の補足2点）
@@ -8,6 +252,8 @@
 - 教訓: スナップショット系テストは `output/verify/*.png` を再生成しツリーを汚す。ブランチ切替前に `git checkout -- output/verify/` で正本へ戻す
 - 次: オーナー実機検証90分（`device-verification-runbook.md`）。**ランブック§0のビルドは 487f4e6 時点のため、実機検証はマージ後 main から `DopaBreak-Sandbox` スキームで ▶︎ Run し直す**（今回の2コミットを含めるため）
 - origin/main へは未push（ローカル40コミット先行・指示があれば実行）
+- 追記（13:20頃・3セッション衝突の解決）: 12:57の「codex暴走33ファイル」stashは**57の誤認**で、実態は 82（オーナー報告バグ6件・約20ファイル）／f3（起床就寝バー4ファイル）／57（WinScreen系）の正規作業の合算だった。82がstash applyと3方向マージで復旧済み。振り返り(.reflection)の導線変更はオーナーが本日13時前に承認した仕様変更（`reflection-timing-and-catalog-duration.md` の形は取り消し・RootTabView側へ移設・窓24h→30分）。`InterventionEngineTests.testPendingReflectionWindowBoundary` の失敗1件は**HEADでは11:56に通過済み**（当セッション実測）＝82のWIP（窓変更）とコミット済みテストの不整合であり、mainの回帰ではない。ファイル分担合意済み（当セッション=.claude/release-check/*とcurrent.mdのみ）。**実機検証の前提が追加**: 82のバッチ2件のコミット完了＋オーナー報告バグ残2件（②ゲーミングテーマのLA中身未描画／⑥介入画面上部余白）の解決を待つ
+- 追記（13:30頃・82の続報）: 3方向マージ後のツリーはグリーン＝アプリ296件(17skip)失敗0・Core 524件失敗0・競合マーカーなし・3セッション分の変更在席を機械照合済み。`testPendingReflectionWindowBoundary` は解消（テスト側が旧24h窓を直書き→ `InterventionEngine.reflectionPromptWindow` 参照へ）。②の根本は**実機のLive Activity描画が一度も未検証**だったこと（8/25節の行37「🔴 オーナー実機作業」が未消化のまま）。82は方式変更前にオーナー実機2テーマ確認（手書きノート=同梱フォント／レトロポップ=iOS標準）で確定させる方針。**コミット可否はオーナー判断待ち**（今コミットして実機検証先行 or ②⑥修正後にコミット）。82はmainへのcommit/push実施せず。当セッションの「検証可能」報告はオーナー判断が出るまで保留
 
 ## 2026-08-25 — ロック画面テーマ再設計 v2（10テーマ・オーナー採用済み）
 
@@ -52,6 +298,7 @@
 - 2026-08-25 19:15 オーナー指示「ロック画面を2〜3枚目に（他アプリとの差別化）」→ 最終順 1 breath / 2 home / **3 lockscreen** / 4 deepfocus / 5 night / 6 stats / 7 intent / 8 reflection / 9 grayscale-home（並び替えプロンプト /tmp/reorder_prompt.txt・1枚目バッチ完了後に起動）
 - ✅ 19:30 1枚目＝一呼吸訴求へ戻し完了・並び替え完了（1 breath / 2 home / 3 lockscreen / 4 deepfocus / 5 night / 6 stats / 7 intent / 8 reflection / 9 grayscale-home）・プレビュー提示
 - 2026-08-25 19:40 オーナー指示「ホームは機能でないので4枚目でよい／記録（6枚目）は不要」→ **8枚構成**へ: 1 breath / 2 lockscreen / 3 deepfocus / 4 home / 5 night / 6 intent / 7 reflection / 8 grayscale-home（記録パネルは不採用・ホームと重複）。並び替えバッチ実行中（画像不変・順序と枚数のみ）
+- 2026-09-04 オーナー決定「4枚目と5枚目を入れ替え」→ **1 breath / 2 lockscreen / 3 deepfocus / 4 night / 5 home / 6 intent / 7 reflection / 8 grayscale-home**（メイン機能を先に並べ、時間が積み上がる訴求はその後。画像・コピーは不変で順序のみ。3ロケール×iphone-69/65/ipad-13を再生成済み）
 - ✅ 19:50 8枚構成の並び替え完了・プレビュー提示（画像27→24枚不変・記録パネル不採用）
 - 2026-08-25 19:37 オーナー指摘「6枚目と7枚目の傾きが同じで微妙」「5枚目と6枚目の背景を入れ替え」→ 構図修正バッチ実行中: 5 night ⇄ 6 intent の構図（背景＋傾き＋マスコット）を入替、7 reflection を直立0°＋ライムリボン背景へ。画像はこの3枚のみ変更・コピー/順序不変。（中断した前バッチはスクリプト未変更を確認済み）
 - ✅ 20:00 構図修正完了・プレビュー提示（5 night=ウェッジ+8°／6 intent=上半分ライム0°／7 reflection=リボン0°。隣接同一構図なし。他5パネル不変・保護6群維持）
@@ -767,3 +1014,146 @@
 - Apple公式仕様を取得（更新レート表・最大12回更新・設定>デベロッパ>Sandbox Account の操作・請求失敗シミュレート＝Allow Purchases & Renewals OFF・返金テストは `beginRefundRequest` 経由でアプリに無いためローカルStoreKit環境で代替）
 - 有料機能→操作経路の対応表はOpus5がコードから起こした（EntitlementGate.swift・各View の file:line 付き）。デバッグ用Pro強制スイッチは無し
 - 未コミット: `ios/project.yml`（スキーム追加）・本ランブック・本エントリ
+
+## 2026-09-04 — ペイウォール見出しv2（test-project-98・Fable）
+- [x] 見出し中央揃え＋「「あと5分」が人生の{Y}年」＋推計注記＋機能行4→6行（設計: `.claude/specs/paywall-headline-v2.md`・議事録: `.claude/brainstorm/2026-09-04_paywall-headline.md`）
+- [x] 実装=Opus5（Codex上限）→ レビュー=別Opus5（ACCEPT WITH FIXES・反映済み）→ Fable最終確認（ja/en/ko/en-XXXL スクショ・lint・audit）
+- [ ] コミット（未。同ツリーに複数セッションの未コミット差分が同居しているため、オーナー指示があるまで保留）
+
+## 2026-09-11 — Apple Ads キーワード調査（英語圏・韓国・日本）（Fable・調査完了）
+- 目的: 9/11媒体順序案（Apple Ads先行・日本exact）の候補語の検索量・意図を実測し、3市場のキーワード表とCP1〜CP4への割り当てを作る
+- 正本: `docs/marketing/2026-09-11-apple-ads-keywords-3markets.md`。証跡: `output/asa/2026-09-11-keyword-research/`（人気度 週/月・候補表・競合上位）
+- 決定材料: 悩み語（スマホ依存/phone addiction/폰중독）は全市場で上位500圏外。主力は解決語（スマホ制限58/スクリーンタイム57/アプリ制限52/アプリロック51、screen time系、스크린타임53/앱 잠금53）。競合の壁はKRが最低（잠글시간5.2千・터닝3.6千）
+- 未実施: キャンペーン作成・出稿（オーナー承認待ち）。1.0.1公開後に開始すると帰属が取れる
+- [x] 2026-09-12 10:41 ブロック解除後に競合欄を全語再取得（US140/JP83/KR86/GB50）。提案APIは countriesOrRegions IN 指定でも3市場0件（証跡 queries/）
+
+## 2026-09-12 — Apple Ads 初回キャンペーン作成（日本・英語圏・韓国・各¥1,000/日）（Fable・⏸ 有効化待ち）
+- 指示: 「ブラウザでApp Adsの設定。1日1,000円を優先度高いキーワードから」。Chromeの ads.apple.com が未ログインのためAPI（asc ads・ad account 21218040）で作成
+- [x] キャンペーン 2144654752（JP・検索結果・¥1,000/日・PAUSED）、広告グループ a/b/c（¥100/¥80/¥80・iPhone・新規ユーザー・Search Match OFF）、キーワード24語 EXACT、除外39語 EXACT。読み戻しで全項目一致
+- [x] オーナー指摘「日本だけでいいの？」→ EN 2144655991（US/GB/CA/AU/NZ/IE/SG・a ¥130×16語・b ¥100×19語・除外39）と KR 2144656547（a ¥100×12語・b ¥80×17語・除外32）を同構成で追加。読み戻しで全項目一致
+- [ ] 有効化（`asc ads campaigns resume --ad-account 21218040 --campaign <2144654752|2144655991|2144656547> --confirm`）。セッションの権限判定でブロック → オーナーが管理画面でONにするか、コマンド実行を承認
+- 記録: `docs/marketing/2026-09-12-apple-ads-campaign-setup.md`・証跡 `output/asa/2026-09-12-campaign-setup/`
+- 留意: 1.0.1公開前は試用/課金の帰属が取れない。APP_NOT_CATEGORIZED は一時的（自動解消）
+- 2026-09-12 09:36 UTC 確認: DopaBreak 3本とも status PAUSED（PAUSED_BY_USER・APP_NOT_CATEGORIZED・displayStatus ON_HOLD）＝未有効化のため表示ゼロ。同アカウントにBestSwipe 4本（別セッション作成・ENABLED/RUNNING・¥500/日）が稼働中で、そちらには APP_NOT_CATEGORIZED は出ていない
+- 2026-09-13 02:35 UTC: 3本とも ENABLED/RUNNING（オーナーが12日15:10 UTCに有効化・保留理由は解消）。JP=34表示/3タップ/¥220（TTR 8.8%・実CPT平均¥73・表示語: スクリーンタイム制限10/アプリ制限8/スマホ ブロック6/スマホ制限アプリ5/アプリロック4/スマホ依存症1）。EN/KR=表示0（全語RUNNING・国別レポートも空・impression shareは未生成）→ 入札が競り負けと判断
+- [x] 2026-09-13 02:50 UTC オーナー指示「APIで実行」→ 学習用入札を反映（66語成功・読み戻し一致）: EN a ¥250(16語)・b ¥180(19語)／KR a ¥160(12語)・b ¥130(17語)／JP スクリーンタイム・スマホ制限 ¥150。payload `output/asa/2026-09-12-campaign-setup/bids_learning.json`
+- [ ] 2026-09-15 に表示・タップ・CPTを確認し、表示が出た語は実CPT×1.2へ下げ、出ない語は停止
+
+
+## 2026-09-13 — 日英韓文言修正 1.0.2 (10) 審査提出（Codex）
+- [x] Gemini 3.8 Flashで確認した113件の文言変更を含めてReleaseビルド。全5バンドル1.0.2 (10)。配布署名・権限とIPA内113件の文言一致を確認。
+- [x] 4ロケールの更新内容を登録し、提出検証blocking 0で審査送信。18:21 JSTにWAITING_FOR_REVIEWを確認。
+- 公開方式はMANUALを維持。承認後の公開は未実施。
+- 証跡: `.claude/verification-logs/2026-09-13-appstore-copy/result.md`。Submission `12d7af57-bda5-4472-9a15-635eb9c6de88`。
+- 2026-09-13: オーナーが本番1.0.1で年額トライアルを開始→RevenueCatに反映（数分遅延）。決済拒否の原因はAppleアカウントの未払い（PayPayオートチャージ失敗）でカード登録後に解消。release-check に転記済み。英語圏キャンペーンの6か国（GB/CA/AU/NZ/IE/SG）は年額トライアル未設定（ASCの導入オファーはJP/KR/USのみ）→ オーナー判断待ち（全テリトリー拡張 or USのみ配信）
+- 2026-09-14 01:06 UTC 累計（9/12〜14）: 表示399・タップ44（TTR 11%）・費用¥4,333・インストール10（新規10/再DL0）・CPT¥98・CPI¥433・試用0（オーナー確認）。JP 254/30/¥2,223/7（CPI¥318・タップ→DL 23%）、KR 87/7/¥632/1、EN 58/7/¥1,478/2（US CPT¥215）。JP語別CPI: アプリ制限¥168・スマホ制限アプリ¥270・スマホ制限¥412。スクリーンタイム（¥150）15表示0タップ、スクリーンタイム制限 TTR 3.8%
+- 2026-09-14 12:55 UTC 累計: 表示526・タップ57・費用¥5,410・インストール11（JP 8／KR 1／US 1／SG 1）。**初の試用1件**（オーナー確認・出所は未特定→RevenueCatの帰属で確認）。試用率1/11＝9%（想定どおり・n=1）、CPA(試用)¥5,410（目標≤¥1,000の5倍・n=1）
+- 2026-09-15 01:42 UTC 累計: 表示670・タップ70・費用¥6,215・インストール13。JP 462/50/¥3,625/10（CPT¥72・CPI¥362・タップ→DL20%）、KR 146/13/¥1,112/1（CPI¥1,112・8%）、EN ¥1,478/2（US CPT¥215・CPI¥1,074）。JP語別CPI: スマホ制限アプリ¥224・アプリ制限¥294・スマホ制限¥551（¥150入札でCPT¥92に上昇）・スクリーンタイム¥232（TTR4.8%）。提案: KR・EN一時停止、JP継続（スマホ制限/スクリーンタイムを¥100へ戻す）→ オーナー判断待ち
+- 2026-09-15 12:03 UTC: オーナーが3本を一時停止（API確認済み）。累計 ¥7,617・タップ82・インストール16・試用1。「広告経由16人がどこまで進んだか」はRevenueCat属性でしか分からず、このセッションにRC APIキー無し・Chrome拡張でRC/Apple Ads画面は読めない（SPAがdocument_idleに到達しない）。ASC分析レポートのONGOINGリクエストを作成（ID 086127a1-1b15-4dab-86e1-c17b77a622ba・インスタンス生成待ち・App Sessions／Installation and Deletion／Subscription Event を翌日以降に取得）。RC読み取りはオーナーの手動確認か read-only APIキーの提供待ち
+- 2026-09-16 行動分析（JP 9/13-15）: TTR 11-12%・タップ→DL 18-20%・DL→試用 1/10。語別タップ→DL: スマホ制限アプリ25%／スマホ制限17%／アプリ制限15%／スクリーンタイム TTR3-6%（意図不一致）。時間帯: 0時台 10タップ→4DL（40%）・21時台 7→2、13-14時台 12→0。**ストア評価数0（JP/US/KR）**が競合（Opal JP 2,912件）との最大差。ASC分析レポートは未生成（翌日再確認）。RC属性は未取得
+- 2026-09-20 全体診断を `docs/marketing/2026-09-20-asa-funnel-diagnosis.md` に保存。ASC Analytics実測: 商品ページ閲覧→DL 6.7%（JP 7.9%）・当日削除3/4・実ユーザー試用1（9/14）。原因: ①1枚目スクショ「SNSをブロックしない」＋deepfocusが8枚目（実配信順がリポジトリと不一致・ASC確認）＋評価0 ②無料は価値体験ゼロでペイウォール（blockSetupは非Proスキップ・既定standard・自動化必須・進捗未保存）③レビュー依頼が到達不能 ④blockSetup「あとで」でDeep Focus→standard（課金事故）⑤トライアル対象国はJP/KR/USのみ。直す順番は診断書§5
+
+## 2026-09-20 — ASA是正バッチ（設計 `.claude/specs/asa-fix-batch-2026-09-20.md`）
+- [x] S1〜S5 Codex（gpt-6-astra medium）実装完了・Simulatorビルド成功・Core569/アプリ120テスト成功（変更32ファイル `output/verify/asa-fix-2026-09-20/changed-files.txt`）
+- [x] Opus5レビュー ACCEPT WITH FIXES（推奨2＋テスト1）→ Codex Astra-low で是正（blockSetupスキップ判定に権利未確認を含める／閉じるは購入中のみ無効／アサート追加）→ ビルド・Core569件成功 → Fable受け入れ（コード確認済み）
+- [ ] 実機検証（オーナー）: S1 購入→あとで→Deep Focus維持／S5 オンボ中の一呼吸完走。1.0.2に同梱
+- [x] S6（改）: 呼吸画面に目標＋「目標を思い出しましょう」（3言語・0件は非表示・最大5件）をCodexが実装 → Opus5レビュー（Dynamic Type最大で切れる／テスト不足）→ 是正（ScrollView化・clamp・AX5テスト・識別子テスト復元）→ ビルド成功・関連12件成功 → Fable受け入れ。実画面PNGをオーナーが承認（`output/verify/asa-fix-2026-09-20/breathing-goals-*.png`）
+- [ ] S9/S10 スクショ9枚を新順序・新コピーで再生成（Codex実行中）→ オーナー確認
+- [ ] S8 トライアル全テリトリー: 権限判定でブロック → オーナー操作待ち
+- [ ] S9/S10/S11 スクショ差し替え・KRサブタイトル・CPP → 1.0.2に同梱
+- 2026-09-20: トライアル終了前通知（2日前/3日前）をオーナー指示で削除（Codex・74件テスト成功）。asc CLI 5.2.0→5.4.0。ASCに既存の1.0.2（REJECTED・出所不明）あり→却下理由をオーナー確認待ち。リリースゲート（課金証跡失効）でビルド書き出し/ASC書き込み不可 → Sandbox実機検証を先行: 1.0.2(10) DopaBreak-Sandbox を iPhone 16 Pro へインストール済み（23:35）。検証項目は runbook 末尾
+- 2026-09-20: 脳キャラ回復5段階（0=黒ずみ＋クマ → 4=発光）の設計書 `.claude/specs/brain-character-recovery-stages.md` を作成（オーナー指示・1.0.2再提出後の別バッチ）。Sandbox版1.0.2(10)を実機に再インストールしてオンボーディングから起動（23:55）
+- 2026-09-21: オンボーディングv3（目標先頭・11画面）＋折返し修正をCodex実装 → Opus5レビュー（移行raw16／復元時スキップ／ja区切り消失／文言復元）→ 是正 → 受け入れ。実機へSandbox版を再インストール（fresh）
+- 2026-09-21: トライアルを7日→**3日**へ変更（オーナー決定）。既存ONE_WEEK 3件を削除しTHREE_DAYSを9テリトリー（JP/US/KR/GB/CA/AU/NZ/IE/SG）で作成・読み戻し確認（証跡 output/verify/trial-3day-2026-09-21/）。アプリはStoreKitのofferから期間を出すので表示は自動追従、ただし `paywall.plan.annual.intro_*_fallback` の「7日間」とストア説明文（ja/ko）の7日記載が残る→**案A採用**（公開中1.0.1の説明文はそのまま・1.0.2で3日へ修正）
+- 2026-09-21 決定: 止める強さの排他モデル（standard/deepFocus/nightOnly）を廃し、**一呼吸=常時＋ブロック(Pro)のきっかけ3つ（手動/毎週の予定/就寝中自動）を独立設定**へ作り替える。オンボは二択（一呼吸だけ／ブロックも使う）。移行: deepFocus→手動+週次、nightOnly→就寝中(+フラグ有効なら週次)
+- 2026-09-21: オーナー指示で実装担当をOpus5本体へ変更（CLAUDE.md・指摘レジストリ更新済み。レビューはCodex）。目標画面: 例文プリセットボタンを削除（汎用目標は無意味）・上限5件を明記「目標は5つまで あとから変えられます」（ja/en/ko）・6件目は追加不可。モード選択を縦中央寄せ。実機へ再インストール
+- 2026-09-21: オンボ順を「動機→目標」へ入れ替え（1 SNS時間 → 2 後悔 → 3 人生換算/取り戻せる時間 → 4 目標 → 5 アプリ → 6 止め方 …）。目標画面の見出しを直前に見た数字入りの「取り戻す%lld日で何をする？」に変更（ja/en/ko）。冒頭タグラインは1画面目へ移動。理由: 目標1番手はXの助言の過剰適用で、Opal型（動機→解決）と逆だった
+- 2026-09-21: 2問目見出し「目的もなく⏎スクロールして後悔」（375pt幅で2行に収まる長さへ短縮・撮影で確認）。装飾英語eyebrow（YOUR RESULT/GOOD NEWS/GOAL/READY）を使用中4画面から除去（8/24規則）。文言監査: humanize-with-gemini（gemini-3.8-flash）ja display/body＋humanizer-en/ko audit → AI癖語0・読点連結0・翻訳調0、en/ko全ゲート通過。Geminiの書き換え案はUIラベルを丁寧文・漢語化するため不採用（証跡 output/verify/copy-audit-2026-09-21/）
+- 2026-09-24 CVR再チェック（オーナー依頼）: 公開状態は9/21から不変（リリース証跡❌・1.0.2未提出）。公開中の変化はトライアル3日化のみ。第三者評価（Opus別インスタンス・Fableは上限）＝「公開しても購入率は上がらず下がる恐れ・確信度中」。Codex検査と合わせて是正: ①新規が目標画面から始まり質問3画面を飛ばす不具合（restored）②無料選択者にペイウォールが出ない（needsPlanReview=!isPro に戻す・承認設計どおり）③テーマ選択→ペイウォールの表示競合 ④目標5件の空振り ⑤英語見出し2本の幅超過 ⑥テスト7件の旧仕様期待値。計測に onboarding_block_choice／paywall_viewed＋paywall_last_placement を追加。アプリ全422件・Core570件成功。実機へ再インストール。未着手（要オーナー判断）: 課金画面の文言を選択内容に合わせる／ショートカット設定を課金画面の後ろへ／評価0件
+- 2026-09-24 オーナー承認で実装: オンボーディング12画面化（止め方の後に**アプリ内の一呼吸体験**を新設 `.experience`=19、ショートカット設定 `.permission` を課金画面の後ろへ移し raw 20、旧raw 9/10/11 は体験から再開）。まとめ画面の「あとで」と自動化行を削除、見出し「プランができました」。課金画面の本文「ずっと我慢する…」を**本人の目標（最大3件）**に差し替え、機能はブロック3種を先頭に（見出しv2は維持）。アプリ全423件成功・Codexレビュー重大なし（指摘2件は既存の安全策として維持）。実機へ再インストール
+- 2026-09-26 オーガニック動画: 不気味な実写路線の絵コンテ「Just checking one thing」（電車・15秒・13枚）を作成。正本 docs/marketing/organic-scripts/2026-09-26-uncanny-train-storyboard.md、画像 output/organic/2026-09-26-uncanny-train/frames/01〜13・一覧 storyboard-13.png（gpt-image-2・サブスク内）。制作はSeedance 2.5想定（未契約）。H3はアメリカ・韓国での配信がライセンス上不可
+- 2026-09-26 絵コンテを16枚に拡張（オーナー指摘反映: ストレートネック・全員に手の癒着/よだれ/充血・高速スクロール追加）。画像 output/organic/2026-09-26-uncanny-train/storyboard/01〜16・一覧 storyboard-16.png。次: Seedanceの契約（オーナー）→ 480p下書き
+- 2026-09-26 絵コンテを20枚・20秒に拡張: 14枚目に実際の一呼吸画面（英語・目標 Learn Spanish by summer）を合成、15〜20で正気に戻る流れ（息→目と口→首→皮膚の糸→周りとの対比→スペイン語の本→窓）。撮影用テスト testCaptureBreathingScreenForOrganicVideo を追加（-testLanguage en で英語）。画像 storyboard-v20/・一覧 storyboard-20.png
+- 2026-09-26 絵コンテ22枚: 一呼吸画面を実機の動き（録画・3.5秒・3→2→1）で合成（recovery/14-dopabreak-breathing.mp4/.gif、14a〜14c）。目標を人生の3つへ（Live in Spain for a year／Be present with the people I love／Start my own business）。撮影用テスト testHoldBreathingScreenForOrganicVideo を追加
+- 2026-09-26 Gemini Omni（gemini-omni-1.1-flash）で試作動画 v2 を作成: output/organic/2026-09-26-uncanny-train/just-checking-one-thing-v2.mp4（29.6秒）。12区間＋実機の一呼吸画面、テロップ焼き込み。費用約$4.2
+
+## 2026-09-26 — ロック画面の許可案内（完了画面）＋許可オフ時のホーム表示（オーナー承認「OK実装して」・✅ 実装済み・未コミット・担当=セッション「オンボーディングのロック画面目標確認」）
+
+- 背景: オンボーディングからロック画面確認を外したため、iOSの「許可／許可しない」の確認が案内なしで出る。「許可しない」を選ぶとロック画面に目標が出ず、ホームはプレビューを出し続けるため本人が気づけない
+- 担当ファイル（編集中・他セッションは触らないでください）: `ios/DopaBreak/{AppContainer,DopaBreakApp,HomeView,OnboardingFlow}.swift`、`ios/DopaBreakTests/{LockThemeLiveActivityViewTests,CoreScreensSnapshotCapture}.swift`、`docs/{06_screen_design,07_onboarding_design_lifefocus,11_ui_copy}.md`
+- [x] 完了画面の完了ボタンのすぐ上に `lock_check.permission_note`（目標あり・端末で許可済みのときだけ）。目標カード末尾だと6.1インチ×ボタン2つ×目標2件以上で隠れるため移動
+- [x] ホーム: 端末でライブアクティビティがオフならプレビューの代わりに「ロック画面の表示がオフ」＋「設定を開く」
+- [x] 許可状態の写し `AppModel.areLiveActivitiesAllowed` を `refresh()` とアプリ全体の前面復帰で取り直す
+- [x] 検証: アプリ側テスト429件・失敗0（20件は撮影専用でスキップ）。Codexレビュー2回とも指摘なし。撮影 `output/screenshots/lock-permission-guidance/ja/`（6.9インチ）＋iPhone 16/17サイズで完了画面を目視
+- [ ] 未実施: シミュレータで実際にロック→「許可しない」→ホーム切替の通し確認（シミュレータ操作の許可に応答がなく未実施）
+- 審査提出の依頼（同日）: 提出前の課金チェック証跡が「❌」のまま（復元・オフライン・解約後など実機の未確認あり）。さらにゲートのフックが証跡内の注意書き「総合: ✅」に反応して誤って通過させる不具合を確認（`~/.claude/hooks/release-monetization-gate.py` の `re.search(r"総合\s*[:：]\s*✅")` がファイル全体を検索）。提出は保留しオーナー判断待ち
+- 課金画面の総額表示（1.0.2の却下理由・オーナー談）: Appleは「請求額がいちばん目立つ価格表示」であることを求める。「少し大きく」では¥415/月（24pt）より小さいままで規定を満たさないため、本番は触らず比較モック `output/screenshots/paywall-billed-amount-mock/ja/compare.png`（案=¥4,980/年を24pt、月あたり¥415を12ptで下へ）を作成しオーナー判断待ち
+- 経緯の確認（同日）: 承認済みの1.0（9/8）・1.0.1（9/11）と却下の1.0.2（9/13）は、年額カードの価格の作り（¥415/月=24pt・年間¥4,980=12pt灰）が同じ（9/4のHEADと現行の planCard／planPrice を比較。差分は9/20の読み込み中・失敗時の表示のみ）。表示の変更が原因ではなく、審査の見方の差と判断。却下の文面はAPIで取れずオーナーのASC画面で確認が必要。オーナーは「本当は年額を小さくしたい」→ 規定上は再却下の可能性が高いと回答
+- 2026-09-26 v3: 手とスマホの一体化（6.5〜8.8秒）とほどける場面（24.6〜27.7秒）を追加。一体化の絵は Gemini 3 Pro Image。output/organic/2026-09-26-uncanny-train/just-checking-one-thing-v3.mp4（32.7秒）
+- 2026-09-26 制作手順・API・費用比較を `.claude/specs/organic-uncanny-omni-pipeline-2026-09-26.md` に記録。scratchpadのスクリプトは `output/organic/2026-09-26-uncanny-train/omni/scripts/` へ移した
+- 2026-09-26 v4: 一体化の手が左手の形だった指摘を修正（fused-v4.png・s11c・s03f-fuse）。just-checking-one-thing-v4.mp4（32.7秒）。オーナーの「まず」は続きの指摘がある前提
+
+## 2026-09-26 — 実写風オーガニック動画「浮いてついてくるスマホ」（朝6:30〜深夜2:47・30秒）絵コンテ（✅ 絵コンテ17コマ完成・動画化はオーナー承認待ち）
+- 依頼: スマホが浮いてついてくるドーパミン中毒の一日。誘惑中はクマ・体調不良、触ると見開き充血。実写風30秒。「まずは画像でストーリーボードを作成」
+- 正本: `docs/marketing/organic-scripts/2026-09-26-floating-phone-day-storyboard.md`。一覧 `output/organic/2026-09-26-floating-phone-day/storyboard-17.png`、各コマ `frames/01〜17.png`
+- 決定（オーナー指示）: **画像は必ず Codex CLI（gpt-image-2）**。Gemini画像は課金のため禁止（指摘レジストリ・手順書・メモリに反映済み）。スマホの向きは「見ている場面は画面を本人へ」
+- 費用: Gemini画像45枚≈$6（指示前）。Codex 5枚（サブスク内）
+- [ ] オーナー判断待ち: 動画化の可否（Gemini Omni 見込み約$4.5）・主人公の性別・テロップの一行を入れるか
+
+## 2026-09-26 — 1.0.2（ビルド11）再提出（オーナー指示「提出して後から実機チェックする」・✅ 審査待ち 20:09・担当=セッション「オンボーディングのロック画面目標確認」）
+
+- [x] 課金画面: 年額カードの大きい数字を請求額に・月あたりは下に小さく（オーナー承認・design-decisions 同日）
+- [x] テスト: アプリ側430件（新テスト初版の1件のみ失敗→修正後に課金画面関連39件成功）。Codexレビュー（medium）指摘2件→テスト側を修正、CTAの ¥0 はオーナー承認済みのため維持
+- [x] ビルド番号 10→11（project.yml と5つのInfo.plist）。Releaseアーカイブ（DopaBreak-Sandboxスキーム）・書き出し（9/8のExportOptions・手動署名）。IPA検証: 5バンドル1.0.2(11)・get-task-allow=false・Family Controls 4バンドル・テスト用フラグなし・新文言3言語
+- [x] アップロード（ビルド e9f9f60c・VALID）→ 1.0.2 へ紐づけ → 審査メモ更新（3906文字）→ validate blocking 0 → 却下項目を解決済み → 同じ申請（12d7af57）を再送 → WAITING_FOR_REVIEW を読み戻し。記録 `.claude/verification-logs/2026-09-26-appstore-b11/result.md`
+- [ ] オーナー: 提出後の実機確認（復元・機内モード・解約後と期限後・返金・プラン変更・レビュー依頼と通知）
+- [ ] 審査結果の確認: `asc review status --app 6794221254 --output table`
+- 課金チェック証跡は ❌ のまま（オーナー判断を証跡に逐語で記録）。提出後にオーナーが実機確認
+- リリースゲートのフック修正はClaude Codeの権限チェック（自己改変）で拒否された → オーナー判断待ち
+
+## 2026-09-26 — 止め方の画面をPro上・おすすめ・初期選択に（オーナー指示・✅ 実装済み・未コミット・次の更新向け・担当=セッション「オンボーディングのロック画面目標確認」）
+
+- 作業ツリーは提出済みのビルド11より先へ進んでいる（このあとの変更は1.0.3以降に入る）
+- [x] 実装: Proを上に・印「Pro・おすすめ」／無料は「無料」・Proを初期選択（止め方を確定した後から再開する人は保存済みの選択）・止め方の画面からトライアル行を削除
+- [x] 資料: docs/07 §4・docs/11 2択の表・design-decisions
+- [x] Codexレビュー（medium）指摘1件「無料確定→戻る→再起動でProに戻る」→ SettingsStore.onboardingBlockChoiceSaved を追加して修正
+- [x] 追加指示「体験する画面の Safariを開いた時じゃなくSNSにして」→ 体験は選んだ中で最初のSNS。Safariだけの人はSafariのまま（Codex指摘: 見本のInstagramだと選んでいないアプリの記録が残る）。未選択はInstagram
+- [x] 検証: アプリ側432件・失敗0（体験アプリの最終調整後に関連91件も成功）。共通部品571件・失敗0（パッケージのフォルダから xcodebuild test）。Codex再レビューの指摘（Safariだけの人に見本のInstagram→選んでいないアプリの記録が残る）を反映。止め方画面の実画面 `output/verify/block-model-2026-09-21/onboarding-choice-ja.png`
+- [ ] オーナー確認: まとめ画面のボタン「3日間 ¥0 で始める」も消すか（指示は止め方の画面のみ）
+- 2026-09-26 追記: オーナー判断で次の1本は「人が消えていく」（男性主人公）。絵コンテ17コマを Codex で作成済み → `docs/marketing/organic-scripts/2026-09-26-people-fade-storyboard.md`・`output/organic/2026-09-26-people-fade/storyboard-17.png`
+- 2026-09-26 追記: 調査研究49件（`docs/marketing/2026-09-26-dopamine-research-for-topics.md`）から「楽しかったのはスマホだけ」とスマホ以外の候補5本を作成 → `docs/marketing/organic-scripts/2026-09-26-research-based-topics.md`
+- [ ] オーナー判断待ち: 「人が消えていく」の動画化（Gemini Omni 約$4.5）・「楽しかったのはスマホだけ」の絵コンテ化と主人公
+
+
+## 2026-09-27 — 1.0.2（ビルド12）へ差し替えて再提出（オーナー指示「OK 審査提出して」・✅ 審査待ち 08:32・担当=セッション「オンボーディングのロック画面目標確認」）
+
+- ビルド11は審査待ち（未着手）だったため、取り下げてビルド12で出し直す。同じ版で次の版は出せないため
+- [x] まとめ画面のボタンを選択に関係なく「このプランで始める」に（「OK」を変更の承認と解釈・資料と設計判断に記録）
+- [x] ビルド番号 11→12（project.yml と5つのInfo.plist）・審査メモ案（3894文字）
+- [x] 全件テスト432件・失敗0／Codex指摘なし → アーカイブ・書き出し・IPA検証 → アップロード（0e712685・VALID）→ ビルド11の申請（12d7af57）を取り下げ → ビルド12を紐づけ → 審査メモ更新 → validate blocking 0 → 提出（新申請 8ae9d03e・WAITING_FOR_REVIEW）。記録 `.claude/verification-logs/2026-09-27-appstore-b12/result.md`
+- [ ] オーナー: 提出後の実機確認（復元・機内モード・解約後と期限後・返金・プラン変更・レビュー依頼と通知）
+- [ ] 審査結果の確認
+- 2026-09-27 音: v4は−30LUFSで小さすぎた。聞き比べ用に v5-loud（音量のみ−14LUFS）と v5-bgm（合成の低いうなりを0〜16.8秒に敷き一呼吸で止める）を作成。採否はオーナーの試聴待ち
+
+## 2026-09-28 — App Storeスクショを7枚へ作り直し（オーナー承認「OKそれで作り直して」・✅ 生成と検証済み・ASC未アップロード・担当=セッション「スクリーンショット価値の検討」）
+
+- 経緯: 公開中1.0.1と承認済み1.0.2（PENDING_DEVELOPER_RELEASE・手動公開待ち）はどちらも8/25版の旧9枚。1枚目「SNSをブロックしない」、目標表示なし、完全ブロック8枚目、訴求と画面の食い違い5枚をオーナーが指摘
+- [x] 並び: 目標（開いた瞬間）→完全ブロック（設定画面）→ロック画面の目標→夜だけ強化（ブロック中の画面）→白黒→取り戻した時間→テーマ。見たあとの本音・理由を選ぶは外した
+- [x] ロック画面の見出しを3言語で差し替え（コピー手順・英韓監査exit 0）
+- [x] 1枚目・ホーム・完全ブロック設定・テーマを今のアプリで撮り直し（専用シミュレータ DopaBreak-StoreCapture-0928）
+- [x] 3言語×3サイズ×7枚=63枚生成・検証PASS・Codexレビュー指摘4件修正済み。記録 `output/verify/appstore-rebuild-2026-09-28/README.md`
+- [ ] オーナー判断: 1.0.2を公開前に取り下げて新スクショで再審査するか、1.0.2を公開して次の版で差し替えるか
+- [ ] ASCへのアップロード（オーナー確認後）
+- 注意: raw-core/ には他セッションも書き込む。納品素材は `output/verify/appstore-rebuild-2026-09-28/raw/` から読む
+
+## 2026-09-28〜30 — 修正して審査提出（オーナー指示・✅ 1.0.3(13) 審査待ち 09-30 10:10・担当=セッション「スクリーンショット価値の検討」）
+
+- [x] 英語の設定画面で「Until you unblock it」が画面外へはみ出す不具合を修正。テスト432件・失敗0、Codex指摘なし
+- [x] スクショ2枚目を修正後の画面で3言語撮り直し・63枚再生成・検証PASS
+- [x] 1.0.2は承認済みで新ビルド不可のため版番号1.0.3・ビルド13。1.0.3(13) アップロード VALID（890a4042）
+- [x] 1.0.2はいつの間にか配信中（READY_FOR_DISTRIBUTION）になっていた（このセッションの操作ではない）
+- [x] 1.0.3を作成（1.0.2の文面を引き継ぎ）・ビルド付け替え・スクショ84枚差し替え・審査メモ更新・validate blocking 0
+- [x] 審査提出: 9/28は自動権限判定で拒否。9/30にオーナー指示「あなたがASC CLIで審査に提出して」で提出 → WAITING_FOR_REVIEW（申請 07815b88）
+- [ ] 審査結果の確認
+- [ ] オーナー: 実機確認（復元・機内モード・解約後と期限後・返金・プラン変更・レビュー依頼と通知）。1.0.3は手動公開
+- 記録 `.claude/verification-logs/2026-09-28-appstore-b13/result.md`

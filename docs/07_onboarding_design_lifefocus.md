@@ -14,7 +14,7 @@ DopaBreakは、SNS依存を更生して人生に集中するためのアプリ�
 4. Screen Time権限を許可する。
 5. 最初のブロックルールを有効化する。
 6. SNSを使った後に、満足感を短く振り返る設計だと理解する。
-7. 毎朝の目標通知とLive Activity（ロック画面カード）で戻る先が届くことを理解する。
+7. Live Activity（ロック画面カード）で戻る先が毎日表示されることを理解する。
 
 ## 2. 入れないもの / 入れるもの（2026-07-02 確定）
 
@@ -33,7 +33,7 @@ DopaBreakは、SNS依存を更生して人生に集中するためのアプリ�
 **入れるもの（軽量目標・確定）**: オンボーディングでは最初の目標を1件だけ任意入力できる。完了後はフラットリストとして管理し、Freeは1件、Proは複数件を保存できる。
 
 - 種類ラベルや期限は付けず、人生の方向性を表す短い目標を1件入力する（例: 英語で仕事ができる自分になる）。
-- 表示先は朝の通知/Live Activity（フル文言）・ホームウィジェット/Dynamic Island（短縮表示名）・介入時のみ。タスク管理画面にはしない。
+- 表示先はLive Activity（フル文言）・ホームウィジェット/Dynamic Island（短縮表示名）・介入時のみ。タスク管理画面にはしない。
 - オンボーディングでは O-04 Goal Setup として1画面・任意入力（スキップ可・後から設定可）。
 
 ## 3. デザイン原則
@@ -109,42 +109,30 @@ DopaBreakは、SNS依存を更生して人生に集中するためのアプリ�
 - 「厳しく制限する」より「解除しない強さで始める」と伝える。
 - 「SNSは悪い」ではなく「見た後の自分の感覚を見える化する」と伝える。
 
-## 4. 推奨オンボーディング構成（2026-07-02 確定・損失顕在化フロー）
+## 4. オンボーディング構成（2026-09-20確定・目標から始めるv3）
 
-**14ステップ**（`output/mockups/lifefocus_v2/` と1:1対応）。所要時間は2-3分。旧7画面版は廃止し、ICP確定（SNS依存全般×損失回避訴求）に合わせ、**自己診断クイズ→推計損失リビール**で悩みを顕在化してから設定に入る構成を正式仕様とする。
+最大11画面。以下の順序を現行仕様とし、§5以降に残る旧画面の詳細より優先する。
 
-| Step | ID | 画面 | 目的 |
-| --- | --- | --- | --- |
-| 1 | O-01 | Welcome | 損失回避の世界観（人生の時間は二度と戻らない） |
-| 2 | O-02 | Self Check Q1 | 開く頻度の自己申告（端末内保存を明示） |
-| 3 | O-02b | Quiz Q2 | 目的なきスクロールの頻度（PHQ型） |
-| 4 | O-02c | Quiz Q3 | 「時間を溶かした」後悔の顕在化 |
-| 5 | O-03r | Quiz Result | **推計損失リビール**（例: 1日2.5h→年38日）。感情のピーク |
-| 6 | O-03 | Choose Apps | 止めたいSNSを選ぶ（汎用アイコン） |
-| 7 | O-04 | Goal Setup | **最初の目標1件を任意入力**（スキップ可） |
-| 8 | O-05 | Choose Mode | 最初の強さを選ぶ（デフォルト=Deep Focus） |
-| 9 | O-06 | Intervention Preview | 開く前の体験を見せる |
-| 10 | O-06b | Why Science | 科学的背景（原理レベル・医療目的でない旨） |
-| 11 | O-07 | Permission | Screen Time許可を取る |
-| 12 | O-08 | Notification Guide | 通知許可＋Live Activity開始（2026-07-02: 旧Widget Guideを置換） |
-| 13 | O-08b | Pre-Paywall Summary | 専用プラン要約（サンクコスト形成）→ペイウォールへ |
-| 14 | O-09 | Ready | 初回設定完了 |
-
-設計原則:
-
-- O-02〜O-03r の数値は**自己申告からの推計**。Screen Time権限前に実データは扱えないため、`※ご回答からの推計値です。医療診断ではありません。` を必ず併記する。権限取得後は実データに差し替える。
-- O-03r（損失リビール）が感情のピーク。ここまでに離脱させない（各クイズはタップ1回で進む）。
-- O-08b→ペイウォール(P-01)は7日無料トライアル訴求。スキップ可（ハードペイウォールにしない場合のA/B対象）。
-
-### 各ステップの離脱対策（Activation設計）
-
-| 画面 | 離脱リスク | 対策 |
+| 順序 | step | 内容 |
 | --- | --- | --- |
-| O-02〜02c | 質問が多い | 3問固定・タップ1回/問・進捗バー表示 |
-| O-03r | 数字が刺さりすぎて防衛反応 | 責め文言を使わず「取り戻せる」希望とセットで提示 |
-| O-04 | 入力が面倒 | 例文プリセットをタップで選択可・スキップ可 |
-| O-07 | 権限への不安 | 端末内保存・監視しない旨を許可ダイアログ前に説明 |
-| O-08b→P-01 | 課金圧 | 無料で使い始められる導線を残す（Free機能明記） |
+| 1 | goalSetup | SNSの代わりに何を進めたい？／目標1件必須・例文選択・後で追加変更可 |
+| 2 | chooseApps | 止めるアプリを選ぶ |
+| 3 | selfCheck | 利用時間の自己申告（既存の選択肢を維持） |
+| 4 | scrollRegret | 目的のないスクロールと後悔を1問・1回答に統合 |
+| 5 | lossRecovery | 人生の損失時間と回復の推計を同じスクロール画面に表示 |
+| 6 | chooseMode | 2026-09-26 オーナー指示: Pro（一呼吸＋完全ブロック）を上に置き、おすすめ・初期選択にする。無料の方は「無料」の印のみ。無料トライアルの表記はこの画面に出さない（ペイウォールだけ）。選択を保存し、ここではペイウォールを出さない |
+| 7 | permission | 対象アプリを開き一呼吸→理由→winを体験。S5の完走・再提示抑止とS6の目標表示を維持 |
+| 8 | notificationGuide | 体験後に通知案内とOS許可 |
+| 9 | prePaywallSummary | 目標・選択プランの要約→ペイウォール。Deep Focus選択時は開始の文脈を表示。CTAは現行文言を維持 |
+| 10 | blockSetup | Proのブロックモードを設定。権利未確認時も表示し、Free確定または通常モードなら省略。「あとで」でモードを降格しない |
+| 11 | ready | 完了 |
+
+- welcomeの世界観は目標画面冒頭の1行へ統合。previewは削除。whyScienceの全文・免責は設定の「仕組み」へ移動。
+- lockScreenCheck・lockThemePickはオンボーディングから削除。初回体験完了後または初回win後、ホームからロック画面の確認と既存テーマ選択へ進める。目標保存によるLive Activity自動開始は維持。iOSの「許可／許可しない」への答え方は、完了画面のボタンの上で伝える（2026-09-26・O-09参照）。
+- アプリ内の一呼吸の体験（experience）はSNSで見せる。選んだアプリの中で最初のSNS（Safari以外）を使う（2026-09-26 オーナー指示「Safariを開いた時じゃなくSNSにして」）。Safariだけを選んだ人はSafariのまま（体験の「開かなかった」は本物の記録になるため、選んでいないアプリで見せると記録がずれる）。何も選んでいなければ見本のInstagram。ショートカット設定中に実際に開いたアプリで出る体験は、そのアプリのまま。
+- 目標はスキップ不可。新見出しはja「SNSの代わりに何を進めたい？」／en「What do you want to make time for?」／ko「SNS 대신 무엇을 하고 싶나요?」。中央表示（設計34pt・縮小なし、収まらない場合は意味区切り1箇所で2行）。2026-09-21の短縮文言・副文の任意区切りは[UI文言集](11_ui_copy.md)の「11画面のディスプレイコピー」を参照。
+- 推計の免責・回復が仮定である旨を維持。回答と目標は端末内保存。質問間のトランジションアニメーションは追加しない。
+- クイズは回答を選ぶと進む。通知・自動化の延期、ペイウォールの「あとで」とS1のブロック設定延期は維持。
 
 ## 5. 画面詳細
 
@@ -378,7 +366,7 @@ UI:
 - 例文プリセットをタップで選択可能にし、入力の摩擦を下げる。
 - スキップ可。スキップ時はホーム/ウィジェット側で設定を促す。
 - 追加目標はProで解放する。目標の種類分け、期限、チェックリストは設けない。
-- ここで入力した目標文が朝の通知/Live Activity（O-08）にフル文言で表示され、短縮表示名はホームウィジェット/Dynamic Islandで使われる。
+- ここで入力した目標文がLive Activity（O-08）にフル文言で表示され、短縮表示名はホームウィジェット/Dynamic Islandで使われる。
 
 ### O-05 Choose Mode
 
@@ -521,8 +509,8 @@ iOSのScreen Timeを使います。
 ```text
 ロック画面に、戻る先を
 
-朝の通知とLive Activityで、
-目標を毎日思い出します。
+Live Activityで、
+目標を毎日ロック画面に表示します。
 
 [プレビュー: 目標文＋「今日 N回 開かずに戻れた」]
 
@@ -584,6 +572,7 @@ UI:
 - 成功アイコン。
 - 朝焼け写真、成功アイコン、設定した目標を再掲する。
 - ホームに移動。
+- 完了ボタンのすぐ上に、ロック画面確認と同じ許可の注記（`lock_check.permission_note`）を出す（2026-09-26 オーナー承認）。iOSは最初にロック画面でライブアクティビティを見せるとき「許可／許可しない」を聞くが、オンボーディングにはロック画面を確かめる手順がない。終える直前に答え方を伝えておく。画面の中（目標カードの末尾）ではなくボタンの上に置くのは、6.1インチでボタンが2つ並ぶ状態だと目標2件以上で末尾が隠れるため。目標が無い人と、端末ですでに許可されていない人には出さない（後者はホームのカードが設定へ案内する）。
 
 ### 2026-07-18 文言確定改訂（オーナー承認・実装反映必須）
 
@@ -660,8 +649,8 @@ UI:
 
 ### ロック画面表示のルール（O-08の補足・2026-07-02改訂）
 
-- ロック画面の戻る先は**朝の目標通知＋デイリーLive Activity**（常設ウィジェットは廃止）。
-- 通知/Live Activityはフル目標文＋今日の実績（開かずに戻れた回数）を表示する。時間は実測できる場合のみ追加する。
+- ロック画面の戻る先は**デイリーLive Activity**に一本化する（常設ウィジェット・朝の目標通知は廃止）。
+- Live Activityはフル目標文＋今日の実績（開かずに戻れた回数）を表示する。時間は実測できる場合のみ追加する。
 - タスク、期限、チェックリスト、リマインダーにはしない。
 - **テーマ: Free=E1のみ、Pro=6テーマ**（墨と灯/朝霧/森林/夜更け/K-POPパステル/かわいいピンク → `output/mockups/notification_themes/`）。
 - 通知拒否時はホームで再案内し、ホームウィジェット（維持）を代替接点にする。
@@ -717,34 +706,27 @@ Deep Focusは強めの設定です。
 | 夜の強化時間 | 22:00-7:00 |
 | Deep Focus | ON |
 
-## 8. 計測イベント
+## 8. 計測イベント・進捗保存（v3）
 
-| Event | Properties |
+`onboarding_last_step` は `OnboardingStep.analyticsIdentifier` と同じ次の値を送る。
+
+| 順序 | 属性値 |
 | --- | --- |
-| onboarding_started | app_version, locale |
-| self_check_completed | usage_bucket, risk_time_bucket |
-| quiz_feelings_answered | frequency_bucket |
-| quiz_cost_answered | regret_bucket |
-| quiz_result_viewed | estimated_loss_bucket |
-| target_apps_selected | selected_count |
-| goal_setup_completed | has_hero_goal, has_year_goal, skipped |
-| mode_selected | mode |
-| preview_started | mode |
-| preview_completed | completed |
-| why_science_viewed | - |
-| screen_time_permission_requested | mode |
-| screen_time_permission_result | granted |
-| notification_guide_result | action(allowed/later), live_activity_started |
-| pre_paywall_summary_viewed | selected_count, estimated_loss_bucket |
-| paywall_viewed | trigger(onboarding) |
-| trial_started | product_id |
-| onboarding_completed | selected_count, mode, permission_granted, trial_started |
-| post_use_reflection_preview_seen | mode |
+| 1 | `goal_setup` |
+| 2 | `choose_apps` |
+| 3 | `self_check` |
+| 4 | `scroll_regret` |
+| 5 | `loss_recovery` |
+| 6 | `choose_mode` |
+| 7 | `permission` |
+| 8 | `notification_guide` |
+| 9 | `pre_paywall_summary` |
+| 10 | `block_setup` |
+| 11 | `ready` |
 
-注意:
+`onboarding_step_completed` のdetailにも同じ識別子を使う。旧 `quiz_aimless` / `quiz_regret` は `scroll_regret`、旧 `quiz_result` / `recovery_estimate` は `loss_recovery` へ統合した。削除画面の識別子は新フローから送らない。既存の購入・呼吸完了イベントは維持し、具体的なアプリ名や目標本文は計測へ送らない。
 
-- 選択した具体的なアプリ名は分析イベントに送らない。
-- 自己申告の利用時間はbucket化する。
+S3の端末内 `onboardingStepRaw` は旧番号を保持し、新しい表示順とは分離する。旧welcome→goalSetup、quizAimless→scrollRegret、recovery→lossRecovery、preview/whyScience→permission、lockScreenCheck/lockThemePick→prePaywallSummaryへ移行。保存済み目標がない旧フローの再開、無効値・完了済みはgoalSetupから開始し、完了時は進捗を消す。自己申告の途中回答・選択アプリ・目標・モードも復元する。体験完了フラグは再提示防止に使用する。
 
 ## 9. コピー一覧
 
@@ -791,3 +773,10 @@ Deep Focusは強めの設定です。
 1. ~~23_post_reflection（利用後リフレクション）のモック欠落~~ → **2026-07-02 作成済み**（E1版 `23_post_reflection.html` ＋F1版 `tone_comparison_v2/F1_reflection.png`）。
 2. Permission denied分岐のモック。
 3. ~~カラートークンの二重基準~~ → **2026-07-02 E1 Dark Monoに確定・§3を改訂済み**。F1墨と灯はProテーマ第1弾候補として保管。
+
+
+## 2026-09-21 まとめ画面とモード選択の是正（第2弾）
+
+O-08bの目標は最大5件を入力リスト／ロック画面と同じ順で表示し、未追加の入力も拾う。6件以上は「ほかN件」。行ラベルは「1年でSNSに使う時間」、値は「約N日」とし、推計式は維持する。「止める強さ」行を追加し、非Proがシールドモードを選んだ場合は「ディープフォーカス（Pro）」等を表示する。3言語の正本はdoc11末尾。
+
+モード選択ではDeep Focusと夜だけ強化に既存様式のProバッジを表示し、Deep Focusのおすすめを残す。専用プランのペイウォールを購入せずに閉じた場合は、readyに一度だけ「いまは一呼吸で始めます」「ディープフォーカスはProで使えます」「設定でいつでも変えられます」を表示する。夜だけ強化は対応する説明に差し替える。案内の待機・表示履歴は再起動をまたいで保持し、pendingInterventionModeには干渉しない。Pro購入後の復帰とS1のブロック設定延期、CoreのInterventionModeResolverは維持する。

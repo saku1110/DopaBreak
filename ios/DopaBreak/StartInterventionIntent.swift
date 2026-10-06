@@ -86,6 +86,13 @@ struct StartInterventionIntent: AppIntent {
         // AppIntentはアプリ本体とは別インスタンスで実行されるため、
         // SettingsStore（App Group UserDefaults）経由で起動要求を橋渡しする。
         if let settingsStore = try? SettingsStore() {
+            guard !ReinterventionShield.suppressesIntervention() else {
+                settingsStore.pendingStartInterventionCatalogID = nil
+                settingsStore.pendingStartInterventionAutoResolve = false
+                settingsStore.pendingStartInterventionRequestedAt = nil
+                return .result()
+            }
+            settingsStore.pendingStartInterventionRequestedAt = Date()
             if let app {
                 settingsStore.pendingStartInterventionCatalogID = app.catalogID
                 settingsStore.pendingStartInterventionAutoResolve = false

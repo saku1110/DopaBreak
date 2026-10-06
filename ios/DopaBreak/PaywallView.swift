@@ -2,6 +2,7 @@ import DopaBreakCore
 import Foundation
 import StoreKit
 import SwiftUI
+import UIKit
 
 // 目標の件数制限は撤廃済み（2026-08-17オーナー決定）のため、goals_limit の掲出箇所はない。
 enum PaywallPlacement: String, CaseIterable, Identifiable {
@@ -11,13 +12,34 @@ enum PaywallPlacement: String, CaseIterable, Identifiable {
     case settingsThemeGate = "settings_theme_gate"
     case homeThemeGate = "home_theme_gate"
     case settingsModeGate = "settings_mode_gate"
-    case settingsGateGate = "settings_gate_gate"
     case onboardingPrepaywallSummary = "onboarding_prepaywall_summary"
     case onboardingModeGate = "onboarding_mode_gate"
     case onboardingTargetAppGate = "onboarding_target_app_gate"
+    case onboardingLockThemeGate = "onboarding_lock_theme_gate"
     case weekly = "weekly"
 
     var id: String { rawValue }
+}
+
+/// 保留中のProテーマ選択を購入へ持ち込んでよいペイウォールか。
+/// デザインを選ぶ導線（オンボーディング／テーマピッカー）から開いた時だけ持ち込む。
+/// それ以外のペイウォールでProになっても、ロック画面とLive Activityは既定の `.e1` のままにする。
+/// `default` を書かないのは、placementを追加したときにここでコンパイルエラーを出して判断を強制するため。
+enum PendingProThemePaywallPolicy {
+    static func keepsPendingSelection(for placement: PaywallPlacement) -> Bool {
+        switch placement {
+        case .settingsThemeGate, .homeThemeGate:
+            return true
+        case .onboardingPrepaywallSummary, .onboardingModeGate, .onboardingTargetAppGate, .onboardingLockThemeGate:
+            return true
+        case .settingsTargetAppLimit,
+             .settingsFamilyActivityLimit,
+             .settingsProStatusRow,
+             .settingsModeGate,
+             .weekly:
+            return false
+        }
+    }
 }
 
 private enum PaywallPlan: CaseIterable, Identifiable {
@@ -53,13 +75,12 @@ struct PaywallView: View {
     let storeService: StoreService
     let placement: PaywallPlacement
     let yearlyDays: Int
+    let dailyMinutes: Int
     let settingsStore: SettingsStore
+    let model: AppModel?
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlan: PaywallPlan = .annual
-    /// 終了前通知の何日前かを画面側で保持する。`SettingsStore` は監視対象ではないため、
-    /// 表示はここを正本にし、変更のたびに保存へ書き戻す。
-    @State private var trialReminderLeadDays: Int
     @State private var alertMessage: String?
     @State private var didRecordAppearance = false
     @State private var didRecordDismissal = false
@@ -70,18 +91,20 @@ struct PaywallView: View {
         snapshotStore: JSONSnapshotStore = JSONSnapshotStore(
             containerProvider: DefaultContainerProvider()
         ),
-        settingsStore: SettingsStore? = nil
+        settingsStore: SettingsStore? = nil,
+        model: AppModel? = nil
     ) {
         self.storeService = storeService
         self.placement = placement
         let resolvedSettingsStore = settingsStore ?? ((try? SettingsStore()) ?? SettingsStore(userDefaults: .standard))
         self.settingsStore = resolvedSettingsStore
-        _trialReminderLeadDays = State(initialValue: resolvedSettingsStore.trialReminderLeadDays)
+        self.model = model
         let snapshot = try? snapshotStore.read(
             SelfCheckSnapshot.self,
             from: .selfCheckSnapshot
         )
         yearlyDays = Self.resolvedYearlyDays(snapshot: snapshot)
+        dailyMinutes = Self.resolvedDailyMinutes(snapshot: snapshot)
     }
 
     static func resolvedYearlyDays(snapshot: SelfCheckSnapshot?) -> Int {
@@ -89,6 +112,16 @@ struct PaywallView: View {
             (try? LossEstimator.estimate(usageBucket: "2-4時間").yearlyDays) ??
             38
     }
+
+    /// 推計注記に出す「1日の利用時間」。年間日数と同じ回答・同じ既定バケットから解決し、
+    /// 見出しの年数と注記の前提が食い違わないようにする。
+    static func resolvedDailyMinutes(snapshot: SelfCheckSnapshot?) -> Int {
+        snapshot?.estimatedDailyMinutes ??
+            (try? LossEstimator.estimate(usageBucket: "2-4時間").dailyMinutes) ??
+            150
+    }
+
+    private var canPurchase: Bool { storeService.canPurchase(product(for: selectedPlan)) }
 
     private var isBusy: Bool {
         storeService.isLoadingProducts || storeService.isPurchasing || storeService.isRestoring
@@ -100,7 +133,6 @@ struct PaywallView: View {
                 header
                 featureList
                 planList
-                trialReminderCard
                 legalArea
             }
             .padding(.horizontal, 20)
@@ -113,6 +145,13 @@ struct PaywallView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            // 破棄は購入時ではなく提示時に行う。提示中のピッカー表示と購入後の結果を食い違わせないため。
+            // 計測のガードの外に置くのは、`fullScreenCover(item:)` が nil を挟まず placement だけ
+            // 差し替わったときにビューの同一性と `didRecordAppearance` が保たれ、破棄が飛ぶため。
+            // 代入は冪等で、ファネル計測の一部でもない。
+            if !PendingProThemePaywallPolicy.keepsPendingSelection(for: placement) {
+                model?.pendingProThemeSelection = nil
+            }
             guard !didRecordAppearance else { return }
             didRecordAppearance = true
             let shownAt = Date()
@@ -121,8 +160,14 @@ struct PaywallView: View {
                 settingsStore.lastWeeklyPaywallShownAt = shownAt
             }
             storeService.recordPaywallShown(placement: placement.rawValue)
+            AppleAdsMeasurement.shared.recordPaywallShown(placement: placement.rawValue)
         }
         .onDisappear {
+            if storeService.isPro {
+                model?.applyPurchaseContinuationIfNeeded()
+            } else {
+                model?.purchaseContinuation = nil
+            }
             recordDismissalWithoutPurchaseIfNeeded()
         }
         // Proである事実だけを見て閉じる。purchase() の戻り値に頼ると、
@@ -133,6 +178,7 @@ struct PaywallView: View {
         // ペイウォールを開く導線はいずれも非Proのときだけなので、誤爆しない。
         .onChange(of: storeService.isPro, initial: true) { _, isPro in
             guard isPro else { return }
+            model?.applyPurchaseContinuationIfNeeded()
             dismiss()
         }
         .task {
@@ -148,7 +194,9 @@ struct PaywallView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // 見出しブロックだけ中央揃えにする（CLAUDE.md「訴求画面の見出しは中央揃えが既定」）。
+        // 外側の VStack(alignment: .leading) と、チェックリスト・プラン・法務は左揃えのまま。
+        VStack(alignment: .center, spacing: 12) {
             CharacterView(.awake, size: DesignTokens.CharacterSize.header)
                 .frame(maxWidth: .infinity)
                 .frame(height: DesignTokens.CharacterSize.header)
@@ -158,40 +206,85 @@ struct PaywallView: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(DesignTokens.hairline, lineWidth: 1)
                 }
+                // ラベルは左上のまま。中央上へ寄せるとキャラクターの頭に重なる（2026-09-04 実画面で確認）。
                 .overlay(alignment: .topLeading) {
                     SmallLabel(text: String(localized: "paywall.brand.pro", defaultValue: "DOPABREAK PRO"))
                         .padding(14)
                 }
                 .padding(.bottom, 4)
 
-            VStack(alignment: .leading, spacing: 2) {
-                (Text(String(localized: "paywall.header.line1.prefix", defaultValue: "「あと5分」が1年で")).foregroundStyle(DesignTokens.primaryText)
-                    + Text("\(yearlyDays)").foregroundStyle(DesignTokens.accent)
-                    + Text(String(localized: "paywall.header.line1.suffix", defaultValue: "日")).foregroundStyle(DesignTokens.primaryText))
+            VStack(alignment: .center, spacing: 2) {
+                // 数字だけaccent色。前後の語は本文色のままにして、視線を年数へ落とす。
+                (Text(String(localized: "paywall.header.line1.prefix", defaultValue: "「あと5分」が人生の")).foregroundStyle(DesignTokens.primaryText)
+                    + Text(LossEstimatePresentation.lifetimeYearsText(yearlyDays: yearlyDays)).foregroundStyle(DesignTokens.accent)
+                    + Text(String(localized: "paywall.header.line1.suffix", defaultValue: "年")).foregroundStyle(DesignTokens.primaryText))
                     .dopaFont(30, weight: .black, tracking: -1)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+                    // 2行目と同じ1行固定。折返しを許すと英語が3行になり見出しが崩れる（2026-09-04 実画面で確認）。
+                    // 他の大見出しと同じ `dopaDisplayClamp()` で1行固定＋縮小下限0.5＋AX2打ち止めにする。
+                    // 0.78止めだと文字を最大にした英語で末尾が「years g…」と切れた（同日 XXXL 実測）。
+                    .dopaDisplayClamp()
+                    .frame(maxWidth: .infinity)
 
                 Text(String(localized: "paywall.header.line2", defaultValue: "開く前にブレーキ"))
                     .dopaFont(30, weight: .black, tracking: -1)
                     .foregroundStyle(DesignTokens.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+                    .dopaDisplayClamp()
+                    .frame(maxWidth: .infinity)
+
+                // 50年という前提と、個人の回答からの推計であることを数字の直下に置く（docs/07 O-03r と同方針）。
+                // 本文より見出し側に寄せたいので、外側の12ではなく6ptで見出しに付ける。
+                Text(
+                    String(
+                        localized: "paywall.header.estimate_note",
+                        defaultValue: "1日約\(LossEstimatePresentation.dailyTimeText(minutes: dailyMinutes))が50年続いた場合の推計"
+                    )
+                )
+                .dopaFont(12, weight: .medium)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 6)
             }
 
-            Text(String(localized: "paywall.header.body", defaultValue: "ずっと我慢するためのアプリではありません。SNSを開く前に一呼吸はさみ、開かずにすんだ回数をホームに残します。"))
-                .dopaFont(14, weight: .medium, lineSpacing: 4)
-                .foregroundStyle(DesignTokens.secondaryText)
+            // 無料機能の説明は置かない。本人が入れた目標を出し、何のために止めるかを買う直前に思い出させる
+            // （2026-09-24 オーナー承認）。目標が無い導線では何も出さない。
+            if !paywallGoalTitles.isEmpty {
+                VStack(alignment: .center, spacing: 6) {
+                    SmallLabel(text: String(localized: "paywall.goals.label", defaultValue: "あなたの目標"))
+                    ForEach(Array(paywallGoalTitles.enumerated()), id: \.offset) { _, title in
+                        Text(title)
+                            .dopaFont(16, weight: .bold)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 4)
+            }
         }
+    }
+
+    /// 課金画面に出す目標。場所を取りすぎないよう3件まで。
+    private var paywallGoalTitles: [String] {
+        Array((model?.lockScreenDisplayTitles ?? []).filter { !$0.isEmpty }.prefix(3))
     }
 
     private var featureList: some View {
         VStack(spacing: 0) {
-            PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_apps", defaultValue: "止めるアプリを何個でも追加"))
-            divider
+            // ブロックの3つのきっかけ（手動・毎週の予定・就寝中）を先頭に。Proで同時に使える（2026-09-24）
             PaywallFeatureRow(text: String(localized: "paywall.feature.deep_focus", defaultValue: "選んだアプリを完全にブロック"))
             divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.weekly_schedule", defaultValue: "毎週のブロック予定を2つ設定"))
+            divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.night_block", defaultValue: "就寝中は自動で完全ブロック"))
+            divider
+            // 1日に開ける回数。2026-10-05 オーナー指示で「解除に30秒待つ強いブロック」の行から差し替えた。
+            PaywallFeatureRow(text: String(localized: "paywall.feature.daily_open_limit", defaultValue: "1日の開く回数を制限してブロック"))
+            divider
+            PaywallFeatureRow(text: String(localized: "paywall.feature.unlimited_apps", defaultValue: "対応アプリの登録数制限を解除"))
             divider
             PaywallFeatureRow(text: String(localized: "paywall.feature.lock_theme", defaultValue: "ロック画面のデザインを選べる"))
         }
@@ -204,46 +297,6 @@ struct PaywallView: View {
             planCard(.monthly)
         }
         .disabled(isBusy)
-    }
-
-    /// 無料期間つきの年額を選んでいるときだけ出す、終了前の知らせの事前選択。
-    /// 請求されるタイミングを自分で握れる実感が、無料期間への警戒をほどく。
-    /// CTAより手前に置くが、支配的にならないよう寸法と彩度は抑える。
-    @ViewBuilder
-    private var trialReminderCard: some View {
-        if selectedPlan == .annual, storeService.isEligibleForAnnualIntroOffer {
-            CardContainer {
-                VStack(alignment: .leading, spacing: 10) {
-                    SmallLabel(text: String(localized: "paywall.trial_reminder.label", defaultValue: "更新前のお知らせ"))
-
-                    Text(String(localized: "paywall.trial_reminder.body", defaultValue: "無料期間が終わる前に通知します。"))
-                        .dopaFont(14, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Picker(
-                        String(localized: "paywall.trial_reminder.label", defaultValue: "更新前のお知らせ"),
-                        selection: $trialReminderLeadDays
-                    ) {
-                        Text(String(localized: "paywall.trial_reminder.option.two_days", defaultValue: "2日前"))
-                            .tag(2)
-                        Text(String(localized: "paywall.trial_reminder.option.three_days", defaultValue: "3日前"))
-                            .tag(3)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .disabled(isBusy)
-
-                    Text(String(localized: "paywall.trial_reminder.note", defaultValue: "無料期間中に解約すれば、料金はかかりません。"))
-                        .dopaFont(12, weight: .medium, lineSpacing: 2)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .onChange(of: trialReminderLeadDays) { _, newValue in
-                settingsStore.trialReminderLeadDays = newValue
-            }
-        }
     }
 
     private var fixedActionBar: some View {
@@ -260,8 +313,17 @@ struct PaywallView: View {
                     Text(primaryButtonTitle)
                 }
             }
-            .buttonStyle(PrimaryButtonStyle(isEnabled: !isBusy))
-            .disabled(isBusy)
+            .buttonStyle(PrimaryButtonStyle(isEnabled: canPurchase))
+            .disabled(!canPurchase)
+
+            legalLinks
+
+            if storeService.productLoadingState == .failed {
+                Button(String(localized: "paywall.action.reload", defaultValue: "再読み込み")) {
+                    Task { await storeService.loadProducts() }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+            }
 
             HStack(spacing: 8) {
                 Button {
@@ -278,13 +340,13 @@ struct PaywallView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .disabled(isBusy)
+                .disabled(storeService.isPurchasing || storeService.isRestoring)
 
                 Button(String(localized: "paywall.action.later", defaultValue: "あとで")) {
                     dismissWithoutPurchase()
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .disabled(isBusy)
+                .disabled(storeService.isPurchasing)
             }
             .dopaFont(14, weight: .semibold)
             .foregroundStyle(DesignTokens.secondaryText)
@@ -308,21 +370,33 @@ struct PaywallView: View {
     }
 
     private var legalArea: some View {
-        VStack(spacing: 8) {
-            Text(legalText)
-                .dopaFont(10, weight: .medium, lineSpacing: 2)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-
-            HStack(spacing: 18) {
-                Link(String(localized: "paywall.legal.terms", defaultValue: "利用規約"), destination: AppURLs.terms)
-                Link(String(localized: "paywall.legal.privacy", defaultValue: "プライバシー"), destination: AppURLs.privacy)
-            }
-            .dopaFont(11, weight: .bold)
+        Text(legalText)
+            .dopaFont(10, weight: .medium, lineSpacing: 2)
             .foregroundStyle(DesignTokens.secondaryText)
-            .frame(maxWidth: .infinity, alignment: .center)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+    }
+
+    // Keep both legal links below the purchase button, outside the scrolling content.
+    private var legalLinks: some View {
+        HStack(spacing: 8) {
+            Link(destination: AppURLs.terms) {
+                Text(String(localized: "paywall.legal.terms", defaultValue: "利用規約"))
+                    .underline()
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            Link(destination: AppURLs.privacy) {
+                Text(String(localized: "paywall.legal.privacy", defaultValue: "プライバシー"))
+                    .underline()
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
         }
+        .dopaFont(14, weight: .semibold)
+        .foregroundStyle(DesignTokens.primaryText)
+        .multilineTextAlignment(.center)
+        .buttonStyle(.plain)
     }
 
     private var divider: some View {
@@ -361,8 +435,9 @@ struct PaywallView: View {
                     }
                 }
 
-                Text(planPrice(plan))
-                    .dopaFont(24, weight: .black, design: .rounded)
+                Text(storeService.productLoadingState == .loading ? "0000 / 00" : planPrice(plan))
+                    .redacted(reason: storeService.productLoadingState == .loading ? .placeholder : [])
+                    .dopaFont(storeService.productLoadingState == .failed ? 15 : 24, weight: .black, design: .rounded)
                     .foregroundStyle(DesignTokens.primaryText)
 
                 if let detail = planDetail(plan) {
@@ -398,15 +473,16 @@ struct PaywallView: View {
     }
 
     private func planDetail(_ plan: PaywallPlan) -> String? {
+        guard storeService.productLoadingState == .loaded else { return nil }
         switch plan {
         case .annual:
-            let annualChargeText = storeService.activeAnnualProduct.map {
-                String(localized: "paywall.plan.annual.charge", defaultValue: "年間\($0.displayPrice)を一括請求")
-            }
+            // 請求額（年額）はカードの大きい数字で出し、月あたりはここで小さく添える。
+            // 審査3.1.2で「月あたりの方が目立つ」と却下されたため（2026-09-26 オーナー承認）。
+            let monthlyEquivalentText = storeService.activeAnnualProduct.map { _ in annualMonthlyEquivalentText }
             let introText = storeService.isEligibleForAnnualIntroOffer
-                ? (storeService.annualIntroOfferText ?? String(localized: "paywall.plan.annual.intro_fallback", defaultValue: "7日間無料"))
+                ? (storeService.annualIntroOfferText ?? String(localized: "paywall.plan.annual.intro_fallback", defaultValue: "無料トライアルあり"))
                 : nil
-            let details = [annualChargeText, introText].compactMap { $0 }
+            let details = [monthlyEquivalentText, introText].compactMap { $0 }
             return details.isEmpty ? nil : details.joined(separator: "・")
         case .monthly:
             return nil
@@ -414,9 +490,15 @@ struct PaywallView: View {
     }
 
     private func planPrice(_ plan: PaywallPlan) -> String {
+        if storeService.productLoadingState == .failed {
+            return String(localized: "paywall.price.failed", defaultValue: "読み込めませんでした")
+        }
         switch plan {
         case .annual:
-            return annualMonthlyEquivalentText
+            guard let product = storeService.activeAnnualProduct else {
+                return String(localized: "paywall.value.unavailable", defaultValue: "—")
+            }
+            return String(localized: "paywall.plan.annual.price", defaultValue: "\(product.displayPrice)/年")
         case .monthly:
             guard let product = storeService.monthlyProduct else {
                 return String(localized: "paywall.value.unavailable", defaultValue: "—")
@@ -428,7 +510,7 @@ struct PaywallView: View {
     private var primaryButtonTitle: String {
         if selectedPlan == .annual, storeService.isEligibleForAnnualIntroOffer {
             return storeService.annualIntroOfferCTAText
-                ?? String(localized: "paywall.action.start_free", defaultValue: "\(annualIntroOfferDurationText)無料で始める")
+                ?? String(localized: "paywall.action.start_free_generic", defaultValue: "無料で始める")
         }
         return String(localized: "paywall.action.start_plan", defaultValue: "\(planTitle(selectedPlan))プランを始める")
     }
@@ -440,6 +522,9 @@ struct PaywallView: View {
                 return String(localized: "paywall.legal.auto_renew", defaultValue: "解約しない場合、期間終了時に自動更新されます\n購入はApple IDに請求されます")
             }
             if storeService.isEligibleForAnnualIntroOffer {
+                guard storeService.annualIntroOfferDurationText != nil else {
+                    return String(localized: "paywall.legal.annual_intro_unspecified", defaultValue: "無料期間終了後、年額\(product.displayPrice)で自動更新。いつでも解約できます。購入はApple IDに請求されます")
+                }
                 return String(localized: "paywall.legal.annual_intro", defaultValue: "\(annualIntroOfferDurationText)の無料期間終了後、年額\(product.displayPrice)で自動更新。いつでも解約できます。購入はApple IDに請求されます")
             }
             return String(localized: "paywall.legal.auto_renew", defaultValue: "解約しない場合、期間終了時に自動更新されます\n購入はApple IDに請求されます")
@@ -458,14 +543,14 @@ struct PaywallView: View {
     }
 
     private var annualIntroOfferDurationText: String {
-        storeService.annualIntroOfferDurationText ?? String(localized: "paywall.plan.annual.intro_duration_fallback", defaultValue: "7日間")
+        storeService.annualIntroOfferDurationText ?? String(localized: "paywall.plan.annual.intro_duration_fallback", defaultValue: "無料期間あり")
     }
 
     private var annualMonthlyEquivalentText: String {
         guard let product = storeService.activeAnnualProduct else {
             return String(localized: "paywall.value.unavailable", defaultValue: "—")
         }
-        return String(localized: "paywall.plan.annual.monthly_equivalent", defaultValue: "\(product.priceFormatStyle.format(product.price / Decimal(12)))/月")
+        return String(localized: "paywall.plan.annual.monthly_equivalent", defaultValue: "月あたり\(product.priceFormatStyle.format(product.price / Decimal(12)))")
     }
 
     private var annualDiscountPercent: Int? {
@@ -476,13 +561,14 @@ struct PaywallView: View {
     }
 
     private func purchaseSelectedPlan() async {
-        guard let product = product(for: selectedPlan) else {
+        guard canPurchase, let product = product(for: selectedPlan) else {
             alertMessage = String(localized: "paywall.error.product_load", defaultValue: "商品情報を読み込めませんでした")
             return
         }
 
         let didBecomePro = await storeService.purchase(product)
         if didBecomePro {
+            model?.applyPurchaseContinuationIfNeeded()
             dismiss()
         } else if let message = storeService.alertMessage {
             alertMessage = message
@@ -492,6 +578,7 @@ struct PaywallView: View {
     private func restorePurchases() async {
         let didBecomePro = await storeService.restore()
         if didBecomePro {
+            model?.applyPurchaseContinuationIfNeeded()
             dismiss()
         } else if let message = storeService.alertMessage {
             alertMessage = message
@@ -499,6 +586,7 @@ struct PaywallView: View {
     }
 
     private func dismissWithoutPurchase() {
+        model?.purchaseContinuation = nil
         recordDismissalWithoutPurchaseIfNeeded()
         dismiss()
     }

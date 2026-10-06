@@ -6,18 +6,23 @@ final class ReviewPromptPolicyTests: XCTestCase {
     private let day: TimeInterval = 24 * 60 * 60
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
-    func testExactlyFiveCancelledAttemptsIsEligibleButFourIsNot() {
-        XCTAssertTrue(shouldRequest(totalCancelledAllTime: 5))
-        XCTAssertFalse(shouldRequest(totalCancelledAllTime: 4))
+    func testSecondCancellationIsEligibleButFirstIsNot() {
+        XCTAssertTrue(shouldRequest(totalCancelledAllTime: 2))
+        XCTAssertFalse(shouldRequest(totalCancelledAllTime: 1))
     }
 
-    func testExactlyThreeDaysSinceFirstLaunchIsEligible() {
+    func testSameDayIsEligibleButFutureFirstLaunchIsNot() {
         XCTAssertTrue(
-            shouldRequest(firstLaunchDate: now.addingTimeInterval(-3 * day))
+            shouldRequest(firstLaunchDate: now)
         )
         XCTAssertFalse(
-            shouldRequest(firstLaunchDate: now.addingTimeInterval(-(3 * day) + 1))
+            shouldRequest(firstLaunchDate: now.addingTimeInterval(1))
         )
+    }
+
+    func testThirdCancellationAfterPromptIsBlockedByCooldown() {
+        XCTAssertTrue(shouldRequest(totalCancelledAllTime: 2, firstLaunchDate: now))
+        XCTAssertFalse(shouldRequest(totalCancelledAllTime: 3, firstLaunchDate: now, pastEventDates: [now]))
     }
 
     func testEventAtNinetyDayBoundaryIsEligibleButNewerEventIsNot() {

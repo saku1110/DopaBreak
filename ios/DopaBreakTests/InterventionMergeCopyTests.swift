@@ -61,9 +61,10 @@ final class InterventionMergeCopyTests: XCTestCase {
     ]
 
     private let approvedManualLineBreaks: Set<String> = [
+        // 2026-09-03 オーナー指示: 対象外の説明シートは「Instagramは」の直後で折り返す。
+        "DopaBreak/Localizable.xcstrings::automation.non_target.title::ja",
         "DopaBreak/Localizable.xcstrings::onboarding.apps.empty_selection_message::en",
         "DopaBreak/Localizable.xcstrings::onboarding.apps.empty_selection_message::ko",
-        "DopaBreak/Localizable.xcstrings::onboarding.goal.title::ja",
         "DopaBreak/Localizable.xcstrings::onboarding.welcome.title::ja",
         "DopaBreak/Localizable.xcstrings::paywall.legal.auto_renew::en",
         "DopaBreak/Localizable.xcstrings::paywall.legal.auto_renew::ja",
@@ -145,11 +146,11 @@ final class InterventionMergeCopyTests: XCTestCase {
         XCTAssertFalse(modelSource.contains("scheduleMidSessionCheckIn"))
         XCTAssertFalse(modelSource.contains("notificationsAuthorized"))
         XCTAssertFalse(viewSource.contains("notificationMessage"))
-        XCTAssertTrue(modelSource.contains("recordCatalogOpen(durationSeconds: duration.seconds)"))
+        XCTAssertTrue(modelSource.contains("recordCatalogOpen(durationSeconds: duration.seconds,"))
         XCTAssertTrue(modelSource.contains("private func proceedToOpenOrDurationSelection() {\n        stage = .durationSelection"))
     }
 
-    func testUsageTimeAlertUIAndMonitorNotificationsAreRemoved() throws {
+    func testRetiredUsageWatchUIIsNotReintroduced() throws {
         let settingsSource = try String(
             contentsOf: projectURL("DopaBreak/SettingsNotificationsView.swift"),
             encoding: .utf8
@@ -165,7 +166,6 @@ final class InterventionMergeCopyTests: XCTestCase {
 
         XCTAssertFalse(settingsSource.contains("settings.usage_watch"))
         XCTAssertFalse(settingsSource.contains("FamilyActivityPicker"))
-        XCTAssertFalse(monitorSource.contains("eventDidReachThreshold"))
         XCTAssertFalse(monitorSource.contains("UNNotificationRequest"))
         XCTAssertFalse(monitorSource.contains("usagewatch"))
         XCTAssertFalse(paywallSource.contains("paywall.feature.usage_watch"))
@@ -189,7 +189,6 @@ final class InterventionMergeCopyTests: XCTestCase {
         let catalogPaths = [
             "DopaBreak/Localizable.xcstrings",
             "MonitorExtension/Localizable.xcstrings",
-            "ShieldActionExtension/Localizable.xcstrings",
             "ShieldConfigExtension/Localizable.xcstrings",
             "WidgetsExtension/Localizable.xcstrings"
         ]

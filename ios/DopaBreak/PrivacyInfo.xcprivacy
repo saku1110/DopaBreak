@@ -11,15 +11,54 @@
 	    CA92.1 と 1C8F.1 の両方を宣言する。
 	  - systemUptime: 呼吸・介入フローの経過時間計測にだけ使う（InterventionFlowModel /
 	    BreathHapticsController / BreathingCharacterView）。端末外へは送らない。
-	外部送信は行わない。URLSession等のネットワークAPIも解析SDKもリンクしていないため
-	トラッキングなし・収集データなしで正しい。
+	RevenueCat SDKを追加済みだが、APPLE_ADS_MEASUREMENT_ENABLED=NOで初期化・送信は無効。
+	購入履歴・広告データ・完了フラグは有効化する版に合わせて下記で宣言。公開表示の反映前に有効化しない。
+	無効時はアプリから送信しない。既存のAppleサーバ通知による購入分析は別途稼働中。
 	-->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+<array>
+	<dict>
+		<key>NSPrivacyCollectedDataType</key>
+		<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+		<key>NSPrivacyCollectedDataTypeLinked</key>
+		<false/>
+		<key>NSPrivacyCollectedDataTypePurposes</key>
+		<array>
+			<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+		</array>
+		<key>NSPrivacyCollectedDataTypeTracking</key>
+		<false/>
+	</dict>
+	<dict>
+		<key>NSPrivacyCollectedDataType</key>
+		<string>NSPrivacyCollectedDataTypeAdvertisingData</string>
+		<key>NSPrivacyCollectedDataTypeLinked</key>
+		<false/>
+		<key>NSPrivacyCollectedDataTypePurposes</key>
+		<array>
+			<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+		</array>
+		<key>NSPrivacyCollectedDataTypeTracking</key>
+		<false/>
+	</dict>
+	<dict>
+		<key>NSPrivacyCollectedDataType</key>
+		<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+		<key>NSPrivacyCollectedDataTypeLinked</key>
+		<false/>
+		<key>NSPrivacyCollectedDataTypePurposes</key>
+		<array>
+			<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+		</array>
+		<key>NSPrivacyCollectedDataTypeTracking</key>
+		<false/>
+	</dict>
+</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>

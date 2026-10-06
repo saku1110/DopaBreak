@@ -2,14 +2,25 @@ import Foundation
 
 public final class SettingsStore: @unchecked Sendable {
     private enum Key {
+        static let onboardingPendingModeNotice = "onboardingPendingModeNotice"
+        static let onboardingModeNoticeShown = "onboardingModeNoticeShown"
+        static let onboardingBlockChoiceSaved = "onboardingBlockChoiceSaved"
+        static let onboardingQuizAnswers = "onboardingQuizAnswers"
+        static let onboardingStepRaw = "onboardingStepRaw"
+        static let onboardingExperienceCompleted = "onboardingExperienceCompleted"
         static let onboardingCompleted = "onboardingCompleted"
         static let lastAppVersion = "lastAppVersion"
+        static let blockConfiguration = "blockConfiguration.v1"
         static let pendingInterventionMode = "pendingInterventionMode"
         static let selectedAppBrands = "selectedAppBrands"
         static let breathDurationSeconds = "breathDurationSeconds"
         static let pendingStartInterventionCatalogID = "pendingStartInterventionCatalogID"
         static let pendingStartInterventionAutoResolve = "pendingStartInterventionAutoResolve"
+        static let pendingStartInterventionRequestedAt = "pendingStartInterventionRequestedAt"
+        static let lastSelfOpenedCatalogID = "lastSelfOpenedCatalogID"
+        static let lastSelfOpenedAt = "lastSelfOpenedAt"
         static let verifiedAutomationCatalogIDs = "verifiedAutomationCatalogIDs"
+        static let confirmedAutomationCatalogIDs = "confirmedAutomationCatalogIDs"
         static let targetAppClampKeptCatalogID = "targetAppClampKeptCatalogID"
         static let onboardingSavedGoalID = "onboardingSavedGoalID"
         static let onboardingCompletedAt = "onboardingCompletedAt"
@@ -19,9 +30,10 @@ public final class SettingsStore: @unchecked Sendable {
         static let lastAnyPaywallShownAt = "lastAnyPaywallShownAt"
         static let wakeTimeMinutes = "wakeTimeMinutes"
         static let bedTimeMinutes = "bedTimeMinutes"
-        static let morningNotificationEnabled = "morningNotificationEnabled"
-        static let morningNotificationMinutes = "morningNotificationMinutes"
+        // 既存ユーザーの設定時刻を引き継ぐため、UserDefaultsのキー文字列は変更しない。
+        static let weeklyReportNotificationMinutes = "morningNotificationMinutes"
         static let weeklyReportNotificationEnabled = "weeklyReportNotificationEnabled"
+        static let reflectionNotificationEnabled = "reflectionNotificationEnabled"
         static let retentionSupportNotificationsEnabled = "retentionSupportNotificationsEnabled"
         static let planNotificationsEnabled = "planNotificationsEnabled"
         static let reviewPromptEventDates = "reviewPromptEventDates"
@@ -34,13 +46,15 @@ public final class SettingsStore: @unchecked Sendable {
         static let lockScreenCheckCompleted = "lockScreenCheckCompleted"
         static let lockThemeRawValue = "lockThemeRawValue"
         static let pendingNotificationDestination = "pendingNotificationDestination"
+        static let weeklySchedulesDuringNightEnabled = "weeklySchedulesDuringNightEnabled"
+        static let additionalDeepFocusSchedules = "additionalDeepFocusSchedules"
         static let deepFocusSession = "deepFocusSession"
         static let deepFocusScheduleEnabled = "deepFocusScheduleEnabled"
         static let deepFocusScheduleWeekdays = "deepFocusScheduleWeekdays"
         static let deepFocusScheduleStartMinutes = "deepFocusScheduleStartMinutes"
         static let deepFocusScheduleEndMinutes = "deepFocusScheduleEndMinutes"
-        static let trialReminderLeadDays = "trialReminderLeadDays"
         static let lastCelebratedReclaimedMilestoneSeconds = "lastCelebratedReclaimedMilestoneSeconds"
+        static let dailyOpenLimitSettings = "dailyOpenLimit.v1"
 
         // firstLaunchDate, reviewPromptEventDates, the entitlement cache, and the one-shot
         // notification markers (annualUpgradeOfferNotificationFireDate /
@@ -48,14 +62,25 @@ public final class SettingsStore: @unchecked Sendable {
         // anchors rather than user-created content: clearing them would let a data reset revoke
         // cached access or re-send a "once ever" notification.
         static let resettable = [
+            onboardingPendingModeNotice,
+            onboardingModeNoticeShown,
+            onboardingBlockChoiceSaved,
+            onboardingQuizAnswers,
+            onboardingStepRaw,
+            onboardingExperienceCompleted,
             onboardingCompleted,
             lastAppVersion,
             pendingInterventionMode,
+            blockConfiguration,
             selectedAppBrands,
             breathDurationSeconds,
             pendingStartInterventionCatalogID,
             pendingStartInterventionAutoResolve,
+            pendingStartInterventionRequestedAt,
+            lastSelfOpenedCatalogID,
+            lastSelfOpenedAt,
             verifiedAutomationCatalogIDs,
+            confirmedAutomationCatalogIDs,
             targetAppClampKeptCatalogID,
             onboardingSavedGoalID,
             onboardingCompletedAt,
@@ -64,30 +89,34 @@ public final class SettingsStore: @unchecked Sendable {
             lastAnyPaywallShownAt,
             wakeTimeMinutes,
             bedTimeMinutes,
-            morningNotificationEnabled,
-            morningNotificationMinutes,
+            weeklyReportNotificationMinutes,
             weeklyReportNotificationEnabled,
+            reflectionNotificationEnabled,
             retentionSupportNotificationsEnabled,
             planNotificationsEnabled,
             liveActivityEnabled,
             lockScreenCheckCompleted,
             lockThemeRawValue,
             pendingNotificationDestination,
+            weeklySchedulesDuringNightEnabled,
+            additionalDeepFocusSchedules,
             deepFocusSession,
             deepFocusScheduleEnabled,
             deepFocusScheduleWeekdays,
             deepFocusScheduleStartMinutes,
             deepFocusScheduleEndMinutes,
-            trialReminderLeadDays,
-            lastCelebratedReclaimedMilestoneSeconds
+            lastCelebratedReclaimedMilestoneSeconds,
+            dailyOpenLimitSettings
         ]
 
         /// `Key` から取り除かれた旧キー。既存インストールには値が残り続けるため、
         /// 「全データを削除」で消えるように掃除対象として保持する。
+        /// - `morningNotificationEnabled`: 朝の目標通知廃止で不要（2026-09-03）
         /// - `day14ClampKeptCatalogID`: `targetAppClampKeptCatalogID` へ改名（2026-08-11）
         /// - `pendingDay14Warning`: 14日時限開放の撤回で廃止（2026-08-11）
         /// - `reverseTrial*`: リバーストライアル全廃で廃止（2026-08-11・docs/11 §18）
         static let legacyResettable = [
+            "morningNotificationEnabled",
             "day14ClampKeptCatalogID",
             "pendingDay14Warning",
             "pendingMidSessionCheckIn",
@@ -115,9 +144,44 @@ public final class SettingsStore: @unchecked Sendable {
         self.init(userDefaults: userDefaults)
     }
 
+    public var onboardingPendingModeNotice: String? {
+        get { userDefaults.string(forKey: Key.onboardingPendingModeNotice) }
+        set { setOptional(newValue, forKey: Key.onboardingPendingModeNotice) }
+    }
+
+    public var onboardingModeNoticeShown: Bool {
+        get { userDefaults.bool(forKey: Key.onboardingModeNoticeShown) }
+        set { userDefaults.set(newValue, forKey: Key.onboardingModeNoticeShown) }
+    }
+
+    /// オンボーディングの止め方の画面で選択を確定したか。ブロックのきっかけが空という保存値は
+    /// 未選択と無料選択の両方を意味するため、確定済みかを別に持つ（2026-09-26）。
+    public var onboardingBlockChoiceSaved: Bool {
+        get { userDefaults.bool(forKey: Key.onboardingBlockChoiceSaved) }
+        set { userDefaults.set(newValue, forKey: Key.onboardingBlockChoiceSaved) }
+    }
+
+    public var onboardingQuizAnswers: [String: String] {
+        get { userDefaults.dictionary(forKey: Key.onboardingQuizAnswers) as? [String: String] ?? [:] }
+        set { userDefaults.set(newValue, forKey: Key.onboardingQuizAnswers) }
+    }
+
+    public var onboardingStepRaw: Int? {
+        get { userDefaults.object(forKey: Key.onboardingStepRaw) as? Int }
+        set { setOptional(newValue, forKey: Key.onboardingStepRaw) }
+    }
+
+    public var onboardingExperienceCompleted: Bool {
+        get { userDefaults.bool(forKey: Key.onboardingExperienceCompleted) }
+        set { userDefaults.set(newValue, forKey: Key.onboardingExperienceCompleted) }
+    }
+
     public var onboardingCompleted: Bool {
         get { userDefaults.bool(forKey: Key.onboardingCompleted) }
-        set { userDefaults.set(newValue, forKey: Key.onboardingCompleted) }
+        set {
+            userDefaults.set(newValue, forKey: Key.onboardingCompleted)
+            if newValue { onboardingStepRaw = nil }
+        }
     }
 
     public var lastAppVersion: String? {
@@ -155,9 +219,36 @@ public final class SettingsStore: @unchecked Sendable {
         set { userDefaults.set(newValue, forKey: Key.pendingStartInterventionAutoResolve) }
     }
 
+    public var pendingStartInterventionRequestedAt: Date? {
+        get { userDefaults.object(forKey: Key.pendingStartInterventionRequestedAt) as? Date }
+        set { setOptional(newValue, forKey: Key.pendingStartInterventionRequestedAt) }
+    }
+
+    public var lastSelfOpenedCatalogID: String? {
+        get { userDefaults.string(forKey: Key.lastSelfOpenedCatalogID) }
+        set { setOptional(newValue, forKey: Key.lastSelfOpenedCatalogID) }
+    }
+
+    public var lastSelfOpenedAt: Date? {
+        get { userDefaults.object(forKey: Key.lastSelfOpenedAt) as? Date }
+        set { setOptional(newValue, forKey: Key.lastSelfOpenedAt) }
+    }
+
     public var verifiedAutomationCatalogIDs: [String] {
         get { userDefaults.stringArray(forKey: Key.verifiedAutomationCatalogIDs) ?? [] }
         set { userDefaults.set(newValue, forKey: Key.verifiedAutomationCatalogIDs) }
+    }
+
+    /// User-managed checklist. Never migrate automatic execution history into it.
+    public var confirmedAutomationCatalogIDs: [String] {
+        userDefaults.stringArray(forKey: Key.confirmedAutomationCatalogIDs) ?? []
+    }
+
+    public func setAutomationConfirmed(catalogID: String, confirmed: Bool) {
+        guard SNSAppCatalog.contains(catalogID: catalogID) else { return }
+        var ids = confirmedAutomationCatalogIDs.filter { $0 != catalogID }
+        if confirmed { ids.append(catalogID) }
+        userDefaults.set(ids, forKey: Key.confirmedAutomationCatalogIDs)
     }
 
     public func markAutomationVerified(catalogID: String) {
@@ -216,25 +307,29 @@ public final class SettingsStore: @unchecked Sendable {
         set { setOptional(newValue.map(Self.normalizedMinutes), forKey: Key.bedTimeMinutes) }
     }
 
-    public var morningNotificationEnabled: Bool {
-        get { bool(forKey: Key.morningNotificationEnabled, defaultValue: true) }
-        set { userDefaults.set(newValue, forKey: Key.morningNotificationEnabled) }
-    }
-
-    public var morningNotificationMinutes: Int {
+    public var weeklyReportNotificationMinutes: Int {
         get {
-            let fallback = wakeTimeMinutes ?? 420
-            guard let stored = userDefaults.object(forKey: Key.morningNotificationMinutes) as? Int else {
-                return Self.normalizedMinutes(fallback)
+            guard let stored = userDefaults.object(forKey: Key.weeklyReportNotificationMinutes) as? Int else {
+                return 420
             }
             return Self.normalizedMinutes(stored)
         }
-        set { userDefaults.set(Self.normalizedMinutes(newValue), forKey: Key.morningNotificationMinutes) }
+        set {
+            userDefaults.set(
+                Self.normalizedMinutes(newValue),
+                forKey: Key.weeklyReportNotificationMinutes
+            )
+        }
     }
 
     public var weeklyReportNotificationEnabled: Bool {
         get { bool(forKey: Key.weeklyReportNotificationEnabled, defaultValue: true) }
         set { userDefaults.set(newValue, forKey: Key.weeklyReportNotificationEnabled) }
+    }
+
+    public var reflectionNotificationEnabled: Bool {
+        get { bool(forKey: Key.reflectionNotificationEnabled, defaultValue: true) }
+        set { userDefaults.set(newValue, forKey: Key.reflectionNotificationEnabled) }
     }
 
     public var retentionSupportNotificationsEnabled: Bool {
@@ -277,6 +372,12 @@ public final class SettingsStore: @unchecked Sendable {
     public var cancelSaveNotificationFireDate: Date? {
         get { userDefaults.object(forKey: Key.cancelSaveNotificationFireDate) as? Date }
         set { setOptional(newValue, forKey: Key.cancelSaveNotificationFireDate) }
+    }
+
+    /// Local QA preference; ignored by builds without TestFlight tools enabled.
+    public var freeEntitlementTestingEnabled: Bool {
+        get { userDefaults.bool(forKey: "freeEntitlementTestingEnabled") }
+        set { userDefaults.set(newValue, forKey: "freeEntitlementTestingEnabled") }
     }
 
     public var entitlementCachedIsPro: Bool? {
@@ -336,22 +437,6 @@ public final class SettingsStore: @unchecked Sendable {
         let normalizedRawValue = migrated == .e1 ? nil : migrated.rawValue
         guard rawValue != normalizedRawValue else { return }
         lockThemeRawValue = normalizedRawValue
-    }
-
-    /// 無料トライアル終了の何日前に知らせるか。ペイウォールで選び、終了前通知の予約日に使う。
-    /// 未保存でも `integer(forKey:)` が返す0を既定へ寄せるため、許容値以外は既定に丸める。
-    public var trialReminderLeadDays: Int {
-        get {
-            TrialReminderLeadDays.normalized(
-                userDefaults.integer(forKey: Key.trialReminderLeadDays)
-            )
-        }
-        set {
-            userDefaults.set(
-                TrialReminderLeadDays.normalized(newValue),
-                forKey: Key.trialReminderLeadDays
-            )
-        }
     }
 
     /// 取り戻した時間で一度だけ祝った最大節目。ローカルデータ削除では0へ戻す。
@@ -426,12 +511,96 @@ public final class SettingsStore: @unchecked Sendable {
         }
     }
 
+    /// The presence of this single encoded value is the one-time migration marker.
+    public var blockConfiguration: BlockConfiguration {
+        get {
+            userDefaults.data(forKey: Key.blockConfiguration)
+                .flatMap { try? JSONDecoder().decode(BlockConfiguration.self, from: $0) } ?? BlockConfiguration()
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                userDefaults.set(data, forKey: Key.blockConfiguration)
+            }
+        }
+    }
+
+    public var hasBlockConfiguration: Bool { userDefaults.data(forKey: Key.blockConfiguration) != nil }
+
+    /// 1日に開ける回数。読めない値はオフとして扱う（止める側へ倒さない）。
+    public var dailyOpenLimitSettings: DailyOpenLimitSettings {
+        get {
+            userDefaults.data(forKey: Key.dailyOpenLimitSettings)
+                .flatMap { try? JSONDecoder().decode(DailyOpenLimitSettings.self, from: $0) } ?? DailyOpenLimitSettings()
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                userDefaults.set(data, forKey: Key.dailyOpenLimitSettings)
+            }
+        }
+    }
+
+    /// The onboarding choice is intent, independent of the current purchase result.
+    public func selectBlockPreference(_ enabled: Bool) {
+        var value = blockConfiguration
+        if enabled {
+            if value.blockTriggers.isEmpty { value.blockTriggers = Set(BlockTrigger.allCases) }
+        } else {
+            value.blockTriggers = []
+            value.blockEnabled = false
+        }
+        blockConfiguration = value
+    }
+
+    public var blockEnabled: Bool { blockConfiguration.blockEnabled }
+    public var blockTriggers: Set<BlockTrigger> { blockConfiguration.blockTriggers }
+
+    public func migrateBlockConfigurationIfNeeded(rules: [TargetRule]) {
+        guard userDefaults.data(forKey: Key.blockConfiguration) == nil else { return }
+        let legacyWeekly = userDefaults.bool(forKey: Key.weeklySchedulesDuringNightEnabled)
+        if let mode = pendingInterventionMode.flatMap(InterventionMode.init(rawValue:)) {
+            blockConfiguration = .migrating(mode, weeklySchedulesDuringNightEnabled: legacyWeekly)
+        } else {
+            let triggers = rules.reduce(into: Set<BlockTrigger>()) { result, rule in
+                result.formUnion(BlockConfiguration.migrating(rule.mode, weeklySchedulesDuringNightEnabled: legacyWeekly).blockTriggers)
+            }
+            blockConfiguration = BlockConfiguration(blockEnabled: !triggers.isEmpty, blockTriggers: triggers)
+        }
+        userDefaults.removeObject(forKey: Key.weeklySchedulesDuringNightEnabled)
+    }
+
+    public func reconcileBlockEntitlement(isPro: Bool, hasConfirmedEntitlement: Bool) {
+        guard userDefaults.data(forKey: Key.blockConfiguration) != nil else { return }
+        var value = blockConfiguration
+        value.reconcileEntitlement(isPro: isPro, hasConfirmedEntitlement: hasConfirmedEntitlement)
+        blockConfiguration = value
+    }
+
+    /// Primary schedule keeps the existing keys so upgrades preserve every setting.
+    public var deepFocusSchedules: [DeepFocusSchedule] {
+        get {
+            let extra = userDefaults.data(forKey: Key.additionalDeepFocusSchedules)
+                .flatMap { try? JSONDecoder().decode([DeepFocusSchedule].self, from: $0) } ?? []
+            return [deepFocusSchedule] + Array(extra.prefix(1))
+        }
+        set {
+            deepFocusSchedule = newValue.first ?? .disabled
+            if newValue.count > 1, let data = try? JSONEncoder().encode(Array(newValue.dropFirst().prefix(1))) {
+                userDefaults.set(data, forKey: Key.additionalDeepFocusSchedules)
+            } else {
+                userDefaults.removeObject(forKey: Key.additionalDeepFocusSchedules)
+            }
+        }
+    }
+
     public var lockSurfaceState: LockSurfaceState {
-        let minutes = morningNotificationMinutes
+        let minutes = weeklyReportNotificationMinutes
         return LockSurfaceState(
-            morningNotificationEnabled: morningNotificationEnabled,
-            morningNotificationTime: DateComponents(hour: minutes / 60, minute: minutes % 60),
+            weeklyReportNotificationTime: DateComponents(
+                hour: minutes / 60,
+                minute: minutes % 60
+            ),
             weeklyReportEnabled: weeklyReportNotificationEnabled,
+            reflectionNotificationEnabled: reflectionNotificationEnabled,
             retentionSupportNotificationsEnabled: retentionSupportNotificationsEnabled,
             planNotificationsEnabled: planNotificationsEnabled,
             liveActivityEnabled: liveActivityEnabled,

@@ -48,24 +48,33 @@ final class BackgroundSnapshotShieldCoordinator: ObservableObject {
 /// SwiftUIのfullScreenCoverは別のpresentation windowになるため、その表示中の撮影は覆わない。
 struct BackgroundSnapshotShieldHost<Content: View>: View {
     @StateObject private var coordinator = BackgroundSnapshotShieldCoordinator()
+    @State private var shieldHoldWatchdog: Task<Void, Never>?
+    @State private var watchdogReleasedShield = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let onAppActive: () -> Void
+    private let shouldHoldShield: () -> Bool
     private let content: Content
 
     init(
         onAppActive: @escaping () -> Void,
+        shouldHoldShield: @escaping () -> Bool = { false },
         @ViewBuilder content: () -> Content
     ) {
         self.onAppActive = onAppActive
+        self.shouldHoldShield = shouldHoldShield
         self.content = content()
     }
 
     var body: some View {
+        let isShieldHoldRequested = shouldHoldShield()
+        let isWatchdogHoldActive = isShieldHoldRequested && !coordinator.isShieldVisible
+
         ZStack {
             content
 
-            if coordinator.isShieldVisible {
+            if coordinator.isShieldVisible
+                || (isShieldHoldRequested && !watchdogReleasedShield) {
                 DesignTokens.background
                     .ignoresSafeArea()
                     .accessibilityHidden(true)
@@ -77,6 +86,13 @@ struct BackgroundSnapshotShieldHost<Content: View>: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             handle(newPhase)
+        }
+        .onChange(of: isWatchdogHoldActive, initial: true) { _, shouldHold in
+            updateShieldHoldWatchdog(shouldHold: shouldHold)
+        }
+        .onDisappear {
+            shieldHoldWatchdog?.cancel()
+            shieldHoldWatchdog = nil
         }
     }
 
@@ -100,6 +116,27 @@ struct BackgroundSnapshotShieldHost<Content: View>: View {
                 scenePhase: phase,
                 consumePendingIntervention: onAppActive
             )
+        }
+    }
+
+    private func updateShieldHoldWatchdog(shouldHold: Bool) {
+        guard shouldHold else {
+            shieldHoldWatchdog?.cancel()
+            shieldHoldWatchdog = nil
+            watchdogReleasedShield = false
+            return
+        }
+        guard shieldHoldWatchdog == nil, !watchdogReleasedShield else {
+            return
+        }
+
+        shieldHoldWatchdog = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else {
+                return
+            }
+            watchdogReleasedShield = true
+            shieldHoldWatchdog = nil
         }
     }
 }

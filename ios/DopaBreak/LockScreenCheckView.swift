@@ -167,11 +167,11 @@ struct LockScreenCheckContent: View {
     private var title: String {
         switch phase {
         case .starting, .waiting, .confirmed:
-            return String(localized: "lock_check.title.ready", defaultValue: "ロック画面に出しました")
+            return String(localized: "lock_check.title.ready", defaultValue: "ロック画面に表示しました")
         case .blocked(.systemDisabled):
             return String(localized: "lock_check.title.blocked", defaultValue: "ロック画面の表示がオフ")
         case .blocked(.failed):
-            return String(localized: "lock_check.title.failed", defaultValue: "いま出せませんでした")
+            return String(localized: "lock_check.title.failed", defaultValue: "表示できませんでした")
         case .noGoal:
             return String(localized: "lock_check.title.no_goal", defaultValue: "まず目標をひとつ")
         }
@@ -189,13 +189,11 @@ struct LockScreenCheckContent: View {
         case .blocked(.systemDisabled):
             return String(
                 localized: "lock_check.lead.blocked",
-                defaultValue: "端末の設定でライブアクティビティをオンにすると出せます。"
-            )
+                defaultValue: "端末の設定でライブアクティビティをオンにすると表示できます。")
         case .blocked(.failed):
             return String(
                 localized: "lock_check.lead.failed",
-                defaultValue: "もう一度出すと表示できることがあります。"
-            )
+                defaultValue: "もう一度試すと表示できることがあります。")
         case .noGoal:
             return String(
                 localized: "lock_check.lead.no_goal",
@@ -218,8 +216,7 @@ struct LockScreenCheckContent: View {
                 number: 2,
                 title: String(
                     localized: "lock_check.step2.title",
-                    defaultValue: "画面を点けると ロック画面に目標が表示されます"
-                )
+                    defaultValue: "画面を点けるとロック画面に目標が表示されます")
             )
         }
     }
@@ -366,10 +363,18 @@ struct LockScreenGoalPreview: View {
             attemptCount: attemptCount
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(
+                cornerRadius: LockThemeLiveActivityView.previewCornerRadius,
+                style: .continuous
+            )
                 .stroke(DesignTokens.hairline, lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: LockThemeLiveActivityView.previewCornerRadius,
+                style: .continuous
+            )
+        )
         .opacity(isDimmed ? 0.5 : 1)
     }
 }

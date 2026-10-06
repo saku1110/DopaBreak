@@ -1,5 +1,6 @@
 import DopaBreakCore
 import CoreText
+import ActivityKit
 import SwiftUI
 import UIKit
 import XCTest
@@ -7,13 +8,136 @@ import XCTest
 
 @MainActor
 final class LockThemeLiveActivityViewTests: XCTestCase {
+    func testBlockLiveActivityContentStateRemainsBackwardCompatible() throws {
+        let old = DopaBreakActivityAttributes.ContentState(goalTitles: ["目標"], todayCancelledCount: 2, todayAttemptCount: 4, themeRawValue: "e1")
+        let data = try JSONEncoder().encode(old)
+        XCTAssertNil(try JSONDecoder().decode(DopaBreakActivityAttributes.ContentState.self, from: data).blockWindows)
+        for trigger in BlockTrigger.allCases {
+            var current = old
+            current.blockWindows = [.init(trigger: trigger, endsAt: Date().addingTimeInterval(1800))]
+            XCTAssertEqual(try JSONDecoder().decode(DopaBreakActivityAttributes.ContentState.self, from: JSONEncoder().encode(current)), current)
+            let view = LockThemeLiveActivityView(theme: .e1, goalTitles: old.goalTitles, cancelledCount: 2,
+                attemptCount: 4, blockWindows: current.blockWindows ?? []).frame(width: 393, height: 160)
+            let renderer = ImageRenderer(content: view)
+            XCTAssertNotNil(renderer.uiImage)
+        }
+    }
+
     private let markerThemes: [LockTheme] = [
-        .e1, .gaming, .kpop, .kawaiiPink, .note, .blueprint, .retroPop
+        .e1, .gaming, .kpop, .kawaiiPink, .note, .blueprint, .spiderWeb
     ]
 
     private struct LocaleFixture {
         let identifier: String
         let goalSets: [[String]]
+    }
+
+    func testLiquidGlassLockScreenContentRemainsVisibleInBothAppearances() throws {
+        let directory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/verify/liquid-glass-lock-screen", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for dark in [false, true] {
+            let view = LockThemeLiveActivityView(
+                theme: .liquidGlass,
+                goalTitles: ["毎朝6時に起きる", "週3回ジムに行く", "読書を30分する"],
+                cancelledCount: 2, attemptCount: 4,
+                surfaceShape: .containerRelative
+            )
+            .frame(width: 393, height: 160)
+            .background(dark ? Color.black : Color.white)
+            .environment(\.colorScheme, dark ? .dark : .light)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 3
+            let image = try XCTUnwrap(renderer.uiImage)
+            XCTAssertTrue(CoreScreensSnapshotCapturePolicy.hasVisibleContent(in: try XCTUnwrap(image.cgImage)))
+            try XCTUnwrap(image.pngData()).write(to: directory.appendingPathComponent(dark ? "dark.png" : "light.png"))
+        }
+    }
+
+    func testGlassSurfaceIsTranslucentWhileMonochromeIsOpaque() throws {
+        for theme in [LockTheme.monochrome, .liquidGlass] {
+            let renderer = ImageRenderer(content: LockThemeLiveActivityView(
+                theme: theme, goalTitles: ["目標"], cancelledCount: 2, attemptCount: 4,
+                surfaceShape: .containerRelative
+            ).frame(width: 393, height: 160))
+            let image = try XCTUnwrap(renderer.uiImage)
+            let opacity = alpha(at: CGPoint(x: 380, y: 80), in: image)
+            if theme == .liquidGlass {
+                XCTAssertGreaterThan(opacity, 0)
+                XCTAssertLessThan(opacity, 200, "Glass must preserve the wallpaper underneath")
+            } else {
+                XCTAssertEqual(opacity, 255)
+            }
+        }
+    }
+
+    func testGlassDoesNotPaintAnExtraSystemRim() throws {
+        let renderer = ImageRenderer(content: LockThemeLiveActivityView(
+            theme: .liquidGlass, goalTitles: ["目標"], cancelledCount: 2, attemptCount: 4,
+            surfaceShape: .containerRelative
+        ).frame(width: 393, height: 160))
+        let image = try XCTUnwrap(renderer.uiImage)
+        // Edge alpha must remain the same light scrim range as the body, not a bright outline.
+        for point in [CGPoint(x: 0, y: 80), CGPoint(x: 392, y: 80), CGPoint(x: 196, y: 0), CGPoint(x: 196, y: 159)] {
+            XCTAssertLessThan(alpha(at: point, in: image), 120)
+        }
+    }
+
+    func testPreviewCornersAreTransparentAndSymmetric() throws {
+        for theme in [LockTheme.monochrome, .liquidGlass, .spiderWeb] {
+            for width in [320, 393, 430] {
+                let renderer = ImageRenderer(content: LockThemeLiveActivityView(
+                    theme: theme, goalTitles: ["目標"], cancelledCount: 2, attemptCount: 4
+                ).frame(width: CGFloat(width), height: 160))
+                let image = try XCTUnwrap(renderer.uiImage)
+                for point in [CGPoint(x: 1, y: 1), CGPoint(x: width - 2, y: 1), CGPoint(x: 1, y: 158), CGPoint(x: width - 2, y: 158)] {
+                    XCTAssertEqual(alpha(at: point, in: image), 0, "\(theme) corner at \(width)pt")
+                }
+            }
+        }
+    }
+
+    func testCaptureMonochromeAndGlassComparison() throws {
+        let directory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("output/verify/liquid-glass-lock-screen", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let view = VStack(spacing: 20) {
+            ForEach([LockTheme.monochrome, .liquidGlass, .spiderWeb], id: \.self) { theme in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(theme.localizedDisplayName).font(.headline).foregroundStyle(.white)
+                    LockThemeLiveActivityView(theme: theme,
+                        goalTitles: ["毎朝6時に起きる", "週3回ジムに行く", "読書を30分する"],
+                        cancelledCount: 2, attemptCount: 4)
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
+                }
+            }
+        }
+        .padding(20).frame(width: 433).background(Color(white: 0.1))
+        .environment(\.colorScheme, .dark)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        try XCTUnwrap(renderer.uiImage?.pngData()).write(to: directory.appendingPathComponent("comparison.png"))
+    }
+
+    /// Opt-in: creates one temporary simulator activity so the actual WidgetKit surface
+    /// can be inspected. It ends after a one-minute capture window and never writes user settings.
+    func testStartGlassLockScreenCaptureFixture() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["DOPABREAK_CAPTURE_GLASS_ACTIVITY"] == "1")
+        #if targetEnvironment(simulator)
+        // Let the host app finish its initial lock-surface synchronization first.
+        try await Task.sleep(for: .seconds(3))
+        let state = DopaBreakActivityAttributes.ContentState(
+            goalTitles: ["毎朝6時に起きる", "週3回ジムに行く", "読書を30分する"],
+            todayCancelledCount: 2, todayAttemptCount: 4,
+            themeRawValue: LockTheme.liquidGlass.rawValue)
+        let activity = try Activity<DopaBreakActivityAttributes>.request(
+            attributes: .init(), content: ActivityContent(state: state, staleDate: Date().addingTimeInterval(600)), pushType: nil)
+        try await Task.sleep(for: .seconds(60))
+        XCTAssertEqual(activity.activityState, .active)
+        await activity.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .immediate)
+        #endif
     }
 
     func testAppModelInitializationMigratesStoredLockThemeValue() throws {
@@ -38,11 +162,98 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: "lockThemeRawValue"), LockTheme.gaming.rawValue)
     }
 
+    // MARK: ロック画面の許可の案内（2026-09-26 オーナー承認）
+
+    func testHomeLockScreenCardSwitchesToSettingsCardWhenSystemDisallowsLiveActivities() {
+        XCTAssertEqual(
+            HomeLockScreenCardPolicy.content(liveActivityEnabled: true, areLiveActivitiesAllowed: true),
+            .preview
+        )
+        XCTAssertEqual(
+            HomeLockScreenCardPolicy.content(liveActivityEnabled: true, areLiveActivitiesAllowed: false),
+            .systemDisabled
+        )
+        // アプリ内で表示を切っている人には、端末の許可に関係なくカードを出さない。
+        XCTAssertEqual(
+            HomeLockScreenCardPolicy.content(liveActivityEnabled: false, areLiveActivitiesAllowed: true),
+            .hidden
+        )
+        XCTAssertEqual(
+            HomeLockScreenCardPolicy.content(liveActivityEnabled: false, areLiveActivitiesAllowed: false),
+            .hidden
+        )
+    }
+
+    func testReadyScreenPermissionNoteAppearsOnlyWhileLiveActivitiesAreStillAllowed() {
+        XCTAssertTrue(
+            OnboardingReadyLockScreenNotePolicy.showsPermissionNote(
+                hasGoals: true,
+                liveActivityEnabled: true,
+                areLiveActivitiesAllowed: true
+            )
+        )
+        // すでに「許可しない」を選んだ人には、もう来ない確認への答え方を出さない。
+        XCTAssertFalse(
+            OnboardingReadyLockScreenNotePolicy.showsPermissionNote(
+                hasGoals: true,
+                liveActivityEnabled: true,
+                areLiveActivitiesAllowed: false
+            )
+        )
+        XCTAssertFalse(
+            OnboardingReadyLockScreenNotePolicy.showsPermissionNote(
+                hasGoals: true,
+                liveActivityEnabled: false,
+                areLiveActivitiesAllowed: true
+            )
+        )
+        // 目標が無いとロック画面には何も出ないため、許可の確認も来ない。
+        XCTAssertFalse(
+            OnboardingReadyLockScreenNotePolicy.showsPermissionNote(
+                hasGoals: false,
+                liveActivityEnabled: true,
+                areLiveActivitiesAllowed: true
+            )
+        )
+    }
+
+    func testAppModelPicksUpLiveActivityAuthorizationChangesOnRefresh() throws {
+        let suiteName = "LockThemeLiveActivityViewTests.Authorization.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LockThemeLiveActivityViewTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+
+        var systemAllows = false
+        let model = AppModel(
+            containerProvider: LockThemeTestContainer(url: containerURL),
+            settingsStore: SettingsStore(userDefaults: defaults),
+            automaticallyRefreshEntitlement: false,
+            scheduleNotificationsOnInit: false,
+            liveActivityAuthorization: { systemAllows }
+        )
+        XCTAssertFalse(model.areLiveActivitiesAllowed)
+
+        // 設定アプリでオンにして戻った想定。前面復帰の取り直しで写しが変わる。
+        systemAllows = true
+        model.refreshLiveActivityAuthorization()
+        XCTAssertTrue(model.areLiveActivitiesAllowed)
+
+        // ロック画面の確認で「許可しない」を選んだ想定。refresh() でも取り直す。
+        systemAllows = false
+        model.refresh(scheduleNotifications: false)
+        XCTAssertFalse(model.areLiveActivitiesAllowed)
+    }
+
     func testWidgetContentStateRoundTripsAndResolvesLegacyThemeValues() throws {
         let mappings: [(String, LockTheme)] = [
             ("sumi", .gaming),
             ("shinrin", .monochrome),
-            ("yozora", .liquidGlass),
+            ("yozora", .monochrome),
             ("future-theme", .e1)
         ]
 
@@ -355,7 +566,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(renderedCount, 90)
+        XCTAssertEqual(renderedCount, LockTheme.allCases.count * 9)
     }
 
     func testGamingAndNoteFontSelectionUsesDisplayLocale() {
@@ -382,7 +593,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
 
     func testKoreanGamingAndNoteLinesResolveEveryGlyphToTheirThemeFont() throws {
         XCTAssertEqual(
-            DopaBreakFontRegistrar.registerBundledFonts(resourceBundleURL: Bundle.main.bundleURL),
+            DopaBreakFontRegistrar.registerBundledFonts(),
             Set(DopaBreakBundledFont.allCases.map(\.rawValue))
         )
         let appBundle = Bundle(for: AppDelegate.self)
@@ -732,11 +943,8 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
         case .note:
             return MarkerTestColors(marker: UIColor(red: 90 / 255, green: 81 / 255, blue: 66 / 255, alpha: 1),
                                     text: UIColor(red: 59 / 255, green: 52 / 255, blue: 40 / 255, alpha: 1))
-        case .blueprint:
+        case .blueprint, .spiderWeb:
             return MarkerTestColors(marker: .white, text: .white)
-        case .retroPop:
-            return MarkerTestColors(marker: UIColor(red: 232 / 255, green: 99 / 255, blue: 43 / 255, alpha: 1),
-                                    text: UIColor(red: 74 / 255, green: 51 / 255, blue: 32 / 255, alpha: 1))
         default:
             XCTFail("Unexpected marker theme \(theme)")
             return MarkerTestColors(marker: .clear, text: .clear)
@@ -753,7 +961,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
             return UIColor(red: 31 / 255, green: 37 / 255, blue: 47 / 255, alpha: 1)
         case .monochrome:
             return UIColor(red: 18 / 255, green: 18 / 255, blue: 18 / 255, alpha: 1)
-        case .liquidGlass, .blueprint:
+        case .liquidGlass, .blueprint, .spiderWeb:
             return .white
         case .kpop:
             return UIColor(red: 35 / 255, green: 31 / 255, blue: 38 / 255, alpha: 1)
@@ -761,8 +969,6 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
             return UIColor(red: 68 / 255, green: 43 / 255, blue: 49 / 255, alpha: 1)
         case .note:
             return UIColor(red: 59 / 255, green: 52 / 255, blue: 40 / 255, alpha: 1)
-        case .retroPop:
-            return UIColor(red: 74 / 255, green: 51 / 255, blue: 32 / 255, alpha: 1)
         }
     }
 
@@ -864,7 +1070,7 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
     private func goalUIFont(for theme: LockTheme, goalCount: Int, locale: Locale) -> UIFont {
         let increase = LockThemeLiveActivityView.goalFontIncrease(forGoalCount: goalCount)
         switch theme {
-        case .e1:
+        case .e1, .spiderWeb:
             return .systemFont(ofSize: 15 + increase, weight: .bold)
         case .gaming:
             return bundledUIFont(for: .gaming, size: 15.5 + increase, locale: locale, fallbackWeight: .regular)
@@ -877,9 +1083,6 @@ final class LockThemeLiveActivityViewTests: XCTestCase {
             return bundledUIFont(for: .note, size: 15.5 + increase, locale: locale, fallbackWeight: .semibold)
         case .blueprint:
             return .systemFont(ofSize: 14.5 + increase, weight: .bold)
-        case .retroPop:
-            return UIFont(name: "HiraMaruProN-W4", size: 15 + increase)
-                ?? .systemFont(ofSize: 15 + increase, weight: .bold)
         default:
             XCTFail("Unexpected marker theme \(theme)")
             return .systemFont(ofSize: 15)

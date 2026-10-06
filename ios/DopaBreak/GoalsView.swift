@@ -53,8 +53,7 @@ struct GoalsView: View {
                         Text(
                             String(
                                 localized: "goals.footer.lock_screen_limit",
-                                defaultValue: "ロック画面に出るのは上から5つまで 並べ替えで入れ替えられます"
-                            )
+                                defaultValue: "ロック画面に表示されるのは上位5件までです。並べ替えで変更できます。")
                         )
                             .dopaFont(12, weight: .medium, lineSpacing: 3)
                             .foregroundStyle(DesignTokens.secondaryText)

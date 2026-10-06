@@ -7,6 +7,11 @@ import Foundation
 /// - `AttemptLog` / `ReflectionLog` は共有 `SQLiteLogStore` に書き込む（本体アプリと
 ///   Shield Extension が別プロセスから同じ App Group を読むため、状態も永続する必要がある）。
 public final class InterventionEngine {
+    /// 利用直後の実感が残っている間だけ聞く。24時間窓では前回の利用を覚えていない状態で
+    /// 出てしまい、開く導線を塞ぐだけになっていた（2026-09-01オーナー決定）。
+    public static let reflectionPromptWindow: TimeInterval = 30 * 60
+    public static let reflectionNotificationTapWindow: TimeInterval = 3 * 60 * 60
+
     private let snapshotStore: JSONSnapshotStore
     private let logStore: SQLiteLogStore
     private let now: () -> Date
@@ -146,7 +151,10 @@ public final class InterventionEngine {
 
     /// 時間を計測せずに対象アプリを開く。通常のSNS起動では他社アプリの実利用時間を
     /// 取得できないため、選択時間・終了予定・利用後リフレクションを作らず opened の事実だけを記録する。
-    public func recordUntimedOpen() throws {
+    public func recordUntimedOpen(selectedDurationSeconds: Int? = nil) throws {
+        if let selectedDurationSeconds, selectedDurationSeconds <= 0 {
+            throw CoreError.validation(message: "selectedDurationSeconds must be positive")
+        }
         let state = try currentState()
         guard state.currentStep == .decision else {
             throw InterventionEngineError.invalidTransition(from: state.currentStep, action: "recordUntimedOpen")
@@ -161,7 +169,7 @@ public final class InterventionEngine {
                 completedAt: timestamp,
                 decision: .opened,
                 intent: state.intent,
-                selectedDurationSeconds: nil,
+                selectedDurationSeconds: selectedDurationSeconds,
                 attemptCount24h: try attemptCount24h(ruleId: ruleId, before: timestamp),
                 opened: true
             )
@@ -171,7 +179,8 @@ public final class InterventionEngine {
 
     /// Screen Timeトークンを持たないカタログ経路で、利用時間の宣言と振り返りだけを記録する。
     /// 実際の一時解除や再シールドは行わず、記録後は idle へ戻す。
-    public func recordCatalogOpen(durationSeconds: Int) throws {
+    @discardableResult
+    public func recordCatalogOpen(durationSeconds: Int, deferReflection: Bool = false) throws -> ReflectionLog {
         let state = try currentState()
         guard state.currentStep == .decision else {
             throw InterventionEngineError.invalidTransition(from: state.currentStep, action: "recordCatalogOpen")
@@ -181,18 +190,43 @@ public final class InterventionEngine {
         }
         let ruleId = try requireRule(state, action: "recordCatalogOpen")
         let timestamp = now()
-        try recordTimedOpen(
+        let reflection = try recordTimedOpen(
             state: state,
             ruleId: ruleId,
             timestamp: timestamp,
-            durationSeconds: durationSeconds
+            durationSeconds: durationSeconds,
+            deferReflection: deferReflection
         )
         try persist(idleState(at: timestamp))
+        return reflection
+    }
+
+    /// 1日に開ける回数を使い切ったあと、30秒待って緊急で開いた回を記録する。
+    /// 一呼吸の状態機械は通らないため状態は変えず、振り返りも作らない。
+    /// 開いた回として残し、記録画面の回数と次の上限判定に含める。
+    public func recordLimitOverrideOpen(ruleId: UUID, durationSeconds: Int) throws {
+        guard durationSeconds > 0 else {
+            throw CoreError.validation(message: "durationSeconds must be positive")
+        }
+        let timestamp = now()
+        try logStore.insert(
+            AttemptLog(
+                id: UUID(),
+                ruleId: ruleId,
+                startedAt: timestamp,
+                completedAt: timestamp,
+                decision: .opened,
+                intent: nil,
+                selectedDurationSeconds: durationSeconds,
+                attemptCount24h: try attemptCount24h(ruleId: ruleId, before: timestamp),
+                opened: true
+            )
+        )
     }
 
     /// 時間を決めてシールドを一時解除する。decision からのみ。AttemptLog(opened) と
     /// 未回答 ReflectionLog を作成し、timeSelection → temporarilyAllowed へ進める。
-    /// 通常のSNS起動には使わず、実際に解除期限を制御できるgateToken専用とする。
+    /// 選んだ時間を利用後リフレクションの提示時刻と回収時間の推定へ引き継ぐ。
     public func recordOpen(durationSeconds: Int) throws {
         let state = try currentState()
         guard state.currentStep == .decision else {
@@ -203,7 +237,7 @@ public final class InterventionEngine {
         }
         let ruleId = try requireRule(state, action: "recordOpen")
         let timestamp = now()
-        let allowedUntil = try recordTimedOpen(
+        let reflection = try recordTimedOpen(
             state: state,
             ruleId: ruleId,
             timestamp: timestamp,
@@ -211,7 +245,7 @@ public final class InterventionEngine {
         )
         // timeSelection / temporarilyAllowed へ遷移する際に intent はクリアされる（intent = nil）。
         try persist(InterventionState(currentStep: .timeSelection, ruleId: ruleId, startedAt: state.startedAt, updatedAt: timestamp, allowedUntil: nil))
-        try persist(InterventionState(currentStep: .temporarilyAllowed, ruleId: ruleId, startedAt: state.startedAt, updatedAt: timestamp, allowedUntil: allowedUntil))
+        try persist(InterventionState(currentStep: .temporarilyAllowed, ruleId: ruleId, startedAt: state.startedAt, updatedAt: timestamp, allowedUntil: reflection.promptedAt))
     }
 
     /// 一時開放が満了していれば再シールド予定へ遷移し true を返す。
@@ -236,13 +270,15 @@ public final class InterventionEngine {
         return true
     }
 
-    /// 直近セッションから `window` 秒以内（既定24時間）の未回答リフレクションのうち最新のものを返す（doc05 §6）。
+    /// 直近セッションから `window` 秒以内（既定30分）の未回答リフレクションのうち最新のものを返す（doc05 §6）。
     /// リフレクションはセッション終了以降に促されるため、promptedAt が現在以前で経過が window 以内のものだけを対象にする。
     ///
     /// 取得は `fetchReflections(from:)` で時間窓に絞る。`fetchUnansweredReflections` は
     /// prompted_at ASC + 件数 LIMIT のため、古い未回答が大量に溜まると新しい対象を取りこぼす
     /// 恐れがあった（レビュー指摘 2026-07-02）。時間窓で絞ればその取りこぼしは起きない。
-    public func pendingReflection(within window: TimeInterval = 24 * 60 * 60) throws -> ReflectionLog? {
+    public func pendingReflection(
+        within window: TimeInterval = InterventionEngine.reflectionPromptWindow
+    ) throws -> ReflectionLog? {
         let reference = now()
         let candidates = try logStore.fetchReflections(from: reference.addingTimeInterval(-window))
         let eligible = candidates.filter { reflection in
@@ -251,6 +287,28 @@ public final class InterventionEngine {
             return age >= 0 && age <= window
         }
         return eligible.max { $0.promptedAt < $1.promptedAt }
+    }
+
+    /// 時間窓を過ぎた未回答リフレクションをスキップ扱いで畳む。
+    /// 溜め込むと `pendingReflection` が毎回何かを返し続けるため、前面復帰のたびにここを通す。
+    @discardableResult
+    public func expireStaleReflections(
+        olderThan window: TimeInterval = InterventionEngine.reflectionPromptWindow
+    ) throws -> Int {
+        let cutoff = now().addingTimeInterval(-window)
+        // 7日より古い行は30分の提示窓を過ぎており、表示対象にならないため下限を設けても安全。
+        let staleReflections = try logStore.fetchReflections(
+            from: cutoff.addingTimeInterval(-7 * 24 * 60 * 60),
+            to: cutoff
+        ).filter { reflection in
+            reflection.answeredAt == nil
+                && !reflection.skipped
+                && reflection.promptedAt < cutoff
+        }
+        for reflection in staleReflections {
+            try skipReflection(id: reflection.id)
+        }
+        return staleReflections.count
     }
 
     /// 利用後リフレクションを回答として保存し、リフレクションフロー中なら idle へ戻す。
@@ -293,8 +351,9 @@ public final class InterventionEngine {
         state: InterventionState,
         ruleId: UUID,
         timestamp: Date,
-        durationSeconds: Int
-    ) throws -> Date {
+        durationSeconds: Int,
+        deferReflection: Bool = false
+    ) throws -> ReflectionLog {
         let allowedUntil = timestamp.addingTimeInterval(TimeInterval(durationSeconds))
         let attemptId = UUID()
         try logStore.insert(
@@ -310,12 +369,11 @@ public final class InterventionEngine {
                 opened: true
             )
         )
-        try logStore.insert(
-            ReflectionLog(
+        let reflection = ReflectionLog(
                 id: UUID(),
                 attemptLogId: attemptId,
                 ruleId: ruleId,
-                promptedAt: allowedUntil,
+                promptedAt: deferReflection ? .distantFuture : allowedUntil,
                 answeredAt: nil,
                 trigger: .timedSessionEnded,
                 satisfaction: nil,
@@ -323,8 +381,8 @@ public final class InterventionEngine {
                 skipped: false,
                 createdAt: timestamp
             )
-        )
-        return allowedUntil
+        try logStore.insert(reflection)
+        return reflection
     }
 
     /// trailing 24h の同一ルール試行数 + 1（書き込み時点で算出・doc05 §4）。

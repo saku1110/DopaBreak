@@ -8,7 +8,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your goal"
+            "value": "Your goals"
           }
         },
         "ja": {
@@ -44,7 +44,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열려고 함 · %lld회"
+            "value": "열기 시도 · %lld회"
           }
         }
       }
@@ -62,7 +62,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日は%lld回 開かなかった"
+            "value": "今日は%lld回開かなかった"
           }
         },
         "ko": {
@@ -200,13 +200,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "YOUR GOAL"
+            "value": "Your goal"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "YOUR GOAL"
+            "value": "あなたの目標"
           }
         },
         "ko": {
@@ -278,13 +278,105 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "今日 開かなかった回数"
+            "value": "今日開かなかった回数"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "오늘 열지 않음"
+          }
+        }
+      }
+    },
+    "block.live.manual": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手動 残り "
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual · left "
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "수동 · 남은 시간 "
+          }
+        }
+      }
+    },
+    "block.live.weekly": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定 終了 "
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled · ends "
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일정 · 종료 "
+          }
+        }
+      }
+    },
+    "block.live.night": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就寝中 起床 "
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep · wake at "
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취침 · 기상 "
+          }
+        }
+      }
+    },
+    "block.live.continues": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブロック中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blocking now"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "차단 중"
           }
         }
       }

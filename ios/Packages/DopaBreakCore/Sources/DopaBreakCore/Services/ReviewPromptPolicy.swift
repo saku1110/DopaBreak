@@ -1,8 +1,8 @@
 import Foundation
 
 public enum ReviewPromptPolicy {
-    public static let minimumCancelledCount = 5
-    public static let minimumAccountAge: TimeInterval = 3 * 24 * 60 * 60
+    public static let minimumCancelledCount = 2
+    public static let minimumAccountAge: TimeInterval = 0
     public static let requestCooldown: TimeInterval = 90 * 24 * 60 * 60
     public static let eventRetentionInterval: TimeInterval = 365 * 24 * 60 * 60
     public static let maximumRequestsPerYear = 3

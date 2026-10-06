@@ -5,28 +5,38 @@ import XCTest
 final class BundledFontIntegrationTests: XCTestCase {
     private let expectedNames = Set(DopaBreakBundledFont.allCases.map(\.rawValue))
 
-    func testAppBundleContainsAndRegistersAllFourThemeFonts() throws {
-        let fontURLs = try appBundledFontURLs()
+    func testWidgetExtensionContainsAndAppProcessRegistersAllFourThemeFonts() throws {
+        let fontURLs = try widgetExtensionBundledFontURLs()
 
         XCTAssertEqual(fontURLs.count, 4)
         XCTAssertEqual(
-            DopaBreakFontRegistrar.registerBundledFonts(resourceBundleURL: Bundle.main.bundleURL),
+            DopaBreakFontRegistrar.registerBundledFonts(),
             expectedNames
         )
 
-        for name in expectedNames {
+        for font in DopaBreakBundledFont.allCases {
+            let name = try XCTUnwrap(DopaBreakFontRegistrar.registeredName(for: font))
+            XCTAssertEqual(name, font.rawValue)
             XCTAssertNotNil(UIFont(name: name, size: 17), "UIFont could not resolve \(name)")
         }
     }
 
-    func testAppBundleContainsOnlyOneFontPayloadWithinApprovedLimit() throws {
-        let fontURLs = try appBundledFontURLs()
+    func testFontsExistOnlyInWidgetExtensionWithinApprovedLimit() throws {
+        let fontURLs = try widgetExtensionBundledFontURLs()
         let allFontURLs = FileManager.default.enumerator(
             at: Bundle.main.bundleURL,
             includingPropertiesForKeys: nil
         )?.compactMap { $0 as? URL }.filter { $0.pathExtension == "ttf" } ?? []
 
         XCTAssertEqual(Set(allFontURLs), Set(fontURLs), "Fonts must exist only once in the app payload")
+        for font in DopaBreakBundledFont.allCases {
+            let appRootURL = Bundle.main.bundleURL
+                .appendingPathComponent("\(fileStem(for: font)).ttf")
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: appRootURL.path),
+                "\(appRootURL.lastPathComponent) must not exist at the DopaBreak.app root"
+            )
+        }
         let byteCount = try fontURLs.reduce(Int64.zero) { total, url in
             total + Int64(try XCTUnwrap(url.resourceValues(forKeys: [.fileSizeKey]).fileSize))
         }
@@ -46,11 +56,15 @@ final class BundledFontIntegrationTests: XCTestCase {
         )
     }
 
-    private func appBundledFontURLs() throws -> [URL] {
-        try DopaBreakBundledFont.allCases.map { font in
-            try XCTUnwrap(
-                Bundle.main.url(forResource: fileStem(for: font), withExtension: "ttf"),
-                "Missing \(fileStem(for: font)).ttf from \(Bundle.main.bundleURL.path)"
+    private func widgetExtensionBundledFontURLs() throws -> [URL] {
+        let extensionURL = Bundle.main.bundleURL
+            .appendingPathComponent("PlugIns", isDirectory: true)
+            .appendingPathComponent("WidgetsExtension.appex", isDirectory: true)
+        return try DopaBreakBundledFont.allCases.map { font in
+            let fontURL = extensionURL.appendingPathComponent("\(fileStem(for: font)).ttf")
+            return try XCTUnwrap(
+                FileManager.default.fileExists(atPath: fontURL.path) ? fontURL : nil,
+                "Missing \(fontURL.lastPathComponent) from \(extensionURL.path)"
             )
         }
     }

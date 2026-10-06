@@ -5,9 +5,9 @@ struct SettingsNotificationsView: View {
     let model: AppModel
     let settingsStore: SettingsStore
 
-    @Binding var morningNotificationEnabled: Bool
-    @Binding var morningNotificationMinutes: Int
+    @Binding var weeklyReportNotificationMinutes: Int
     @Binding var weeklyReportNotificationEnabled: Bool
+    @Binding var reflectionNotificationEnabled: Bool
     @Binding var retentionSupportNotificationsEnabled: Bool
     @Binding var planNotificationsEnabled: Bool
 
@@ -21,12 +21,12 @@ struct SettingsNotificationsView: View {
                 CardContainer {
                     VStack(spacing: 0) {
                         SettingsIconToggleRow(
-                            systemName: "sun.max.fill",
+                            systemName: "calendar",
                             label: String(
-                                localized: "settings.lock_screen.morning_notification",
-                                defaultValue: "朝の目標通知"
+                                localized: "settings.lock_screen.weekly_report",
+                                defaultValue: "毎週の記録通知"
                             ),
-                            isOn: morningNotificationBinding
+                            isOn: weeklyReportNotificationBinding
                         )
 
                         SettingsDivider()
@@ -35,22 +35,22 @@ struct SettingsNotificationsView: View {
                             systemName: "clock.fill",
                             label: String(
                                 localized: "settings.lock_screen.notification_time",
-                                defaultValue: "通知時刻"
+                                defaultValue: "記録通知の時刻"
                             ),
-                            selection: morningNotificationTimeBinding
+                            selection: weeklyReportNotificationTimeBinding
                         )
-                        .disabled(!morningNotificationEnabled)
-                        .opacity(morningNotificationEnabled ? 1 : 0.45)
+                        .disabled(!weeklyReportNotificationEnabled)
+                        .opacity(weeklyReportNotificationEnabled ? 1 : 0.45)
 
                         SettingsDivider()
 
                         SettingsIconToggleRow(
-                            systemName: "calendar",
+                            systemName: "text.bubble.fill",
                             label: String(
-                                localized: "settings.lock_screen.weekly_report",
-                                defaultValue: "毎週の記録通知"
+                                localized: "settings.notifications.reflection.title",
+                                defaultValue: "振り返りの通知"
                             ),
-                            isOn: weeklyReportNotificationBinding
+                            isOn: reflectionNotificationBinding
                         )
 
                         SettingsDivider()
@@ -86,29 +86,18 @@ struct SettingsNotificationsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var morningNotificationBinding: Binding<Bool> {
-        Binding(
-            get: { morningNotificationEnabled },
-            set: { value in
-                morningNotificationEnabled = value
-                settingsStore.morningNotificationEnabled = value
-                model.refreshLockSurfaces()
-            }
-        )
-    }
-
-    private var morningNotificationTimeBinding: Binding<Date> {
+    private var weeklyReportNotificationTimeBinding: Binding<Date> {
         Binding(
             get: {
                 SettingsTime.date(
-                    minutes: morningNotificationMinutes,
+                    minutes: weeklyReportNotificationMinutes,
                     defaultMinutes: 420
                 )
             },
             set: { date in
                 let minutes = SettingsTime.minutes(from: date)
-                morningNotificationMinutes = minutes
-                settingsStore.morningNotificationMinutes = minutes
+                weeklyReportNotificationMinutes = minutes
+                settingsStore.weeklyReportNotificationMinutes = minutes
                 model.refreshLockSurfaces()
             }
         )
@@ -131,6 +120,22 @@ struct SettingsNotificationsView: View {
             set: { value in
                 retentionSupportNotificationsEnabled = value
                 settingsStore.retentionSupportNotificationsEnabled = value
+                model.refreshLockSurfaces()
+            }
+        )
+    }
+
+    private var reflectionNotificationBinding: Binding<Bool> {
+        Binding(
+            get: { reflectionNotificationEnabled },
+            set: { value in
+                reflectionNotificationEnabled = value
+                settingsStore.reflectionNotificationEnabled = value
+                model.syncReinterventionNotificationPreference()
+                if !value {
+                    for app in SNSAppCatalog.all { model.reflectionNotificationScheduler.cancelWorkCheckIn(catalogID: app.catalogID) }
+                    model.cancelReflectionNotification()
+                }
                 model.refreshLockSurfaces()
             }
         )

@@ -32,7 +32,7 @@ private enum StatsTimeChange {
     .receive(on: DispatchQueue.main)
 }
 
-private enum StatsPeriod: String, CaseIterable, Identifiable {
+enum StatsPeriod: String, CaseIterable, Identifiable {
     case week
     case today
     case all
@@ -51,13 +51,279 @@ private enum StatsPeriod: String, CaseIterable, Identifiable {
     }
 }
 
-private struct StatsAppMetric: Identifiable {
+enum StatsWeekComparison: Equatable {
+    case more(Int)
+    case less(Int)
+    case same
+    case noData
+
+    init(currentSeconds: Int, previousSeconds: Int?) {
+        guard let previousSeconds else {
+            self = .noData
+            return
+        }
+        let delta = currentSeconds - previousSeconds
+        if delta > 0 {
+            self = .more(delta)
+        } else if delta < 0 {
+            self = .less(-delta)
+        } else {
+            self = .same
+        }
+    }
+}
+
+enum StatsPresentation {
+    static func heroTimeText(
+        seconds: Int,
+        period: StatsPeriod,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        period == .all
+            ? ReclaimedTimeFormatter.string(seconds: seconds, bundle: bundle, locale: locale)
+            : ReclaimedTimeFormatter.detailedString(seconds: seconds, bundle: bundle, locale: locale)
+    }
+
+    static func shouldShowBasis(cancellationCount: Int) -> Bool {
+        cancellationCount > 0
+    }
+
+    static func shouldShowHourlyCard(period: StatsPeriod, attempts: Int) -> Bool {
+        period != .today && attempts > 0
+    }
+
+    static func shouldShowIntent(attemptCount: Int) -> Bool {
+        attemptCount > 0
+    }
+
+    static func comparisonText(
+        currentSeconds: Int,
+        previousSeconds: Int?,
+        isComparable: Bool,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let comparablePreviousSeconds = isComparable ? previousSeconds : nil
+        switch StatsWeekComparison(
+            currentSeconds: currentSeconds,
+            previousSeconds: comparablePreviousSeconds
+        ) {
+        case .noData:
+            return bundle.localizedString(
+                forKey: "stats.weekly_detail.comparison.no_data",
+                value: "先週の記録なし",
+                table: nil
+            )
+        case let .more(delta):
+            let deltaText = ReclaimedTimeFormatter.detailedString(
+                seconds: delta,
+                bundle: bundle,
+                locale: locale
+            )
+            let format = bundle.localizedString(
+                forKey: "stats.weekly_detail.comparison.more_time",
+                value: "先週より +%@",
+                table: nil
+            )
+            return String(format: format, locale: locale, arguments: [deltaText])
+        case let .less(delta):
+            let deltaText = ReclaimedTimeFormatter.detailedString(
+                seconds: delta,
+                bundle: bundle,
+                locale: locale
+            )
+            let format = bundle.localizedString(
+                forKey: "stats.weekly_detail.comparison.less_time",
+                value: "先週より -%@",
+                table: nil
+            )
+            return String(format: format, locale: locale, arguments: [deltaText])
+        case .same:
+            return bundle.localizedString(
+                forKey: "stats.weekly_detail.comparison.same",
+                value: "先週と同じ",
+                table: nil
+            )
+        }
+    }
+
+    static func comparisonDeltaRange(
+        in text: AttributedString,
+        currentSeconds: Int,
+        previousSeconds: Int?,
+        isComparable: Bool,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> Range<AttributedString.Index>? {
+        guard isComparable,
+              let previousSeconds,
+              currentSeconds != previousSeconds else {
+            return nil
+        }
+        let deltaText = ReclaimedTimeFormatter.detailedString(
+            seconds: abs(currentSeconds - previousSeconds),
+            bundle: bundle,
+            locale: locale
+        )
+        return text.range(of: deltaText)
+    }
+
+    static func intentMetricText(
+        title: String,
+        seconds: Int,
+        bundle: Bundle = .main,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        "\(title) \(ReclaimedTimeFormatter.detailedString(seconds: seconds, bundle: bundle, locale: locale))"
+    }
+
+    static func mergedLegacyIntentValues(
+        counts: [IntentCategory: Int],
+        reclaimedSeconds: [IntentCategory: Int]
+    ) -> (counts: [IntentCategory: Int], reclaimedSeconds: [IntentCategory: Int]) {
+        var displayCounts = counts
+        var displaySeconds = reclaimedSeconds
+        if let legacyAnxietyCount = displayCounts.removeValue(forKey: .anxietyCheck) {
+            displayCounts[.communication, default: 0] += legacyAnxietyCount
+        }
+        if let legacyAnxietySeconds = displaySeconds.removeValue(forKey: .anxietyCheck) {
+            displaySeconds[.communication, default: 0] += legacyAnxietySeconds
+        }
+        return (displayCounts, displaySeconds)
+    }
+
+    static func appSortsBefore(
+        title lhsTitle: String,
+        seconds lhsSeconds: Int,
+        than rhsTitle: String,
+        rhsSeconds: Int
+    ) -> Bool {
+        if lhsSeconds == rhsSeconds {
+            return lhsTitle.localizedStandardCompare(rhsTitle) == .orderedAscending
+        }
+        return lhsSeconds > rhsSeconds
+    }
+
+    static func intentSortsBefore(
+        category lhsCategory: IntentCategory,
+        seconds lhsSeconds: Int,
+        than rhsCategory: IntentCategory,
+        rhsSeconds: Int
+    ) -> Bool {
+        if lhsSeconds != rhsSeconds {
+            return lhsSeconds > rhsSeconds
+        }
+        let order = Dictionary(
+            uniqueKeysWithValues: IntentCategory.allCases.enumerated().map { ($1, $0) }
+        )
+        return (order[lhsCategory] ?? .max) < (order[rhsCategory] ?? .max)
+    }
+
+    static func appMetrics(
+        from detailed: [UUID: (attempts: Int, cancelled: Int)],
+        reclaimedSeconds: [UUID: Int],
+        rules: [TargetRule],
+        bundle: Bundle = .main
+    ) -> [StatsAppMetric] {
+        let ruleByID = Dictionary(rules.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let representedRuleIDs = Set(detailed.keys).union(reclaimedSeconds.keys)
+        var activeMetrics: [StatsAppMetric] = []
+        var removedAttempts = 0
+        var removedCancelled = 0
+        var removedReclaimedSeconds = 0
+        var hasRemovedMetric = false
+
+        for ruleID in representedRuleIDs {
+            let breakdown = detailed[ruleID] ?? (attempts: 0, cancelled: 0)
+            guard let rule = ruleByID[ruleID] else {
+                hasRemovedMetric = true
+                removedAttempts += breakdown.attempts
+                removedCancelled += breakdown.cancelled
+                removedReclaimedSeconds += reclaimedSeconds[ruleID] ?? 0
+                continue
+            }
+            let title = rule.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else {
+                hasRemovedMetric = true
+                removedAttempts += breakdown.attempts
+                removedCancelled += breakdown.cancelled
+                removedReclaimedSeconds += reclaimedSeconds[ruleID] ?? 0
+                continue
+            }
+
+            let catalogItem = rule.activitySelectionData.isEmpty
+                ? SNSAppCatalog.all.first { $0.displayName == title }
+                : nil
+            let applicationToken = singleApplicationToken(from: rule.activitySelectionData)
+
+            activeMetrics.append(StatsAppMetric(
+                ruleID: ruleID,
+                title: catalogItem?.displayName ?? title,
+                catalogItem: catalogItem,
+                applicationToken: applicationToken,
+                attempts: breakdown.attempts,
+                cancelled: breakdown.cancelled,
+                reclaimedSeconds: reclaimedSeconds[ruleID] ?? 0
+            ))
+        }
+
+        activeMetrics.sort { lhs, rhs in
+            appSortsBefore(
+                title: lhs.title,
+                seconds: lhs.reclaimedSeconds,
+                than: rhs.title,
+                rhsSeconds: rhs.reclaimedSeconds
+            )
+        }
+
+        if hasRemovedMetric {
+            activeMetrics.append(
+                StatsAppMetric(
+                    ruleID: StatsAppMetric.removedAggregateRuleID,
+                    title: bundle.localizedString(
+                        forKey: "stats.apps.removed",
+                        value: "対象から外したアプリ",
+                        table: nil
+                    ),
+                    catalogItem: nil,
+                    applicationToken: nil,
+                    attempts: removedAttempts,
+                    cancelled: removedCancelled,
+                    reclaimedSeconds: removedReclaimedSeconds
+                )
+            )
+        }
+
+        return activeMetrics
+    }
+
+    private static func singleApplicationToken(from selectionData: Data) -> ApplicationToken? {
+        guard !selectionData.isEmpty,
+              let selection = try? JSONDecoder().decode(
+                  FamilyActivitySelection.self,
+                  from: selectionData
+              ),
+              selection.applicationTokens.count == 1 else {
+            return nil
+        }
+        return selection.applicationTokens.first
+    }
+}
+
+struct StatsAppMetric: Identifiable {
+    static let removedAggregateRuleID = UUID(
+        uuid: (0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+               0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF)
+    )
+
     let ruleID: UUID
     let title: String
     let catalogItem: SNSAppCatalogItem?
     let applicationToken: ApplicationToken?
     let attempts: Int
     let cancelled: Int
+    let reclaimedSeconds: Int
 
     var id: UUID { ruleID }
 
@@ -80,10 +346,11 @@ private struct StatsAppMetric: Identifiable {
     }
 }
 
-private struct StatsIntentMetric: Identifiable {
+struct StatsIntentMetric: Identifiable {
     let category: IntentCategory
     let title: String
     let count: Int
+    let reclaimedSeconds: Int
 
     var id: String { category.rawValue }
 }
@@ -95,6 +362,10 @@ private struct StatsDashboardData {
     var appMetrics: [StatsAppMetric] = []
     var reflectionCounts: [PostUseSatisfaction: Int] = [:]
     var intentMetrics: [StatsIntentMetric] = []
+    var reclaimedSeconds = 0
+    var estimatedSecondsPerCancellation = ReclaimedTimeEstimator.defaultSeconds
+    var previousWeekReclaimedSeconds: Int?
+    var hourlyAttempts: [Int: Int] = [:]
 
     static let empty = StatsDashboardData()
 }
@@ -103,15 +374,17 @@ struct StatsView: View {
     let model: AppModel
 
     private let injectedStatsService: StatsService?
+    private let onOpenBlockSettings: (() -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var period: StatsPeriod
     @State private var dashboard = StatsDashboardData.empty
 
-    init(model: AppModel, statsService: StatsService? = nil) {
+    init(model: AppModel, statsService: StatsService? = nil, onOpenBlockSettings: (() -> Void)? = nil) {
         self.model = model
         self.injectedStatsService = statsService
+        self.onOpenBlockSettings = onOpenBlockSettings
         _period = State(initialValue: .week)
     }
 
@@ -204,7 +477,7 @@ struct StatsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     SmallLabel(
-                        text: String(localized: "stats.rate.title", defaultValue: "開かなかった割合")
+                        text: String(localized: "home.reclaimed.title", defaultValue: "取り戻した時間")
                     )
                     Spacer(minLength: 8)
                     if period == .week, let report = dashboard.weeklyDetail {
@@ -216,79 +489,59 @@ struct StatsView: View {
                     }
                 }
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .bottom, spacing: 14) {
-                        rateDisplay
-                            .frame(minWidth: 94, alignment: .leading)
-                        periodVisualization
-                            .frame(maxWidth: .infinity)
-                    }
+                reclaimedTimeDisplay
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        rateDisplay
-                        periodVisualization
-                    }
+                if StatsPresentation.shouldShowBasis(
+                    cancellationCount: dashboard.summary.cancelled
+                ) {
+                    Text(
+                        String(
+                            localized: "home.hero.basis",
+                            defaultValue: "開かなかった\(dashboard.summary.cancelled)回 × 1回約\(estimatedMinutesPerCancellation)分"
+                        )
+                    )
+                    .dopaFont(14, weight: .semibold)
+                    .foregroundStyle(DesignTokens.secondaryText)
                 }
 
                 if period == .week {
-                    legend
+                    DayBars(days: dashboard.days, height: 64)
                 }
+
+                legend
             }
         }
     }
 
     @ViewBuilder
-    private var rateDisplay: some View {
-        if let percentage = successPercentage {
-            HStack(alignment: .firstTextBaseline, spacing: 1) {
-                Text(verbatim: "\(percentage)")
-                    .dopaFont(56, weight: .black, design: .rounded, tracking: -1.8)
-                Text(verbatim: "%")
-                    .dopaFont(22, weight: .black, design: .rounded, tracking: -0.3)
-            }
-            .monospacedDigit()
-            .foregroundStyle(DesignTokens.primaryText)
-            .contentTransition(.numericText())
-            .dopaDisplayClamp()
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(percentageText(percentage))
-        } else {
-            Text(String(localized: "stats.rate.unavailable", defaultValue: "—"))
-                .dopaFont(56, weight: .black, design: .rounded)
+    private var reclaimedTimeDisplay: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(reclaimedTimeText)
+                .dopaFont(56, weight: .black, design: .rounded, tracking: -1.8)
+                .monospacedDigit()
                 .foregroundStyle(DesignTokens.primaryText)
+                .contentTransition(.numericText())
                 .dopaDisplayClamp()
-        }
-    }
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
 
-    @ViewBuilder
-    private var periodVisualization: some View {
-        Group {
-            switch period {
-            case .week:
-                DayBars(days: dashboard.days, height: 64)
-            case .today:
-                metricPair(
-                    attempts: dashboard.summary.attempts,
-                    cancelled: dashboard.summary.cancelled
-                )
-            case .all:
-                MetricBlock(
-                    label: String(
-                        localized: "stats.all_time.cancelled",
-                        defaultValue: "これまで開かなかった回数"
-                    ),
-                    value: countText(dashboard.summary.cancelled),
-                    accent: true
-                )
+            if period == .all,
+               let equivalent = ReclaimedTimeFormatter.equivalentString(
+                   seconds: dashboard.reclaimedSeconds
+               ) {
+                Text(equivalent)
+                    .dopaFont(20, weight: .semibold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+            Spacer(minLength: 0)
         }
-        .id(period)
-        .transition(.opacity)
-        .animation(.easeOut(duration: 0.25), value: period)
+        .accessibilityElement(children: .combine)
     }
 
     private var legend: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             legendItem(
                 color: DesignTokens.accent,
                 label: String(localized: "stats.behavior.cancelled", defaultValue: "開かなかった"),
@@ -298,7 +551,16 @@ struct StatsView: View {
                 .dopaFont(11, weight: .bold)
                 .foregroundStyle(DesignTokens.secondaryText)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.55)
+            if let percentage = successPercentage {
+                Text(
+                    "\(String(localized: "stats.rate.title", defaultValue: "開かなかった割合")) \(percentageText(percentage))"
+                )
+                .dopaFont(11, weight: .bold)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            }
             Spacer(minLength: 0)
         }
     }
@@ -327,38 +589,36 @@ struct StatsView: View {
         String(localized: "stats.rate.percentage", defaultValue: "\(value)%%")
     }
 
+    private var reclaimedTimeText: String {
+        StatsPresentation.heroTimeText(seconds: dashboard.reclaimedSeconds, period: period)
+    }
+
+    private var estimatedMinutesPerCancellation: Int {
+        ReclaimedTimeFormatter.estimatedMinutesPerCancellation(
+            todayReclaimedSeconds: dashboard.reclaimedSeconds,
+            todayCancellationCount: dashboard.summary.cancelled,
+            fallbackSeconds: dashboard.estimatedSecondsPerCancellation
+        )
+    }
+
     private func comparisonAttributedText(_ report: WeeklyDetailReport) -> AttributedString {
         var result = AttributedString(comparisonText(report))
-        guard let delta = report.cancelledDelta, delta != 0,
-              let range = result.range(of: String(abs(delta))) else {
-            return result
+        if let range = StatsPresentation.comparisonDeltaRange(
+            in: result,
+            currentSeconds: dashboard.reclaimedSeconds,
+            previousSeconds: dashboard.previousWeekReclaimedSeconds,
+            isComparable: report.isComparable
+        ) {
+            result[range].foregroundColor = DesignTokens.accent
         }
-        result[range].foregroundColor = DesignTokens.accent
         return result
     }
 
     private func comparisonText(_ report: WeeklyDetailReport) -> String {
-        guard let delta = report.cancelledDelta else {
-            return String(
-                localized: "stats.weekly_detail.comparison.no_data",
-                defaultValue: "先週の記録なし"
-            )
-        }
-        if delta > 0 {
-            return String(
-                localized: "stats.weekly_detail.comparison.more",
-                defaultValue: "先週より\(delta)回多い"
-            )
-        }
-        if delta < 0 {
-            return String(
-                localized: "stats.weekly_detail.comparison.less",
-                defaultValue: "先週より\(-delta)回少ない"
-            )
-        }
-        return String(
-            localized: "stats.weekly_detail.comparison.same",
-            defaultValue: "先週と同じ"
+        StatsPresentation.comparisonText(
+            currentSeconds: dashboard.reclaimedSeconds,
+            previousSeconds: dashboard.previousWeekReclaimedSeconds,
+            isComparable: report.isComparable
         )
     }
 
@@ -367,7 +627,16 @@ struct StatsView: View {
     private var detailContentSection: some View {
         VStack(spacing: DesignTokens.sectionSpacing) {
             appsCard
+            if StatsPresentation.shouldShowHourlyCard(
+                period: period,
+                attempts: dashboard.summary.attempts
+            ) {
+                hourlyCard
+            }
             reflectionCard
+            if let insight = ReflectionInsightPolicy.insight(counts: dashboard.reflectionCounts) {
+                reflectionInsightCard(insight)
+            }
             intentCard
         }
     }
@@ -375,13 +644,27 @@ struct StatsView: View {
     private var appsCard: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 10) {
-                SmallLabel(text: String(localized: "stats.apps.title", defaultValue: "アプリごと"))
+                SmallLabel(
+                    text: String(
+                        localized: "stats.apps.title",
+                        defaultValue: "一呼吸をはさんだアプリ"
+                    )
+                )
+
+                Text(
+                    String(
+                        localized: "stats.apps.caption",
+                        defaultValue: "完全ブロックで止めたアプリは含みません"
+                    )
+                )
+                .dopaFont(12, weight: .medium)
+                .foregroundStyle(DesignTokens.secondaryText)
 
                 if dashboard.appMetrics.isEmpty {
                     Text(
                         String(
                             localized: "stats.apps.empty",
-                            defaultValue: "まだアプリごとの記録がありません"
+                            defaultValue: "まだ一呼吸の記録がありません"
                         )
                     )
                     .dopaFont(14, weight: .medium)
@@ -397,10 +680,7 @@ struct StatsView: View {
     }
 
     private func appRow(_ metric: StatsAppMetric) -> some View {
-        let ratioText = String(
-            localized: "stats.apps.ratio",
-            defaultValue: "\(metric.cancelled)/\(metric.attempts)"
-        )
+        let reclaimedTime = ReclaimedTimeFormatter.detailedString(seconds: metric.reclaimedSeconds)
         return HStack(spacing: 10) {
             AppIconView(source: metric.iconSource, size: 30)
                 .accessibilityHidden(true)
@@ -426,16 +706,31 @@ struct StatsView: View {
             }
             .frame(height: 6)
 
-            Text(ratioText)
+            Text(reclaimedTime)
                 .dopaFont(12, weight: .bold, design: .monospaced)
                 .foregroundStyle(DesignTokens.secondaryText)
-                .frame(width: 50, alignment: .trailing)
+                .frame(width: 62, alignment: .trailing)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
         .frame(minHeight: DesignTokens.minTapTarget)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(metric.title) \(ratioText)")
+        .accessibilityLabel(
+            "\(metric.title) \(cancelledMetricLabel) \(countText(metric.cancelled)) \(attemptedMetricLabel) \(countText(metric.attempts)) \(reclaimedTime)"
+        )
+    }
+
+    // MARK: - 開こうとした時間帯
+
+    private var hourlyCard: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 14) {
+                SmallLabel(
+                    text: String(localized: "stats.hourly.title", defaultValue: "開こうとした時間帯")
+                )
+                HourBars(counts: dashboard.hourlyAttempts)
+            }
+        }
     }
 
     // MARK: - 見たあとの気持ち
@@ -486,6 +781,25 @@ struct StatsView: View {
         }
     }
 
+    private func reflectionInsightCard(_ insight: ReflectionInsight) -> some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(String(localized: "stats.insight.title", defaultValue: "次の使い方を決める"))
+                    .dopaFont(17, weight: .bold)
+                Text(String(localized: "stats.insight.evidence", defaultValue: "この期間の回答\(insight.answerCount)件のうち\(insight.regretCount)件が「時間を失った」「気分が悪くなった」でした。"))
+                    .dopaFont(14, weight: .medium)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                Text(String(localized: "stats.insight.suggestion", defaultValue: "見たくない時間が決まっているなら、その時間だけブロックする予定を試してみませんか。設定は自分で選べます。"))
+                    .dopaFont(14, weight: .medium)
+                if let onOpenBlockSettings {
+                    Button(String(localized: "stats.insight.action", defaultValue: "ブロックの設定を見直す"), action: onOpenBlockSettings)
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                }
+            }
+        }
+    }
+
     private var reflectionAnswerCount: Int {
         dashboard.reflectionCounts.values.reduce(0, +)
     }
@@ -507,7 +821,10 @@ struct StatsView: View {
                 } else {
                     StatsFlowLayout(spacing: 8) {
                         ForEach(dashboard.intentMetrics) { metric in
-                            Text("\(metric.title) \(intentPercentageText(metric.count))")
+                            Text(StatsPresentation.intentMetricText(
+                                title: metric.title,
+                                seconds: metric.reclaimedSeconds
+                            ))
                                 .dopaFont(12, weight: .bold)
                                 .foregroundStyle(DesignTokens.primaryText)
                                 .lineLimit(1)
@@ -521,12 +838,6 @@ struct StatsView: View {
                 }
             }
         }
-    }
-
-    private func intentPercentageText(_ count: Int) -> String {
-        let total = max(1, dashboard.intentMetrics.reduce(0) { $0 + $1.count })
-        let percentage = Int((Double(count) * 100 / Double(total)).rounded())
-        return String(format: "%d%%", locale: Locale.autoupdatingCurrent, percentage)
     }
 
     // MARK: - 共通表示
@@ -552,20 +863,6 @@ struct StatsView: View {
             )
             .dopaFont(14, weight: .medium, lineSpacing: 4)
             .foregroundStyle(DesignTokens.secondaryText)
-        }
-    }
-
-    private func metricPair(attempts: Int, cancelled: Int) -> some View {
-        HStack(spacing: 14) {
-            MetricBlock(
-                label: cancelledMetricLabel,
-                value: countText(cancelled),
-                accent: true
-            )
-            MetricBlock(
-                label: attemptedMetricLabel,
-                value: countText(attempts)
-            )
         }
     }
 
@@ -641,14 +938,68 @@ struct StatsView: View {
         let intentCounts = (
             try? statsService.intentBreakdown(from: range.start, to: range.end)
         ) ?? [:]
+        let reclaimedSeconds: Int
+        switch dashboardPeriod {
+        case .today, .week:
+            reclaimedSeconds = (
+                try? statsService.reclaimedSecondsByStartWindow(from: range.start, to: range.end)
+            ) ?? 0
+        case .all:
+            reclaimedSeconds = (try? statsService.reclaimedSecondsAllTime()) ?? 0
+        }
+        let reclaimedByRule: [UUID: Int]
+        let reclaimedByIntent: [IntentCategory: Int]
+        switch dashboardPeriod {
+        case .today, .week:
+            reclaimedByRule = (
+                try? statsService.reclaimedSecondsByRuleInStartWindow(from: range.start, to: range.end)
+            ) ?? [:]
+            reclaimedByIntent = (
+                try? statsService.reclaimedSecondsByIntentInStartWindow(from: range.start, to: range.end)
+            ) ?? [:]
+        case .all:
+            reclaimedByRule = (
+                try? statsService.reclaimedSecondsByRule(from: range.start, to: range.end)
+            ) ?? [:]
+            reclaimedByIntent = (
+                try? statsService.reclaimedSecondsByIntent(from: range.start, to: range.end)
+            ) ?? [:]
+        }
+        let hourlyAttempts = (
+            try? statsService.hourlyAttemptBreakdown(from: range.start, to: range.end)
+        ) ?? [:]
+        let previousWeekReclaimedSeconds: Int? = if dashboardPeriod == .week,
+                                                    let previousDays = report?.previous.days,
+                                                    report?.isComparable == true,
+                                                    let previousStart = previousDays.first?.date,
+                                                    let previousLastDay = previousDays.last?.date,
+                                                    let previousEnd = calendar.date(
+                                                        byAdding: .day,
+                                                        value: 1,
+                                                        to: previousLastDay
+                                                    ) {
+            try? statsService.reclaimedSecondsByStartWindow(from: previousStart, to: previousEnd)
+        } else {
+            nil
+        }
 
         dashboard = StatsDashboardData(
             summary: summary,
-            days: report?.current.days ?? emptyWeekDays(referenceDate: referenceDate),
+            days: report?.current.days ?? WeeklySummaryPlaceholder.emptyWeekDays(referenceDate: referenceDate),
             weeklyDetail: report,
-            appMetrics: appMetrics(from: detailed),
+            appMetrics: StatsPresentation.appMetrics(
+                from: detailed,
+                reclaimedSeconds: reclaimedByRule,
+                rules: (try? model.ruleStore.allRules()) ?? []
+            ),
             reflectionCounts: reflectionCounts,
-            intentMetrics: intentMetrics(from: intentCounts)
+            intentMetrics: intentMetrics(from: intentCounts, reclaimedSeconds: reclaimedByIntent),
+            reclaimedSeconds: reclaimedSeconds,
+            estimatedSecondsPerCancellation: (
+                try? statsService.estimatedReclaimedSecondsPerCancellation(at: referenceDate)
+            ) ?? ReclaimedTimeEstimator.defaultSeconds,
+            previousWeekReclaimedSeconds: previousWeekReclaimedSeconds,
+            hourlyAttempts: hourlyAttempts
         )
     }
 
@@ -676,7 +1027,7 @@ struct StatsView: View {
         }
         return StatsDashboardData(
             summary: summary,
-            days: emptyWeekDays(referenceDate: referenceDate)
+            days: WeeklySummaryPlaceholder.emptyWeekDays(referenceDate: referenceDate)
         )
     }
 
@@ -705,80 +1056,33 @@ struct StatsView: View {
         }
     }
 
-    private func emptyWeekDays(referenceDate: Date) -> [WeeklySummary.Day] {
-        let calendar = Calendar.autoupdatingCurrent
-        let today = calendar.startOfDay(for: referenceDate)
-        return (0..<7).compactMap { index in
-            guard let date = calendar.date(byAdding: .day, value: index - 6, to: today) else {
-                return nil
-            }
-            return WeeklySummary.Day(date: date, attempts: 0, cancelled: 0)
-        }
-    }
-
-    private func appMetrics(
-        from detailed: [UUID: (attempts: Int, cancelled: Int)]
-    ) -> [StatsAppMetric] {
-        let rules = (try? model.ruleStore.allRules()) ?? []
-        let ruleByID = Dictionary(uniqueKeysWithValues: rules.map { ($0.id, $0) })
-
-        return detailed.compactMap { ruleID, breakdown -> StatsAppMetric? in
-            guard let rule = ruleByID[ruleID] else { return nil }
-            let title = rule.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !title.isEmpty else { return nil }
-
-            let catalogItem = rule.activitySelectionData.isEmpty
-                ? SNSAppCatalog.all.first { $0.displayName == title }
-                : nil
-            let applicationToken = singleApplicationToken(from: rule.activitySelectionData)
-
-            return StatsAppMetric(
-                ruleID: ruleID,
-                title: catalogItem?.displayName ?? title,
-                catalogItem: catalogItem,
-                applicationToken: applicationToken,
-                attempts: breakdown.attempts,
-                cancelled: breakdown.cancelled
+    private func intentMetrics(
+        from counts: [IntentCategory: Int],
+        reclaimedSeconds: [IntentCategory: Int]
+    ) -> [StatsIntentMetric] {
+        let merged = StatsPresentation.mergedLegacyIntentValues(
+            counts: counts,
+            reclaimedSeconds: reclaimedSeconds
+        )
+        let displayCounts = merged.counts
+        let displaySeconds = merged.reclaimedSeconds
+        return displayCounts.compactMap { category, count -> StatsIntentMetric? in
+            guard StatsPresentation.shouldShowIntent(attemptCount: count) else { return nil }
+            let title = intentTitle(category)
+            return StatsIntentMetric(
+                category: category,
+                title: title,
+                count: count,
+                reclaimedSeconds: displaySeconds[category] ?? 0
             )
         }
         .sorted { lhs, rhs in
-            if lhs.attempts == rhs.attempts {
-                return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
-            }
-            return lhs.attempts > rhs.attempts
-        }
-    }
-
-    private func singleApplicationToken(from selectionData: Data) -> ApplicationToken? {
-        guard !selectionData.isEmpty,
-              let selection = try? JSONDecoder().decode(
-                  FamilyActivitySelection.self,
-                  from: selectionData
-              ),
-              selection.applicationTokens.count == 1 else {
-            return nil
-        }
-        return selection.applicationTokens.first
-    }
-
-    private func intentMetrics(from counts: [IntentCategory: Int]) -> [StatsIntentMetric] {
-        var displayCounts = counts
-        if let legacyAnxietyCount = displayCounts.removeValue(forKey: .anxietyCheck) {
-            displayCounts[.communication, default: 0] += legacyAnxietyCount
-        }
-        let caseOrder = Dictionary(
-            uniqueKeysWithValues: IntentCategory.allCases.enumerated().map { ($1, $0) }
-        )
-        return displayCounts.compactMap { category, count -> StatsIntentMetric? in
-            guard count > 0 else { return nil }
-            let title = intentTitle(category)
-            return StatsIntentMetric(category: category, title: title, count: count)
-        }
-        .sorted { lhs, rhs in
-            if lhs.count == rhs.count {
-                return (caseOrder[lhs.category] ?? .max) < (caseOrder[rhs.category] ?? .max)
-            }
-            return lhs.count > rhs.count
+            StatsPresentation.intentSortsBefore(
+                category: lhs.category,
+                seconds: lhs.reclaimedSeconds,
+                than: rhs.category,
+                rhsSeconds: rhs.reclaimedSeconds
+            )
         }
     }
 

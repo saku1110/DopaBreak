@@ -22,12 +22,49 @@ final class SettingsStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    func testLockSurfaceDefaultsUseWakeTimeAndE1() {
+    func testOnboardingModeNoticePersistsAndResetsSeparatelyFromPreference() {
+        XCTAssertNil(store.onboardingPendingModeNotice)
+        XCTAssertFalse(store.onboardingModeNoticeShown)
+        store.pendingInterventionMode = InterventionMode.deepFocus.rawValue
+        store.onboardingPendingModeNotice = InterventionMode.deepFocus.rawValue
+        let restored = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(restored.onboardingPendingModeNotice, InterventionMode.deepFocus.rawValue)
+        restored.onboardingModeNoticeShown = true
+        restored.onboardingPendingModeNotice = nil
+        XCTAssertTrue(store.onboardingModeNoticeShown)
+        XCTAssertNil(store.onboardingPendingModeNotice)
+        XCTAssertEqual(store.pendingInterventionMode, InterventionMode.deepFocus.rawValue)
+        store.resetToDefaults()
+        XCTAssertFalse(restored.onboardingModeNoticeShown)
+        XCTAssertNil(restored.onboardingPendingModeNotice)
+    }
+
+    func testOnboardingBlockChoiceSavedPersistsAndResets() {
+        XCTAssertFalse(store.onboardingBlockChoiceSaved)
+        store.onboardingBlockChoiceSaved = true
+        let restored = SettingsStore(userDefaults: defaults)
+        XCTAssertTrue(restored.onboardingBlockChoiceSaved)
+        store.resetToDefaults()
+        XCTAssertFalse(restored.onboardingBlockChoiceSaved)
+    }
+
+    func testOnboardingProgressSurvivesRecreationAndCompletionClearsIt() {
+        XCTAssertNil(store.onboardingStepRaw)
+        store.onboardingStepRaw = 11
+        store.onboardingExperienceCompleted = true
+        let restored = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(restored.onboardingStepRaw, 11)
+        XCTAssertTrue(restored.onboardingExperienceCompleted)
+        restored.onboardingCompleted = true
+        XCTAssertNil(store.onboardingStepRaw)
+    }
+
+    func testLockSurfaceDefaultsUseFixedWeeklyTimeAndE1() {
         store.wakeTimeMinutes = 480
 
-        XCTAssertTrue(store.morningNotificationEnabled)
-        XCTAssertEqual(store.morningNotificationMinutes, 480)
+        XCTAssertEqual(store.weeklyReportNotificationMinutes, 420)
         XCTAssertTrue(store.weeklyReportNotificationEnabled)
+        XCTAssertTrue(store.reflectionNotificationEnabled)
         XCTAssertTrue(store.retentionSupportNotificationsEnabled)
         XCTAssertTrue(store.planNotificationsEnabled)
         XCTAssertTrue(store.liveActivityEnabled)
@@ -42,6 +79,25 @@ final class SettingsStoreTests: XCTestCase {
         store.lockScreenCheckCompleted = true
 
         XCTAssertTrue(SettingsStore(userDefaults: defaults).lockScreenCheckCompleted)
+    }
+
+    func testAutomationRequestTimestampsAndSelfOpenMarkersPersistAndReset() {
+        let requestedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let openedAt = requestedAt.addingTimeInterval(1)
+        store.pendingStartInterventionRequestedAt = requestedAt
+        store.lastSelfOpenedCatalogID = "instagram"
+        store.lastSelfOpenedAt = openedAt
+
+        let reloaded = SettingsStore(userDefaults: defaults)
+        XCTAssertEqual(reloaded.pendingStartInterventionRequestedAt, requestedAt)
+        XCTAssertEqual(reloaded.lastSelfOpenedCatalogID, "instagram")
+        XCTAssertEqual(reloaded.lastSelfOpenedAt, openedAt)
+
+        store.resetToDefaults()
+
+        XCTAssertNil(store.pendingStartInterventionRequestedAt)
+        XCTAssertNil(store.lastSelfOpenedCatalogID)
+        XCTAssertNil(store.lastSelfOpenedAt)
     }
 
     func testReclaimedMilestonePersistsAndIsResettable() {
@@ -59,8 +115,7 @@ final class SettingsStoreTests: XCTestCase {
     }
 
     func testLockSurfaceValuesPersistAndNormalizeMinutes() {
-        store.morningNotificationEnabled = false
-        store.morningNotificationMinutes = 1_500
+        store.weeklyReportNotificationMinutes = 1_500
         store.weeklyReportNotificationEnabled = false
         store.retentionSupportNotificationsEnabled = false
         store.planNotificationsEnabled = false
@@ -68,14 +123,19 @@ final class SettingsStoreTests: XCTestCase {
         store.lockTheme = .liquidGlass
 
         let reloaded = SettingsStore(userDefaults: defaults)
-        XCTAssertFalse(reloaded.morningNotificationEnabled)
-        XCTAssertEqual(reloaded.morningNotificationMinutes, 60)
+        XCTAssertEqual(reloaded.weeklyReportNotificationMinutes, 60)
         XCTAssertFalse(reloaded.weeklyReportNotificationEnabled)
         XCTAssertFalse(reloaded.retentionSupportNotificationsEnabled)
         XCTAssertFalse(reloaded.planNotificationsEnabled)
         XCTAssertFalse(reloaded.liveActivityEnabled)
         XCTAssertEqual(reloaded.lockThemeRawValue, LockTheme.liquidGlass.rawValue)
         XCTAssertEqual(reloaded.lockTheme, .liquidGlass)
+    }
+
+    func testWeeklyReportNotificationMinutesReadsExistingMorningNotificationKey() {
+        defaults.set(7 * 60 + 42, forKey: "morningNotificationMinutes")
+
+        XCTAssertEqual(store.weeklyReportNotificationMinutes, 7 * 60 + 42)
     }
 
     func testSelectingE1RemovesStoredThemeOverride() {
@@ -87,16 +147,18 @@ final class SettingsStoreTests: XCTestCase {
     }
 
     func testLockSurfaceStateReflectsSettings() {
-        store.morningNotificationMinutes = 7 * 60 + 35
+        store.weeklyReportNotificationMinutes = 7 * 60 + 35
         store.weeklyReportNotificationEnabled = false
+        store.reflectionNotificationEnabled = false
         store.retentionSupportNotificationsEnabled = false
         store.planNotificationsEnabled = false
         store.lockTheme = .monochrome
 
         let state = store.lockSurfaceState
-        XCTAssertEqual(state.morningNotificationTime.hour, 7)
-        XCTAssertEqual(state.morningNotificationTime.minute, 35)
+        XCTAssertEqual(state.weeklyReportNotificationTime.hour, 7)
+        XCTAssertEqual(state.weeklyReportNotificationTime.minute, 35)
         XCTAssertFalse(state.weeklyReportEnabled)
+        XCTAssertFalse(state.reflectionNotificationEnabled)
         XCTAssertFalse(state.retentionSupportNotificationsEnabled)
         XCTAssertFalse(state.planNotificationsEnabled)
         XCTAssertEqual(state.theme, .monochrome)
@@ -320,6 +382,7 @@ final class SettingsStoreTests: XCTestCase {
     /// `Key` から取り除いた旧キーは既存インストールに残り続けるため、削除対象に含める。
     func testResetToDefaultsClearsKeysRemovedFromTheCurrentSchema() {
         let legacyKeys = [
+            "morningNotificationEnabled",
             "day14ClampKeptCatalogID",
             "pendingDay14Warning",
             "reverseTrialStartedAt",
@@ -422,30 +485,5 @@ final class SettingsStoreTests: XCTestCase {
         )
     }
 
-    func testTrialReminderLeadDaysDefaultsToTwoDaysBefore() {
-        XCTAssertEqual(store.trialReminderLeadDays, TrialReminderLeadDays.standard)
-        XCTAssertEqual(store.trialReminderLeadDays, 2)
-    }
-
-    func testTrialReminderLeadDaysPersistsAcrossStores() {
-        store.trialReminderLeadDays = 3
-
-        XCTAssertEqual(SettingsStore(userDefaults: defaults).trialReminderLeadDays, 3)
-    }
-
-    func testTrialReminderLeadDaysFallsBackToDefaultForUnsupportedValues() {
-        for unsupported in [0, 1, 4, 7, -2] {
-            store.trialReminderLeadDays = unsupported
-            XCTAssertEqual(store.trialReminderLeadDays, 2, "\(unsupported) は既定へ丸める")
-        }
-    }
-
-    func testResetToDefaultsClearsTrialReminderLeadDays() {
-        store.trialReminderLeadDays = 3
-
-        store.resetToDefaults()
-
-        XCTAssertEqual(store.trialReminderLeadDays, 2)
-    }
 
 }

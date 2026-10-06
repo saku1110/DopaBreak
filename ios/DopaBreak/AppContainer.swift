@@ -1,25 +1,34 @@
+import ActivityKit
 import DopaBreakCore
 import DeviceActivity
 import FamilyControls
 import Foundation
 import ManagedSettings
 import Observation
+import UIKit
 import UserNotifications
 
-/// シールドから本体へ渡された保険通知を、要求単位で取り消すための出し口。
-protocol GateUnlockNotificationRemoving {
-    func removePendingNotificationRequests(withIdentifiers identifiers: [String])
-    func removeDeliveredNotifications(withIdentifiers identifiers: [String])
-}
+@MainActor
+private final class BackgroundTaskHandle {
+    private let application: UIApplication
+    private var identifier: UIBackgroundTaskIdentifier = .invalid
 
-extension UNUserNotificationCenter: GateUnlockNotificationRemoving {}
+    init(application: UIApplication) {
+        self.application = application
+    }
 
-enum GateGrantRecoveryPolicy {
-    static func shouldReconcile(
-        hasShieldSnapshot: Bool,
-        gateAllowed: Bool
-    ) -> Bool {
-        hasShieldSnapshot || gateAllowed
+    func begin() {
+        identifier = application.beginBackgroundTask { [weak self] in
+            MainActor.assumeIsolated {
+                self?.end()
+            }
+        }
+    }
+
+    func end() {
+        guard identifier != .invalid else { return }
+        application.endBackgroundTask(identifier)
+        identifier = .invalid
     }
 }
 
@@ -89,19 +98,21 @@ final class AppModel {
     let shield: ShieldController
     let nightShieldScheduler: NightShieldScheduler
     let deepFocusScheduler: DeepFocusScheduler
-    let gateShieldController: GateShieldController
-    let gateGrantController: GateGrantController
+    let reinterventionScheduler: ReinterventionScheduler
+    var reinterventionRevision = 0
+    /// 1日に開ける回数。操作と画面向けの読み出しは `AppModel+DailyOpenLimit.swift`。
+    let dailyOpenLimit: DailyOpenLimitController
+    /// 回数上限の状態が変わったことを画面へ配るための版番号。
+    var dailyOpenLimitRevision = 0
+    let reflectionNotificationScheduler: ReflectionNotificationScheduler
     let storeService: StoreService
     let funnelEventStore: FunnelEventStore
     let interventionEngine: InterventionEngine?
     private let logStore: SQLiteLogStore?
     private let settingsStore: SettingsStore
     private let clampBackupStore: TargetClampBackupStore
+    let catalogAllowanceStore: CatalogAllowanceStore
     private let snapshotStore: JSONSnapshotStore
-    private let gateAppSettingsStore: GateAppSettingsStore
-    private let gateLedgerStore: GateLedgerStore
-    private let gateUnlockRequestStore: GateUnlockRequestStore
-    private let gateUnlockNotificationCenter: any GateUnlockNotificationRemoving
     private let statsService: StatsService?
     private let lockSurfaceCoordinator: LockSurfaceCoordinator
     private let containerProvider: any ContainerProviding
@@ -123,7 +134,41 @@ final class AppModel {
     }
     var alertMessage: String?
 
+    /// 夜だけ強化が「画面では有効なのに 実際のブロックが始まっていない」状態か。
+    ///
+    /// 画面の解放はキャッシュ済みのProで通し、実際のブロックはStoreKitで権利を
+    /// 確かめられたときにしか始めない。この差は意図したものだが、差が開いているあいだは
+    /// 何も起きないまま画面だけが効いている顔をする。それを設定画面へ持ち出すための旗。
+    /// `syncShield()` を通るたびに引き直すので、接続が戻れば自動で下りる。
+    private(set) var showsNightBlockUnarmedNotice = false
+
+    /// 完全ブロック（ディープフォーカス）側の同じ旗。
+    private(set) var showsDeepFocusUnarmedNotice = false
+
     /// 開始待ちの一呼吸起動要求。カタログとシールド解除を同じ全画面表示へ送る。
+    var pendingOnboardingExperienceCatalogID: String?
+    private var isOnboardingExperienceActive = false
+
+    func takeOnboardingExperience(from settings: SettingsStore) -> SNSAppCatalogItem? {
+        guard !settings.onboardingExperienceCompleted, !isOnboardingExperienceActive,
+              let id = pendingOnboardingExperienceCatalogID,
+              let target = SNSAppCatalog.app(catalogID: id) else { return nil }
+        pendingOnboardingExperienceCatalogID = nil
+        isOnboardingExperienceActive = true
+        return target
+    }
+
+    /// アプリ内の体験画面から直接始める（ショートカットの自動化を待たない）。
+    func beginInAppOnboardingExperience() {
+        pendingOnboardingExperienceCatalogID = nil
+        isOnboardingExperienceActive = true
+    }
+
+    func finishOnboardingExperience() {
+        pendingOnboardingExperienceCatalogID = nil
+        isOnboardingExperienceActive = false
+    }
+
     var pendingInterventionTarget: InterventionTarget?
 
     /// 既存のAppIntent / URLスキーム呼び出し向けの互換窓口。
@@ -135,11 +180,13 @@ final class AppModel {
             return target.catalogID
         }
         set {
-            guard let newValue, let target = SNSAppCatalog.app(catalogID: newValue) else {
-                pendingInterventionTarget = nil
+            guard let newValue else {
+                if case .catalog = pendingInterventionTarget {
+                    pendingInterventionTarget = nil
+                }
                 return
             }
-            pendingInterventionTarget = .catalog(target)
+            requestStartIntervention(catalogID: newValue)
         }
     }
 
@@ -148,6 +195,9 @@ final class AppModel {
 
     /// 通知タップ（D1/D3/D7）からオートメーション設定ガイドを開く要求。SettingsViewが消費する。
     var pendingAutomationGuideRequest = false
+
+    /// ペイウォールでの購入後に対象アプリが追加され、設定ガイドの提示が必要なことを示す。
+    var pendingAutomationGuideAfterPurchase = false
 
     /// プラン系通知のタップから設定のプラン欄まで送る要求（docs/18 §2f）。
     /// プラン欄は設定の7セクション中5番目で初期表示に入らないため、タブを変えるだけでは着地しない。
@@ -166,23 +216,63 @@ final class AppModel {
     /// 書き込みのたびにここへ写して、SwiftUI側が `onChange` で追従できるようにする。
     private(set) var hasInterventionTargets = false
 
+    /// FamilyControlsの現在の認可状態と、完全ブロック対象を持つ有効ルールの写し。
+    private(set) var screenTimeAuthorizationStatus: AuthorizationStatus = .notDetermined
+    private(set) var blockTargetRuleCount = 0
+    var isBlockConfigured: Bool {
+        screenTimeAuthorizationStatus == .approved && blockTargetRuleCount > 0
+    }
+
+    /// 端末の設定でライブアクティビティが許可されているかの写し。
+    /// ロック画面の最初の確認で「許可しない」を選ぶとfalseになる。
+    /// `ActivityAuthorizationInfo` は@Observableではないため、ホームと完了画面が
+    /// 変化に気づけるようここへ写し、前面復帰ごとに取り直す。
+    private(set) var areLiveActivitiesAllowed: Bool
+    private let liveActivityAuthorization: () -> Bool
+
+    /// Paywall表示前にユーザーが選んだ操作。購入成立時だけ一度適用する。
+    var purchaseContinuation: PurchaseContinuation?
+
+    /// 対象から外れたアプリのShortcuts自動化が発火したときの案内。
+    var pendingNonTargetAutomation: NonTargetAutomation?
+
+    /// ロック画面テーマの現在値。正本はUserDefaultsのままだが、
+    /// computedのままだと@Observableが変更を配れないため写しを保持する。
+    private(set) var lockThemeSelection: LockTheme
+
+    /// 無料ユーザーがProテーマを選んだときの購入待ち選択。
+    /// 永続化せず、購入成立時にだけlockThemeSelectionへ確定する。
+    var pendingProThemeSelection: LockTheme?
+
+    /// 介入オーバーレイが画面に出ているか。ウォーム復帰時に
+    /// 背景シールドをいつ外してよいかの判断に使う。
+    var isInterventionOverlayPresented = false
+
     init(
         containerProvider: any ContainerProviding = DefaultContainerProvider(),
         settingsStore: SettingsStore? = nil,
         clampBackupStore: TargetClampBackupStore? = nil,
+        catalogAllowanceStore: CatalogAllowanceStore? = nil,
         nightShieldMonitoringCenter: (any NightShieldMonitoring)? = nil,
         deepFocusMonitoringCenter: (any DeepFocusMonitoring)? = nil,
         deepFocusNotificationCenter: (any DeepFocusSessionNotifying)? = nil,
-        gateGrantMonitoringCenter: (any GateGrantMonitoring)? = nil,
-        gateUnlockNotificationCenter: (any GateUnlockNotificationRemoving)? = nil,
+        reflectionNotificationCenter: (any ReflectionNotificationNotifying)? = nil,
+        reinterventionMonitoringCenter: (any DeepFocusMonitoring)? = nil,
+        dailyOpenLimitMonitoringCenter: (any DailyOpenLimitMonitoring)? = nil,
+        dailyOpenLimitShieldWriter: (any ShieldSettingsWriting)? = nil,
         automaticallyRefreshEntitlement: Bool = true,
         scheduleNotificationsOnInit: Bool = true,
+        screenTimeCenter: ScreenTimeCenter? = nil,
+        liveActivityAuthorization: @escaping () -> Bool = { ActivityAuthorizationInfo().areActivitiesEnabled },
         now: @escaping () -> Date = { Date() }
     ) {
         let resolvedSettingsStore = settingsStore ?? Self.makeSettingsStore()
         resolvedSettingsStore.migrateStoredValues()
         self.settingsStore = resolvedSettingsStore
+        self.lockThemeSelection = resolvedSettingsStore.lockTheme
         self.clampBackupStore = clampBackupStore ?? Self.makeClampBackupStore()
+        self.catalogAllowanceStore = catalogAllowanceStore
+            ?? ((try? CatalogAllowanceStore()) ?? CatalogAllowanceStore(userDefaults: .standard))
         self.containerProvider = containerProvider
         self.now = now
         if resolvedSettingsStore.firstLaunchDate == nil {
@@ -191,22 +281,16 @@ final class AppModel {
 
         let snapshotStore = JSONSnapshotStore(containerProvider: containerProvider)
         self.snapshotStore = snapshotStore
-        let resolvedGateAppSettingsStore = GateAppSettingsStore(snapshotStore: snapshotStore)
-        let resolvedGateLedgerStore = GateLedgerStore(snapshotStore: snapshotStore)
-        let resolvedGateUnlockRequestStore = GateUnlockRequestStore(snapshotStore: snapshotStore)
-        self.gateAppSettingsStore = resolvedGateAppSettingsStore
-        self.gateLedgerStore = resolvedGateLedgerStore
-        self.gateUnlockRequestStore = resolvedGateUnlockRequestStore
-        self.gateUnlockNotificationCenter = gateUnlockNotificationCenter
-            ?? UNUserNotificationCenter.current()
         let funnelEventStore = FunnelEventStore(snapshotStore: snapshotStore)
         self.funnelEventStore = funnelEventStore
         self.lockSurfaceCoordinator = LockSurfaceCoordinator()
+        self.liveActivityAuthorization = liveActivityAuthorization
+        self.areLiveActivitiesAllowed = liveActivityAuthorization()
         let resolvedRuleStore = RuleStore(snapshotStore: snapshotStore)
         self.goalStore = GoalStore(snapshotStore: snapshotStore)
         self.ruleStore = resolvedRuleStore
         self.targetStore = InterventionTargetStore(snapshotStore: snapshotStore)
-        self.screenTime = ScreenTimeCenter()
+        self.screenTime = screenTimeCenter ?? ScreenTimeCenter()
         let resolvedShield = ShieldController(ruleStore: resolvedRuleStore)
         self.shield = resolvedShield
         self.nightShieldScheduler = NightShieldScheduler(
@@ -226,22 +310,9 @@ final class AppModel {
             clearDeepFocusShield: { resolvedShield.clearDeepFocusShield() },
             now: now
         )
-        let resolvedGateShieldController = GateShieldController(
-            ruleStore: resolvedRuleStore,
-            ledgerStore: resolvedGateLedgerStore,
-            snapshotStore: GateShieldSnapshotStore(snapshotStore: snapshotStore),
-            now: now
-        )
-        self.gateShieldController = resolvedGateShieldController
-        self.gateGrantController = GateGrantController(
-            settingsStore: resolvedGateAppSettingsStore,
-            ledgerStore: resolvedGateLedgerStore,
-            requestStore: resolvedGateUnlockRequestStore,
-            monitoringCenter: gateGrantMonitoringCenter ?? DeviceActivityCenter(),
-            reapplyGate: { referenceDate in
-                try resolvedGateShieldController.reapply(now: referenceDate)
-            },
-            now: now
+        self.reinterventionScheduler = ReinterventionScheduler(store: ReinterventionStore(snapshotStore: snapshotStore), monitoring: reinterventionMonitoringCenter ?? DeviceActivityCenter(), now: now)
+        self.reflectionNotificationScheduler = ReflectionNotificationScheduler(
+            notificationCenter: reflectionNotificationCenter ?? UNUserNotificationCenter.current()
         )
         self.storeService = StoreService(
             funnelEventStore: funnelEventStore,
@@ -259,6 +330,20 @@ final class AppModel {
         } else {
             self.interventionEngine = nil
         }
+        self.dailyOpenLimit = DailyOpenLimitController(
+            settingsStore: resolvedSettingsStore,
+            ruleStore: resolvedRuleStore,
+            logStore: resolvedLogStore,
+            store: DailyOpenLimitStore(snapshotStore: snapshotStore),
+            monitoring: dailyOpenLimitMonitoringCenter ?? DeviceActivityCenter(),
+            shieldWriter: dailyOpenLimitShieldWriter ?? DailyOpenLimitController.makeShieldWriter(),
+            now: now
+        )
+        if let rules = try? ruleStore.allRules(), !rules.isEmpty || resolvedSettingsStore.pendingInterventionMode != nil {
+            resolvedSettingsStore.migrateBlockConfigurationIfNeeded(rules: rules)
+        }
+        resolvedSettingsStore.reconcileBlockEntitlement(isPro: storeService.isPro,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement)
         self.alertMessage = nil
         self.storeService.onPurchaseOrRestoreFailure = { [weak self] in
             guard let self else { return }
@@ -279,7 +364,11 @@ final class AppModel {
 
         // AppIntentは別プロセスでApp Groupへ要求を書いてから本体を前面化する。
         // View生成後のactive通知まで待つとホームが1フレーム見えるため、モデルを返す前に同期消費する。
-        consumePendingInterventionRequest(from: resolvedSettingsStore)
+        if resolvedSettingsStore.onboardingCompleted {
+            consumePendingInterventionRequest(from: resolvedSettingsStore)
+        } else {
+            consumeAutomationVerificationOnly(from: resolvedSettingsStore)
+        }
 
         // 完全ブロックは refresh() の中で同期する。起動直後は権利が未確定のため
         // ShieldSyncPolicy が「現状維持」を返し、確定後の refresh() で適用・解除が決まる。
@@ -303,6 +392,58 @@ final class AppModel {
 
     func recordFunnelEvent(_ name: FunnelEventName, detail: String? = nil) {
         try? funnelEventStore.record(name: name, detail: detail, at: now())
+        switch name {
+        case .onboardingCompleted:
+            AppleAdsMeasurement.shared.record(.onboardingCompleted)
+        case .automationVerified:
+            AppleAdsMeasurement.shared.record(.automationVerified)
+        default:
+            break
+        }
+    }
+
+    var currentDate: Date { now() }
+
+    func scheduleReflectionNotification(
+        for reflection: ReflectionLog,
+        appDisplayName: String,
+        declaredMinutes: Int
+    ) {
+        let backgroundTask = BackgroundTaskHandle(application: .shared)
+        backgroundTask.begin()
+        reflectionNotificationScheduler.schedule(
+            reflection: reflection,
+            appDisplayName: appDisplayName,
+            declaredMinutes: declaredMinutes,
+            isEnabled: settingsStore.reflectionNotificationEnabled,
+            now: now()
+        ) { [weak self] didSchedule in
+            Task { @MainActor in
+                if didSchedule {
+                    self?.reflectionNotificationScheduler.getNotificationAuthorizationStatus { [weak self] status in
+                        switch status {
+                        case .authorized, .provisional, .ephemeral:
+                            Task { @MainActor in
+                                self?.recordFunnelEvent(.reflectionNotificationScheduled)
+                            }
+                        case .notDetermined, .denied:
+                            break
+                        @unknown default:
+                            break
+                        }
+                    }
+                }
+                backgroundTask.end()
+            }
+        }
+    }
+
+    func cancelReflectionNotification() {
+        reflectionNotificationScheduler.cancel()
+    }
+
+    func removeDeliveredReflectionNotification() {
+        reflectionNotificationScheduler.removeDelivered()
     }
 
     func reviewPromptRequestDateIfEligible(sessionBlocked: Bool) -> Date? {
@@ -360,6 +501,17 @@ final class AppModel {
         return try statsService.reclaimedSeconds(from: start, to: end)
     }
 
+    func consecutiveDaysWithCancellations() throws -> Int {
+        guard let statsService else {
+            throw CoreError.fileSystem(
+                operation: "read",
+                path: "reclaimed_ledger",
+                message: "record store is unavailable"
+            )
+        }
+        return try statsService.consecutiveDaysWithCancellations(endingOn: now())
+    }
+
     func recordAppOpenedIfNeeded() {
         let recorder = DailyAppOpenRecorder(
             settingsStore: settingsStore,
@@ -372,15 +524,26 @@ final class AppModel {
         restartLiveActivity: Bool = false,
         scheduleNotifications: Bool = true
     ) {
+        screenTime.refresh()
+        screenTimeAuthorizationStatus = screenTime.authorizationStatus
+        refreshLiveActivityAuthorization()
+        catalogAllowanceStore.purgeExpired(at: now())
         // 権利の確定・ルールの変更・起動と復帰のすべてがここを通る。
         // 途中のデータ読み込みが失敗しても完全ブロックの同期だけは必ず走らせる。
         // do-catchの中に置くと、目標や記録の読み取りに失敗した端末で
         // Pro失効時の解除が丸ごとスキップされる。
         // 対象アプリの有無も同じ理由でdeferに置く。縮小・復元・全削除のどの経路を通っても
         // 最新の件数がクイックアクション側へ伝わるようにする。
+        // 廃止済み通知の掃除も、読み取り失敗で丸ごとスキップされないようにdeferに置く。
         defer {
+            lockSurfaceCoordinator.purgeRetiredNotifications()
             refreshInterventionTargetState()
+            refreshBlockConfigurationState()
             syncShield()
+        }
+
+        if lockThemeSelection != settingsStore.lockTheme {
+            lockThemeSelection = settingsStore.lockTheme
         }
 
         do {
@@ -406,6 +569,7 @@ final class AppModel {
 
     var lockSurfaceState: LockSurfaceState {
         var state = settingsStore.lockSurfaceState
+        state.theme = lockThemeSelection
         if !entitlementGate.lockThemeAllowed(state.theme) {
             state.theme = .e1
         }
@@ -416,7 +580,30 @@ final class AppModel {
     var liveLockTheme: LockTheme { lockSurfaceState.theme }
 
     /// ユーザーが選んで保存しているテーマ（無料でもProテーマになりうる）
-    var savedLockTheme: LockTheme { settingsStore.lockTheme }
+    var savedLockTheme: LockTheme { lockThemeSelection }
+
+    /// ピッカーと購入前サマリーに表示する選択。購入待ちを保存値より優先する。
+    var displayedLockThemeSelection: LockTheme {
+        pendingProThemeSelection ?? savedLockTheme
+    }
+
+    /// ロック画面テーマを保存し、掲出面と画面へ同時に反映する。
+    func updateLockTheme(_ theme: LockTheme) {
+        pendingProThemeSelection = nil
+        settingsStore.lockTheme = theme
+        lockThemeSelection = theme
+        refreshLockSurfaces(scheduleNotifications: false)
+    }
+
+    /// 購入成立後だけ、メモリ上のProテーマ選択を永続値へ確定する。
+    @discardableResult
+    func applyPendingProThemeSelectionIfNeeded(hasProEntitlement: Bool) -> Bool {
+        guard hasProEntitlement, let pendingProThemeSelection else {
+            return false
+        }
+        updateLockTheme(pendingProThemeSelection)
+        return true
+    }
 
     func refreshLockSurfaces(
         restartLiveActivity: Bool = false,
@@ -446,7 +633,6 @@ final class AppModel {
                 weeklySummary = nil
             }
             lockSurfaceCoordinator.rescheduleNotifications(
-                goals: goals,
                 state: state,
                 weeklySummary: weeklySummary,
                 retentionNotifications: retentionNotificationSchedules(),
@@ -474,6 +660,15 @@ final class AppModel {
     func rescheduleNotificationsAfterAuthorization() async {
         refreshLockSurfaces()
         await lockSurfaceCoordinator.waitForNotificationReschedule()
+    }
+
+    /// 端末のライブアクティビティ許可を取り直す。`refresh()` と、オンボーディング中も含む
+    /// アプリ全体の前面復帰から呼ぶ。設定アプリで切り替えて戻ってきた変化をここで拾う。
+    func refreshLiveActivityAuthorization() {
+        let allowed = liveActivityAuthorization()
+        if areLiveActivitiesAllowed != allowed {
+            areLiveActivitiesAllowed = allowed
+        }
     }
 
     /// 端末の許可状態と実際の掲出状況から、いまロック画面に目標が出ているかを返す。
@@ -550,7 +745,7 @@ final class AppModel {
     ///
     /// 適用条件は「権利が確定していて」「Proで」「対象を持つルールがある」こと。
     /// さらにどちらの強さも窓の中でしか出さない。夜だけ強化は就寝から起床まで、
-    /// ディープフォーカスは「いますぐ」で始めた回と週1本の予定（2026-08-17オーナー決定④）。
+    /// ディープフォーカスは「いますぐ」で始めた回と週に最大2本の予定（2026-08-17オーナー決定④）。
     /// 権利が確定していない間は適用も解除もしない。判断は `ShieldSyncPolicy` にまとめてある。
     ///
     /// 窓の境界そのものは拡張（各スケジューラが張る予定）が動かすが、
@@ -561,6 +756,11 @@ final class AppModel {
     /// プロセスをまたぐ完全な排他はできないため窓は残るが、解除を最後に置けば
     /// この経路を通るたびに剥がれ、次にアプリが前面へ来たときには必ず解除される。
     func syncShield() {
+        // 廃止済み常時ゲートが残した監視だけ、予定を張り直すより先に落とす。
+        // DeviceActivityの枠には上限があるため、旧アクティビティが居座ったまま下のrebuildが
+        // 新しい予定を登録すると、更新直後の初回だけ登録に失敗しうる。
+        // 冪等で、掃除が済んだあとは問い合わせもしない（`ShieldController`）。
+        shield.stopRetiredGateMonitoring()
         nightShieldScheduler.rebuild(
             entitlementGate: entitlementGate,
             hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
@@ -572,61 +772,220 @@ final class AppModel {
         shield.syncShield(
             entitlementGate: entitlementGate,
             hasConfirmedEntitlement: storeService.hasConfirmedEntitlement,
-            isNightWindow: isNightWindow,
+            isNightWindow: isArmedNightWindow,
             // 窓の外なら必ず解除へ倒れる。拡張の境界コールバックを取りこぼしても、
             // 前面へ戻ってきたこの一本で「終わったのに開けない」を必ず剥がす。
-            isDeepFocusWindowActive: deepFocusScheduler.isWindowActive,
-            isManualDeepFocusSessionActive: deepFocusScheduler.activeSession != nil
+            isDeepFocusWindowActive: deepFocusScheduler.isArmedWindowActive,
+            isManualDeepFocusSessionActive: deepFocusScheduler.isArmedSessionActive,
+            blockConfiguration: settingsStore.blockConfiguration
         )
-        // 控えが残る端末、またはキャッシュ上Proの端末では、権利確認の成否にかかわらず
-        // 期限回収を動かす。preserveするのは下の権利同期だけで、復旧層②は止めない。
-        if GateGrantRecoveryPolicy.shouldReconcile(
-            hasShieldSnapshot: snapshotStore.exists(.gateShieldSnapshot),
-            gateAllowed: entitlementGate.gateAllowed
-        ) {
-            try? gateGrantController.reconcile(now: now())
-        }
-        // 夜 → ディープフォーカス → 日常ゲートの順。Free確定時はここが最後に
-        // 専用ストアと控えを無条件解除し、アプリ別設定と台帳は残す。
-        gateShieldController.sync(
-            entitlementGate: entitlementGate,
+        // 回数上限は独立したストアと控えで動く。前面へ来るたびに、終わった窓を外し、
+        // 使い切ったのに控えが無い状態を直す。
+        dailyOpenLimit.sync(
+            isPro: entitlementGate.dailyOpenLimitAllowed,
             hasConfirmedEntitlement: storeService.hasConfirmedEntitlement
+        )
+        dailyOpenLimitRevision += 1
+        blockRevision += 1
+        if storeService.hasConfirmedEntitlement {
+            lockSurfaceCoordinator.updateBlockWindows(storeService.isPro ? BlockWindowStatus.active(
+                deepFocus: deepFocusScheduler.armedSnapshot,
+                night: try? snapshotStore.read(NightShieldSnapshot.self, from: .nightShieldSnapshot),
+                now: now(), calendar: .autoupdatingCurrent) : [])
+        }
+        refreshShieldArmingNotices()
+        syncReintervention()
+    }
+
+    /// 「画面では有効なのに実体が動いていない」状態を画面へ渡し直す。
+    ///
+    /// スケジューラは`@Observable`ではないため、ここで持ち替えないと設定画面が気づけない。
+    /// `syncShield()` の最後に必ず通す。権利が解決した次の同期で旗が下り、注意行も消える。
+    private func refreshShieldArmingNotices() {
+        let hasAttempted = storeService.hasResolvedEntitlement
+        showsNightBlockUnarmedNotice = ShieldArmingNoticePolicy.shouldShowUnarmedNotice(
+            outcome: nightShieldScheduler.lastRebuildOutcome,
+            hasAttemptedEntitlementResolution: hasAttempted
+        )
+        showsDeepFocusUnarmedNotice = ShieldArmingNoticePolicy.shouldShowUnarmedNotice(
+            outcome: deepFocusScheduler.lastRebuildOutcome,
+            hasAttemptedEntitlementResolution: hasAttempted
         )
     }
 
-    /// 前面復帰で終了済みの一時開放を回収する。境界通知を取りこぼした場合の復旧経路。
-    func reconcileGateGrantsOnForeground() {
-        guard GateGrantRecoveryPolicy.shouldReconcile(
-            hasShieldSnapshot: snapshotStore.exists(.gateShieldSnapshot),
-            gateAllowed: entitlementGate.gateAllowed
-        ) else {
-            return
+    var blockMonitoringNeedsAttention: Bool {
+        !storeService.hasConfirmedEntitlement || screenTimeAuthorizationStatus != .approved
+            || showsNightBlockUnarmedNotice || showsDeepFocusUnarmedNotice
+    }
+
+    var reinterventionNotificationsEnabled: Bool { settingsStore.reflectionNotificationEnabled }
+
+    var selectedReinterventionTargets: [SNSAppCatalogItem] {
+        ((try? targetStore.selectedCatalogIDs()) ?? []).compactMap { SNSAppCatalog.app(catalogID: $0) }
+    }
+
+    func reinterventionSession(catalogID: String) -> ReinterventionSession? {
+        try? reinterventionScheduler.store.read().sessions[catalogID]
+    }
+
+    func reinterventionSession(reflectionID: UUID) -> ReinterventionSession? {
+        try? reinterventionScheduler.store.read().sessions.values.first { $0.reflectionID == reflectionID }
+    }
+
+    func isReinterventionConnected(catalogID: String) -> Bool {
+        (try? reinterventionScheduler.store.read().selections[catalogID]) != nil
+    }
+
+    func connectReintervention(catalogID: String, selection: FamilyActivitySelection) throws {
+        guard selection.applicationTokens.count == 1, selection.categoryTokens.isEmpty,
+              selection.webDomainTokens.isEmpty, isCurrentInterventionTarget(catalogID: catalogID) else { throw ReinterventionError.selection }
+        if let token = selection.applicationTokens.first, Application(token: token).bundleIdentifier == Bundle.main.bundleIdentifier { throw ReinterventionError.selection }
+        let data = try JSONEncoder().encode(selection)
+        try reinterventionScheduler.store.transaction { state in
+            for (id, existing) in state.selections where id != catalogID {
+                if !ReinterventionShield.tokens(in: existing).isDisjoint(with: selection.applicationTokens) { throw ReinterventionError.duplicate }
+            }
+            // Reconnecting must not silently reset a running time budget.
+            guard state.sessions[catalogID] == nil else { throw ReinterventionError.monitoring }
+            state.selections[catalogID] = data
         }
-        try? gateGrantController.reconcile(now: now())
+        reinterventionRevision += 1
+    }
+
+    func finishReintervention(catalogID: String, disconnect: Bool = false) throws {
+        if let id = reinterventionSession(catalogID: catalogID)?.reflectionID { try interventionEngine?.skipReflection(id: id) }
+        try reinterventionScheduler.finish(catalogID: catalogID, disconnect: disconnect)
+        reflectionNotificationScheduler.cancelWorkCheckIn(catalogID: catalogID)
+        catalogAllowanceStore.revoke(catalogID: catalogID)
+        reinterventionRevision += 1
+    }
+
+    func requestEarlyReinterventionReview(catalogID: String) throws {
+        try reinterventionScheduler.finishEarly(catalogID: catalogID)
+        catalogAllowanceStore.revoke(catalogID: catalogID)
+        syncReintervention()
+    }
+
+    func continueWithoutReintervention(catalogID: String) throws {
+        guard isCurrentInterventionTarget(catalogID: catalogID), reinterventionSession(catalogID: catalogID) != nil else { return }
+        try finishReintervention(catalogID: catalogID)
+        cancelReflectionNotification()
+        // A one-time routing request, not a persistent allowance. The next SNS open asks again.
+        requestPassThrough(catalogID: catalogID, until: now().addingTimeInterval(60))
+    }
+
+    func resumeAfterReintervention(catalogID: String) throws {
+        try reinterventionScheduler.store.transaction { $0.sessions[catalogID]?.resumeRequested = true }
+        requestStartIntervention(catalogID: catalogID)
+    }
+
+    func pendingReinterventionReflection() -> ReflectionLog? {
+        guard let sessions = try? reinterventionScheduler.store.read().sessions.values else { return nil }
+        for session in sessions.sorted(by: { ($0.reachedAt ?? .distantPast) > ($1.reachedAt ?? .distantPast) }) {
+            guard session.reachedAt != nil, !session.resumeRequested, let id = session.reflectionID else { continue }
+            if let reflection = try? logStore?.reflection(id: id) { return reflection }
+        }
+        return nil
+    }
+
+    func syncReinterventionNotificationPreference() {
+        do {
+            try reinterventionScheduler.store.transaction { state in
+                for id in Array(state.sessions.keys) {
+                    state.sessions[id]?.notificationsEnabled = settingsStore.reflectionNotificationEnabled
+                }
+            }
+        } catch { alertMessage = ReinterventionError.monitoring.localizedDescription }
+    }
+
+    private func syncReintervention() {
+        do {
+            let selected = Set(try targetStore.selectedCatalogIDs())
+            let sessions = try reinterventionScheduler.store.read().sessions
+            for (catalogID, session) in sessions {
+                if session.expiresAt <= now() || !selected.contains(catalogID) || screenTimeAuthorizationStatus != .approved {
+                    try finishReintervention(catalogID: catalogID)
+                } else if !session.isBlocking, session.reachedAt != nil {
+                    try finishReintervention(catalogID: catalogID)
+                } else if let reachedAt = session.reachedAt, let id = session.reflectionID {
+                    try logStore?.makeReflectionReady(id: id, at: reachedAt)
+                    catalogAllowanceStore.revoke(catalogID: catalogID)
+                }
+            }
+            // A removal or Free downgrade also disconnects catalog entries no longer selected.
+            try reinterventionScheduler.store.transaction { state in
+                state.selections = state.selections.filter { selected.contains($0.key) }
+                for id in Array(state.sessions.keys) {
+                    state.sessions[id]?.notificationsEnabled = settingsStore.reflectionNotificationEnabled
+                }
+            }
+            ReinterventionShield.sync(store: reinterventionScheduler.store, now: now())
+            reinterventionRevision += 1
+        } catch {
+            alertMessage = ReinterventionError.monitoring.localizedDescription
+        }
+    }
+
+    private(set) var blockRevision = 0
+
+    var blockConfiguration: BlockConfiguration {
+        _ = blockRevision
+        return settingsStore.blockConfiguration
+    }
+
+    func updateBlockTrigger(_ trigger: BlockTrigger, enabled: Bool) throws {
+        guard entitlementGate.strictModeAllowed else { return }
+        guard deepFocusSession?.isStrict != true else { throw StrictSessionChangeError() }
+        var configuration = settingsStore.blockConfiguration
+        if enabled { configuration.blockTriggers.insert(trigger) }
+        else { configuration.blockTriggers.remove(trigger) }
+        configuration.reconcileEntitlement(isPro: storeService.isPro,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement)
+        settingsStore.blockConfiguration = configuration
+        if trigger == .manual && !enabled { deepFocusScheduler.endSession() }
+        syncShield()
     }
 
     /// 「いますぐ」で完全ブロックを始める。
     /// - Parameter durationMinutes: `nil` なら「自分で戻すまで」。
-    func startDeepFocusSession(durationMinutes: Int?) {
-        deepFocusScheduler.startSession(durationMinutes: durationMinutes)
+    func startDeepFocusSession(durationMinutes: Int?, isStrict: Bool = false) {
+        guard storeService.isPro, storeService.hasConfirmedEntitlement,
+              settingsStore.blockConfiguration.allows(.manual) else { return }
+        deepFocusScheduler.startSession(durationMinutes: durationMinutes, isStrict: isStrict)
         syncShield()
     }
 
     /// 進行中の回をその場で終わらせる。
-    func endDeepFocusSession() {
-        deepFocusScheduler.endSession()
+    func endDeepFocusSession(emergency: Bool = false) {
+        deepFocusScheduler.endSession(emergency: emergency)
         syncShield()
     }
 
-    /// 週1本の予定を書き換える。書いたあと必ず同期して、いま窓に入ったかを反映する。
-    func updateDeepFocusSchedule(_ schedule: DeepFocusSchedule) {
-        settingsStore.deepFocusSchedule = schedule
+    /// 週に最大2本の予定を書き換える。書いたあと必ず同期して、いま窓に入ったかを反映する。
+    func updateDeepFocusSchedule(_ schedule: DeepFocusSchedule, index: Int = 0) {
+        var schedules = settingsStore.deepFocusSchedules
+        guard (0..<2).contains(index) else { return }
+        if index == schedules.count { schedules.append(schedule) } else { schedules[index] = schedule }
+        settingsStore.deepFocusSchedules = schedules
         syncShield()
+    }
+
+    var deepFocusSchedules: [DeepFocusSchedule] { settingsStore.deepFocusSchedules }
+
+    func removeAdditionalDeepFocusSchedule() {
+        settingsStore.deepFocusSchedules = [settingsStore.deepFocusSchedule]
+        syncShield()
+    }
+
+    var deepFocusScheduleWindowEnd: Date? {
+        DeepFocusWindowPolicy.scheduleWindowEnd(now: now(), schedules: deepFocusSchedules, calendar: .autoupdatingCurrent)
     }
 
     var deepFocusSchedule: DeepFocusSchedule {
         settingsStore.deepFocusSchedule
     }
+
+    func requestEmergencyDeepFocusExit() { deepFocusScheduler.requestEmergencyExit() }
 
     var deepFocusSession: DeepFocusSession? {
         deepFocusScheduler.activeSession
@@ -641,7 +1000,7 @@ final class AppModel {
     var isDeepFocusScheduleWindowActive: Bool {
         DeepFocusWindowPolicy.isScheduleActive(
             now: now(),
-            schedule: settingsStore.deepFocusSchedule,
+            schedules: settingsStore.deepFocusSchedules,
             calendar: .autoupdatingCurrent
         )
     }
@@ -654,6 +1013,11 @@ final class AppModel {
         )
     }
 
+    private var isArmedNightWindow: Bool {
+        guard let snapshot = try? snapshotStore.read(NightShieldSnapshot.self, from: .nightShieldSnapshot) else { return false }
+        return NightWindowPolicy.isNight(now: now(), snapshot: snapshot, calendar: .autoupdatingCurrent)
+    }
+
     /// いまが夜（就寝から起床まで）か。夜専用の時間帯は持たず、設定済みの就寝・起床をそのまま使う。
     private var isNightWindow: Bool {
         NightWindowPolicy.isNight(
@@ -664,21 +1028,28 @@ final class AppModel {
         )
     }
 
-    /// 「止める強さ」で選んだモードを、選択済みの対象アプリのルールへ実際に届ける。
-    ///
-    /// ルールは介入フローの初回起動まで作られないため、選択だけを保存しても
-    /// モードが `.standard` のまま固定されてしまう。ここで先にルールを作り、
-    /// 既存のルールにはモードを上書きして、選んだ強さが必ず届くようにする。
-    ///
-    /// 1件でも書けなければ throw する。呼び出し側は成功したときだけ
-    /// 保存済みの選択（`pendingInterventionMode`）を進めること。
-    /// 保存だけ先に進めると、ルールは標準のままなのに画面はディープフォーカスと表示され、
-    /// 「Proにしたのに止まらない」状態が残る。
-    ///
-    /// 全ルールを同じ値へ揃えるだけの操作なので何度呼んでも同じ結果になる。
-    /// 途中で失敗しても、選択が進んでいなければ次の操作でそのまま揃え直せる。
+    /// 一呼吸の対象ルールを用意してから、購入結果に応じて選択済みブロックを適用する。
+    /// Pro未購入でもトリガー選択は保持し、後日の購入で復帰できるようにする。
+    func applyBlockPreference(_ enabled: Bool) throws {
+        guard deepFocusSession?.isStrict != true else { throw StrictSessionChangeError() }
+        for catalogID in try targetStore.selectedCatalogIDs() {
+            guard let target = SNSAppCatalog.app(catalogID: catalogID) else { continue }
+            // The free breathing rule stays independent of every block trigger.
+            _ = try ruleStore.catalogTargetRule(for: target)
+        }
+        settingsStore.selectBlockPreference(enabled)
+        settingsStore.reconcileBlockEntitlement(isPro: storeService.isPro,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement)
+        if !enabled { deepFocusScheduler.endSession() }
+        syncShield()
+    }
+
+    /// 旧モードのルールを扱う互換入口。現行UIはapplyBlockPreferenceを使用する。
     func applyInterventionMode(_ mode: InterventionMode) throws {
-        // 画面の列挙漏れをここでも落とす。未実装のモードは保存させない。
+        guard deepFocusSession?.isStrict != true else { throw StrictSessionChangeError() }
+        settingsStore.blockConfiguration = .migrating(mode)
+        settingsStore.reconcileBlockEntitlement(isPro: storeService.isPro, hasConfirmedEntitlement: storeService.hasConfirmedEntitlement)
+        // Compatibility entry point for onboarding and purchase continuation.
         let mode = mode.persistable
         let catalogIDs = try targetStore.selectedCatalogIDs()
 
@@ -734,17 +1105,14 @@ final class AppModel {
         // 残すと、ルールを消したあとの夜境界で拡張が同じ対象を張り直す。
         // 順序は「監視停止と控え削除 → 解除」。解除を先に置くと、消しきる前の境界で
         // 拡張が張り直したぶんが残る。
+        try? reinterventionScheduler.reset()
+        for app in SNSAppCatalog.all { reflectionNotificationScheduler.cancelWorkCheckIn(catalogID: app.catalogID) }
         nightShieldScheduler.stopAndClear()
         deepFocusScheduler.stopAndClear()
-        gateGrantController.stopAllMonitoring()
-        // LocalDataResetterも同じ4ファイルを消すが、その前段が失敗してもゲートだけは
-        // 独立してbest-effort削除する。JSONSnapshotStore.removeは欠損時no-opなので再削除は安全。
-        try? gateAppSettingsStore.remove()
-        try? gateLedgerStore.remove()
-        try? gateUnlockRequestStore.remove()
-        try? gateShieldController.clearAllData()
+        dailyOpenLimit.stopAndClear()
         shield.clearShield()
         lockSurfaceCoordinator.cancelAllNotifications()
+        cancelReflectionNotification()
 
         do {
             try LocalDataResetter(
@@ -881,16 +1249,52 @@ final class AppModel {
         }
     }
 
+    var isInterventionSuppressedByHardBlock: Bool {
+        ReinterventionShield.suppressesIntervention(snapshotStore: snapshotStore, now: now())
+    }
+
     /// アプリ起動要求を受け取る（AppIntent / dopabreak:// URL 経由）。
     func requestStartIntervention(catalogID: String) {
+        guard !isInterventionSuppressedByHardBlock else {
+            pendingInterventionTarget = nil
+            return
+        }
         guard let target = SNSAppCatalog.app(catalogID: catalogID) else {
+            return
+        }
+        if let session = reinterventionSession(catalogID: catalogID), session.isBlocking, session.reachedAt != nil, !session.resumeRequested {
+            pendingInterventionTarget = nil
+            syncReintervention()
             return
         }
         pendingInterventionTarget = .catalog(target)
     }
 
-    func requestStartIntervention(gateTokenData tokenData: Data, ruleId: UUID) {
-        pendingInterventionTarget = .gateToken(tokenData: tokenData, ruleId: ruleId)
+    func requestPassThrough(catalogID: String, until: Date) {
+        guard !isInterventionSuppressedByHardBlock else {
+            pendingInterventionTarget = nil
+            return
+        }
+        guard let target = SNSAppCatalog.app(catalogID: catalogID) else {
+            return
+        }
+        guard until > now() else {
+            requestStartIntervention(catalogID: catalogID)
+            return
+        }
+        recordFunnelEvent(.interventionPassThrough, detail: catalogID)
+        pendingInterventionTarget = .catalogPassThrough(target, until: until)
+    }
+
+    /// 非同期の提示callbackが見ていた要求だけを破棄する。
+    /// callback後に別要求へ置き換わっていた場合は新しい要求を保持する。
+    @discardableResult
+    func discardPendingInterventionTarget(ifMatching target: InterventionTarget) -> Bool {
+        guard pendingInterventionTarget == target else {
+            return false
+        }
+        pendingInterventionTarget = nil
+        return true
     }
 
     func isCurrentInterventionTarget(catalogID: String) -> Bool {
@@ -902,182 +1306,299 @@ final class AppModel {
     }
 
     func consumePendingIntervention() -> String? {
-        let value = pendingInterventionCatalogID
+        guard case .catalog(let target) = pendingInterventionTarget else {
+            return nil
+        }
         pendingInterventionTarget = nil
-        return value
-    }
-
-    func consumePendingInterventionTarget() -> InterventionTarget? {
-        let value = pendingInterventionTarget
-        pendingInterventionTarget = nil
-        return value
-    }
-
-    /// シールド拡張が残した要求を一度だけ消費し、対応するルールで一呼吸を開く。
-    func consumePendingGateUnlock() {
-        let referenceDate = now()
-        guard let request = try? gateUnlockRequestStore.request() else {
-            return
-        }
-
-        let expiresAt = request.requestedAt.addingTimeInterval(
-            GateConstants.pendingRequestTTL
-        )
-        if expiresAt <= referenceDate {
-            guard (try? gateUnlockRequestStore.clear(matching: request.id)) == true else {
-                return
-            }
-            removeGateUnlockNotifications(requestID: request.id)
-            return
-        }
-        // 未来時刻や一時的なルール読み取り失敗では要求を残し、次のactiveで再試行する。
-        guard request.requestedAt <= referenceDate,
-              let rules = try? ruleStore.allRules() else {
-            return
-        }
-
-        let gateRules = rules.filter { !$0.activitySelectionData.isEmpty }
-        guard !gateRules.isEmpty else {
-            return
-        }
-
-        let decoder = JSONDecoder()
-        let requestedToken = try? GateTokenCoding.decode(
-            ApplicationToken.self,
-            from: request.tokenData
-        )
-        let matchingRule = requestedToken.flatMap { token in
-            gateRules.first { rule in
-                guard let selection = try? decoder.decode(
-                    FamilyActivitySelection.self,
-                    from: rule.activitySelectionData
-                ) else {
-                    return false
-                }
-                return selection.applicationTokens.contains(token)
-            }
-        }
-        let rule = matchingRule ?? gateRules[0]
-        guard (try? gateUnlockRequestStore.clear(matching: request.id)) == true else {
-            return
-        }
-        removeGateUnlockNotifications(requestID: request.id)
-        requestStartIntervention(gateTokenData: request.tokenData, ruleId: rule.id)
-    }
-
-    private func removeGateUnlockNotifications(requestID: UUID) {
-        let identifiers = [GateConstants.unlockNotificationIdentifier(for: requestID)]
-        gateUnlockNotificationCenter.removePendingNotificationRequests(
-            withIdentifiers: identifiers
-        )
-        gateUnlockNotificationCenter.removeDeliveredNotifications(
-            withIdentifiers: identifiers
-        )
+        return target.catalogID
     }
 
     /// AppIntentがApp Groupへ残した要求を、本体プロセスの単一消費点で処理する。
-    func consumePendingInterventionRequest(from settingsStore: SettingsStore) {
+    func consumePendingInterventionRequest(
+        from settingsStore: SettingsStore,
+        suppressPassThrough: Bool = false
+    ) {
         let requestedCatalogID = settingsStore.pendingStartInterventionCatalogID
         let shouldAutoResolve = settingsStore.pendingStartInterventionAutoResolve
+        let requestedAt = settingsStore.pendingStartInterventionRequestedAt
         guard requestedCatalogID != nil || shouldAutoResolve else {
             return
         }
         settingsStore.pendingStartInterventionCatalogID = nil
         settingsStore.pendingStartInterventionAutoResolve = false
+        settingsStore.pendingStartInterventionRequestedAt = nil
 
         let selectedCatalogIDs = (try? targetStore.selectedCatalogIDs()) ?? []
+        if requestedCatalogID == nil,
+           Set(selectedCatalogIDs.filter { SNSAppCatalog.contains(catalogID: $0) }).count > 1 {
+            alertMessage = String(localized: "automation_guide.error.select_app", defaultValue: "ショートカットの「DopaBreakで一呼吸」の「アプリ」に、起動するSNSを指定してください。対象が複数あるため自動では判別できません。")
+        }
         switch InterventionTargetResolutionPolicy.resolve(
             requested: requestedCatalogID,
             selected: selectedCatalogIDs
         ) {
         case .target(let catalogID):
-            consumeInterventionRequest(catalogID: catalogID, settingsStore: settingsStore)
+            markAutomationVerifiedIfNeeded(catalogID: catalogID, settingsStore: settingsStore)
+            guard shouldConsumeAutomationRequest(
+                catalogID: catalogID,
+                requestedAt: requestedAt,
+                settingsStore: settingsStore
+            ) else {
+                return
+            }
+            consumeInterventionRequest(
+                catalogID: catalogID,
+                settingsStore: settingsStore,
+                suppressPassThrough: suppressPassThrough
+            )
         case .none:
             break
         }
     }
 
+    /// オンボーディング中の発火を検証し、permission画面が提示する体験用に保留する。
+    /// 同じApp Group要求を通常経路と競合しない形で一度だけ消費する。
+    @discardableResult
+    func consumeAutomationVerificationOnly(from settingsStore: SettingsStore) -> String? {
+        let requestedCatalogID = settingsStore.pendingStartInterventionCatalogID
+        let shouldAutoResolve = settingsStore.pendingStartInterventionAutoResolve
+        let requestedAt = settingsStore.pendingStartInterventionRequestedAt
+        guard requestedCatalogID != nil || shouldAutoResolve else {
+            return nil
+        }
+        settingsStore.pendingStartInterventionCatalogID = nil
+        settingsStore.pendingStartInterventionAutoResolve = false
+        settingsStore.pendingStartInterventionRequestedAt = nil
+
+        let selectedCatalogIDs = (try? targetStore.selectedCatalogIDs()) ?? []
+        if requestedCatalogID == nil,
+           Set(selectedCatalogIDs.filter { SNSAppCatalog.contains(catalogID: $0) }).count > 1 {
+            alertMessage = String(localized: "automation_guide.error.select_app", defaultValue: "ショートカットの「DopaBreakで一呼吸」の「アプリ」に、起動するSNSを指定してください。対象が複数あるため自動では判別できません。")
+        }
+        guard case .target(let catalogID) = InterventionTargetResolutionPolicy.resolve(
+            requested: requestedCatalogID,
+            selected: selectedCatalogIDs
+        ) else {
+            return nil
+        }
+        markAutomationVerifiedIfNeeded(catalogID: catalogID, settingsStore: settingsStore)
+        guard shouldConsumeAutomationRequest(
+            catalogID: catalogID,
+            requestedAt: requestedAt,
+            settingsStore: settingsStore
+        ) else {
+            return nil
+        }
+        if !settingsStore.onboardingExperienceCompleted, !isOnboardingExperienceActive {
+            pendingOnboardingExperienceCatalogID = catalogID
+        }
+        return catalogID
+    }
+
     /// URLスキームを含む本体内の起動要求を、検収記録とともに処理する。
-    func consumeInterventionRequest(catalogID: String, settingsStore: SettingsStore) {
-        guard let target = SNSAppCatalog.app(catalogID: catalogID) else {
+    func consumeInterventionRequest(
+        catalogID: String,
+        settingsStore: SettingsStore,
+        suppressPassThrough: Bool = false
+    ) {
+        guard SNSAppCatalog.contains(catalogID: catalogID) else {
             return
         }
-        if !settingsStore.isAutomationVerified(catalogID: catalogID) {
-            settingsStore.markAutomationVerified(catalogID: catalogID)
-            recordFunnelEvent(.automationVerified, detail: catalogID)
-            lockSurfaceCoordinator.cancelActivationNotifications()
-        }
-        // 検収は先に確定する。一時開放中でもショートカットが正しく発火した事実は失わない。
-        // 介入の抑止自体は対象トークンを問わず、進行中grantが1件でもあれば全体へ適用する。
-        guard !gateGrantController.hasActiveGrant(at: now()) else {
+        markAutomationVerifiedIfNeeded(catalogID: catalogID, settingsStore: settingsStore)
+        guard !isInterventionSuppressedByHardBlock else {
+            pendingInterventionTarget = nil
             return
         }
-        guard let selectedCatalogIDs = try? targetStore.selectedCatalogIDs(),
-              selectedCatalogIDs.contains(catalogID) else {
+        guard let selectedCatalogIDs = try? targetStore.selectedCatalogIDs() else {
             return
         }
-        if let interventionEngine {
-            try? interventionEngine.reshieldIfExpired()
-            if let rule = try? ruleStore.catalogTargetRule(for: target),
-               let state = try? interventionEngine.currentState(),
-               state.hasActiveTemporaryAllowance(at: now(), for: rule.id) {
+        guard selectedCatalogIDs.contains(catalogID) else {
+            let wasClamped = clampBackupStore.backup?.originalCatalogIDs.contains(catalogID) == true
+            let reason: NonTargetAutomationReason = wasClamped ? .clampedByEntitlement : .removed
+            pendingNonTargetAutomation = NonTargetAutomation(catalogID: catalogID, reason: reason)
+            recordFunnelEvent(.automationNonTargetShown, detail: reason.rawValue)
+            return
+        }
+        if let session = reinterventionSession(catalogID: catalogID), session.reachedAt != nil {
+            requestStartIntervention(catalogID: catalogID)
+            return
+        }
+        if let until = catalogAllowanceStore.activeAllowance(catalogID: catalogID, at: now()) {
+            guard !suppressPassThrough else {
                 return
             }
+            requestPassThrough(catalogID: catalogID, until: until)
+            return
         }
         requestStartIntervention(catalogID: catalogID)
     }
 
-    func gateAppSetting(for tokenData: Data) -> GateAppSetting {
-        (try? gateAppSettingsStore.setting(for: tokenData))
-            ?? GateDefaults.setting(for: tokenData)
-    }
-
-    func saveGateAppSetting(
-        tokenData: Data,
-        dailyOpenLimit: Int?,
-        sessionMinutes: Int,
-        cooldownMinutes: Int
-    ) throws {
-        let referenceDate = now()
-        var snapshot = try gateAppSettingsStore.snapshot()
-        let setting = GateAppSetting(
-            tokenData: tokenData,
-            dailyOpenLimit: dailyOpenLimit,
-            sessionMinutes: sessionMinutes,
-            cooldownMinutes: cooldownMinutes,
-            updatedAt: referenceDate
-        )
-        if let index = snapshot.settings.firstIndex(where: { $0.tokenData == tokenData }) {
-            snapshot.settings[index] = setting
-        } else {
-            snapshot.settings.append(setting)
+    private func shouldConsumeAutomationRequest(
+        catalogID: String,
+        requestedAt: Date?,
+        settingsStore: SettingsStore
+    ) -> Bool {
+        switch AutomationRequestPolicy.decision(
+            requestedCatalogID: catalogID,
+            requestedAt: requestedAt,
+            now: now(),
+            lastSelfOpenedCatalogID: settingsStore.lastSelfOpenedCatalogID,
+            lastSelfOpenedAt: settingsStore.lastSelfOpenedAt
+        ) {
+        case .consume:
+            return true
+        case .discardStale:
+            recordFunnelEvent(.automationRequestDiscarded, detail: "stale")
+            return false
+        case .discardSelfOpen:
+            recordFunnelEvent(.automationRequestDiscarded, detail: "self_open")
+            settingsStore.lastSelfOpenedCatalogID = nil
+            settingsStore.lastSelfOpenedAt = nil
+            return false
         }
-        snapshot.updatedAt = referenceDate
-        try gateAppSettingsStore.save(snapshot)
-        try gateGrantController.reconcile(now: referenceDate)
-        syncShield()
     }
 
-    func canGrantGate(tokenData: Data) throws -> Result<Void, GateDenial> {
-        try gateGrantController.validate(tokenData: tokenData)
+    /// 自動化の発火を確認できているアプリ。対象から外した直後の案内判定に使う。
+    var verifiedAutomationCatalogIDs: [String] {
+        settingsStore.verifiedAutomationCatalogIDs
     }
 
-    @discardableResult
-    func grantGate(tokenData: Data, ruleId: UUID, minutes: Int) throws -> GateGrant {
-        try gateGrantController.grant(
-            tokenData: tokenData,
-            ruleId: ruleId,
-            minutes: minutes
-        )
+    /// 本体からそのアプリを開いたことを記録する。
+    ///
+    /// 開いた先で自動化がもう一度発火しても、`AutomationRequestPolicy` が
+    /// 自己起動として捨てられるようにするための記録。
+    /// `settingsStore` が private なので、外の画面はこの窓口から書く。
+    func markSelfOpened(catalogID: String) {
+        settingsStore.lastSelfOpenedCatalogID = catalogID
+        settingsStore.lastSelfOpenedAt = now()
+    }
+
+    private func markAutomationVerifiedIfNeeded(
+        catalogID: String,
+        settingsStore: SettingsStore
+    ) {
+        guard SNSAppCatalog.contains(catalogID: catalogID),
+              !settingsStore.isAutomationVerified(catalogID: catalogID) else {
+            return
+        }
+        settingsStore.markAutomationVerified(catalogID: catalogID)
+        recordFunnelEvent(.automationVerified, detail: catalogID)
+        lockSurfaceCoordinator.cancelActivationNotifications()
     }
 
     func setTargetCatalogIDs(_ catalogIDs: [String]) throws {
+        let previousCatalogIDs = try targetStore.selectedCatalogIDs()
         try targetStore.setTargets(catalogIDs)
+        for removedCatalogID in Set(previousCatalogIDs).subtracting(catalogIDs) {
+            catalogAllowanceStore.revoke(catalogID: removedCatalogID)
+        }
         settingsStore.targetAppClampKeptCatalogID = nil
         // 自分で選び直したのだから、縮小前の並びへ勝手に戻してはいけない。
         clampBackupStore.clear()
         refreshInterventionTargetState()
         refreshLockSurfaces()
+    }
+
+    @discardableResult
+    func applyPurchaseContinuationIfNeeded() -> Bool {
+        guard storeService.isPro else { return false }
+        settingsStore.reconcileBlockEntitlement(isPro: storeService.isPro,
+            hasConfirmedEntitlement: storeService.hasConfirmedEntitlement)
+        blockRevision += 1
+        defer { purchaseContinuation = nil }
+        do {
+            if case .addTarget = purchaseContinuation?.action {
+                try reconcileSelectedTargetsWithEntitlement()
+            }
+            let selectedCatalogIDs = try targetStore.selectedCatalogIDs()
+            guard let action = PurchaseContinuationPolicy.action(
+                for: purchaseContinuation,
+                isPro: true,
+                canAddTarget: entitlementGate.canAddTargetTokens(
+                    currentCount: selectedCatalogIDs.count
+                ),
+                selectedCatalogIDs: selectedCatalogIDs,
+                now: now()
+            ) else {
+                return false
+            }
+            switch action {
+            case .addTargets(let catalogIDs):
+                try setTargetCatalogIDs(catalogIDs)
+                pendingAutomationGuideAfterPurchase = true
+            case .applyMode(let mode):
+                try applyBlockPreference(mode != .standard)
+            }
+            return true
+        } catch {
+            alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
+            return false
+        }
+    }
+
+    func requestScreenTimeAuthorization() async -> Bool {
+        let granted = await screenTime.requestAuthorization()
+        screenTimeAuthorizationStatus = screenTime.authorizationStatus
+        return granted
+    }
+
+    func refreshScreenTimeAuthorizationStatus() {
+        screenTime.refresh()
+        screenTimeAuthorizationStatus = screenTime.authorizationStatus
+    }
+
+    @discardableResult
+    func saveBlockedAppSelection(
+        _ selection: FamilyActivitySelection,
+        mode: InterventionMode
+    ) -> Bool {
+        guard deepFocusSession?.isStrict != true else {
+            alertMessage = StrictSessionChangeError().localizedDescription
+            return false
+        }
+        guard storeService.isPro else { return false }
+        let isSelectionEmpty = selection.applicationTokens.isEmpty
+            && selection.categoryTokens.isEmpty
+            && selection.webDomainTokens.isEmpty
+
+        do {
+            let existingRule = try ruleStore.allRules().first { !$0.activitySelectionData.isEmpty }
+            if let existingRule {
+                if isSelectionEmpty {
+                    try ruleStore.deleteRule(id: existingRule.id)
+                } else {
+                    let data = try JSONEncoder().encode(selection)
+                    try ruleStore.saveFamilyActivitySelection(
+                        data,
+                        name: existingRule.name,
+                        mode: mode,
+                        defaultDurationMinutes: existingRule.defaultDurationMinutes,
+                        ruleId: existingRule.id
+                    )
+                }
+            } else if !isSelectionEmpty {
+                let data = try JSONEncoder().encode(selection)
+                try ruleStore.saveFamilyActivitySelection(data, name: "SNS", mode: mode)
+            }
+            refreshBlockConfigurationState()
+            syncShield()
+            return true
+        } catch CoreError.validation(let message) {
+            alertMessage = message
+            return false
+        } catch {
+            alertMessage = String(localized: "settings.error.data_save", defaultValue: "データを保存できませんでした")
+            return false
+        }
+    }
+
+    func ensureWakeSleepDefaults() {
+        if settingsStore.wakeTimeMinutes == nil {
+            settingsStore.wakeTimeMinutes = 420
+        }
+        if settingsStore.bedTimeMinutes == nil {
+            settingsStore.bedTimeMinutes = 1_380
+        }
     }
 
     /// 保存済みの対象アプリ件数を観測できる状態へ写す。
@@ -1094,21 +1615,9 @@ final class AppModel {
         hasInterventionTargets = hasTargets
     }
 
-    func todayAttemptCountForCurrentRule(catalogID: String) -> Int {
-        guard let logStore else {
-            return todayAttemptCount
-        }
-        guard let target = SNSAppCatalog.app(catalogID: catalogID),
-              let rule = try? ruleStore.catalogTargetRule(for: target) else {
-            return todayAttemptCount
-        }
-        let calendar = Calendar.current
-        let start = calendar.startOfDay(for: Date())
-        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
-            return todayAttemptCount
-        }
-        let attempts = (try? logStore.fetchAttempts(from: start, to: end)) ?? []
-        return attempts.filter { $0.ruleId == rule.id }.count
+    private func refreshBlockConfigurationState() {
+        guard let enabledRules = try? ruleStore.enabledRules() else { return }
+        blockTargetRuleCount = enabledRules.filter { !$0.activitySelectionData.isEmpty }.count
     }
 
     func todayAttemptCount(for ruleId: UUID) -> Int {
@@ -1264,6 +1773,9 @@ final class AppModel {
             pendingCatalogIDs: clampedCatalogIDs
         )
         try targetStore.setTargets(clampedCatalogIDs)
+        for removedCatalogID in Set(selectedCatalogIDs).subtracting(clampedCatalogIDs) {
+            catalogAllowanceStore.revoke(catalogID: removedCatalogID)
+        }
         clampBackupStore.commitClamp(appliedCatalogIDs: clampedCatalogIDs)
         settingsStore.targetAppClampKeptCatalogID = clampedCatalogIDs.first
     }
@@ -1285,25 +1797,6 @@ final class AppModel {
 
         let currentDate = now()
         let calendar = Calendar.current
-
-        let trialDay5: RetentionNotificationSchedule?
-        if let trial = storeService.annualTrialEntitlement,
-           RetentionNotificationPolicy.shouldScheduleRenewalNotification(
-               willAutoRenew: trial.willAutoRenew
-           ),
-           let fireDate = RetentionNotificationDateCalculator.trialReminderDate(
-               from: trial.purchaseDate,
-               leadDays: settingsStore.trialReminderLeadDays,
-               calendar: calendar
-           ) {
-            trialDay5 = RetentionNotificationSchedule(
-                fireDate: fireDate,
-                cancelledCount: attemptSummary(from: trial.purchaseDate, to: currentDate).cancelled,
-                attemptCount: 0
-            )
-        } else {
-            trialDay5 = nil
-        }
 
         let month1: RetentionNotificationSchedule?
         if let subscription = storeService.activeSubscriptionEntitlement,
@@ -1437,7 +1930,6 @@ final class AppModel {
         }
 
         return RetentionNotificationSchedules(
-            trialDay5: trialDay5,
             month1: month1,
             month12: month12,
             freeMonthlyReports: freeMonthlyReports,

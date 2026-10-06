@@ -50,7 +50,14 @@ final class DeepFocusScheduler {
     private let now: () -> Date
     private let calendar: Calendar
 
-    private(set) var didLastRebuildFail = false
+    /// 直近の張り直しがどこで止まったか。
+    /// 「落ちた」と「権利が確かめられていないので何も置いていない」を分けて持つ。
+    private(set) var lastRebuildOutcome: ShieldArmingOutcome = .ready
+
+    /// 完全ブロックの実体が動いていないか。`ready` 以外はすべて未武装として扱う。
+    var didLastRebuildFail: Bool {
+        lastRebuildOutcome != .ready
+    }
 
     init(
         ruleStore: RuleStore,
@@ -76,17 +83,27 @@ final class DeepFocusScheduler {
 
     /// 「いますぐ」で完全ブロックを始める。
     /// - Parameter durationMinutes: `nil` なら「自分で戻すまで」（終わる時刻を持たない）。
-    func startSession(durationMinutes: Int?) {
+    func startSession(durationMinutes: Int?, isStrict: Bool = false) {
+        guard activeSession?.isStrict != true else { return }
+        guard !isStrict || durationMinutes.map({ (15...240).contains($0) }) == true else { return }
         let startedAt = now()
         settingsStore.deepFocusSession = DeepFocusSession(
             startedAt: startedAt,
-            endsAt: durationMinutes.map { startedAt.addingTimeInterval(TimeInterval($0 * 60)) }
+            endsAt: durationMinutes.map { startedAt.addingTimeInterval(TimeInterval($0 * 60)) },
+            isStrict: isStrict
         )
     }
 
     /// 進行中の回をその場で終わらせる。終わったことの通知は出さない
     /// （自分で解除した直後に「終わりました」と届くのは事実として重複する）。
-    func endSession() {
+    func requestEmergencyExit() {
+        guard var session = activeSession, session.isStrict, session.emergencyExitRequestedAt == nil else { return }
+        session.emergencyExitRequestedAt = now()
+        settingsStore.deepFocusSession = session
+    }
+
+    func endSession(emergency: Bool = false) {
+        guard settingsStore.deepFocusSession?.canEnd(now: now(), emergency: emergency) != false else { return }
         settingsStore.deepFocusSession = nil
         cancelSessionEndNotification()
     }
@@ -97,12 +114,24 @@ final class DeepFocusScheduler {
 
     /// いま完全ブロックを出す窓の中か。`ShieldSyncPolicy` へ渡す入力そのもの。
     var isWindowActive: Bool {
-        DeepFocusWindowPolicy.isWindowActive(
-            now: now(),
-            session: settingsStore.deepFocusSession,
-            schedule: settingsStore.deepFocusSchedule,
-            calendar: calendar
-        )
+        settingsStore.blockConfiguration.isActive(
+            manual: DeepFocusWindowPolicy.isSessionActive(now: now(), session: settingsStore.deepFocusSession),
+            weeklySchedule: DeepFocusWindowPolicy.isScheduleActive(now: now(), schedules: settingsStore.deepFocusSchedules, calendar: calendar),
+            night: false)
+    }
+
+    /// Only a persisted, successfully monitored window may arm the foreground shield.
+    var armedSnapshot: DeepFocusShieldSnapshot? {
+        try? snapshotStore.read(DeepFocusShieldSnapshot.self, from: .deepFocusShieldSnapshot)
+    }
+
+    var isArmedWindowActive: Bool {
+        guard let snapshot = armedSnapshot else { return false }
+        return DeepFocusWindowPolicy.isWindowActive(now: now(), snapshot: snapshot, calendar: calendar)
+    }
+
+    var isArmedSessionActive: Bool {
+        DeepFocusWindowPolicy.isSessionActive(now: now(), session: armedSnapshot?.session)
     }
 
     // MARK: - 同期
@@ -120,12 +149,22 @@ final class DeepFocusScheduler {
         pruneExpiredSession()
 
         guard hasConfirmedEntitlement else {
+            // 何も触らないのは正しいが、黙って何も起きない状態でもある。
+            // 画面は残り時間まで出すため、ここを残しておかないと未武装が誰にも見えない。
+            lastRebuildOutcome = .entitlementUnconfirmed
             return false
         }
+
+        if let rules = try? ruleStore.allRules() {
+            settingsStore.migrateBlockConfigurationIfNeeded(rules: rules)
+        }
+        settingsStore.reconcileBlockEntitlement(isPro: entitlementGate.tier == .pro,
+                                                hasConfirmedEntitlement: hasConfirmedEntitlement)
 
         // Freeだと確定した時点で、ルールを読む前に止める。
         // ルールの読み取りに失敗する端末でも、降格の後始末だけは必ず通す。
         guard entitlementGate.tier == .pro, entitlementGate.strictModeAllowed else {
+            settingsStore.deepFocusSession = nil
             stopAndClear()
             return false
         }
@@ -133,7 +172,12 @@ final class DeepFocusScheduler {
         // Proのまま読めなかったときは触らない。読めないことを理由に、
         // 効いている完全ブロックの予定を消さない。
         guard let rules = try? ruleStore.allRules() else {
+            lastRebuildOutcome = .failed
             return false
+        }
+
+        if !settingsStore.blockConfiguration.allows(.manual) {
+            settingsStore.deepFocusSession = nil
         }
 
         // ここで窓を作らない。窓を開くのは本人の操作（セッション開始・予定のオン）だけで、
@@ -142,28 +186,26 @@ final class DeepFocusScheduler {
             settingsStore.deepFocusSession,
             now: now()
         )
-        let configuredSchedule = settingsStore.deepFocusSchedule
+        let configuredSchedules = settingsStore.deepFocusSchedules
         let enabledRules = rules.filter {
             $0.isEnabled && !$0.activitySelectionData.isEmpty
         }
-        // 手動セッションは一時的な全対象ブロック。保存モードに関係なく、選択データを
-        // 持つ有効ルールを対象にする。毎週の予定は従来どおりdeepFocusだけへ効かせる。
+        // 保存モードには依存せず、手動と毎週の予定をそれぞれのスイッチで判定する。
         let sessionSelectionDataList = session == nil
             ? []
-            : enabledRules.map(\.activitySelectionData)
+            : enabledRules.filter { _ in settingsStore.blockConfiguration.allows(.manual) }.map(\.activitySelectionData)
         let scheduleSelectionDataList = enabledRules
-            .filter { $0.mode == .deepFocus }
+            .filter { _ in settingsStore.blockConfiguration.allows(.weeklySchedule) }
             .map(\.activitySelectionData)
         let effectiveSession = sessionSelectionDataList.isEmpty ? nil : session
-        let effectiveSchedule = scheduleSelectionDataList.isEmpty
-            ? DeepFocusSchedule.disabled
-            : configuredSchedule
+        let effectiveSchedules = scheduleSelectionDataList.isEmpty ? [DeepFocusSchedule.disabled] : configuredSchedules
+        let effectiveSchedule = effectiveSchedules[0]
 
         guard DeepFocusWindowPolicy.hasConfiguredWindow(
                 now: now(),
                 session: effectiveSession,
                 schedule: effectiveSchedule
-              ) else {
+              ) || effectiveSchedules.contains(where: DeepFocusWindowPolicy.isScheduleUsable) else {
             stopAndClear()
             return false
         }
@@ -176,13 +218,14 @@ final class DeepFocusScheduler {
                     selectionDataList: scheduleSelectionDataList,
                     sessionSelectionDataList: sessionSelectionDataList,
                     schedule: effectiveSchedule,
+                    additionalSchedules: Array(effectiveSchedules.dropFirst()),
                     session: effectiveSession,
                     updatedAt: now()
                 ),
                 to: .deepFocusShieldSnapshot
             )
         } catch {
-            didLastRebuildFail = true
+            lastRebuildOutcome = .failed
             return false
         }
 
@@ -190,7 +233,7 @@ final class DeepFocusScheduler {
 
         monitoringCenter.stopMonitoring(Self.allActivityNames)
 
-        let outcome = startMonitoring(session: effectiveSession, schedule: effectiveSchedule)
+        let outcome = startMonitoring(session: effectiveSession, schedules: effectiveSchedules)
 
         // 1本も張れなかったときだけ、剥がす側へ倒す。
         // 窓の終わりに解除を出す担い手が拡張側に誰もいないため、掛けっぱなしで放置すると
@@ -203,7 +246,7 @@ final class DeepFocusScheduler {
             cancelSessionEndNotification()
             clearDeepFocusShield()
             try? snapshotStore.remove(.deepFocusShieldSnapshot)
-            didLastRebuildFail = true
+            lastRebuildOutcome = .failed
             return false
         }
 
@@ -214,7 +257,30 @@ final class DeepFocusScheduler {
             cancelSessionEndNotification()
         }
 
-        didLastRebuildFail = outcome.hasFailure
+        if outcome.hasFailure {
+            // Failed weekdays must never be left in the snapshot: another window's
+            // callback could otherwise arm them without an end callback to clear them.
+            let armedSchedules = effectiveSchedules.enumerated().map { index, schedule in
+                DeepFocusSchedule(isEnabled: schedule.isEnabled,
+                    weekdays: outcome.startedScheduleActivities.contains(DeepFocusConstants.dailyScheduleActivityName(index: index)) ? schedule.weekdays : [],
+                    startMinutes: schedule.startMinutes, endMinutes: schedule.endMinutes)
+            }
+            do {
+                try snapshotStore.write(DeepFocusShieldSnapshot(
+                    selectionDataList: scheduleSelectionDataList,
+                    sessionSelectionDataList: sessionSelectionDataList,
+                    schedule: armedSchedules[0],
+                    additionalSchedules: Array(armedSchedules.dropFirst()),
+                    session: effectiveSession?.endsAt == nil || outcome.didStartSession ? effectiveSession : nil,
+                    updatedAt: now()), to: .deepFocusShieldSnapshot)
+            } catch {
+                monitoringCenter.stopMonitoring(Self.allActivityNames)
+                cancelSessionEndNotification()
+                clearDeepFocusShield()
+                try? snapshotStore.remove(.deepFocusShieldSnapshot)
+            }
+        }
+        lastRebuildOutcome = outcome.hasFailure ? .failed : .ready
         return !outcome.hasFailure
     }
 
@@ -236,12 +302,12 @@ final class DeepFocusScheduler {
 
         do {
             try snapshotStore.remove(.deepFocusShieldSnapshot)
-            didLastRebuildFail = false
+            lastRebuildOutcome = .ready
             return true
         } catch {
             // 予定は止まっているため、新たな境界で拡張が起きることはない。
             // 残った控えは次の同期で消し直す。
-            didLastRebuildFail = true
+            lastRebuildOutcome = .failed
             return false
         }
     }
@@ -265,7 +331,7 @@ final class DeepFocusScheduler {
     /// - Returns: セッションと曜日それぞれの成否。
     private func startMonitoring(
         session: DeepFocusSession?,
-        schedule: DeepFocusSchedule
+        schedules: [DeepFocusSchedule]
     ) -> MonitoringOutcome {
         var outcome = MonitoringOutcome()
 
@@ -284,29 +350,19 @@ final class DeepFocusScheduler {
             }
         }
 
-        guard DeepFocusWindowPolicy.isScheduleUsable(schedule) else {
-            return outcome
-        }
-
-        for weekday in schedule.weekdays {
-            let activityName = DeviceActivityName(
-                DeepFocusConstants.scheduleActivityName(weekday: weekday)
-            )
+        // One daily activity per schedule; the extension validates the selected weekdays.
+        // This reserves capacity for per-app usage events, instead of using up to 14 activities here.
+        for (index, schedule) in schedules.enumerated() where DeepFocusWindowPolicy.isScheduleUsable(schedule) {
+            let activityName = DeviceActivityName(DeepFocusConstants.dailyScheduleActivityName(index: index))
             outcome.requestedWeekdayCount += 1
             do {
-                try monitoringCenter.startMonitoring(
-                    activityName,
-                    during: Self.weekdaySchedule(
-                        weekday: weekday,
-                        startMinutes: schedule.startMinutes,
-                        endMinutes: schedule.endMinutes
-                    ),
-                    events: [:]
-                )
+                try monitoringCenter.startMonitoring(activityName, during: DeviceActivitySchedule(
+                    intervalStart: DateComponents(hour: schedule.startMinutes / 60, minute: schedule.startMinutes % 60),
+                    intervalEnd: DateComponents(hour: schedule.endMinutes / 60, minute: schedule.endMinutes % 60),
+                    repeats: true), events: [:])
                 outcome.startedWeekdayCount += 1
-            } catch {
-                monitoringCenter.stopMonitoring([activityName])
-            }
+                outcome.startedScheduleActivities.insert(activityName.rawValue)
+            } catch { monitoringCenter.stopMonitoring([activityName]) }
         }
         return outcome
     }
@@ -315,6 +371,7 @@ final class DeepFocusScheduler {
     private struct MonitoringOutcome {
         var didRequestSession = false
         var didStartSession = false
+        var startedScheduleActivities = Set<String>()
         var requestedWeekdayCount = 0
         var startedWeekdayCount = 0
 
@@ -403,11 +460,11 @@ final class DeepFocusScheduler {
         let content = UNMutableNotificationContent()
         content.title = String(
             localized: "deep_focus.session_end.notification.title",
-            defaultValue: "完全ブロックが終わりました"
+            defaultValue: "手動セッションが終わりました"
         )
         content.body = String(
             localized: "deep_focus.session_end.notification.body",
-            defaultValue: "選んだアプリをまた開けます。"
+            defaultValue: "毎週の予定や就寝中のブロックがある場合は、その設定が続きます。"
         )
         content.sound = .default
 

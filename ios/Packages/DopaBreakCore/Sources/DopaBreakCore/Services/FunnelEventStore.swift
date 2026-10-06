@@ -4,12 +4,19 @@ public enum FunnelEventName: String, Codable, Equatable, Sendable {
     case onboardingCompleted
     case onboardingStepCompleted
     case automationVerified
+    case automationNonTargetShown = "automation_non_target_shown"
+    case automationRequestDiscarded = "automation_request_discarded"
+    case interventionPassThrough = "intervention_pass_through"
     case paywallShown
     case paywallDismissed
     case prePaywallSkipped
     case trialOrPurchaseStarted
     case appOpened
     case reviewPromptShown = "review_prompt_shown"
+    case reflectionNotificationScheduled = "reflection_notification_scheduled"
+    case reflectionNotificationTapped = "reflection_notification_tapped"
+    case reflectionAnswered = "reflection_answered"
+    case reflectionSkipped = "reflection_skipped"
 }
 
 public struct FunnelEvent: Codable, Equatable, Sendable {

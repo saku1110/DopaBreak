@@ -9,16 +9,16 @@ public enum NotificationDestination: String, Codable, Sendable, CaseIterable {
     case planSettings = "plan_settings"
     /// オートメーション設定ガイド。
     case automationGuide = "automation_guide"
+    /// 宣言時間終了後の利用後振り返り。
+    case reflection
 }
 
 /// ローカル通知の識別子。取り消し・ルーティングの単一の正本にする。
 public enum NotificationIdentifier {
-    public static let morning = "dopabreak.lock.morning"
     public static let weekly = "dopabreak.lock.weekly"
     public static let d1Activation = "dopabreak.d1activation"
     public static let d3Activation = "dopabreak.d3activation"
     public static let d7Inactive = "dopabreak.d7inactive"
-    public static let trialDay5 = "dopabreak.trialday5"
     public static let month1Report = "dopabreak.month1report"
     public static let freeMonthly1 = "dopabreak.freeMonthly1"
     public static let freeMonthly2 = "dopabreak.freeMonthly2"
@@ -31,10 +31,14 @@ public enum NotificationIdentifier {
     /// 「いますぐ」で始めた完全ブロックが終わったことだけを伝える通知。
     /// ユーザーが自分で決めた終わりなので、深夜帯の繰り延べは当てない。
     public static let deepFocusSessionEnd = "dopabreak.deepfocus.sessionend"
+    public static func workCheckIn(_ catalogID: String) -> String { "dopabreak.workcheckin." + catalogID }
+    public static let reflectionPrompt = "dopabreak.reflection.prompt"
 
     /// 廃止済み通知の識別子。予約が端末に残っていると古いコピーで発火するため掃除し続ける。
     /// - `dopabreak.day14warning`: 14日時限開放の撤回（2026-08-11）に伴い廃止。
-    public static let legacyIdentifiers = ["dopabreak.day14warning"]
+    /// - dopabreak.lock.morning: 目標の通知を廃止（2026-09-03・Live Activityに一本化）。
+    /// - dopabreak.trialday5: トライアル終了前通知を廃止（2026-09-20）。
+    public static let legacyIdentifiers = ["dopabreak.day14warning", "dopabreak.lock.morning", "dopabreak.trialday5"]
 
     /// UUIDを末尾に持つため完全一致で消せない廃止済み通知の接頭辞。
     /// 通常SNSの実利用時間は取得できないため、時間切れと中間チェックインを廃止した。
@@ -49,15 +53,13 @@ public enum NotificationIdentifier {
 public enum NotificationRouting {
     public static func destination(forIdentifier identifier: String) -> NotificationDestination? {
         switch identifier {
-        case NotificationIdentifier.morning,
-             NotificationIdentifier.weekly,
+        case NotificationIdentifier.weekly,
              NotificationIdentifier.month1Report,
              NotificationIdentifier.freeMonthly1,
              NotificationIdentifier.freeMonthly2,
              NotificationIdentifier.freeMonthly3:
             return .stats
-        case NotificationIdentifier.trialDay5,
-             NotificationIdentifier.month12Renewal,
+        case NotificationIdentifier.month12Renewal,
              NotificationIdentifier.annualUpgradeOffer,
              NotificationIdentifier.cancelSave:
             return .planSettings
@@ -65,6 +67,8 @@ public enum NotificationRouting {
              NotificationIdentifier.d3Activation,
              NotificationIdentifier.d7Inactive:
             return .automationGuide
+        case NotificationIdentifier.reflectionPrompt:
+            return .reflection
         default:
             return nil
         }

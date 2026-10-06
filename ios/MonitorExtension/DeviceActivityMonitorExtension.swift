@@ -1,8 +1,10 @@
+import ActivityKit
 import DeviceActivity
 import DopaBreakCore
 import FamilyControls
 import Foundation
 import ManagedSettings
+import UserNotifications
 
 /// 控えから取り出した、1つのストアへ流し込むぶんのトークン。
 private struct SnapshotTokens {
@@ -16,10 +18,6 @@ private struct SnapshotTokens {
 }
 
 final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
-    /// 日常ゲート専用ストア。夜・Deep Focusをここから解除しないよう完全に分ける。
-    private let gateShieldStore = ManagedSettingsStore(
-        named: .init(GateConstants.shieldStoreName)
-    )
     /// 夜だけ強化の分だけを置くストア。常時ブロック（"dopabreak.rules"）とは別にしてあるため、
     /// ここから朝の解除を出してもディープフォーカスには当たらない。
     private let nightShieldStore = ManagedSettingsStore(
@@ -32,12 +30,44 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     )
     private let decoder = JSONDecoder()
 
+    override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
+        super.eventDidReachThreshold(event, activity: activity)
+        guard activity.rawValue.hasPrefix(ReinterventionConstants.activityPrefix) else { return }
+        let catalogID = String(activity.rawValue.dropFirst(ReinterventionConstants.activityPrefix.count))
+        let now = Date()
+        do {
+            let didReach = try ReinterventionStore().transaction({ state -> ReinterventionSession? in
+                guard let session = state.sessions[catalogID], session.acceptsThreshold(eventID: event.rawValue, now: now) else { return nil }
+                state.sessions[catalogID]?.reachedAt = now
+                return session.notificationsEnabled ? session : nil
+            }, afterCommit: { ReinterventionShield.apply($0, now: now) })
+            guard let session = didReach else { return }
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "reintervention.notification.title", defaultValue: "選んだ利用時間になりました")
+            content.body = String(localized: "reintervention.notification.body", defaultValue: "DopaBreakで振り返り、終了か延長を選んでください。")
+            if !session.isBlocking {
+                content.title = String(localized: "reintervention.soft.question", defaultValue: "まだ用事の途中ですか？")
+                content.body = String(localized: "reintervention.soft.reached", defaultValue: "選んだ利用時間になりました。必要な用事を続けているか確認しましょう。")
+            }
+            content.sound = .default
+            UNUserNotificationCenter.current().add(.init(identifier: session.isBlocking ? NotificationIdentifier.reflectionPrompt : NotificationIdentifier.workCheckIn(catalogID), content: content, trigger: nil))
+        } catch {
+            // No claim that a limit fired when the cross-process write failed.
+            ReinterventionShield.sync()
+        }
+    }
+
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-
-        if activity.rawValue.hasPrefix(GateConstants.reshieldActivityPrefix) {
-            reshieldGateIfExpired(for: activity)
+        defer { updateBlockLiveActivities() }
+        // 回数上限は開始・終了の区別に頼らず、どの通知でも最新の控えで掛け外しを決め直す。
+        // 監視の停止でも終了が届き、古い予定ぶんが遅れて届くこともあるため。
+        DailyOpenLimitShield.sync()
+        if activity.rawValue == DailyOpenLimitConstants.activityName {
             return
+        }
+        if activity.rawValue.hasPrefix(ReinterventionConstants.activityPrefix) {
+            ReinterventionShield.sync(); return
         }
 
         if DeepFocusConstants.isWindowActivity(activity.rawValue) {
@@ -55,10 +85,14 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-
-        if activity.rawValue.hasPrefix(GateConstants.reshieldActivityPrefix) {
-            reshieldGateIfExpired(for: activity)
+        defer { updateBlockLiveActivities() }
+        DailyOpenLimitShield.sync()
+        if activity.rawValue == DailyOpenLimitConstants.activityName {
             return
+        }
+        if activity.rawValue.hasPrefix(ReinterventionConstants.activityPrefix) {
+            // Recompute all sessions; a delayed end callback must not clear a newer budget.
+            ReinterventionShield.sync(); return
         }
 
         if DeepFocusConstants.isWindowActivity(activity.rawValue) {
@@ -72,94 +106,19 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         clearNightShieldIfOutsideWindow()
     }
 
-    /// 一時開放の終端で、該当トークンを日常ゲートへ戻す。
-    ///
-    /// DeviceActivityの境界は数十秒ずれることがあるため終了30秒前から同じ終端として扱う。
-    /// 名前が衝突した・早すぎるコールバックは台帳を変えず、ここから監視を張り直さない。
-    private func reshieldGateIfExpired(for activity: DeviceActivityName) {
-        let now = Date()
-        let snapshotStore = JSONSnapshotStore()
-        let ledgerStore = GateLedgerStore(snapshotStore: snapshotStore)
-        let ledger = try? ledgerStore.ledger()
-        let grant = ledger?.activeGrants.first(where: {
-            $0.activityName == activity.rawValue
-        })
-        let decision = GateReshieldPolicy.decision(
-            grant: grant,
-            now: now,
-            tolerance: 30
-        )
-
-        guard decision.shouldReshield, let grant else {
-            if decision.shouldStopMonitoring {
-                DeviceActivityCenter().stopMonitoring([activity])
-            }
-            return
-        }
-        // 期限回収へ進んだ後は、成功・破損・降格・競合のどの出口でも片付ける。
-        // 早すぎるcallbackだけは停止せず、intervalDidEndの保険を残す。
-        defer {
-            if decision.shouldStopMonitoring {
-                DeviceActivityCenter().stopMonitoring([activity])
+    private func updateBlockLiveActivities() {
+        let store = JSONSnapshotStore()
+        let windows = BlockWindowStatus.active(
+            deepFocus: try? store.read(DeepFocusShieldSnapshot.self, from: .deepFocusShieldSnapshot),
+            night: try? store.read(NightShieldSnapshot.self, from: .nightShieldSnapshot),
+            now: Date(), calendar: .autoupdatingCurrent)
+        Task {
+            for activity in Activity<DopaBreakActivityAttributes>.activities {
+                var state = activity.content.state
+                state.blockWindows = windows
+                await activity.update(ActivityContent(state: state, staleDate: windows.compactMap(\.endsAt).min()))
             }
         }
-        guard let shieldSnapshot = try? GateShieldSnapshotStore(
-                snapshotStore: snapshotStore
-              ).snapshot() else {
-            return
-        }
-
-        let selectedTokens = decodedGateApplicationTokens(
-            from: shieldSnapshot.selectionDataList
-        )
-
-        // 30秒許容で早く届いた場合も、このgrantだけは終了したものとして台帳から落とす。
-        // 同時に、これより前に終わっているgrantもまとめて回収する。
-        var reconciledLedger: GateLedger?
-        do {
-            try ledgerStore.update { currentLedger in
-                guard let currentGrant = currentLedger.activeGrants.first(where: {
-                    $0.activityName == activity.rawValue
-                }),
-                now >= currentGrant.endsAt.addingTimeInterval(-30) else {
-                    return
-                }
-                let expiration = GatePolicy.expiringGrants(
-                    ledger: currentLedger,
-                    now: now,
-                    additionallyExpiring: [currentGrant.id],
-                    calendar: .autoupdatingCurrent
-                )
-                guard expiration.expired.contains(where: { $0.id == currentGrant.id }) else {
-                    return
-                }
-                currentLedger = expiration.ledger
-                reconciledLedger = expiration.ledger
-            }
-        } catch {
-            return
-        }
-        guard let reconciledLedger else {
-            return
-        }
-
-        // 30秒の許容値は「このgrantを期限切れにするか」だけへ使う。他grantの
-        // シールド集合は実時刻で判定し、未来へ進めた参照時刻で早く閉じない。
-        let tokensToShield = GatePolicy.tokensToShield(
-            selectionTokens: selectedTokens,
-            ledger: reconciledLedger,
-            now: now
-        )
-
-        // 読み取り中に降格・全削除で控えが消えたなら、ゲートを復活させない。
-        guard snapshotStore.exists(.gateShieldSnapshot) else {
-            return
-        }
-
-        gateShieldStore.shield.applications = tokensToShield.isEmpty ? nil : tokensToShield
-        // v1.1のゲートはアプリ単位だけ。旧値が混ざらないよう他の種類は常に空にする。
-        gateShieldStore.shield.applicationCategories = nil
-        gateShieldStore.shield.webDomains = nil
     }
 
     /// 窓の終わりに完全ブロックを剥がす。ただし、いま別の窓の内にいるなら剥がさない。
@@ -329,24 +288,6 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             tokens.webDomains.formUnion(selection.webDomainTokens)
         }
         return tokens
-    }
-
-    /// ゲートはアプリトークンだけを必要分だけ復号する。
-    /// blobごとに独立して扱い、壊れた1件は黙って飛ばして復号できた集合を正とする。
-    private func decodedGateApplicationTokens(
-        from selectionDataList: [Data]
-    ) -> Set<ApplicationToken> {
-        var applications = Set<ApplicationToken>()
-        for selectionData in selectionDataList {
-            guard let selection = try? decoder.decode(
-                FamilyActivitySelection.self,
-                from: selectionData
-            ) else {
-                continue
-            }
-            applications.formUnion(selection.applicationTokens)
-        }
-        return applications
     }
 
     private func apply(_ tokens: SnapshotTokens, to store: ManagedSettingsStore) {

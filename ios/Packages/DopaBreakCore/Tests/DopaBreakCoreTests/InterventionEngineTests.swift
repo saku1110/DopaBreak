@@ -143,7 +143,7 @@ final class InterventionEngineTests: XCTestCase {
         try ctx.engine.recordIntent(.communication)
         _ = try ctx.engine.advanceStep()
 
-        try ctx.engine.recordCatalogOpen(durationSeconds: 600)
+        let recordedReflection = try ctx.engine.recordCatalogOpen(durationSeconds: 600)
 
         XCTAssertEqual(try ctx.engine.currentStep(), .idle)
         let attempt = try XCTUnwrap(ctx.log.fetchAttempts().first)
@@ -151,6 +151,8 @@ final class InterventionEngineTests: XCTestCase {
         XCTAssertEqual(attempt.selectedDurationSeconds, 600)
         XCTAssertTrue(attempt.opened)
         let reflection = try XCTUnwrap(ctx.log.fetchReflections().first)
+        XCTAssertEqual(recordedReflection.id, reflection.id)
+        XCTAssertEqual(recordedReflection.promptedAt, date(700))
         XCTAssertEqual(reflection.attemptLogId, attempt.id)
         XCTAssertEqual(reflection.promptedAt, date(700))
         XCTAssertEqual(reflection.createdAt, date(100))
@@ -380,10 +382,10 @@ final class InterventionEngineTests: XCTestCase {
             )
         )
 
-        clock = promptedAt.addingTimeInterval(24 * 60 * 60) // age == window -> inside
+        clock = promptedAt.addingTimeInterval(InterventionEngine.reflectionPromptWindow) // age == window -> inside
         XCTAssertEqual(try ctx.engine.pendingReflection()?.id, uuid(50))
 
-        clock = promptedAt.addingTimeInterval(24 * 60 * 60 + 1) // age > window -> outside
+        clock = promptedAt.addingTimeInterval(InterventionEngine.reflectionPromptWindow + 1) // age > window -> outside
         XCTAssertNil(try ctx.engine.pendingReflection())
 
         clock = promptedAt.addingTimeInterval(-10) // future prompt -> not due
@@ -404,6 +406,84 @@ final class InterventionEngineTests: XCTestCase {
         try ctx.log.insert(unansweredReflection(id: 2_000, promptedAt: date(500_000 - 60)))
 
         XCTAssertEqual(try ctx.engine.pendingReflection()?.id, uuid(2_000))
+    }
+
+    func testPendingReflectionUsesThreeHourNotificationTapWindow() throws {
+        var clock = date(20_000)
+        let ctx = try makeContext(now: { clock })
+        let reflection = unansweredReflection(id: 2_100, promptedAt: date(10_000))
+        try ctx.log.insert(reflection)
+
+        clock = reflection.promptedAt.addingTimeInterval(
+            InterventionEngine.reflectionPromptWindow + 1
+        )
+        XCTAssertNil(try ctx.engine.pendingReflection())
+        XCTAssertEqual(
+            try ctx.engine.pendingReflection(
+                within: InterventionEngine.reflectionNotificationTapWindow
+            )?.id,
+            reflection.id
+        )
+
+        clock = reflection.promptedAt.addingTimeInterval(
+            InterventionEngine.reflectionNotificationTapWindow + 1
+        )
+        XCTAssertNil(
+            try ctx.engine.pendingReflection(
+                within: InterventionEngine.reflectionNotificationTapWindow
+            )
+        )
+    }
+
+    func testTwoHourOldReflectionSurvivesThreeHourExpiryAndRemainsTappable() throws {
+        let now = date(30_000)
+        let ctx = try makeContext(now: { now })
+        let reflection = unansweredReflection(
+            id: 2_101,
+            promptedAt: now.addingTimeInterval(-2 * 60 * 60)
+        )
+        try ctx.log.insert(reflection)
+
+        XCTAssertEqual(
+            try ctx.engine.expireStaleReflections(
+                olderThan: InterventionEngine.reflectionNotificationTapWindow
+            ),
+            0
+        )
+        XCTAssertEqual(
+            try ctx.engine.pendingReflection(
+                within: InterventionEngine.reflectionNotificationTapWindow
+            )?.id,
+            reflection.id
+        )
+    }
+
+    func testReflectionOlderThanThreeHoursIsExpired() throws {
+        let now = date(50_000)
+        let ctx = try makeContext(now: { now })
+        let reflection = unansweredReflection(
+            id: 2_102,
+            promptedAt: now.addingTimeInterval(
+                -InterventionEngine.reflectionNotificationTapWindow - 1
+            )
+        )
+        try ctx.log.insert(reflection)
+
+        XCTAssertEqual(
+            try ctx.engine.expireStaleReflections(
+                olderThan: InterventionEngine.reflectionNotificationTapWindow
+            ),
+            1
+        )
+        XCTAssertNil(
+            try ctx.engine.pendingReflection(
+                within: InterventionEngine.reflectionNotificationTapWindow
+            )
+        )
+        let stored = try XCTUnwrap(
+            ctx.log.fetchReflections().first { $0.id == reflection.id }
+        )
+        XCTAssertTrue(stored.skipped)
     }
 
     // MARK: - attemptCount24h
@@ -494,6 +574,26 @@ final class InterventionEngineTests: XCTestCase {
                 return XCTFail("Expected sqliteOpen, got \(error)")
             }
         }
+    }
+
+    func testMonitoredReflectionWaitsForUsageCallbackAndCannotBeAskedTwice() throws {
+        var clock = date(0)
+        let ctx = try makeContext(now: { clock })
+        try ctx.engine.beginIntervention(ruleId: uuid(900))
+        for _ in 0..<4 { _ = try ctx.engine.advanceStep() }
+        let reflection = try ctx.engine.recordCatalogOpen(durationSeconds: 300, deferReflection: true)
+        clock = date(900)
+        XCTAssertNil(try ctx.engine.pendingReflection(), "Elapsed wall time must not prompt a monitored session")
+        try ctx.log.makeReflectionReady(id: reflection.id, at: clock)
+        XCTAssertEqual(try ctx.engine.pendingReflection()?.id, reflection.id)
+        try ctx.engine.recordPostUseReflection(id: reflection.id, satisfaction: .fun, happinessDelta: .increased)
+        try ctx.log.makeReflectionReady(id: reflection.id, at: date(1000))
+        try ctx.engine.skipReflection(id: reflection.id)
+        XCTAssertNil(try ctx.engine.pendingReflection())
+        let saved = try XCTUnwrap(ctx.log.reflection(id: reflection.id))
+        XCTAssertEqual(saved.promptedAt, date(900))
+        XCTAssertEqual(saved.satisfaction, .fun)
+        XCTAssertFalse(saved.skipped)
     }
 
     // MARK: - Helpers

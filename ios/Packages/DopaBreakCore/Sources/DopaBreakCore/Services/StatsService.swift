@@ -162,6 +162,49 @@ public struct StatsService: Sendable {
         return try logStore.reclaimedCancellationCount(from: from, to: to)
     }
 
+    /// 指定期間に開始した試行へ紐づく永久台帳の推定秒数。`to` は排他。
+    public func reclaimedSecondsByStartWindow(from: Date, to: Date) throws -> Int {
+        guard from < to else { return 0 }
+        return try logStore.reclaimedSecondsByStartWindow(from: from, to: to)
+    }
+
+    /// 指定期間に開始した試行へ紐づく推定秒数をルール別に返す。`to` は排他。
+    public func reclaimedSecondsByRuleInStartWindow(from: Date, to: Date) throws -> [UUID: Int] {
+        guard from < to else { return [:] }
+        return try logStore.reclaimedSecondsByRuleInStartWindow(from: from, to: to)
+    }
+
+    /// 指定期間に開始した試行へ紐づく推定秒数を理由別に返す。`to` は排他。
+    public func reclaimedSecondsByIntentInStartWindow(
+        from: Date,
+        to: Date
+    ) throws -> [IntentCategory: Int] {
+        guard from < to else { return [:] }
+        return try logStore.reclaimedSecondsByIntentInStartWindow(from: from, to: to)
+    }
+
+    /// 指定期間に永久台帳へ確定した推定秒数をルール別に返す。`to` は排他。
+    public func reclaimedSecondsByRule(from: Date, to: Date) throws -> [UUID: Int] {
+        guard from < to else { return [:] }
+        return try logStore.reclaimedSecondsByRule(from: from, to: to)
+    }
+
+    /// 指定期間に永久台帳へ確定した推定秒数を理由別に返す。`to` は排他。
+    public func reclaimedSecondsByIntent(from: Date, to: Date) throws -> [IntentCategory: Int] {
+        guard from < to else { return [:] }
+        return try logStore.reclaimedSecondsByIntent(from: from, to: to)
+    }
+
+    /// 0...23 の時間帯ごとの全試行件数。存在しない時間帯のキーは返さない。
+    public func hourlyAttemptBreakdown(from: Date, to: Date) throws -> [Int: Int] {
+        guard from < to else { return [:] }
+        var result: [Int: Int] = [:]
+        for startTime in try logStore.attemptStartTimes(from: from, to: to) {
+            result[calendar.component(.hour, from: startTime), default: 0] += 1
+        }
+        return result
+    }
+
     /// 現時点でキャンセルした場合の1回あたり推定秒数。ホームの根拠表示に使う。
     public func estimatedReclaimedSecondsPerCancellation(at date: Date) throws -> Int {
         try ReclaimedTimeEstimator.estimatedSeconds(at: date, logStore: logStore)

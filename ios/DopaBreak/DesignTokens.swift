@@ -326,70 +326,6 @@ struct SmallLabel: View {
     }
 }
 
-struct ScreenHeader: View {
-    let eyebrow: String
-    let title: String
-    var trailingText: String? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
-                SmallLabel(text: eyebrow)
-                Spacer()
-                if let trailingText {
-                    Text(trailingText)
-                        .dopaFont(12, weight: .bold, design: .monospaced)
-                        .foregroundStyle(DesignTokens.secondaryText)
-                }
-            }
-            Text(title)
-                .dopaFont(30, weight: .black, tracking: -0.7)
-                .foregroundStyle(DesignTokens.primaryText)
-                // 見出しはVoiceOverでも見出しとして読み上げる。
-                .accessibilityAddTraits(.isHeader)
-        }
-    }
-}
-
-struct SignalLabel: View {
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 9) {
-            Capsule()
-                .fill(DesignTokens.accent)
-                .frame(width: 3, height: 18)
-                .accessibilityHidden(true)
-            Text(text)
-                .dopaFont(13, weight: .bold)
-                .foregroundStyle(DesignTokens.accent)
-        }
-    }
-}
-
-struct MetricBlock: View {
-    let label: String
-    let value: String
-    var accent = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(value)
-                .dopaFont(30, weight: .black, design: .rounded)
-                .monospacedDigit()
-                .foregroundStyle(accent ? DesignTokens.accent : DesignTokens.primaryText)
-                // 数値が入れ替わるときは桁単位で回す。
-                .contentTransition(.numericText())
-            Text(label)
-                .dopaFont(11, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // 「12回 / 開くのをやめた」を2読み上げに割らず、1要素として読ませる。
-        .accessibilityElement(children: .combine)
-    }
-}
-
 extension View {
     func dopaScreenBackground() -> some View {
         background(
@@ -400,5 +336,64 @@ extension View {
             )
             .ignoresSafeArea()
         )
+    }
+}
+
+// MARK: - Localized display copy
+
+/// U+200B in a localized string is an optional semantic boundary, never a forced newline.
+/// Try the full copy at its design size first; only use the two phrases when it cannot fit.
+/// At accessibility sizes, allow additional natural lines instead of clipping or shrinking text.
+struct DopaDisplayText: View {
+    let text: String
+    var size: CGFloat = 34
+    var weight: Font.Weight = .black
+    @Environment(\.locale) private var locale
+
+    static let semanticBreak = "\u{200B}"
+
+    static func plainText(_ text: String) -> String {
+        // Preserve an existing separator; insert one when the marker is the only boundary.
+        phrases(text).joined(separator: " ")
+    }
+
+    static func phrases(_ text: String) -> [String] {
+        text.components(separatedBy: semanticBreak).map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    /// Hangul otherwise permits breaks between syllables. Keep each space-delimited word intact.
+    static func protectingWords(_ text: String, language: String?) -> String {
+        guard language == "ko" || language == "en" else { return text }
+        return text.split(separator: " ", omittingEmptySubsequences: false)
+            .map { $0.map(String.init).joined(separator: "\u{2060}") }
+            .joined(separator: " ")
+    }
+
+    private func label(_ value: String) -> some View {
+        Text(verbatim: value)
+            .typesettingLanguage(locale.language)
+    }
+
+    var body: some View {
+        let plain = Self.plainText(text)
+        let phrases = Self.phrases(text)
+        ViewThatFits(in: .horizontal) {
+            label(plain).fixedSize()
+            if phrases.count == 2 {
+                VStack(spacing: 5) {
+                    ForEach(phrases.indices, id: \.self) { index in
+                        label(phrases[index]).fixedSize()
+                    }
+                }
+                .fixedSize()
+            }
+            label(Self.protectingWords(plain, language: locale.language.languageCode?.identifier))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .dopaFont(size, weight: weight, lineSpacing: 5)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: plain))
     }
 }

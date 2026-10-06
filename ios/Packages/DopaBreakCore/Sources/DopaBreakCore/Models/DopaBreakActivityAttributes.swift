@@ -9,18 +9,21 @@ public struct DopaBreakActivityAttributes: ActivityAttributes {
         public var goalTitles: [String]
         public var todayCancelledCount: Int
         public var todayAttemptCount: Int
+        public var blockWindows: [BlockWindowStatus]?
         public var themeRawValue: String
 
         public init(
             goalTitles: [String],
             todayCancelledCount: Int,
             todayAttemptCount: Int,
-            themeRawValue: String
+            themeRawValue: String,
+            blockWindows: [BlockWindowStatus]? = nil
         ) {
             self.goalTitles = goalTitles
             self.todayCancelledCount = todayCancelledCount
             self.todayAttemptCount = todayAttemptCount
             self.themeRawValue = themeRawValue
+            self.blockWindows = blockWindows
         }
     }
 

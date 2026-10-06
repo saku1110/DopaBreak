@@ -151,10 +151,6 @@ final class QuickActionCenter: ObservableObject {
         return value
     }
 
-    func clearPendingAction() {
-        pendingAction = nil
-    }
-
     /// 権利・オンボーディング状態・対象アプリの有無に合わせて登録し直す。
     ///
     /// 課金状態が変わるたびに呼ぶこと。呼ばないと、解約した人にオファーが出ないままになり、

@@ -49,7 +49,7 @@ Fable(このセッション)は独立に906要件で同種監査を実施し、*
       ⚠️ このタスクでExtensionプロセスがルールを書き始めるため、**RuleStoreのread-modify-writeに跨プロセス排他（NSFileCoordinator等）を導入すること**（2026-07-08 Codexレビュー指摘。現状は書き込みが本体アプリMainActorのみのため繰り延べ・GoalStoreと同一パターン）
 - [ ] (9) 利用後リフレクション ★エンジン側（pendingReflection/recordPostUseReflection/skip）実装済み・UI配線のみ
 - [ ] (10) AttemptLog/ReflectionLogと統計 ★StatsService実装済み（週次サマリー含む）・Stats画面への結線のみ
-- [ ] (11) ロック画面サーフェス（朝の通知＋Live Activity(ActivityKit)＋Home Widget・テーマ6種）
+- [ ] (11) ロック画面サーフェス（Live Activity(ActivityKit)＋Home Widget・テーマ6種＋週次ふりかえり通知）
 - [x] (12) StoreKit 2＋ペイウォール（2026-07-08 Codex実装＋Fable検証: EntitlementGate=Core純粋ロジック100%テスト／StoreService=StoreKit2購入/復元/currentEntitlements/updatesリスナー／PaywallView=3段doc06§10文言／DopaBreak.storekit 4商品・P1Wトライアル／AppModel・Settings・Onboarding・Home年目標ゲート配線。99テスト0失敗・BUILD SUCCEEDED。**品質ゲート完了**: Codex独立レビュー6件→Fable裁定(4採用/2却下=仕様誤読)→Codex修正→Fable再検証。修正=トライアルCTA対象者限定/法的文言プラン別出し分け/deepFocusのProゲート/ShieldController適用層Free制限/復元フィードバック）
 - [x] (13前半) Onboarding 14ステップ（2026-07-03完了: doc07文言転記・LossEstimator・シミュレータ通し動作確認・73テスト。**Paywall polishはStoreKit(12)とセットで残**）
 - [x] InterventionState.intent 跨プロセス永続化（2026-07-03 Opus・後方互換テスト付き・doc05§5注記解消）
@@ -67,7 +67,7 @@ Fable(このセッション)は独立に906要件で同種監査を実施し、*
 - [ ] Permission denied分岐のモック
 
 ## v1.1
-- [ ] 「今日の1つ」（TodayFocus）実装（設計正本: docs/14_today_focus.md・2026-07-09オーナー承認）: Core `TodayFocus`/`FocusLog`＋片側集計→ホーム入力枠→一呼吸S-03/Live Activity主役表示→朝の通知導線→週次レポート「代わりにやれたこと」。UI文言はdoc14 §3の承認→doc11転記後にCodex委譲
+- [ ] 「今日の1つ」（TodayFocus）実装（設計正本: docs/14_today_focus.md・2026-07-09オーナー承認）: Core `TodayFocus`/`FocusLog`＋片側集計→ホーム入力枠→一呼吸S-03/Live Activity主役表示→週次レポート「代わりにやれたこと」。UI文言はdoc14 §3の承認→doc11転記後にCodex委譲
 - [ ] **傾向分析カード（Pro・条件付き着手）**（2026-07-18経営会議で保留判定・議事録=.claude/brainstorm/2026-07-18_追加機能3件の要否判定.md）: 「{アプリ}は主に{時間帯}に{理由}で開いています」を既存AttemptLog(intent×時刻×ruleId)の集計のみで表示。S-07振り返りループの「返報」として価値確定済み。**着手条件=ローンチ後D14のS-07回答率が観測できてから（50%未満なら前倒し）**。前提=FunnelEventStoreに振り返り表示/回答イベント追加（監査項目6の計測拡充と同一作業）。疑似医療訴求（ドーパミン量等）は禁止
 - [ ] **執行力のあるコミットメント装置はシールドv1.1で設計**（2026-07-18経営会議で「アプリ内スイッチの24hクールダウン」案を却下）: MVPの保護実体はShortcutsオートメーション=ユーザーがShortcuts側で即削除可能なため、アプリ内クールダウンは執行力ゼロの見せかけになる。FamilyControlsシールド（deepFocus・コード温存済み）実装時に、ManagedSettingsで実際に強制できる形で再設計する
 - [ ] **ストリークは実装しない（恒久判断・doc14 §原則）**: 2026-07-18経営会議で競合機能としても却下確定（ご褒美パスは「SNS=報酬」フレームで損失訴求と自己矛盾）。代わりに「連続記録であなたを縛りません」をASO説明文・Why Science画面の訴求コピー素材としてPhase 4で使う

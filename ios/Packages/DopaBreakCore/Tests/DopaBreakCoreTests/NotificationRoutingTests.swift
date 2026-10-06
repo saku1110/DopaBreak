@@ -16,10 +16,6 @@ final class NotificationRoutingTests: XCTestCase {
 
     func testReportNotificationsLandOnStats() {
         XCTAssertEqual(
-            NotificationRouting.destination(forIdentifier: NotificationIdentifier.morning),
-            .stats
-        )
-        XCTAssertEqual(
             NotificationRouting.destination(forIdentifier: NotificationIdentifier.weekly),
             .stats
         )
@@ -41,11 +37,17 @@ final class NotificationRoutingTests: XCTestCase {
         )
     }
 
+    func testRetiredTrialReminderIsPurgedAndHasNoDestination() {
+        XCTAssertTrue(NotificationIdentifier.legacyIdentifiers.contains("dopabreak.trialday5"))
+        XCTAssertNil(NotificationRouting.destination(forIdentifier: "dopabreak.trialday5"))
+        XCTAssertFalse(NotificationIdentifier.legacyIdentifiers.contains(NotificationIdentifier.d1Activation))
+        XCTAssertFalse(NotificationIdentifier.legacyIdentifiers.contains(NotificationIdentifier.d3Activation))
+        XCTAssertFalse(NotificationIdentifier.legacyIdentifiers.contains(NotificationIdentifier.d7Inactive))
+        XCTAssertTrue(Set(NotificationIdentifier.legacyIdentifiers).isDisjoint(with: NotificationIdentifier.freeMonthlyReports))
+        XCTAssertFalse(NotificationIdentifier.legacyIdentifiers.contains(NotificationIdentifier.reflectionPrompt))
+    }
+
     func testPlanNotificationsLandOnPlanSettings() {
-        XCTAssertEqual(
-            NotificationRouting.destination(forIdentifier: NotificationIdentifier.trialDay5),
-            .planSettings
-        )
         XCTAssertEqual(
             NotificationRouting.destination(forIdentifier: NotificationIdentifier.month12Renewal),
             .planSettings
@@ -75,6 +77,22 @@ final class NotificationRoutingTests: XCTestCase {
             NotificationRouting.destination(forIdentifier: NotificationIdentifier.d7Inactive),
             .automationGuide
         )
+    }
+
+    func testReflectionNotificationLandsOnReflection() {
+        XCTAssertEqual(NotificationIdentifier.reflectionPrompt, "dopabreak.reflection.prompt")
+        XCTAssertEqual(
+            NotificationRouting.destination(forIdentifier: NotificationIdentifier.reflectionPrompt),
+            .reflection
+        )
+    }
+
+    func testLegacyIdentifiersContainRetiredMorningNotification() {
+        XCTAssertTrue(NotificationIdentifier.legacyIdentifiers.contains("dopabreak.lock.morning"))
+    }
+
+    func testRetiredMorningNotificationHasNoDestination() {
+        XCTAssertNil(NotificationRouting.destination(forIdentifier: "dopabreak.lock.morning"))
     }
 
     func testLegacyTimedInterventionAndUnknownIdentifiersHaveNoDestination() {

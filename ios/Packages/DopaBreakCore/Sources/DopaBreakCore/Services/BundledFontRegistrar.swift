@@ -88,10 +88,18 @@ public enum DopaBreakFontRegistrar {
             return [explicitURL]
         }
 
-        // App: Bundle.main is the .app. Widget: ascend from .appex through PlugIns
-        // to the parent .app, which owns the only font payload.
-        var roots = [Bundle.main.bundleURL]
-        var ancestor = Bundle.main.bundleURL
+        // Resolve the current process first. From the app process, the only font
+        // payload lives in the embedded Widget extension. From the Widget process,
+        // keep ascending so its own bundle remains the first match.
+        let mainBundleURL = Bundle.main.bundleURL
+        var roots = [mainBundleURL]
+        let widgetsExtensionURL = mainBundleURL
+            .appendingPathComponent("PlugIns", isDirectory: true)
+            .appendingPathComponent("WidgetsExtension.appex", isDirectory: true)
+        roots.append(widgetsExtensionURL)
+        roots.append(widgetsExtensionURL.appendingPathComponent("Fonts", isDirectory: true))
+
+        var ancestor = mainBundleURL
         for _ in 0..<6 {
             ancestor.deleteLastPathComponent()
             roots.append(ancestor)

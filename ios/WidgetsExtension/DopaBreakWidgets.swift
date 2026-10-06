@@ -100,7 +100,7 @@ struct DopaBreakHomeWidgetView: View {
                 .monospacedDigit()
                 .foregroundStyle(Color(lockThemeColor: palette.accent))
 
-            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かなかった回数"))
+            Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日開かなかった回数"))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
 
@@ -119,7 +119,7 @@ struct DopaBreakHomeWidgetView: View {
     private var mediumContent: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(String(localized: "widget.goal.eyebrow", defaultValue: "YOUR GOAL"))
+                Text(String(localized: "widget.goal.eyebrow", defaultValue: "あなたの目標"))
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.4)
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
@@ -147,7 +147,7 @@ struct DopaBreakHomeWidgetView: View {
                     .font(.system(size: 32, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color(lockThemeColor: palette.accent))
-                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日 開かなかった回数"))
+                Text(String(localized: "widget.summary.today_cancelled", defaultValue: "今日開かなかった回数"))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color(lockThemeColor: palette.secondaryText))
                 Spacer(minLength: 0)
@@ -194,7 +194,12 @@ struct DopaBreakLiveActivity: Widget {
             let resolvedTheme = theme(for: context.state)
             if resolvedTheme == .liquidGlass {
                 liveActivityView(state: context.state)
+                    .activityBackgroundTint(.black.opacity(0.04))
                     .activitySystemActionForegroundColor(.white)
+            } else if resolvedTheme == .monochrome {
+                liveActivityView(state: context.state)
+                    .activityBackgroundTint(Color(uiColor: .systemBackground))
+                    .activitySystemActionForegroundColor(.primary)
             } else {
                 liveActivityView(state: context.state)
                     .activityBackgroundTint(
@@ -224,6 +229,10 @@ struct DopaBreakLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 4) {
+                        if let blockText = LockThemeLiveActivityView.blockStatusText(context.state.blockWindows ?? []) {
+                            blockText.font(.caption.bold())
+                                .foregroundStyle(Color(lockThemeColor: palette.accent))
+                        }
                         ForEach(Array(context.state.goalTitles.enumerated()), id: \.offset) { _, title in
                             Text(title)
                                 .font(.caption.bold())
@@ -250,8 +259,7 @@ struct DopaBreakLiveActivity: Widget {
                         Text(
                             String(
                                 localized: "live_activity.summary.cancelled",
-                                defaultValue: "今日は\(context.state.todayCancelledCount)回 開かなかった"
-                            )
+                                defaultValue: "今日は\(context.state.todayCancelledCount)回開かなかった")
                         )
                     )
             } minimal: {
@@ -267,8 +275,7 @@ struct DopaBreakLiveActivity: Widget {
                         Text(
                             String(
                                 localized: "live_activity.summary.cancelled",
-                                defaultValue: "今日は\(context.state.todayCancelledCount)回 開かなかった"
-                            )
+                                defaultValue: "今日は\(context.state.todayCancelledCount)回開かなかった")
                         )
                     )
             }
@@ -283,7 +290,9 @@ struct DopaBreakLiveActivity: Widget {
             theme: theme(for: state),
             goalTitles: state.goalTitles,
             cancelledCount: state.todayCancelledCount,
-            attemptCount: state.todayAttemptCount
+            attemptCount: state.todayAttemptCount,
+            blockWindows: state.blockWindows ?? [],
+            surfaceShape: .containerRelative
         )
     }
 

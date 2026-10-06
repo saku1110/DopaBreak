@@ -44,10 +44,13 @@ struct DopaBreakApp: App {
     private let notificationDelegate: NotificationDelegate
 
     init() {
-        DopaBreakFontRegistrar.registerBundledFonts(
-            resourceBundleURL: Bundle.main.bundleURL
-        )
+        DopaBreakFontRegistrar.registerBundledFonts()
         let enablesStartupSideEffects = AppLaunchPolicy.enablesStartupSideEffects()
+        AppleAdsMeasurement.shared.start(
+            apiKey: Bundle.main.object(forInfoDictionaryKey: "RevenueCatPublicSDKKey") as? String,
+            enabled: enablesStartupSideEffects
+                && (Bundle.main.object(forInfoDictionaryKey: "AppleAdsMeasurementEnabled") as? String) == "YES"
+        )
         let model = AppModel(
             automaticallyRefreshEntitlement: enablesStartupSideEffects,
             scheduleNotificationsOnInit: enablesStartupSideEffects
@@ -63,12 +66,7 @@ struct DopaBreakApp: App {
         )
         _launchSplash = StateObject(wrappedValue: launchSplash)
         let settingsStore = (try? SettingsStore()) ?? SettingsStore(userDefaults: .standard)
-        let notificationDelegate = NotificationDelegate(
-            settingsStore: settingsStore,
-            onGateUnlockRequest: { [weak model] in
-                model?.consumePendingGateUnlock()
-            }
-        )
+        let notificationDelegate = NotificationDelegate(settingsStore: settingsStore)
         self.notificationDelegate = notificationDelegate
         UNUserNotificationCenter.current().delegate = notificationDelegate
         DopaNavigationBar.apply()
@@ -76,7 +74,13 @@ struct DopaBreakApp: App {
 
     var body: some Scene {
         WindowGroup {
-            BackgroundSnapshotShieldHost(onAppActive: handleAppActive) {
+            BackgroundSnapshotShieldHost(
+                onAppActive: handleAppActive,
+                shouldHoldShield: {
+                    model.pendingInterventionTarget != nil
+                        && !model.isInterventionOverlayPresented
+                }
+            ) {
                 LaunchSplashHost(coordinator: launchSplash) {
                     Group {
                         if onboarding.isCompleted {
@@ -233,6 +237,12 @@ struct DopaBreakApp: App {
     /// `dopabreak://intervene?app=<catalogID>` を受け付ける（doc12 §2 URLルーティング・フォールバック経路）。
     private func handleOpenURL(_ url: URL) -> Bool {
         DopaBreakOpenURLHandler.handle(url) { catalogID in
+            if !onboarding.settingsStore.onboardingCompleted {
+                onboarding.settingsStore.pendingStartInterventionCatalogID = catalogID
+                onboarding.settingsStore.pendingStartInterventionRequestedAt = model.currentDate
+                model.consumeAutomationVerificationOnly(from: onboarding.settingsStore)
+                return
+            }
             model.consumeInterventionRequest(
                 catalogID: catalogID,
                 settingsStore: onboarding.settingsStore
@@ -242,16 +252,28 @@ struct DopaBreakApp: App {
 
     /// AppIntent（別プロセス実行）が SettingsStore 経由で残した起動要求を取り込む。
     private func consumePendingInterventionRequest() {
-        model.consumePendingInterventionRequest(from: onboarding.settingsStore)
+        if onboarding.settingsStore.onboardingCompleted {
+            let pendingDestination = onboarding.settingsStore.pendingNotificationDestination
+            let suppressPassThrough = ReflectionInterventionPriority.shouldSuppressPassThrough(
+                for: pendingDestination,
+                now: Date()
+            )
+            model.consumePendingInterventionRequest(
+                from: onboarding.settingsStore,
+                suppressPassThrough: suppressPassThrough
+            )
+        } else {
+            model.consumeAutomationVerificationOnly(from: onboarding.settingsStore)
+        }
     }
 
     private func handleAppActive() {
+        // RootTabViewがまだ表示されないオンボーディング中も、前面復帰ごとに認可を取り直す。
+        model.refreshScreenTimeAuthorizationStatus()
+        model.refreshLiveActivityAuthorization()
         // ウォーム復帰時は、最上段の背景シールドを外す前に介入要求を取り込む。
         consumePendingInterventionRequest()
         model.recordAppOpenedIfNeeded()
-        model.reconcileGateGrantsOnForeground()
-        // openParentalControlsAppは通知タップを伴わないため、activeのたびにも要求を拾う。
-        model.consumePendingGateUnlock()
         updateQuickActions()
         consumePendingQuickAction()
     }

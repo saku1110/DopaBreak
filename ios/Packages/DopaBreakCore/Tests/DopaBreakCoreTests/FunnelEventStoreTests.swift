@@ -61,6 +61,23 @@ final class FunnelEventStoreTests: XCTestCase {
         XCTAssertEqual(FunnelEventName.reviewPromptShown.rawValue, "review_prompt_shown")
     }
 
+    func testReflectionEventsUseSpecifiedAnalyticsNames() {
+        XCTAssertEqual(
+            FunnelEventName.reflectionNotificationScheduled.rawValue,
+            "reflection_notification_scheduled"
+        )
+        XCTAssertEqual(
+            FunnelEventName.reflectionNotificationTapped.rawValue,
+            "reflection_notification_tapped"
+        )
+        XCTAssertEqual(FunnelEventName.reflectionAnswered.rawValue, "reflection_answered")
+        XCTAssertEqual(FunnelEventName.reflectionSkipped.rawValue, "reflection_skipped")
+        XCTAssertEqual(
+            FunnelEventName.automationRequestDiscarded.rawValue,
+            "automation_request_discarded"
+        )
+    }
+
     func testMeasurementFoundationEventsPersistNamesAndDetails() throws {
         let store = try makeStore()
         let timestamp = Date(timeIntervalSince1970: 1_700_000_000)

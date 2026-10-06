@@ -23,13 +23,20 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.4</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>14</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>DotGothic16.ttf</string>
+		<string>ZenKurenaido.ttf</string>
+		<string>Galmuri11.ttf</string>
+		<string>NanumPenScript.ttf</string>
+	</array>
 </dict>
 </plist>

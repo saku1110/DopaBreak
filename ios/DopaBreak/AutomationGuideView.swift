@@ -5,18 +5,26 @@ import SwiftUI
 import UIKit
 
 func automationTutorialVideoResourceName(for languageCode: String?) -> String {
+    "automation-tutorial-\(automationTutorialLanguageCode(for: languageCode))"
+}
+
+func automationTutorialScreenshotResourceName(step: Int, for languageCode: String?) -> String {
+    "automation-step-\(step)-\(automationTutorialLanguageCode(for: languageCode))"
+}
+
+private func automationTutorialLanguageCode(for languageCode: String?) -> String {
     switch languageCode?.lowercased() {
     case "ja":
-        return "automation-tutorial-ja"
+        return "ja"
     case "ko":
-        return "automation-tutorial-ko"
+        return "ko"
     default:
-        return "automation-tutorial-en"
+        return "en"
     }
 }
 
 /// ショートカットのオートメーション設定ガイド（doc12 §4 / doc11 §4c）。
-/// 対象アプリから介入Intentが発火した事実を設定済み判定として表示する。
+/// 設定済みのチェックはユーザーが手動で付け外しする。
 struct AutomationGuideView: View {
     let model: AppModel
     let settingsStore: SettingsStore
@@ -26,95 +34,351 @@ struct AutomationGuideView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var tutorialPlayback = AutomationTutorialPlaybackController()
     @State private var selectedTargets: [SNSAppCatalogItem] = []
-    @State private var verifiedAutomationCatalogIDs: Set<String> = []
+    @State private var confirmedAutomationCatalogIDs: Set<String> = []
     @State private var didFailToLoadSelectedTargets = false
     @State private var isShortcutsMissingAlertPresented = false
 
     private var progress: AutomationVerification.Progress {
         AutomationVerification.progress(
             selectedCatalogIDs: selectedTargets.map(\.catalogID),
-            verifiedCatalogIDs: Array(verifiedAutomationCatalogIDs)
+            verifiedCatalogIDs: Array(confirmedAutomationCatalogIDs)
         )
     }
 
-    private var persistedInterventionMode: InterventionMode {
-        guard let rawValue = settingsStore.pendingInterventionMode,
-              let mode = InterventionMode(rawValue: rawValue) else {
-            return .standard
-        }
-        return mode
-    }
-
     private var shouldShowGrayscaleGuidance: Bool {
-        persistedInterventionMode == .deepFocus
+        settingsStore.blockConfiguration.blockEnabled
     }
 
-    private var shouldShowVideoTutorial: Bool {
-        tutorialPlayback.isAvailable
-    }
-
-    private var guideSteps: [AutomationGuideStep] {
-        [
-            AutomationGuideStep(
-                number: 1,
-                instruction: String(
-                    localized: "automation_guide.step.1",
-                    defaultValue: "ショートカットを開き、画面下部の「オートメーション」を選ぶ"
-                ),
-                diagram: .automationTab
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    guideContent
+                }
+                .padding(.horizontal, DesignTokens.horizontalPadding)
+                .padding(.top, 24)
+                .padding(.bottom, 60)
+            }
+            .scrollIndicators(.hidden)
+            .dopaScreenBackground()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "automation_guide.action.close", defaultValue: "閉じる")) {
+                        dismiss()
+                    }
+                    .dopaFont(15, weight: .semibold)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .dopaHitTarget()
+                }
+            }
+        }
+        .tint(DesignTokens.accent)
+        .preferredColorScheme(.dark)
+        .alert(
+            String(
+                localized: "automation_guide.shortcuts_missing.title",
+                defaultValue: "ショートカットAppが見つかりません"
             ),
-            AutomationGuideStep(
-                number: 2,
-                instruction: String(
-                    localized: "automation_guide.step.2",
-                    defaultValue: "右上の＋を押し、新規オートメーションを作る"
-                ),
-                diagram: .newAutomation
-            ),
-            AutomationGuideStep(
-                number: 3,
-                instruction: String(
-                    localized: "automation_guide.step.3",
-                    defaultValue: "「アプリ」を選ぶ"
-                ),
-                diagram: .appTrigger
-            ),
-            AutomationGuideStep(
-                number: 4,
-                instruction: String(
-                    localized: "automation_guide.step.4",
-                    defaultValue: "対象アプリと「開いている」「すぐに実行」を選ぶ。「実行時に通知」はオフのまま「次へ」をタップ"
-                ),
-                diagram: .triggerOptions
-            ),
-            AutomationGuideStep(
-                number: 5,
-                instruction: String(
-                    localized: "automation_guide.step.5",
-                    defaultValue: "「新規ショートカットを作成」をタップ"
-                ),
-                diagram: .blankAutomation
-            ),
-            AutomationGuideStep(
-                number: 6,
-                instruction: String(
-                    localized: "automation_guide.step.6",
-                    defaultValue: "シート下部のアプリ一覧から「DopaBreak」を開き、「DopaBreakで一呼吸」を選ぶ。見つからない場合は検索できます。"
-                ),
-                diagram: .dopabreakAction
-            ),
-            AutomationGuideStep(
-                number: 7,
-                instruction: String(
-                    localized: "automation_guide.step.7",
-                    defaultValue: "アクションの「アプリ」で対象アプリを選び、右上のチェックマークをタップすれば完了です。対象が1つだけなら、アプリは選ばなくても動きます。"
-                ),
-                diagram: .finishAction
+            isPresented: $isShortcutsMissingAlertPresented
+        ) {
+            Button(
+                String(
+                    localized: "automation_guide.action.open_app_store",
+                    defaultValue: "App Storeを開く"
+                )
+            ) {
+                openShortcutsAppStore()
+            }
+            Button(
+                String(localized: "automation_guide.action.cancel", defaultValue: "キャンセル"),
+                role: .cancel
+            ) {}
+        } message: {
+            Text(
+                String(
+                    localized: "automation_guide.shortcuts_missing.message",
+                    defaultValue: "App Storeからショートカットを再インストールしてください。"
+                )
             )
-        ]
+        }
+        .onAppear {
+            tutorialPlayback.guideDidAppear(reduceMotion: reduceMotion)
+            refreshGuideState()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                tutorialPlayback.applicationDidBecomeActive()
+                refreshGuideStateAfterActivation()
+            case .background:
+                tutorialPlayback.applicationDidEnterBackground()
+            case .inactive:
+                break
+            @unknown default:
+                break
+            }
+        }
+        .onDisappear {
+            tutorialPlayback.guideDidDisappear()
+        }
     }
 
-    private var grayscaleGuideSteps: [GrayscaleGuideStep] {
+    @ViewBuilder
+    private var guideContent: some View {
+        Text(String(localized: "automation_guide.title", defaultValue: "アプリを開く前の一呼吸を設定"))
+                .dopaFont(28, weight: .black, tracking: -0.5, lineSpacing: 3)
+                .foregroundStyle(DesignTokens.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            progressView
+            checklistSection
+
+            Button {
+                openShortcutsApp()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.up.forward.app.fill")
+                        .accessibilityHidden(true)
+                    Text(String(localized: "automation_guide.action.open_shortcuts", defaultValue: "ショートカットを開く"))
+                    Spacer(minLength: 8)
+                    Image(systemName: "arrow.up.right")
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 18)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+
+            AutomationGuideStepList(playbackController: tutorialPlayback)
+
+            finalConfirmationCard
+
+            if shouldShowGrayscaleGuidance {
+                grayscaleGuidanceSection
+            }
+    }
+
+    private var progressView: some View {
+        let progressText = String(
+            localized: "automation_guide.progress",
+            defaultValue: "\(progress.verifiedCount)/\(progress.totalCount) 設定済み"
+        )
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .dopaFont(16, weight: .bold)
+                    .foregroundStyle(DesignTokens.accent)
+                    .accessibilityHidden(true)
+
+                Text(progressText)
+                    .dopaFont(17, weight: .bold)
+                    .foregroundStyle(DesignTokens.primaryText)
+            }
+
+            ProgressView(
+                value: Double(progress.verifiedCount),
+                total: Double(max(progress.totalCount, 1))
+            )
+            .tint(DesignTokens.accent)
+            .accessibilityHidden(true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.backgroundRaised)
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous)
+                .stroke(DesignTokens.strongHairline, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(progressText)
+    }
+
+    private var checklistSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(String(localized: "automation_guide.checklist.section", defaultValue: "設定したアプリをチェック"))
+                .dopaFont(21, weight: .black, tracking: -0.25)
+                .foregroundStyle(DesignTokens.primaryText)
+
+            Text(String(localized: "automation_guide.checklist.manual", defaultValue: "ショートカットで設定したアプリをタップしてください。設定を削除した場合は、もう一度タップしてチェックを外せます。"))
+                .dopaFont(14, weight: .medium, lineSpacing: 4)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            CardContainer {
+                VStack(alignment: .leading, spacing: 0) {
+                    if didFailToLoadSelectedTargets {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .dopaFont(15, weight: .bold)
+                                .foregroundStyle(DesignTokens.danger)
+                                .accessibilityHidden(true)
+
+                            Text(
+                                String(
+                                    localized: "automation_guide.apps.load_error",
+                                    defaultValue: "対象アプリを読み込めませんでした"
+                                )
+                            )
+                            .dopaFont(15, weight: .semibold, lineSpacing: 4)
+                            .foregroundStyle(DesignTokens.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(minHeight: DesignTokens.minTapTarget, alignment: .leading)
+                        .accessibilityElement(children: .combine)
+                    } else if selectedTargets.isEmpty {
+                        Text(String(localized: "automation_guide.apps.empty", defaultValue: "先に一呼吸をはさむアプリを選んでください"))
+                            .dopaFont(15, weight: .semibold, lineSpacing: 4)
+                            .foregroundStyle(DesignTokens.secondaryText)
+                            .frame(minHeight: DesignTokens.minTapTarget, alignment: .leading)
+                    } else {
+                        ForEach(Array(selectedTargets.enumerated()), id: \.element.id) { index, target in
+                            if index > 0 {
+                                Rectangle()
+                                    .fill(DesignTokens.hairline)
+                                    .frame(height: 1)
+                                    .padding(.vertical, 8)
+                                    .accessibilityHidden(true)
+                            }
+                            automationChecklistRow(target)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var finalConfirmationCard: some View {
+        CardContainer {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "checkmark.seal.fill")
+                    .dopaFont(21, weight: .bold)
+                    .foregroundStyle(DesignTokens.accent)
+                    .frame(width: 32, height: 32)
+                    .background(DesignTokens.accent.opacity(0.12))
+                    .clipShape(Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(String(localized: "automation_guide.final.section", defaultValue: "最終確認"))
+                        .dopaFont(16, weight: .bold)
+                        .foregroundStyle(DesignTokens.primaryText)
+
+                    Text(
+                        String(
+                            localized: "automation_guide.final.body",
+                            defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
+                        )
+                    )
+                    .dopaFont(15, weight: .semibold, lineSpacing: 4)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var grayscaleGuidanceSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(
+                    String(
+                        localized: "automation_guide.grayscale.section",
+                        defaultValue: "画面を白黒にする（任意）"
+                    )
+                )
+                .dopaFont(21, weight: .black, tracking: -0.25)
+                .foregroundStyle(DesignTokens.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+
+                SmallLabel(
+                    text: String(
+                        localized: "automation_guide.grayscale.label",
+                        defaultValue: "Deep Focus向け"
+                    )
+                )
+
+                Text(
+                    String(
+                        localized: "automation_guide.grayscale.lead",
+                        defaultValue: "画面を白黒にすると、色による刺激を減らせます。完全ブロックと組み合わせて使える任意の設定です。"
+                    )
+                )
+                .dopaFont(15, weight: .semibold, lineSpacing: 4)
+                .foregroundStyle(DesignTokens.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            GrayscaleGuideStepsSection()
+        }
+    }
+
+    private func automationChecklistRow(_ target: SNSAppCatalogItem) -> some View {
+        AutomationChecklistRow(
+            target: target,
+            isConfirmed: confirmedAutomationCatalogIDs.contains(target.catalogID)
+        ) {
+            settingsStore.setAutomationConfirmed(
+                catalogID: target.catalogID,
+                confirmed: !confirmedAutomationCatalogIDs.contains(target.catalogID)
+            )
+            refreshGuideState()
+        }
+    }
+
+    private func openShortcutsApp() {
+        tutorialPlayback.prepareForExternalTransition()
+
+        guard let url = URL(string: "shortcuts://") else {
+            tutorialPlayback.cancelExternalTransitionPreparation()
+            isShortcutsMissingAlertPresented = true
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { didOpen in
+            guard !didOpen else {
+                return
+            }
+            Task { @MainActor in
+                tutorialPlayback.cancelExternalTransitionPreparation()
+                isShortcutsMissingAlertPresented = true
+            }
+        }
+    }
+
+    private func openShortcutsAppStore() {
+        guard let url = URL(string: "https://apps.apple.com/app/id915249334") else {
+            return
+        }
+        UIApplication.shared.open(url)
+    }
+
+    private func refreshGuideState() {
+        do {
+            selectedTargets = try model.targetStore.selectedTargets()
+            didFailToLoadSelectedTargets = false
+        } catch {
+            selectedTargets = []
+            didFailToLoadSelectedTargets = true
+        }
+        confirmedAutomationCatalogIDs = Set(settingsStore.confirmedAutomationCatalogIDs)
+    }
+
+    private func refreshGuideStateAfterActivation() {
+        refreshGuideState()
+        Task { @MainActor in
+            await Task.yield()
+            refreshGuideState()
+        }
+    }
+}
+
+/// 白黒モードの手順そのもの（3ステップ→手動設定→注記）。
+/// 設定の白黒シートと、ディープフォーカス選択時のガイド内案内で同じ並びを共有する。
+/// 親のスタックへそのまま並ぶので、見出し・リード・ボタンは各画面が持つ。
+private struct GrayscaleGuideStepsSection: View {
+    private var steps: [GrayscaleGuideStep] {
         let appsTitle = String(
             localized: "automation_guide.grayscale.mock.apps",
             defaultValue: "対象アプリをまとめて選択"
@@ -201,15 +465,75 @@ struct AutomationGuideView: View {
     }
 
     var body: some View {
+        ForEach(steps) { step in
+            GrayscaleAutomationStepCard(step: step)
+        }
+
+        CardContainer {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "hand.tap.fill")
+                    .dopaFont(17, weight: .bold)
+                    .foregroundStyle(DesignTokens.accent)
+                    .frame(width: 32, height: 32)
+                    .background(DesignTokens.accent.opacity(0.12))
+                    .clipShape(Circle())
+                    .accessibilityHidden(true)
+
+                Text(
+                    String(
+                        localized: "automation_guide.grayscale.manual",
+                        defaultValue: "自動化しない場合は、設定→アクセシビリティ→ショートカット→カラーフィルタをオンにします。以後はサイドボタン（ホームボタンがある機種ではホームボタン）を3回押すと、白黒表示を切り替えられます。"
+                    )
+                )
+                .dopaFont(14, weight: .semibold, lineSpacing: 4)
+                .foregroundStyle(DesignTokens.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+        }
+
+        Text(
+            String(
+                localized: "automation_guide.grayscale.note",
+                defaultValue: "アクション名・トリガー名はiOSのバージョンで表記が変わることがあります。"
+            )
+        )
+        .dopaFont(12, weight: .medium, lineSpacing: 3)
+        .foregroundStyle(DesignTokens.secondaryText)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// 設定から開く白黒モードの手順シート。ディープフォーカスかどうかに関わらず全員に見せる。
+/// iOS側のカラーフィルタの設定案内なので、権利で出し分けない。
+struct GrayscaleGuideSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var isShortcutsMissingAlertPresented = false
+
+    var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    Text(String(localized: "automation_guide.title", defaultValue: "アプリを開く前の一呼吸を設定"))
-                        .dopaFont(28, weight: .black, tracking: -0.5, lineSpacing: 3)
-                        .foregroundStyle(DesignTokens.primaryText)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(
+                        String(
+                            localized: "settings.target.grayscale",
+                            defaultValue: "画面を白黒にする"
+                        )
+                    )
+                    .dopaFont(21, weight: .black, tracking: -0.25)
+                    .foregroundStyle(DesignTokens.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
 
-                    progressView
+                    Text(
+                        String(
+                            localized: "grayscale_guide.lead",
+                            defaultValue: "画面から色をなくすと、アプリを開いたときの刺激が弱まります。ショートカットのオートメーションを使うと、対象アプリを開いたときだけ自動で白黒にできます。"
+                        )
+                    )
+                    .dopaFont(15, weight: .semibold, lineSpacing: 4)
+                    .foregroundStyle(DesignTokens.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
 
                     Button {
                         openShortcutsApp()
@@ -226,24 +550,7 @@ struct AutomationGuideView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
 
-                    if shouldShowVideoTutorial {
-                        AutomationTutorialVideoCard(playbackController: tutorialPlayback)
-                    }
-
-                    Text(String(localized: "automation_guide.guide.section", defaultValue: "設定手順"))
-                        .dopaFont(21, weight: .black, tracking: -0.25)
-                        .foregroundStyle(DesignTokens.primaryText)
-
-                    ForEach(guideSteps) { step in
-                        AutomationStepCard(step: step)
-                    }
-
-                    checklistSection
-                    finalConfirmationCard
-
-                    if shouldShowGrayscaleGuidance {
-                        grayscaleGuidanceSection
-                    }
+                    GrayscaleGuideStepsSection()
                 }
                 .padding(.horizontal, DesignTokens.horizontalPadding)
                 .padding(.top, 24)
@@ -292,277 +599,10 @@ struct AutomationGuideView: View {
                 )
             )
         }
-        .onAppear {
-            tutorialPlayback.guideDidAppear(reduceMotion: reduceMotion)
-            refreshGuideState()
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            switch newPhase {
-            case .active:
-                tutorialPlayback.applicationDidBecomeActive()
-                refreshGuideStateAfterActivation()
-            case .background:
-                tutorialPlayback.applicationDidEnterBackground()
-            case .inactive:
-                break
-            @unknown default:
-                break
-            }
-        }
-        .onDisappear {
-            tutorialPlayback.guideDidDisappear()
-        }
-    }
-
-    private var progressView: some View {
-        let progressText = String(
-            localized: "automation_guide.progress",
-            defaultValue: "\(progress.verifiedCount)/\(progress.totalCount) 設定済み"
-        )
-
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .dopaFont(16, weight: .bold)
-                    .foregroundStyle(DesignTokens.accent)
-                    .accessibilityHidden(true)
-
-                Text(progressText)
-                    .dopaFont(17, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
-            }
-
-            ProgressView(
-                value: Double(progress.verifiedCount),
-                total: Double(max(progress.totalCount, 1))
-            )
-            .tint(DesignTokens.accent)
-            .accessibilityHidden(true)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DesignTokens.backgroundRaised)
-        .overlay {
-            RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous)
-                .stroke(DesignTokens.strongHairline, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(progressText)
-    }
-
-    private var checklistSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "automation_guide.checklist.section", defaultValue: "アプリ別チェックリスト"))
-                .dopaFont(21, weight: .black, tracking: -0.25)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            CardContainer {
-                VStack(alignment: .leading, spacing: 0) {
-                    if didFailToLoadSelectedTargets {
-                        HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .dopaFont(15, weight: .bold)
-                                .foregroundStyle(DesignTokens.danger)
-                                .accessibilityHidden(true)
-
-                            Text(
-                                String(
-                                    localized: "automation_guide.apps.load_error",
-                                    defaultValue: "対象アプリを読み込めませんでした"
-                                )
-                            )
-                            .dopaFont(15, weight: .semibold, lineSpacing: 4)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(minHeight: DesignTokens.minTapTarget, alignment: .leading)
-                        .accessibilityElement(children: .combine)
-                    } else if selectedTargets.isEmpty {
-                        Text(String(localized: "automation_guide.apps.empty", defaultValue: "先に止めるアプリを選んでください。"))
-                            .dopaFont(15, weight: .semibold, lineSpacing: 4)
-                            .foregroundStyle(DesignTokens.secondaryText)
-                            .frame(minHeight: DesignTokens.minTapTarget, alignment: .leading)
-                    } else {
-                        ForEach(Array(selectedTargets.enumerated()), id: \.element.id) { index, target in
-                            if index > 0 {
-                                Rectangle()
-                                    .fill(DesignTokens.hairline)
-                                    .frame(height: 1)
-                                    .padding(.vertical, 8)
-                                    .accessibilityHidden(true)
-                            }
-                            automationChecklistRow(target)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var finalConfirmationCard: some View {
-        CardContainer {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "checkmark.seal.fill")
-                    .dopaFont(21, weight: .bold)
-                    .foregroundStyle(DesignTokens.accent)
-                    .frame(width: 32, height: 32)
-                    .background(DesignTokens.accent.opacity(0.12))
-                    .clipShape(Circle())
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(String(localized: "automation_guide.final.section", defaultValue: "最終確認"))
-                        .dopaFont(16, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-
-                    Text(
-                        String(
-                            localized: "automation_guide.final.body",
-                            defaultValue: "対象アプリを開き、一呼吸の画面が表示されれば設定完了です。"
-                        )
-                    )
-                    .dopaFont(15, weight: .semibold, lineSpacing: 4)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    private var grayscaleGuidanceSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(
-                    String(
-                        localized: "automation_guide.grayscale.section",
-                        defaultValue: "画面を白黒にする（任意）"
-                    )
-                )
-                .dopaFont(21, weight: .black, tracking: -0.25)
-                .foregroundStyle(DesignTokens.primaryText)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-
-                SmallLabel(
-                    text: String(
-                        localized: "automation_guide.grayscale.label",
-                        defaultValue: "Deep Focus向け"
-                    )
-                )
-
-                Text(
-                    String(
-                        localized: "automation_guide.grayscale.lead",
-                        defaultValue: "画面を白黒にすると、色による刺激を減らせます。完全ブロックと組み合わせて使える任意の設定です。"
-                    )
-                )
-                .dopaFont(15, weight: .semibold, lineSpacing: 4)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-
-            ForEach(grayscaleGuideSteps) { step in
-                GrayscaleAutomationStepCard(step: step)
-            }
-
-            CardContainer {
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: "hand.tap.fill")
-                        .dopaFont(17, weight: .bold)
-                        .foregroundStyle(DesignTokens.accent)
-                        .frame(width: 32, height: 32)
-                        .background(DesignTokens.accent.opacity(0.12))
-                        .clipShape(Circle())
-                        .accessibilityHidden(true)
-
-                    Text(
-                        String(
-                            localized: "automation_guide.grayscale.manual",
-                            defaultValue: "自動化しない場合は、設定→アクセシビリティ→ショートカット→カラーフィルタをオンにします。以後はサイドボタン（ホームボタンがある機種ではホームボタン）を3回押すと、白黒表示を切り替えられます。"
-                        )
-                    )
-                    .dopaFont(14, weight: .semibold, lineSpacing: 4)
-                    .foregroundStyle(DesignTokens.primaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .accessibilityElement(children: .combine)
-            }
-
-            Text(
-                String(
-                    localized: "automation_guide.grayscale.note",
-                    defaultValue: "アクション名・トリガー名はiOSのバージョンで表記が変わることがあります。"
-                )
-            )
-            .dopaFont(12, weight: .medium, lineSpacing: 3)
-            .foregroundStyle(DesignTokens.secondaryText)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func automationChecklistRow(_ target: SNSAppCatalogItem) -> some View {
-        let isVerified = verifiedAutomationCatalogIDs.contains(target.catalogID)
-        let statusText = isVerified
-            ? String(localized: "automation_guide.status.verified", defaultValue: "設定済み")
-            : String(localized: "automation_guide.status.not_configured", defaultValue: "未設定")
-        let accessibilityText = String(
-            localized: "automation_guide.app.accessibility_label",
-            defaultValue: "\(target.displayName) \(statusText)"
-        )
-
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                checklistAppIdentity(target)
-                Spacer(minLength: 12)
-                automationStatus(isVerified: isVerified, text: statusText)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                checklistAppIdentity(target)
-                automationStatus(isVerified: isVerified, text: statusText)
-                    .padding(.leading, 46)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: DesignTokens.minTapTarget, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
-    }
-
-    private func checklistAppIdentity(_ target: SNSAppCatalogItem) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: target.symbolName)
-                .dopaFont(15, weight: .semibold)
-                .foregroundStyle(DesignTokens.accent)
-                .frame(width: 36, height: 36)
-                .background(DesignTokens.accent.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-            Text(target.displayName)
-                .dopaFont(16, weight: .bold)
-                .foregroundStyle(DesignTokens.primaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func automationStatus(isVerified: Bool, text: String) -> some View {
-        HStack(spacing: 6) {
-            Text(text)
-                .dopaFont(13, weight: .bold)
-
-            Image(systemName: isVerified ? "checkmark.circle.fill" : "circle")
-                .dopaFont(15, weight: .bold)
-                .accessibilityHidden(true)
-        }
-        .foregroundStyle(isVerified ? DesignTokens.accent : DesignTokens.secondaryText)
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func openShortcutsApp() {
-        tutorialPlayback.prepareForExternalTransition()
-
         guard let url = URL(string: "shortcuts://") else {
-            tutorialPlayback.cancelExternalTransitionPreparation()
             isShortcutsMissingAlertPresented = true
             return
         }
@@ -571,7 +611,6 @@ struct AutomationGuideView: View {
                 return
             }
             Task { @MainActor in
-                tutorialPlayback.cancelExternalTransitionPreparation()
                 isShortcutsMissingAlertPresented = true
             }
         }
@@ -583,23 +622,76 @@ struct AutomationGuideView: View {
         }
         UIApplication.shared.open(url)
     }
+}
 
-    private func refreshGuideState() {
-        do {
-            selectedTargets = try model.targetStore.selectedTargets()
-            didFailToLoadSelectedTargets = false
-        } catch {
-            selectedTargets = []
-            didFailToLoadSelectedTargets = true
-        }
-        verifiedAutomationCatalogIDs = Set(settingsStore.verifiedAutomationCatalogIDs)
+struct AutomationGuideStepList: View {
+    @ObservedObject var playbackController: AutomationTutorialPlaybackController
+
+    private var steps: [AutomationGuideStep] {
+        [
+            AutomationGuideStep(
+                number: 1,
+                instruction: String(
+                    localized: "automation_guide.step.1",
+                    defaultValue: "ショートカットを開き、画面下部の「オートメーション」を選ぶ"
+                )
+            ),
+            AutomationGuideStep(
+                number: 2,
+                instruction: String(
+                    localized: "automation_guide.step.2",
+                    defaultValue: "「新規オートメーション」をタップ。設定済みのものがある場合は、右上の＋をタップ"
+                )
+            ),
+            AutomationGuideStep(
+                number: 3,
+                instruction: String(
+                    localized: "automation_guide.step.3",
+                    defaultValue: "「アプリ」を選ぶ"
+                )
+            ),
+            AutomationGuideStep(
+                number: 4,
+                instruction: String(
+                    localized: "automation_guide.step.4",
+                    defaultValue: "対象アプリと「開いている」「すぐに実行」を選ぶ。「実行時に通知」はオフのまま「次へ」をタップ"
+                )
+            ),
+            AutomationGuideStep(
+                number: 5,
+                instruction: String(
+                    localized: "automation_guide.step.5",
+                    defaultValue: "「新規ショートカットを作成」をタップ"
+                )
+            ),
+            AutomationGuideStep(
+                number: 6,
+                instruction: String(
+                    localized: "automation_guide.step.6",
+                    defaultValue: "シート下部のアプリ一覧から「DopaBreak」を開き、「DopaBreakで一呼吸」を選ぶ。見つからない場合は検索できます。"
+                )
+            ),
+            AutomationGuideStep(
+                number: 7,
+                instruction: String(
+                    localized: "automation_guide.step.7",
+                    defaultValue: "アクションの「アプリ」で対象アプリを選び、右上のチェックマークをタップすれば完了です。対象が1つだけなら、アプリは選ばなくても動きます。"
+                )
+            )
+        ]
     }
 
-    private func refreshGuideStateAfterActivation() {
-        refreshGuideState()
-        Task { @MainActor in
-            await Task.yield()
-            refreshGuideState()
+    var body: some View {
+        if playbackController.isAvailable {
+            AutomationTutorialVideoCard(playbackController: playbackController)
+        }
+
+        Text(String(localized: "automation_guide.guide.section", defaultValue: "設定手順"))
+            .dopaFont(21, weight: .black, tracking: -0.25)
+            .foregroundStyle(DesignTokens.primaryText)
+
+        ForEach(steps) { step in
+            AutomationStepCard(step: step)
         }
     }
 }
@@ -607,7 +699,6 @@ struct AutomationGuideView: View {
 private struct AutomationGuideStep: Identifiable {
     let number: Int
     let instruction: String
-    let diagram: AutomationMockDiagramKind
 
     var id: Int { number }
 }
@@ -632,16 +723,6 @@ private struct GrayscaleAutomationDiagram {
     let showsNextButton: Bool
 }
 
-private enum AutomationMockDiagramKind {
-    case automationTab
-    case newAutomation
-    case appTrigger
-    case triggerOptions
-    case blankAutomation
-    case dopabreakAction
-    case finishAction
-}
-
 private struct AutomationStepCard: View {
     let step: AutomationGuideStep
 
@@ -663,7 +744,13 @@ private struct AutomationStepCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                ShortcutsMockDiagram(kind: step.diagram, stepNumber: step.number)
+                Image(automationTutorialScreenshotResourceName(
+                    step: step.number,
+                    for: Locale.current.language.languageCode?.identifier
+                ))
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityHidden(true)
             }
         }
@@ -749,7 +836,7 @@ private struct GrayscaleAutomationMockDiagram: View {
     }
 }
 
-private final class AutomationTutorialPlaybackController: NSObject, ObservableObject {
+final class AutomationTutorialPlaybackController: NSObject, ObservableObject {
     @Published private(set) var isPlaying = false
     @Published private(set) var isAvailable = false
 
@@ -1188,7 +1275,7 @@ private struct AutomationTutorialPlayerSurface: UIViewRepresentable {
     }
 }
 
-private struct AutomationTutorialVideoCard: View {
+struct AutomationTutorialVideoCard: View {
     @ObservedObject var playbackController: AutomationTutorialPlaybackController
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -1215,7 +1302,7 @@ private struct AutomationTutorialVideoCard: View {
                     .dopaFont(16, weight: .bold)
                     .foregroundStyle(DesignTokens.primaryText)
 
-                Text(String(localized: "automation_guide.video.body", defaultValue: "iOS 26の操作動画を見ながら、同じ手順で設定できます"))
+                Text(String(localized: "automation_guide.video.body", defaultValue: "iOS 26の実際の設定画面です。Safariを例にしています。自分が設定するアプリに置き換えて進めてください。"))
                     .dopaFont(14, weight: .semibold, lineSpacing: 4)
                     .foregroundStyle(DesignTokens.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1273,313 +1360,6 @@ private struct AutomationTutorialVideoCard: View {
     }
 }
 
-private struct ShortcutsMockDiagram: View {
-    let kind: AutomationMockDiagramKind
-    let stepNumber: Int
-
-    var body: some View {
-        diagramContent
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 178, alignment: .topLeading)
-            .background(DesignTokens.background)
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(DesignTokens.strongHairline, lineWidth: 1)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    @ViewBuilder
-    private var diagramContent: some View {
-        switch kind {
-        case .automationTab:
-            automationTabDiagram
-        case .newAutomation:
-            newAutomationDiagram
-        case .appTrigger:
-            appTriggerDiagram
-        case .triggerOptions:
-            triggerOptionsDiagram
-        case .blankAutomation:
-            blankAutomationDiagram
-        case .dopabreakAction:
-            dopabreakActionDiagram
-        case .finishAction:
-            finishActionDiagram
-        }
-    }
-
-    private var automationTabDiagram: some View {
-        VStack(spacing: 14) {
-            MockTopBar(
-                title: String(localized: "automation_guide.mock.shortcuts", defaultValue: "ショートカット")
-            )
-
-            VStack(spacing: 9) {
-                MockSkeletonRow()
-                MockSkeletonRow(short: true)
-            }
-
-            HStack(spacing: 6) {
-                MockTabItem(
-                    symbol: "square.grid.2x2",
-                    title: String(localized: "automation_guide.mock.shortcuts", defaultValue: "ショートカット")
-                )
-
-                MockTapTarget(number: stepNumber, cornerRadius: 10) {
-                    MockTabItem(
-                        symbol: "clock.arrow.circlepath",
-                        title: String(localized: "automation_guide.mock.automation", defaultValue: "オートメーション"),
-                        emphasized: true
-                    )
-                }
-
-                MockTabItem(
-                    symbol: "square.stack.3d.up",
-                    title: String(localized: "automation_guide.mock.gallery", defaultValue: "ギャラリー")
-                )
-            }
-            .padding(8)
-            .background(DesignTokens.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-    }
-
-    private var newAutomationDiagram: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 10) {
-                Text(String(localized: "automation_guide.mock.automation", defaultValue: "オートメーション"))
-                    .dopaFont(14, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
-
-                Spacer(minLength: 8)
-
-                MockCircularTapTarget(number: stepNumber) {
-                    Image(systemName: "plus")
-                        .dopaFont(18, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-                        .frame(width: DesignTokens.minTapTarget, height: DesignTokens.minTapTarget)
-                        .background(DesignTokens.card)
-                        .clipShape(Circle())
-                }
-            }
-
-            Text(String(localized: "automation_guide.mock.new_automation", defaultValue: "新規オートメーション"))
-                .dopaFont(12, weight: .semibold)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            MockSkeletonRow()
-            MockSkeletonRow(short: true)
-        }
-    }
-
-    private var appTriggerDiagram: some View {
-        VStack(spacing: 10) {
-            MockTopBar(
-                title: String(localized: "automation_guide.mock.choose_trigger", defaultValue: "トリガーを選択")
-            )
-
-            MockSkeletonRow(short: true)
-
-            MockTapTarget(number: stepNumber, cornerRadius: 12) {
-                MockRow(
-                    symbol: "app.fill",
-                    title: String(localized: "automation_guide.mock.app", defaultValue: "アプリ")
-                )
-            }
-
-            MockSkeletonRow()
-        }
-    }
-
-    private var triggerOptionsDiagram: some View {
-        VStack(spacing: 12) {
-            MockTapTarget(number: stepNumber, cornerRadius: 12) {
-                VStack(spacing: 0) {
-                    MockRow(
-                        symbol: "app.badge",
-                        title: String(localized: "automation_guide.mock.target_app", defaultValue: "アプリ"),
-                        trailingSymbol: "checkmark.circle.fill"
-                    )
-
-                    Rectangle()
-                        .fill(DesignTokens.hairline)
-                        .frame(height: 1)
-                        .padding(.horizontal, 12)
-
-                    MockChoiceRow(
-                        title: String(localized: "automation_guide.mock.opened", defaultValue: "開いている")
-                    )
-
-                    MockChoiceRow(
-                        title: String(localized: "automation_guide.mock.run_immediately", defaultValue: "すぐに実行")
-                    )
-
-                    MockToggleRow(
-                        title: String(
-                            localized: "automation_guide.mock.notify_when_run",
-                            defaultValue: "実行時に通知"
-                        ),
-                        isOn: false
-                    )
-                }
-                .background(DesignTokens.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            Text(String(localized: "automation_guide.mock.next", defaultValue: "次へ"))
-                .dopaFont(12, weight: .bold)
-                .foregroundStyle(DesignTokens.background)
-                .frame(minWidth: 72, minHeight: 36)
-                .background(DesignTokens.accent)
-                .clipShape(Capsule())
-                .frame(maxWidth: .infinity, alignment: .trailing)
-        }
-    }
-
-    private var dopabreakActionDiagram: some View {
-        VStack(spacing: 12) {
-            Text(String(localized: "automation_guide.mock.apps", defaultValue: "アプリ"))
-                .dopaFont(12, weight: .bold)
-                .foregroundStyle(DesignTokens.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            MockTapTarget(number: stepNumber, cornerRadius: 12) {
-                VStack(spacing: 8) {
-                    MockRow(
-                        symbol: "app.fill",
-                        title: String(localized: "automation_guide.mock.dopabreak", defaultValue: "DopaBreak")
-                    )
-
-                    MockRow(
-                        symbol: "wind",
-                        title: String(
-                            localized: "automation_guide.mock.start_breath",
-                            defaultValue: "DopaBreakで一呼吸"
-                        ),
-                        trailingSymbol: "checkmark.circle.fill"
-                    )
-                }
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .dopaFont(12, weight: .semibold)
-                    .foregroundStyle(DesignTokens.secondaryText)
-
-                Text(String(localized: "automation_guide.mock.search", defaultValue: "Appとアクションを検索"))
-                    .dopaFont(12, weight: .medium)
-                    .foregroundStyle(DesignTokens.secondaryText)
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-            .frame(minHeight: DesignTokens.minTapTarget)
-            .background(DesignTokens.card)
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        }
-    }
-
-    private var blankAutomationDiagram: some View {
-        VStack(spacing: 10) {
-            MockTopBar(
-                title: String(localized: "automation_guide.mock.automation", defaultValue: "オートメーション")
-            )
-
-            MockTapTarget(number: stepNumber, cornerRadius: 12) {
-                MockRow(
-                    symbol: "plus.square.fill",
-                    title: String(
-                        localized: "automation_guide.mock.blank_automation",
-                        defaultValue: "新規ショートカットを作成"
-                    )
-                )
-            }
-
-            MockSkeletonRow(short: true)
-        }
-    }
-
-    private var finishActionDiagram: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Text(String(localized: "automation_guide.mock.action", defaultValue: "アクション"))
-                    .dopaFont(14, weight: .bold)
-                    .foregroundStyle(DesignTokens.primaryText)
-
-                Spacer(minLength: 8)
-
-                MockCircularTapTarget(number: stepNumber) {
-                    Image(systemName: "checkmark")
-                        .dopaFont(17, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-                        .frame(width: DesignTokens.minTapTarget, height: DesignTokens.minTapTarget)
-                        .background(DesignTokens.card)
-                        .clipShape(Circle())
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "wind")
-                        .dopaFont(13, weight: .bold)
-                        .foregroundStyle(DesignTokens.accent)
-
-                    Text(String(localized: "automation_guide.mock.start_breath", defaultValue: "DopaBreakで一呼吸"))
-                        .dopaFont(12, weight: .bold)
-                        .foregroundStyle(DesignTokens.primaryText)
-                }
-
-                Rectangle()
-                    .fill(DesignTokens.hairline)
-                    .frame(height: 1)
-
-                HStack(spacing: 8) {
-                    MockTapOutline(cornerRadius: 8) {
-                        Text(String(localized: "automation_guide.mock.target_app", defaultValue: "アプリ"))
-                            .dopaFont(12, weight: .bold)
-                            .foregroundStyle(DesignTokens.primaryText)
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: 36)
-                            .background(DesignTokens.backgroundRaised)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-
-                    Spacer(minLength: 0)
-                }
-            }
-            .padding(12)
-            .background(DesignTokens.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-    }
-}
-
-private struct MockTopBar: View {
-    let title: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(DesignTokens.secondaryText.opacity(0.35))
-                .frame(width: 24, height: 24)
-
-            Text(title)
-                .dopaFont(13, weight: .bold)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            Spacer(minLength: 8)
-
-            Circle()
-                .fill(DesignTokens.secondaryText.opacity(0.25))
-                .frame(width: 24, height: 24)
-        }
-        .frame(minHeight: 32)
-    }
-}
-
 private struct MockRow: View {
     let symbol: String
     let title: String
@@ -1626,185 +1406,41 @@ private struct MockRow: View {
     }
 }
 
-private struct MockChoiceRow: View {
-    let title: String
+/// Shared manual checklist control for onboarding and settings.
+struct AutomationChecklistRow: View {
+    let target: SNSAppCatalogItem
+    let isConfirmed: Bool
+    let onToggle: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .dopaFont(11, weight: .semibold)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            Spacer(minLength: 8)
-
-            Image(systemName: "checkmark.circle.fill")
-                .dopaFont(14, weight: .bold)
-                .foregroundStyle(DesignTokens.accent)
+        Button(action: onToggle) {
+            HStack(spacing: 12) {
+                Image(systemName: target.symbolName)
+                    .foregroundStyle(DesignTokens.accent)
+                    .frame(width: 36, height: 36)
+                    .background(DesignTokens.accent.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .accessibilityHidden(true)
+                Text(target.displayName)
+                    .dopaFont(16, weight: .bold)
+                    .foregroundStyle(DesignTokens.primaryText)
+                Spacer(minLength: 8)
+                Text(isConfirmed
+                     ? String(localized: "automation_guide.status.verified", defaultValue: "設定済み")
+                     : String(localized: "automation_guide.status.not_configured", defaultValue: "未設定"))
+                    .dopaFont(13, weight: .bold)
+                    .foregroundStyle(isConfirmed ? DesignTokens.accent : DesignTokens.secondaryText)
+                Image(systemName: isConfirmed ? "checkmark.square.fill" : "square")
+                    .dopaFont(22, weight: .semibold)
+                    .foregroundStyle(isConfirmed ? DesignTokens.accent : DesignTokens.secondaryText)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: DesignTokens.minTapTarget)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 42)
-    }
-}
-
-private struct MockToggleRow: View {
-    let title: String
-    let isOn: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .dopaFont(11, weight: .semibold)
-                .foregroundStyle(DesignTokens.primaryText)
-
-            Spacer(minLength: 8)
-
-            Capsule()
-                .fill(isOn ? DesignTokens.accent : DesignTokens.secondaryText.opacity(0.28))
-                .frame(width: 34, height: 20)
-                .overlay(alignment: isOn ? .trailing : .leading) {
-                    Circle()
-                        .fill(DesignTokens.primaryText)
-                        .frame(width: 16, height: 16)
-                        .padding(2)
-                }
-        }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 42)
-    }
-}
-
-private struct MockTabItem: View {
-    let symbol: String
-    let title: String
-    var emphasized = false
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: symbol)
-                .dopaFont(14, weight: .semibold)
-
-            Text(title)
-                .dopaFont(9, weight: .semibold)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-        }
-        .foregroundStyle(emphasized ? DesignTokens.primaryText : DesignTokens.secondaryText)
-        .frame(maxWidth: .infinity, minHeight: DesignTokens.minTapTarget)
-    }
-}
-
-private struct MockSkeletonRow: View {
-    var short = false
-
-    var body: some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(DesignTokens.secondaryText.opacity(0.15))
-                .frame(width: 32, height: 32)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Capsule()
-                    .fill(DesignTokens.secondaryText.opacity(0.22))
-                    .frame(width: short ? 92 : 132, height: 7)
-
-                Capsule()
-                    .fill(DesignTokens.secondaryText.opacity(0.12))
-                    .frame(width: short ? 54 : 88, height: 6)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 44)
-        .background(DesignTokens.card.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-    }
-}
-
-private struct MockTapTarget<Content: View>: View {
-    let number: Int
-    let cornerRadius: CGFloat
-    let content: Content
-
-    init(
-        number: Int,
-        cornerRadius: CGFloat,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.number = number
-        self.cornerRadius = cornerRadius
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(DesignTokens.danger, lineWidth: 2)
-            }
-            .overlay(alignment: .topTrailing) {
-                MockTapBadge(number: number)
-                    .offset(x: 8, y: -8)
-            }
-    }
-}
-
-private struct MockTapOutline<Content: View>: View {
-    let cornerRadius: CGFloat
-    let content: Content
-
-    init(
-        cornerRadius: CGFloat,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.cornerRadius = cornerRadius
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(DesignTokens.danger, lineWidth: 2)
-            }
-    }
-}
-
-private struct MockCircularTapTarget<Content: View>: View {
-    let number: Int
-    let content: Content
-
-    init(number: Int, @ViewBuilder content: () -> Content) {
-        self.number = number
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .overlay {
-                Circle()
-                    .stroke(DesignTokens.danger, lineWidth: 2)
-            }
-            .overlay(alignment: .topTrailing) {
-                MockTapBadge(number: number)
-                    .offset(x: 7, y: -7)
-            }
-    }
-}
-
-private struct MockTapBadge: View {
-    let number: Int
-
-    var body: some View {
-        Text(String(localized: "automation_guide.step.number", defaultValue: "\(number)"))
-            .dopaFont(11, weight: .black)
-            .foregroundStyle(DesignTokens.background)
-            .frame(width: 24, height: 24)
-            .background(DesignTokens.danger)
-            .clipShape(Circle())
-            .overlay {
-                Circle()
-                    .stroke(Color.white.opacity(0.9), lineWidth: 1.5)
-            }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isConfirmed ? .isSelected : [])
+        .accessibilityHint(String(localized: "automation_guide.checklist.toggle_hint", defaultValue: "タップしてチェックを付け外しします"))
+        .accessibilityIdentifier("automationChecklist.\(target.catalogID)")
     }
 }

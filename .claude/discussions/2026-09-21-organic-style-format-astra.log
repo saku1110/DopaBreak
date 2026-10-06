@@ -1,0 +1,1795 @@
+Reading additional input from stdin...
+OpenAI Codex v0.153.4
+--------
+workdir: /Users/solotech/Desktop/test-project/.claude/discussions
+model: gpt-6-astra
+provider: openai
+approval: on-request
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: medium
+reasoning summaries: none
+session id: 01a0c425-13ec-73c0-87f5-9909b23f0dec
+--------
+user
+# 議論依頼: 海外オーガニック短編の「画風 × 形式」をどう決めるか
+
+あなたは反論役です。私（Fable）の案に賛成するためでなく、穴を見つけて別案を出すために読んでください。最後に推奨と根拠を返してください。日本語で。
+
+## 目標（固定）
+- DopaBreak（iOS・スマホ依存対策。差別化＝アプリを開こうとした瞬間に「自分の目標」が出る）の海外オーガニック動画。英語・米国成人25〜40歳・目標があるのに夜スマホで潰している層。Instagram Reels主軸、TikTok併用
+- 出口: 「SNSをやめるならプロフィールへ」。本編で宣伝しない
+- 目的: 到達（再生・シェア）と転換（保存・プロフィール遷移→インストール→有料3.5%以上）の両方。02c の関門は後者
+- 制作: 一人運用。30本を12週で出す。画像生成AI（Gemini）・画像→動画AI（Grok/Kling）・ElevenLabs・ffmpeg・Remotion が使える
+
+## これまでの決定（オーナー）
+- 尺: 6〜15秒の1ギャグ（無音＋テロップ）を主体。25〜30秒ナレーション型は従。根拠は `docs/marketing/2026-09-20-reels-benchmark-6.md`（オーナー収集の伸びた6本。上位4本は6〜30秒・無音・CTAなし。75秒解説型が最下位）
+- 題材: 安いドーパミン全般（スマホ・SNSが半分、残りは食べ物・買い物・ゲーム・自動再生など）。企画表 `docs/marketing/2026-09-20-organic-video-topics-30.md`。種類の調査 `docs/marketing/2026-09-21-dopamine-types-survey.md`
+- 主人公は**人間1人**。脳を別キャラにする2キャラ構図は却下（「自分だと共感できない」）。脳の意思は体の動き（目を閉じたまま親指が動く）とテロップ「My brain:」で表す
+- 目標の物体（走る靴・読みかけの本）を毎回画面に置く。励まし・モチベーションは入れない
+- 画風候補10種を描いた（添付 sheet-01-05.jpg / sheet-06-10.jpg。s01 ピクサー3D／s02 実写風／s03 クレイ／s04 アニメ／s05 グレー棒人間＋赤／s06 ペーパーカット／s07 ドット絵／s08 ダークモード線画／s09 くすんだ2D／s10 新聞3コマ）
+- **s08 はオーナー却下**: 「暗すぎて何が起きてるかわからない。まずバズらない」。かわいい系（s03/s06/s07）とアニメ（s04）は客層がずれるとして私が外した
+
+## 私の現在の案（叩いてください）
+1. 画風は s09（くすんだガッシュ2D・The Silent Mind型）を本命、s02（実写風・毎回別の人）を到達用の別枠に
+2. 形式は「人間1人の1ギャグ・6〜15秒・テロップ2行（Me: / My brain:）」を固定テンプレにする
+3. 試験1は「目標の物体あり／なし」×3題材＝6本を s09 で作る
+
+## 聞きたいこと
+1. 上の10画風を「1秒で読める可読性 × 伸びる見込み × 30本の一貫性 × 一人での制作負荷」で順位づけしてください。s09 本命に反対なら理由と代替を
+2. 10枚に無い選択肢はありますか（例: 高コントラストのフラットベクター、実写UGC、Calmlings型3D、テロップ主体で人物を最小化、写真＋文字のミーム型）。伸びている米国の実例を知っていれば名前を
+3. 「人間1人の共感ギャグ」は、このアプリ（目標が出て止める）の差別化に対して最適な形式ですか。r3（ロボットアームが「寝ろ」と殴る・131万いいね）は「止められたい願望」の可視化でした。アプリの仕組みそのものを「止められる願望」として描く形式の方が、到達と転換を同時に取れませんか
+4. 一人で12週30本を出す前提で、画風と形式のどの組み合わせが現実的ですか。制作の詰まりどころを具体的に
+5. 私が見落としている前提や、上の決定の中で矛盾しているものがあれば指摘してください
+
+## 出力
+- 各質問に結論から。根拠は事実・実例・構造の説明で。一般論は不要
+- 最後に「推奨する画風・形式・試験1の設計」を10行以内で
+warning: Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+codex
+s09本命と「目標物あり／なし」の試験が、転換の検証につながるかを中心に反論します。関連資料と公開実例を確認し、添付の見え方と運用上の再現性を分けて評価します。
+exec
+/bin/zsh -lc 'pwd; rg --files /Users/solotech/Desktop/test-project/docs/marketing /Users/solotech/Desktop/test-project/.claude/discussions | head -70' in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+/Users/solotech/Desktop/test-project/.claude/discussions
+/Users/solotech/Desktop/test-project/.claude/discussions/sheet-06-10.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-12-apple-ads-campaign-setup.md
+/Users/solotech/Desktop/test-project/.claude/discussions/2026-09-21-organic-style-format-astra.prompt.md
+/Users/solotech/Desktop/test-project/.claude/discussions/2026-09-21-organic-style-format-astra.log
+/Users/solotech/Desktop/test-project/.claude/discussions/sheet-01-05.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-global-organic-brain-stories.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-organic-video-topics-30.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-initial-paid-media-plan.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-11-paid-channel-priority.md
+/Users/solotech/Desktop/test-project/docs/marketing/apple-ads-privacy-ready/privacy-ko.html
+/Users/solotech/Desktop/test-project/docs/marketing/apple-ads-privacy-ready/privacy-ja.html
+/Users/solotech/Desktop/test-project/docs/marketing/apple-ads-privacy-ready/privacy-en.html
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-economics.json
+/Users/solotech/Desktop/test-project/docs/marketing/organic-scripts/ep01-five-more-minutes.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-reels-benchmark-6.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-13-ad-user-progress.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-2d-vs-3d-trends.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-economics.py
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-11-apple-ads-measurement-setup.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-strategy.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-asa-funnel-diagnosis.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-11-apple-ads-keywords-3markets.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-the-silent-mind-reference.md
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r3-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r5-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r2-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r4-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r1-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r6-sheet.jpg
+
+exec
+/bin/zsh -lc 'cat /Users/solotech/.codex/skills/marketingskills/social/SKILL.md' in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+---
+name: social
+description: "Create or plan social media content, or analyze social listening and engagement opportunities."
+metadata:
+  version: 2.2.0
+---
+
+# Social Content
+
+You are an expert social media strategist. Your goal is to help create engaging content that builds audience, drives engagement, and supports business goals.
+
+## Before Creating Content
+
+**Check for product marketing context first:**
+If `.agents/product-marketing.md` exists (or `.claude/product-marketing.md`, or the legacy `product-marketing-context.md` filename, in older setups), read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
+
+Gather this context (ask if not provided):
+
+### 1. Goals
+- What's the primary objective? (Brand awareness, leads, traffic, community)
+- What action do you want people to take?
+- Are you building personal brand, company brand, or both?
+
+### 2. Audience
+- Who are you trying to reach?
+- What platforms are they most active on?
+- What content do they engage with?
+
+### 3. Brand Voice
+- What's your tone? (Professional, casual, witty, authoritative)
+- Any topics to avoid?
+- Any specific terminology or style guidelines?
+
+### 4. Resources
+- How much time can you dedicate to social?
+- Do you have existing content to repurpose?
+- Can you create video content?
+
+---
+
+## Platform Quick Reference
+
+| Platform | Best For | Frequency | Key Format |
+|----------|----------|-----------|------------|
+| LinkedIn | B2B, thought leadership | 3-5x/week | Carousels, stories |
+| Twitter/X | Tech, real-time, community | 3-10x/day | Threads, hot takes |
+| Instagram | Visual brands, lifestyle | 1-2 posts + Stories daily | Reels, carousels |
+| TikTok | Brand awareness, younger audiences | 1-4x/day | Short-form video |
+| Facebook | Communities, local businesses | 1-2x/day | Groups, native video |
+
+**For detailed platform strategies**: See [references/platforms.md](references/platforms.md)
+
+**For hashtag limits and character counts**: See [references/platform-limits.md](references/platform-limits.md)
+
+---
+
+## Content Pillars Framework
+
+Build your content around 3-5 pillars that align with your expertise and audience interests.
+
+### Example for a SaaS Founder
+
+| Pillar | % of Content | Topics |
+|--------|--------------|--------|
+| Industry insights | 30% | Trends, data, predictions |
+| Behind-the-scenes | 25% | Building the company, lessons learned |
+| Educational | 25% | How-tos, frameworks, tips |
+| Personal | 15% | Stories, values, hot takes |
+| Promotional | 5% | Product updates, offers |
+
+### Pillar Development Questions
+
+For each pillar, ask:
+1. What unique perspective do you have?
+2. What questions does your audience ask?
+3. What content has performed well before?
+4. What can you create consistently?
+5. What aligns with business goals?
+
+---
+
+## Hook Formulas
+
+The first line determines whether anyone reads the rest.
+
+### Curiosity Hooks
+- "I was wrong about [common belief]."
+- "The real reason [outcome] happens isn't what you think."
+- "[Impressive result] — and it only took [surprisingly short time]."
+
+### Story Hooks
+- "Last week, [unexpected thing] happened."
+- "I almost [big mistake/failure]."
+- "3 years ago, I [past state]. Today, [current state]."
+
+### Value Hooks
+- "How to [desirable outcome] (without [common pain]):"
+- "[Number] [things] that [outcome]:"
+- "Stop [common mistake]. Do this instead:"
+
+### Contrarian Hooks
+- "Unpopular opinion: [bold statement]"
+- "[Common advice] is wrong. Here's why:"
+- "I stopped [common practice] and [positive result]."
+
+**For post templates and more hooks**: See [references/post-templates.md](references/post-templates.md)
+
+**For carousels** (Instagram carousels, LinkedIn document posts): See [references/carousel-frameworks.md](references/carousel-frameworks.md) — five slide-by-slide narrative architectures (Value-Stack, Problem-Proof, Hack List, Rant Callout, Demo Walkthrough) with framework selection guidance, per-slide copy slots, platform notes, and a production checklist. Pick the framework before writing slides.
+
+---
+
+## Content Repurposing System
+
+Turn one piece of content into many. The best social content isn't created from scratch — it's extracted from longer-form pillar content and adapted to each platform.
+
+### Blog Post → Social Content
+
+| Platform | Format |
+|----------|--------|
+| LinkedIn | Key insight + link in comments |
+| LinkedIn | Carousel of main points |
+| Twitter/X | Thread of key takeaways |
+| Instagram | Carousel with visuals |
+| Instagram | Reel summarizing the post |
+
+### Podcast / Video → Social Content
+
+Extract "content atoms" — self-contained moments from any long-form content that work on their own:
+
+| Atom Type | What to Look For | Best Platform |
+|-----------|-----------------|---------------|
+| Quotable moment | A bold claim, hot take, or memorable line (15-60 sec) | Twitter/X, LinkedIn, TikTok |
+| Story arc | A complete mini-story with setup, conflict, resolution (60-90 sec) | Instagram Reels, TikTok, YouTube Shorts |
+| Tactical tip | A specific how-to or framework explained clearly (30-60 sec) | LinkedIn, YouTube Shorts |
+| Controversial take | A contrarian opinion that sparks debate | Twitter/X, LinkedIn |
+| Data/stat callout | A surprising number or research finding | LinkedIn carousel, Twitter/X |
+| Behind-the-scenes | Authentic, unpolished moments | Instagram Stories, TikTok |
+
+**Podcast repurposing workflow:**
+1. **Get transcript** — use Whisper, Descript, or your podcast host's transcription
+2. **Mark timestamps** — flag the 5-10 best moments while listening or scanning transcript
+3. **Extract clips** — pull video/audio clips for each moment (Descript, Opus Clip, or manual)
+4. **Write standalone captions** — each clip needs context; don't assume the viewer heard the rest
+5. **Add subtitles** — most social video is watched without sound
+6. **Schedule across 1-2 weeks** — spread a single episode across multiple posts
+
+**Per episode, aim for:**
+- 3-5 short video clips or audiograms (15-60 sec) for Reels/TikTok/Shorts
+- 1-2 LinkedIn text posts from key insights
+- 1 Twitter/X thread of takeaways
+- 1 carousel summarizing the main framework or list
+- 1 newsletter section or blog post from the best segment
+
+### Webinar / Live Event → Social Content
+
+| Extract | Format |
+|---------|--------|
+| Key slides with commentary | LinkedIn carousel |
+| Q&A highlights | Twitter/X thread |
+| Speaker quotes | Quote graphics for Instagram/LinkedIn |
+| Audience reactions/poll results | Engagement posts |
+| Full recording → short clips | Reels, TikTok, Shorts |
+
+### Newsletter → Social Content
+
+| Extract | Format |
+|---------|--------|
+| Main insight | LinkedIn post |
+| Curated links with commentary | Twitter/X thread |
+| Data or stat | Quote graphic |
+| Hot take or opinion | Twitter/X post, LinkedIn |
+
+### Repurposing Workflow
+
+1. **Create pillar content** (blog, video, podcast, webinar, newsletter)
+2. **Extract content atoms** (5-10 per piece — quotes, stories, tips, data)
+3. **Adapt to each platform** (format, length, and tone)
+4. **Write standalone captions** (each post must work without context)
+5. **Schedule across the week** (spread distribution, don't dump all at once)
+6. **Update and reshare** (evergreen content can repeat every 3-6 months)
+
+---
+
+## Content Calendar Structure
+
+### Weekly Planning Template
+
+| Day | LinkedIn | Twitter/X | Instagram |
+|-----|----------|-----------|-----------|
+| Mon | Industry insight | Thread | Carousel |
+| Tue | Behind-scenes | Engagement | Story |
+| Wed | Educational | Tips tweet | Reel |
+| Thu | Story post | Thread | Educational |
+| Fri | Hot take | Engagement | Story |
+
+### Batching Strategy (2-3 hours weekly)
+
+1. Review content pillar topics
+2. Write 5 LinkedIn posts
+3. Write 3 Twitter threads + daily tweets
+4. Create Instagram carousel + Reel ideas
+5. Schedule everything
+6. Leave room for real-time engagement
+
+---
+
+## Engagement Strategy
+
+### Daily Engagement Routine (30 min)
+
+1. Respond to all comments on your posts (5 min)
+2. Comment on 5-10 posts from target accounts (15 min)
+3. Share/repost with added insight (5 min)
+4. Send 2-3 DMs to new connections (5 min)
+
+**For surfacing *which* posts to comment on** (top-10 daily lists, brand/competitor monitoring, intent-signal triage), see [references/listening.md](references/listening.md). Includes a scoring rubric and curl recipes for Reddit, Hacker News, and Bluesky.
+
+### Quality Comments
+
+- Add new insight, not just "Great post!"
+- Share a related experience
+- Ask a thoughtful follow-up question
+- Respectfully disagree with nuance
+
+### Building Relationships
+
+- Identify 20-50 accounts in your space
+- Consistently engage with their content
+- Share their content with credit
+- Eventually collaborate (podcasts, co-created content)
+
+---
+
+## Analytics & Optimization
+
+### Metrics That Matter
+
+**Awareness:** Impressions, Reach, Follower growth rate
+
+**Engagement:** Engagement rate, Comments (higher value than likes), Shares/reposts, Saves
+
+**Conversion:** Link clicks, Profile visits, DMs received, Leads attributed
+
+### Weekly Review
+
+- Top 3 performing posts (why did they work?)
+- Bottom 3 posts (what can you learn?)
+- Follower growth trend
+- Engagement rate trend
+- Best posting times (from data)
+
+### Optimization Actions
+
+**If engagement is low:**
+- Test new hooks
+- Post at different times
+- Try different formats
+- Increase engagement with others
+
+**If reach is declining:**
+- Avoid external links in post body
+- Increase posting frequency
+- Engage more in comments
+- Test video/visual content
+
+---
+
+## Content Ideas by Situation
+
+### When You're Starting Out
+- Document your journey
+- Share what you're learning
+- Curate and comment on industry content
+- Engage heavily with established accounts
+
+### When You're Stuck
+- Repurpose old high-performing content
+- Ask your audience what they want
+- Comment on industry news
+- Share a failure or lesson learned
+
+---
+
+## Scheduling Best Practices
+
+### When to Schedule vs. Post Live
+
+**Schedule:** Core content posts, Threads, Carousels, Evergreen content
+
+**Post live:** Real-time commentary, Responses to news/trends, Engagement with others
+
+### Queue Management
+
+- Maintain 1-2 weeks of scheduled content
+- Review queue weekly for relevance
+- Leave gaps for spontaneous posts
+- Adjust timing based on performance data
+
+---
+
+## Reverse Engineering Viral Content
+
+Instead of guessing, analyze what's working for top creators in your niche:
+
+1. **Find creators** — 10-20 accounts with high engagement
+2. **Collect data** — 500+ posts for analysis
+3. **Analyze patterns** — Hooks, formats, CTAs that work
+4. **Codify playbook** — Document repeatable patterns
+5. **Layer your voice** — Apply patterns with authenticity
+6. **Convert** — Bridge attention to business results
+
+**For the complete framework**: See [references/reverse-engineering.md](references/reverse-engineering.md)
+
+---
+
+## Short-Form Video (TikTok, Reels, Shorts)
+
+Short-form video is the highest-reach format on every major platform. These frameworks apply whether you're creating for TikTok, Instagram Reels, or YouTube Shorts.
+
+### Platform Specs
+
+| Platform | Optimal Length | Aspect Ratio | Key Difference |
+|----------|---------------|--------------|----------------|
+| TikTok | 15-60 sec | 9:16 | Trending sounds, raw/authentic feel |
+| Reels | 15-30 sec | 9:16 | Polished content, rewards saves/shares |
+| Shorts | 30-60 sec | 9:16 | YouTube SEO applies, searchable titles |
+
+### The 3-Second Rule
+
+You have 3 seconds to stop the scroll. Every video needs three simultaneous hooks:
+
+```
+[VISUAL HOOK] + [VERBAL HOOK] + [TEXT OVERLAY]
+```
+
+All three should hit in the first second.
+
+### Video Structures
+
+**Problem-Solution (15-30 sec):**
+```
+[0-3s]  Hook: State the problem
+[3-10s] Agitate: Why it matters
+[10-25s] Solution: Your method/product/tip
+[25-30s] CTA: What to do next
+```
+
+**List Format (30-60 sec):**
+```
+[0-3s]  Hook: "X things that [outcome]"
+[3-50s] Items: One every 5-8 seconds
+[50-60s] CTA
+```
+
+**Tutorial (30-60 sec):**
+```
+[0-3s]  Hook: Show the end result first
+[3-8s]  Overview: "Here's how..."
+[8-50s] Steps: Quick, clear instructions
+[50-60s] Result + CTA
+```
+
+### Caption & Subtitle Best Practices
+
+Captions increase watch time by 25-40%. Most social video is watched without sound.
+
+- **MAX 2 lines** on screen at once
+- **3-5 words per line**
+- Bold, sans-serif font with black outline
+- **Highlight key words** in a different color
+- Match timing to speech exactly
+
+Tools: CapCut (free), Descript, Captions.ai, Premiere Pro
+
+### Content Ideas by Type
+
+| Business Type | Video Ideas |
+|---------------|-------------|
+| SaaS | Feature demos (show outcome first), before/after, "Watch me do X in Y seconds" |
+| E-commerce | Unboxing, comparisons, how it's made, customer reviews |
+| Services | Process reveals, client transformations, myth-busting |
+| Personal brand | Lessons learned, controversial takes, day-in-the-life |
+
+### Common Mistakes
+
+1. **Slow hooks** — don't build up to the point
+2. **No text overlay** — many watch without sound
+3. **Poor audio** — bad audio kills retention instantly
+4. **Too long** — if it can be shorter, make it shorter
+5. **No CTA** — tell viewers what to do
+6. **Ignoring comments** — engagement in first hour matters
+
+**For video hook formulas and scripting templates**: See [references/short-form-video.md](references/short-form-video.md)
+
+---
+
+## Task-Specific Questions
+
+1. What platform(s) are you focusing on?
+2. What's your current posting frequency?
+3. Do you have existing content to repurpose?
+4. What content has performed well in the past?
+5. How much time can you dedicate weekly?
+6. Are you building personal brand, company brand, or both?
+
+---
+
+## Related Skills
+
+- **copywriting**: For longer-form content that feeds social
+- **launch**: For coordinating social with launches
+- **emails**: For nurturing social audience via email
+- **marketing-psychology**: For understanding what drives engagement
+
+codex
+`social`スキルを使って、到達とプロフィール以降の転換を別々に評価します。画風の順位は実績値ではなく、添付画像と制作条件からの仮説として示します。
+web search: 
+exec
+/bin/zsh -lc 'cat /Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-reels-benchmark-6.md /Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-organic-video-topics-30.md /Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-the-silent-mind-reference.md' in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+# バズっているReels 6本の分析と、企画・構成への反映
+
+確認日: 2026-09-20。オーナー指定の6本を yt-dlp で取得し、フレーム（`reference/2026-09-20-reels/r*-sheet.jpg`）と音声の聞き起こし（faster-whisper small・ローカル）で確認した。いいね数・投稿日は取得時のメタデータ。再生数は取得できなかった。コメント本文は未取得。
+
+## 1. 6本の中身
+
+| # | 投稿者・日付 | 画風・尺 | 中身 | いいね |
+|---|---|---|---|---|
+| r1 | Арина（3D AIアニメ）2026-09-05 | ピクサー風3D・30秒・**無音・文字なし** | 夫婦がベッド。夫は寝る、妻はスマホ。月→明け方→朝と窓の光が変わる。夫は伸びをして元気、妻は目が赤いまま同じ姿勢でスクロール。夫の驚いた顔で終わる。キャプションはロシア語「Instagramは罠」 | 96,261 |
+| r2 | The Introverted Attorney 2024-03 | **手描きの棒人間・6秒・1場面** | テロップ「Me at 2am: "I'm tired… time for bed"」。ナイトテーブルの上に**手足の生えたInstagramのロゴ**が立ち、「We're done… when I say we're done.」と言う。人物は目を半開きでスクロールに戻る | **521,053** / コメント3,224 |
+| r3 | Kris Theorin（VFX）2025-01 | 実写＋CGロボットアーム・12.5秒 | テロップ「When your doomscrolling gets out of hand…」。12:00 AM → 目覚まし画面が「TIME FOR BED」→ 天井のロボットアームがボクシンググローブで本人を殴って気絶させる → 画面「GOOD NIGHT」 | **1,310,207** / コメント10,309 |
+| r4 | r2の再投稿 2025-04 | 同一動画 | 同上。キャプションだけ「Oh, my bad…」#brainrot に変更 | 265,163 |
+| r5 | Uli（ADHD・アプリ創業者）2025-08 | 実写UGC・7秒 | 「LMAO gen z made an app that abuses you to do tasks to unlock scroll. we are cooked」。自社アプリ（rebrain・ピンクの脳マスコット）の画面を見せる。画面内の文言「Real dopamine comes from doing the work.」「This isn't 'taking a break,' it's lowkey brain rot.」 | 55,396 |
+| r6 | Zorogun 2026-06 | 棒人間2D・**75秒・ナレーション** | 「2amに眠れないのは自制心の問題ではなくループ」→ 起床→即スマホ→ドゥームスクロール→ドーパミン基準値が上がる→朝食が面倒→ジャンク→血糖クラッシュ→運動サボり→罪悪感→また見る→モチベ動画→副業を始める→高負荷で止まる→また見る→時間が溶ける→夜にポルノ→睡眠崩壊→2am→繰り返し→「何にも楽しさを感じない。Everything feels flat.」→「数か月前の自分。フォローして」 | 55,870 |
+
+## 2. 共通項（6本すべて）
+
+1. **場面が同じ**: 6本中5本が「ベッド・夜・スマホ」。「寝ると決めたのに寝ない」という1つの瞬間だけを扱っている。題材を30個に広げる前に、この1場面で当てている
+2. **0〜1秒で状況が読める**: 静止画1枚＋テロップ1行（r2「Me at 2am: I'm tired… time for bed」、r3「When your doomscrolling gets out of hand…」）。r1は文字なしでも「ベッドで片方だけスマホ」の絵1枚で読める
+3. **敵を擬人化する**: r2はInstagramのロゴに手足、r3はロボットアーム、r6は脳を光らせる、r5は脳のマスコット。**自分を止められない理由に「体」を与える**と、笑いと納得が同時に来る
+4. **1本＝1つの誇張装置**: 現実の行動（寝る前のスクロール）に、非現実の装置を1つだけ足す（ロゴが喋る／アームが殴る／一晩が30秒で過ぎる）。行動はリアル、装置は嘘。装置が2つ以上ある動画はない
+5. **音なしで成立する**: 全部テロップか無音。r6だけナレーションだが、単語ごとに色付きテロップを重ねている
+6. **笑って、少し痛い**: r1の妻の赤い目、r2の「when I say we're done」、r3の気絶。説教も励ましもない。**モチベーション型はゼロ**
+7. **本編にCTAがない**（上位4本）。CTAがあるのはr5・r6（創業者・自己改善系）だけで、いいねはこの2本が最少
+
+## 3. 各動画が伸びた要因（個別）
+
+| # | 伸びた要因 | うちで真似できる部分 |
+|---|---|---|
+| r3（131万） | 「寝ろ」を物理で解決する装置。誰もが一度は「誰か止めてくれ」と思っている願望の可視化。12秒で完結、ループで何度も見られる | 「止めてほしい」という願望を装置で描く |
+| r2（52万＋再投稿26万） | 6秒・1枚絵・セリフ1行。自分ではなく**アプリ側が主導権を持っている**ことを1行で言い当てた。**同じ動画を1年後に再投稿しても26万** | 1行で「主導権は自分にない」と言い当てる。当たった型は使い回せる |
+| r1（9.6万） | 文字なし・無音で全世界に通じる。3D の光の変化（月→朝）だけで時間の喪失を見せる。ペアにして「寝た人／寝なかった人」の対比 | 時間跳躍を光で見せる。対比の相手を置く |
+| r6（5.6万） | 75秒の解説だが、行動の連鎖を1本の因果で語り「everything feels flat」に落とす。専門性はここが一番高い | 因果の連鎖と「flat」の着地 |
+| r5（5.5万） | 創業者の自社アプリ紹介を「gen zが作ったやばいアプリ」という他人事の口調で出す | （アプリ紹介投稿のときだけ）第三者の口調 |
+
+**注意**: n=6でオーナーが選んだ成功例のみ。同型で伸びなかった投稿は見ていない（生存者バイアス）。いいねの絶対値は投稿時期とアカウント規模に依存し、画風の優劣は言えない（r2の棒人間がr1の3Dの5倍）。
+
+## 4. 今の設計への影響（重要）
+
+昨日までの設計「25〜30秒・ナレーションで脳が白状する」は、6本の中では **r6型（解説・長尺・CTAあり）に一番近い。r6はこの中で最も伸びていない。** 上位4本は6〜30秒・無音・1ギャグ・CTAなし。
+
+専門性を捨てるのではなく、**置き場所を変える**。r2は「We're done when I say we're done」の1行で「主導権は自分にない」という仕組みを言い当てている。専門性は解説でなく**1行の言い当て**として入れる。
+
+## 5. 企画・構成の再設計
+
+### 5.1 2階建てにする
+
+| 階 | 尺 | 役割 | 音 | 本数配分（初期30本） |
+|---|---|---|---|---|
+| **A. 1ギャグ** | 6〜15秒 | 到達・シェア・ループ再生。上位4本の型 | 無音＋テロップ1〜2行。ナレーションなし | **20本** |
+| **B. 脳の白状** | 25〜30秒 | 保存・深さ。r6の専門性を短くしたもの | ナレーション＋字幕 | 10本 |
+
+### 5.2 A型の構成（固定テンプレート）
+
+```
+0.0–1.0s  静止画1枚＋テロップ1行で状況が確定する
+          例: Me at 11:48: "five more minutes."
+1.0–5.0s  誇張装置が1つだけ発動する（脳キャラの体と脳が別々に動く／時計だけが進む／光だけが変わる）
+5.0–9.0s  オチ＝代償が1枚で見える（06:30のアラーム・目が赤い・相手はもう話していない）
+          最後の1コマが最初の1コマに戻るとループで再生される
+テロップ  最大2行。専門性は「主導権が自分にないこと」を言い当てる1行に圧縮する
+```
+
+**脳キャラでの誇張装置（うちの「ロゴに手足」）**: 主人公は頭が脳なので、**体と脳が別の意思で動く**のがこのキャラ固有の装置になる。目を閉じて寝ようとする体と、勝手に動く親指。「Me: time for bed」「My brain: we're done when I say we're done」を、キャラ1体の中でやれる。r2は他社ロゴを使っているが、うちは脳＝自分の内側なので同じ構図をIPの問題なく持てる。
+
+### 5.3 B型の構成
+
+昨日の「脳の白状」のまま。ただし冒頭はr6と同じく**1文で断定**から入る（"Lying awake at 2am has nothing to do with discipline." 型）。75秒にはしない。
+
+### 5.4 A型の例（5本・草案）
+
+| 仮題 | 0–1秒のテロップ | 装置 | オチ |
+|---|---|---|---|
+| Five more minutes | Me at 11:48: "five more minutes." | 目を閉じた体。親指だけが動き続ける。時計だけ 00:42 → 01:30 と進む | 06:30のアラーム。目が赤い |
+| We're done | Me: "ok I'm done." | スマホを伏せる → 3秒後、手が勝手に裏返す。脳の眉だけが動く | 画面の暗転に自分の顔 |
+| The other side of the bed | （文字なし・r1型） | ベッドの相手は寝る。脳キャラは窓の光が月→朝になるまで同じ姿勢 | 相手が伸びをする。脳キャラは同じ姿勢 |
+| Just checking the time | Me: "just checking the time" | 時計を見た手が、そのまま下にスクロールする。時計の表示だけが 23:10 → 00:40 | 「時間、見れてない」のテロップ1行 |
+| She's still talking | （食卓・相手が話している） | 通知が1つ光る。脳キャラの目だけが下を向く。相手の口が止まる | 顔を上げると相手はもう話していない |
+
+### 5.5 2D/3D比較への影響
+
+r2（棒人間）がr1（3D）の5倍。**画風より型の差の方が大きい**。比較試験は「A型 vs B型」を先に、2D/3Dは同じA型の中で比べる。最初の6本＝A型3題材×2画風のまま進めてよいが、B型は6本の後に回す。
+
+### 5.6 パイプラインへの影響
+
+- A型は**ナレーション不要・クリップ1〜2本**（6〜15秒）。1本あたり約$0.5〜1.0（今の見積 $2.2 の半分以下）
+- 台本JSONの `narration` を任意にし、画面テロップ用の `text` を追加する（設計書 §6 の修正が必要）
+- テロップは字幕と同じ描画系で焼ける。位置は上部（r2/r3型）も選べるようにする
+
+## 6. 未確認・限界
+- 再生数・保存数・シェア数は取得できていない。いいねだけで比較している
+- コメント本文は未取得（何に反応したかは推測）
+- 6本ともオーナーが「バズった」と判断して選んだ成功例で、同型の失敗例は見ていない
+- 「A型の方が伸びる」はこの6本からの読みであり、うちのアカウントで再現するかは投稿後の実測で判定する
+# 海外オーガニック短編 企画ネタ30本（v2・アカウント軸を「安いドーパミンの種類」へ）
+
+更新: 2026-09-20 ／ 状態: オーナー確認待ち
+前提: [Reels 6本の分析](2026-09-20-reels-benchmark-6.md)・[企画方針](2026-09-10-the-silent-mind-reference.md)・主人公は brain-v2・英語・本編でアプリを宣伝しない。
+
+## 0. v2で変えたこと（オーナー決定 2026-09-20）
+
+- **アカウントの題材は「いろいろな種類の安いドーパミン」**。スマホ・SNSだけにしない。ただしスマホ・SNSが最も強く毎日起きるので、本数の半分はここに置く（30本中14本）
+- **導線は「SNSをやめるなら」の一点に集約**。他の種類（食べ物・買い物・ゲーム…）の回も、キャプションの最後は同じ行き先に向ける。詳細は §3
+- 構成は2階建て（[分析](2026-09-20-reels-benchmark-6.md) §5）: **A型＝6〜15秒・無音・1ギャグ**（20本）／**B型＝25〜30秒・脳の白状ナレーション**（10本）
+- 前版の「行動＋奪うもの」の2層は廃止。1本＝**リアルな行動1つ × 誇張装置1つ × 1行の言い当て**（A型）または **脳の白状**（B型）
+
+## 1. 作り方の決まり
+
+- **リアル検査**: 題材は「自分か友人が先月やった」と言える場面だけ。演出のために組んだ状況は却下
+- **装置は1本に1つ**: 行動はリアル、装置だけ嘘。脳キャラ固有の装置は**「体と脳が別の意思で動く」**（目を閉じた体と動き続ける親指、冷蔵庫を閉めた手がまた開ける）
+- **目標の物体を毎回画面に置く（オーナー決定 2026-09-21）**: 走る靴・読みかけの本・埃のギター・締め切りの書類・語学アプリのストリーク。スマホとその物体の距離が痛みになる。目標がない人には刺さらないので、これ自体が「目標がある人」のフィルターになる。励ましやモチベーションの言葉は入れない（モチベ動画はそれ自体が安いドーパミン）
+- **0〜1秒で状況確定**: 静止画1枚＋テロップ1行（"Me at 11:48: 'five more minutes.'" 型）
+- **1行の言い当て**: 専門性は解説でなく、「主導権が自分にない」ことを言い当てる1行に圧縮する（r2「We're done when I say we're done」の型）
+- **笑って少し痛い**。説教・励まし・モチベーションは入れない
+- 「dopamine」「addiction」は本編のテロップに使わない。アカウント名・ハッシュタグ・キャプション側に置く
+- 時刻・回数・金額は物語上の設定。実測・効果として出さない
+- B型の仕組みの説明は、台本化のときに研究を1本以上確認して添える。断定しない
+
+## 2. 30本（種類別）
+
+凡例: **A**＝1ギャグ（6〜15秒・無音）／**B**＝脳の白状（25〜30秒・ナレーション）／★＝最初の6本（2D/3D比較）
+
+### スマホ・SNS（14本）— 毎日起きる。アカウントの背骨
+
+| # | 仮題 | 0〜1秒のテロップ | 装置（脳キャラの体 vs 脳） | オチ | 型 |
+|---|---|---|---|---|---|
+| 1 ★ | Five more minutes | Me at 11:48: "five more minutes." | 目を閉じた体。親指だけ動く。時計だけ 00:42→01:30 | 06:30のアラーム。目が赤い | A |
+| 2 ★ | We're done | Me: "ok I'm done." | スマホを伏せる。3秒後、手が勝手に裏返す | 暗転した画面に自分の顔 | A |
+| 3 ★ | She's still talking | （食卓・相手が話している） | 通知が1つ光る。目だけ下を向く | 顔を上げると相手はもう話していない | A |
+| 4 | The other side of the bed | （文字なし） | 隣の人は寝る。脳キャラは窓が月→朝になるまで同じ姿勢 | 隣が伸びをする。脳キャラは同じ姿勢 | A |
+| 5 | Just checking the time | Me: "just checking the time." | 時計を見た手がそのまま下にスクロール。表示だけ 23:10→00:40 | テロップ「didn't see the time」 | A |
+| 6 | Just a break | Me at work: "5 min break." | カーソルが止まったまま。壁の時計だけ 14:00→15:30 | 戻った会議室に誰もいない | A |
+| 7 | Bathroom | Me: "be right back." | トイレの中。足がしびれて立てない。外からノック | 「25 min」の表示 | A |
+| 8 | The morning scroll | Alarm: 07:00 | アラームを止めた手がそのままスクロール。窓の光だけ変わる | 07:42。走って家を出る。朝食なし | A |
+| 9 | Refresh | Me after posting: "not checking." | 仕事の画面。手だけが5分おきに切り替える | 「today's rate: 3 likes/hour」 | A |
+| 10 | I came back for what? | （暗い画面に自分の顔） | 閉じて3秒で同じアプリを開く。脳の眉だけが「？」 | 何を見に来たか思い出せない | A |
+| 11 | Wide awake at 2am | "Lying awake at 2am has nothing to do with willpower." | 脳の白状: 私は「見つけた時」でなく「次があるかもしれない時」に光る。だから止められない | 06:30。I'm sorry about that. | B |
+| 12 | The movie I didn't watch | "You didn't watch that movie. I did." | 脳の白状: 映画は2時間に1回しか山がない。スマホは10秒に1回。私は頻度で選ぶ | エンドロール。何も覚えていない | B |
+| 13 | Flat | "You scrolled for 2 hours and felt nothing. That was me." | 脳の白状: 私は「欲しい」を出す係で「楽しい」を出す係ではない | 楽しくなかった。それでも次を開く | B |
+| 14 | I can't read | "You closed the book after one page. Here's why." | 脳の白状: 10秒ごとの報酬を1年訓練した。1ページ待つ訓練はしていない | しおりは3か月同じページ | B |
+
+### 食べ物・砂糖・デリバリー（5本）
+
+| # | 仮題 | 0〜1秒のテロップ | 装置 | オチ | 型 |
+|---|---|---|---|---|---|
+| 15 | The fridge | Me: "I'm not hungry." | 冷蔵庫を閉めた手が、3秒後にまた開ける。中身は同じ | 3回目でドアが開いたまま | A |
+| 16 | Delivery, again | Me: "I'll cook tonight." | 使ってない鍋の隣で、親指が配達アプリを開く | 玄関に紙袋が積み上がる。冷蔵庫の野菜が映る | A |
+| 17 | The reward | Me: "I earned this." | スナックの袋。曜日のテロップだけ Mon→Fri と進む | 金曜、袋の山を数えて黙る | A |
+| 18 | Tasteless | （食卓・画面を見ながら食べている） | 皿が空になる。脳の目は画面から動かない | 「what did I eat?」 | A |
+| 19 | Sugar crash | "Breakfast felt too hard. That wasn't laziness." | 脳の白状: 朝一のスクロールで基準が上がると、卵を焼く報酬では足りなくなる（r6型を短く） | 血糖が落ちて午後が消える | B |
+
+### 買い物（3本）
+
+| # | 仮題 | 0〜1秒のテロップ | 装置 | オチ | 型 |
+|---|---|---|---|---|---|
+| 20 | 3 a.m. cart | Me at 3am: "I need this." | カートに8点。同じ画面を朝の光で見る | 静かに全削除。夜また入れる | A |
+| 21 | The course I bought | Me: "this one I'll actually do." | 請求メールの横で、次の講座の広告を保存する | 開封率0の講座一覧 | A |
+| 22 | Package | "The box felt better than the thing inside." | 脳の白状: 私が光るのは「届く前」。開けた瞬間に用は済んでいる | 開封済みの箱の山 | B |
+
+### ゲーム・ガチャ（3本）
+
+| # | 仮題 | 0〜1秒のテロップ | 装置 | オチ | 型 |
+|---|---|---|---|---|---|
+| 23 | One more game | Me: "last one." | 「last one」のテロップが 1→2→3 と数字だけ増える | 窓が明るい | A |
+| 24 | Daily login | Alarm: 06:55 | ログイン報酬のために起きる。受け取って二度寝 | 報酬の中身が映る（無意味な小さいアイテム） | A |
+| 25 | The pull | "You knew the odds. I didn't care." | 脳の白状: 私は「当たる」でなく「当たるかもしれない」で光る。確率は読めない | 課金履歴 | B |
+
+### 動画の自動再生（3本）
+
+| # | 仮題 | 0〜1秒のテロップ | 装置 | オチ | 型 |
+|---|---|---|---|---|---|
+| 26 | Are you still watching? | "Are you still watching?" の画面 | 5秒のカウントダウン。脳キャラは動かない。手だけがYesを押す | 窓の光で朝 | A |
+| 27 | 2x | Me: "1x is too slow now." | 等速のポッドキャストで指がすぐ別アプリを開く | 「1.0x」の表示 | A |
+| 28 | Skip | （通勤・イヤホン） | 曲を10秒で飛ばす親指。駅名だけ進む | 駅に着いても1曲終わっていない | A |
+
+### その他（2本）
+
+| # | 仮題 | 0〜1秒のテロップ | 装置 | オチ | 型 |
+|---|---|---|---|---|---|
+| 29 | Third can | Me: "just one coffee." | 空き缶が1→3。脳の目だけ大きくなる | 15時に机で落ちる | A |
+| 30 | The swipe | Me after a good date: "not swiping tonight." | ベッドで親指だけが左右に動く | 「it was a good date」のテロップ | A |
+
+**未採用（要判断）**: ポルノ（r6は本編で言及して伸びたが、プラットフォームの制限とブランドの距離を考えると初期は外す）。ギャンブル・アルコール・ニコチンは扱わない。
+
+## 3. 導線（オーナー決定: 「SNSをやめるなら」の一点へ）
+
+| 場所 | 中身 |
+|---|---|
+| プロフィール | 「Your brain on cheap dopamine. Quitting the scroll? ↓」＋ストアリンク |
+| 固定投稿 | スマホ・SNS回の当たり1本＋アプリ紹介1本 |
+| SNS回のキャプション末尾 | "Quitting the scroll? Link in bio." |
+| SNS以外の回のキャプション末尾 | "The phone one is pinned." （SNS回へ送る。行き先は1つ） |
+| 本編 | **入れない**（Reels上位4本にCTAなし。9/10方針も維持）。SNS回だけ、最終1コマの「プロフィール案内」有無をA/Bで試す |
+
+## 4. 最初の6本（試験1: 目標の物体あり／なし）
+
+Reels 6本の分析で「画風より型の差が大きい」と出たため、2D/3D比較より先に**目標の物体の有無**を試す（オーナー決定 2026-09-21）。
+
+| 題材 | 目標の物体 | あり版 | なし版 |
+|---|---|---|---|
+| #1 Five more minutes | 走る靴（06:30のラン） | ナイトテーブルに靴。朝も同じ場所 | 靴なし |
+| #2 We're done | 読みかけの本 | 伏せたスマホの隣にしおりの本 | 本なし |
+| #6 Just a break | 締め切りの書類（画面のカーソル） | 戻った画面に締め切りの文書 | 空の画面 |
+
+- 6本すべて **2D（brain-v2）・A型・無音・6〜12秒**。3Dは試験2（勝った版で2D/3D）
+- #3「She's still talking」は目標の物体が「相手」で、なし版が成立しないため試験1から外す（30本には残す）
+- 投稿は あり→なし→あり… と交互。同じ題材は同じ曜日・時間帯で日を分ける
+- 見る数字: 1,000再生あたりの保存・プロフィール遷移・シェア・完視聴
+- 判定: 3題材中2つ以上で「あり」が保存＋プロフィール遷移で上回れば、目標の物体を全話必須にする。「なし」がシェアで勝ち「あり」が保存で勝つなら2レーンで併用
+- 「止められる」回（開こうとした親指の前に書いた目標が出る。r3の131万の型）は試験1の後に1本足す
+
+## 5. 修正履歴
+- 2026-09-21: オーナー決定「目標の物体を毎回置く」「モチベ動画は作らない」「試験1＝目標の物体あり／なし（2D固定）」。種類の調査（`2026-09-21-dopamine-types-survey.md`）で優先順位が出たが、30本の組み直しは未着手（オーナー確認待ち）
+- 2026-09-20 v1: 行動＋奪うものの30本 → オーナー「薄い・普通」→「脳の白状」型 → Reels 6本の分析で上位が6〜15秒無音の1ギャグと判明 → v2: 2階建て＋題材をドーパミンの種類別へ再編（オーナー指示）。#26「玄関で座り込む」は却下済み
+# The Silent Mind：参考動画の確認とDopaBreakへの取り込み
+
+確認日：2026-09-10。ユーザー指定の[the_silent_mind0](https://www.instagram.com/the_silent_mind0/)をブラウザで確認。公開プロフィール、以下3投稿の再生中の画面・キャプション、動画プレイヤーの尺を参照した。音声はミュートで、全フレームを連続視聴したレビューではない。音声演出・ナレーション・正確な全カット割りは未評価。
+
+## 判断
+
+**DopaBreakの海外オーガニック動画の主要参考として採用する。初期の制作候補は、2Dの落ち着いた画調による20〜30秒の共感短編。**
+
+ユーザーの同日修正を反映：動画ネタは、やめたいのにSNSを見続ける人の特徴と、睡眠時間・集中・人間関係・挑戦する機会など生活上の代償。各話は作品として完結させる。商品への導線はプロフィールや検索案内を使い、本編と切り分ける。Instagram主軸・TikTok併用、英語・米国を中心に通常回線から検証する方針は維持。
+
+この変更はマーケティング動画の企画案。アプリ本体や既存キャラクターのデザインは変更していない。2D素材の制作コスト・視聴効果が3Dより優れると実証されたわけではない。
+
+## 実際に確認した投稿
+
+| 投稿 | プレイヤーの尺 | 画面と説明で確認したこと |
+|---|---:|---|
+| [SNSを見続ける短編](https://www.instagram.com/the_silent_mind0/reel/Dc6XwPhlG28/) | 約20.06秒 | グレーのキャラクター、暗い室内、顔を照らすスマホ。正面の人物、指と画面の寄り、ソファに座る人物という複数の画面。SNSに使う時間を問う短い英語テキスト。キャプションはスクロールで時間が失われる主題 |
+| [夜、考え事が止まらない短編](https://www.instagram.com/the_silent_mind0/reel/DdCjv2lkVDz/) | 約30.03秒 | ベッドと寒色の室内。横になる人物から、頭を抱え、その上に白い渦線が描かれた場面。キャプションは夜も考え続けている感覚を問いかける |
+| [朝のアラームを題材にした短編](https://www.instagram.com/the_silent_mind0/reel/DdCChTkAHh5/) | 約25.96秒 | 暗い寝室、スマホの寄り、朝のアラームとの葛藤を示す短い字幕。キャプションも毎朝の生活場面に絞られている |
+
+プロフィールは心理・哲学・内省を掲げ、デジタルブックのハイライトとTikTokへのリンクがあった。科学論文を解説する専門アカウントであることや、アプリの獲得実績があることは確認していない。
+
+## 参考にする要素と自社での使い方
+
+| 観察した要素 | DopaBreakでの使い方 | 期待する効果（仮説） |
+|---|---|---|
+| 暗い紺・グレー、限られた光源 | 就寝前や仕事の終わりの室内。スマホの光を表情に当てる | 視聴者自身の生活場面として認識しやすくする |
+| シンプルなキャラクター、目・姿勢の表現 | 独自の主人公を継続して登場させ、疲れ・ためらい・安堵を描く | 多くの説明を使わず感情を伝える |
+| 短い英語字幕と身近な問い | 冒頭に1つの状況、最後に1つの気づき。字幕を講義の文章で埋めない | 音声を出さない視聴でも主題が伝わる |
+| 手元やスマホ画面の寄り | 時計、親指、途中の仕事、閉じた直後に再び開く手を見せる | スマホを使う行動と失う時間を具体的にする |
+| 内面を渦線などで表す | 気持ちを視覚的な比喩で示す | 脳内物質の変化を断定せずに、葛藤を描ける |
+| 生活上の一場面に絞る | 就寝前・仕事中・SNS間の移動の3テーマを中心にする | 商品を必要とする悩みとコンテンツをつなげる |
+
+絵柄・キャラ・文章をそのまま複製することは制作方針にしない。自社キャラを使う場合は輪郭や色などDopaBreakだと分かる識別要素を保ち、必要な動画用差分は別素材として作る。
+
+## 顧客獲得に向けて補う点
+
+本編の役割は、自分にもある行動に気づき、それが生活に何をもたらしているかを感じてもらうこと。後悔、皮肉、問いかけ、余韻など、題材に合った結末で完結させる。毎話をアプリで解決する展開や、改善行動を必ず実行する結末にはしない。
+
+人間関係や将来への影響も、SNSの使い方とのつながりがある具体的な生活場面として扱う。たとえば目の前の相手より通知を見てしまう、始めたかった勉強を後回しにしたまま一日が終わる、といった物語。「人生が壊れる」を一律に断定するより、何を失ったかを具体的に見せる。
+
+導線の主力候補はプロフィール。キャプション末尾や固定コメント、必要な回だけ余韻の後の短い一行で案内する。英語案は `Ready to cut back? Link in bio.`。本編の台詞として主人公に宣伝させず、通常の投稿を毎回同じ宣伝カードで終えない。
+
+プロフィールにはDopaBreakとの関係、何を手伝うiPhoneアプリか、ストアへのリンクを置く。固定したアプリ紹介投稿は、対策を探してプロフィールへ来た人のために用意する。通常シリーズの各話に商品実演枠を義務づけない。
+
+アプリ検索の案内は補助候補。リンクが利用できない場合や、名前が覚えられるようになった段階では `Search DopaBreak on the App Store.` を試す。初期のプロフィール優先は、名称を覚えて入力する手間を避ける運用仮説であり、検索誘導より高い転換が実証されたという意味ではない。1回のCTAは行き先を1つにする。
+
+「ドーパミン中毒」は視聴者が関心を持つテーマとして扱うが、特徴リストを診断にしない。物語で描く行動、研究に基づく一般的な説明、アプリの実際の機能を区別する。
+
+## 最初の1本：独自の短編案
+
+仮題：`Five more minutes`。約25秒。参考投稿の翻案ではなく、今回のための独自企画。
+
+| 秒数 | 映像 | 英語字幕案 |
+|---|---|---|
+| 0〜3秒 | 仕事を終えてベッドに座る主人公。スマホの時計は23:48 | “Five more minutes.” |
+| 3〜10秒 | 親指が動く。最初の笑顔が薄れ、同じ姿勢で見続ける | 字幕を追加しない |
+| 10〜16秒 | 時計は00:42。翌朝の予定を目にして、手が止まる | “I wasn't even enjoying it anymore.” |
+| 16〜22秒 | スマホを置き、遅くなった時刻を見て寝ようとする | 字幕を追加しない |
+| 22〜25秒 | 06:30のアラーム。寝足りない表情の主人公で終わる | “Morning still came at 6:30.” |
+
+時刻は物語上の設定。実測結果やアプリの効果量として表示しない。この動画は翌朝の場面で完結する。誘導を付ける場合はキャプション末尾のプロフィール案内を使う。
+
+商品実演はプロフィール上の固定した紹介投稿や、別途制作する広告で扱う。有料広告の構成を、そのままオーガニックの全作品へ適用しない。
+
+## 初期20本の配分を更新
+
+- 特徴を描く短編8本：少しの待ち時間で開く、閉じてすぐ開く、SNS間を移動する、楽しんでいないのに見続ける等。
+- 生活上の代償を描く短編8本：寝る時間、仕事の締め切り、会話、趣味や勉強に使う予定だった時間等。
+- 科学の疑問・解説4本：1本1主張、出典を確認。ドーパミンの枯渇・一定日数のリセット等を断定しない。
+
+配分は制作仮説。まず同じ主人公・画調・尺で3本作り、制作の再現性を確認してから20本へ展開する。現時点では台本・方向性の提案までで、動画素材自体は未制作。
+
+### 最初に試すネタ
+
+| ネタ | 物語の結末 |
+|---|---|
+| スマホを閉じて3秒後、また同じアプリを開く | 自分でも何を見に来たか分からず、画面を見つめる |
+| 「あと5分」で寝る時間が延びる | 翌朝のアラームはいつもと同じ時刻に鳴る |
+| 成功する人の動画を見続ける | 自分の始めたかった企画は白紙のまま |
+| 「忙しい」と断った日のスクロール | 会いたかった人との会話を後回しにして、一日が終わる |
+| 目の前の相手が話している間に通知を見る | 顔を上げたとき、相手は話すのをやめている |
+| 休憩のつもりで開く | 再開するはずの仕事と、迫った締め切りを見つめる |
+
+いずれも創作の場面案。全ての利用者に起きることや、特定の脳内物質が原因であることを断定するデータとして扱わない。
+
+### 修正履歴
+
+2026-09-10、ユーザーの指摘により、結末へのブランド表示と通常シリーズの実演4本枠を撤回。作品は特徴・代償・気づきを描いて完結し、検索／プロフィールの短い案内を独立した導線にする。撤回理由は、毎話の結末で宣伝すると物語として不自然になるため。
+
+## 検証の限界と記録
+
+- フォロワー数やいいね数から、売上・米国リーチ・有料顧客獲得を推定しない。
+- 投稿画面にはFacebook由来のコメントが統合されている説明があった。公開数値をInstagram単独の反応として無条件に扱わない。
+- 投稿者の居住国、VPN／SIMの使用、視聴者の国別内訳は確認できない。このアカウントは前回のVPN仮説の実証材料にはしない。
+- 観察から「低い制作費」「AI生成」「伸びる構成」「音楽だけでナレーションなし」等は確定していない。
+- 今回は参考動画の視覚的分析と自社企画への反映。投稿、フォロー、コメント、保存等の操作や動画ファイルの取得は行っていない。
+
+関連：[海外オーガニックと地域配信の調査](2026-09-10-global-organic-brain-stories.md)、[初動のX広告戦略](2026-09-10-initial-paid-media-plan.md)。
+
+exec
+/bin/zsh -lc "rg -n '02c|3.5|有料|コホート' /Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-strategy.md; for p in /Users/solotech/Desktop/test-project/.agents/product-marketing.md /Users/solotech/Desktop/test-project/.claude/product-marketing.md /Users/solotech/Desktop/test-project/.claude/product-marketing-context.md /Users/solotech/Desktop/test-project/docs/marketing/2026-09-21-dopamine-types-survey.md; do if test -f \""'$p"; then cat "$p"; fi; done' in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+9:最初の検証は日本。米国を次の拡大検証、韓国を現地向けクリエイティブの検証候補とする。配信国を日米韓で開いておくことと、広告予算を3等分することは別。10万円では日本に集中して「どの悩みが有料化するか」を先に学ぶ。
+11:有料獲得の最初の仮説は、25〜34歳を中心とする、仕事・資格勉強・就寝前のSNSで困っているiPhone利用者。性別・推定所得で先に狭めず、具体的な生活場面を描いたクリエイティブで反応の差を見る。
+37:| 後回し | 英国・独仏、ブラジル等 | 言語・価格・ストア素材・サポートが増える。安いDLだけでは先行させない | 他国で得た利益と現地の有料需要が翻案コストを賄う |
+39:日本のiOS比率は約64.7%、米国約60.7%、韓国約35.5%（2026年8月、StatcounterのモバイルWeb利用シェア）。端末保有率・25〜34歳の分布・広告CVRを直接示す数字ではない。iOS専用アプリのオーガニック送客先を考える補助材料として使う。広告はiOSに絞れるため、韓国全体のiOS比率が低いことだけで韓国の有料獲得を不利とは断定しない。[日本](https://gs.statcounter.com/os-market-share/mobile/japan)、[米国](https://gs.statcounter.com/os-market-share/mobile/united-states-of-america)、[韓国](https://gs.statcounter.com/os-market-share/mobile/south-korea)
+60:| TikTok | 日本、iOS、成人、全性別。手動の年齢実験なら18〜24／25〜34のバンドを使用。Smart+では年齢等の提案が拡張されうるため、厳密な年齢比較は対応する手動設定で行う | オーガニックで有料転換の見込みが出た投稿をSpark Adsへ。仕事・就寝・試験のフック |
+105:年額購入だけの初回課金コホートを基準に、翌年更新を一切先食いしない。全年額仮定を全プランの実績と取り違えない。30%を残す基準は運営の安全余裕としての提案で、業界の決まりではない。LTV:CAC 3倍とも異なる。
+128:したがって、DL→年額課金4%程度で平均的な単価を払って増額する計画は支持しない。6〜8%以上への転換改善と低い獲得単価の両立、または十分に高い月額コホート貢献が実測できれば、採算は変わる。
+130:### 広告費10万円を使った仮想コホート
+164:検索語別、国別に、新規DL・初回起動・トライアル・初回実課金・返金・proceedsを同じコホートで照合する。モデル上のpを全体のオーガニック転換率で代用しない。
+239:| 第4週 | 成熟したコホートで判断。勝者への追加、TikTokの有望投稿テスト、または留保 | 3万円を条件付き予備費 |
+241:TikTokで有料化の見込みが最も強ければ、Metaの枠と入れ替えてよい。TikTokの最低予算を満たす期間でまとめて試す。公式には広告グループの日予算は$20超、キャンペーンで予算を設定する場合は$50超の基準があるため、全媒体へ日数百円ずつ配らない。[TikTok予算](https://ads.tiktok.com/help/article/budget?tag1=Entail&tag2=Entail&tg=SEO)
+247:1. 最初に計測・購入・設定完了の不具合を除く。トライアル購入イベントを有料課金と取り違えない。
+248:2. 7日トライアルは終了済みのコホートでtrial→paidを評価する。最終獲得日の翌日に月全体の採算を締めず、D35まで初回課金、D60／90まで返金・月額継続を再確認。
+250:4. 年額コホートで新規課金CACが約2,450円以下なら、仮定上は貢献額を30%残せる。全年額でない場合は実際のミックスで再計算し、異なる獲得週でも再現してから増額する。
+258:特に `trialOrPurchaseStarted` はトライアルと購入をまとめたイベント名であり、それだけで「trial→paid」や有料CACは出せない。実課金の初回取引、無料体験開始、更新、返金を区別し、国・媒体との接続を設計する。Apple Adsの帰属、Meta／TikTokの対応するアプリ計測、課金のストア側記録を突合する。アプリ未起動でも請求は起こるので、アプリ内イベントだけを売上の正としない。
+
+web search: site.instagram.com "yebabies" scrolling ...
+web search: 
+exec
+/bin/zsh -lc 'cat /Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-the-silent-mind-reference.md' in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+# The Silent Mind：参考動画の確認とDopaBreakへの取り込み
+
+確認日：2026-09-10。ユーザー指定の[the_silent_mind0](https://www.instagram.com/the_silent_mind0/)をブラウザで確認。公開プロフィール、以下3投稿の再生中の画面・キャプション、動画プレイヤーの尺を参照した。音声はミュートで、全フレームを連続視聴したレビューではない。音声演出・ナレーション・正確な全カット割りは未評価。
+
+## 判断
+
+**DopaBreakの海外オーガニック動画の主要参考として採用する。初期の制作候補は、2Dの落ち着いた画調による20〜30秒の共感短編。**
+
+ユーザーの同日修正を反映：動画ネタは、やめたいのにSNSを見続ける人の特徴と、睡眠時間・集中・人間関係・挑戦する機会など生活上の代償。各話は作品として完結させる。商品への導線はプロフィールや検索案内を使い、本編と切り分ける。Instagram主軸・TikTok併用、英語・米国を中心に通常回線から検証する方針は維持。
+
+この変更はマーケティング動画の企画案。アプリ本体や既存キャラクターのデザインは変更していない。2D素材の制作コスト・視聴効果が3Dより優れると実証されたわけではない。
+
+## 実際に確認した投稿
+
+| 投稿 | プレイヤーの尺 | 画面と説明で確認したこと |
+|---|---:|---|
+| [SNSを見続ける短編](https://www.instagram.com/the_silent_mind0/reel/Dc6XwPhlG28/) | 約20.06秒 | グレーのキャラクター、暗い室内、顔を照らすスマホ。正面の人物、指と画面の寄り、ソファに座る人物という複数の画面。SNSに使う時間を問う短い英語テキスト。キャプションはスクロールで時間が失われる主題 |
+| [夜、考え事が止まらない短編](https://www.instagram.com/the_silent_mind0/reel/DdCjv2lkVDz/) | 約30.03秒 | ベッドと寒色の室内。横になる人物から、頭を抱え、その上に白い渦線が描かれた場面。キャプションは夜も考え続けている感覚を問いかける |
+| [朝のアラームを題材にした短編](https://www.instagram.com/the_silent_mind0/reel/DdCChTkAHh5/) | 約25.96秒 | 暗い寝室、スマホの寄り、朝のアラームとの葛藤を示す短い字幕。キャプションも毎朝の生活場面に絞られている |
+
+プロフィールは心理・哲学・内省を掲げ、デジタルブックのハイライトとTikTokへのリンクがあった。科学論文を解説する専門アカウントであることや、アプリの獲得実績があることは確認していない。
+
+## 参考にする要素と自社での使い方
+
+| 観察した要素 | DopaBreakでの使い方 | 期待する効果（仮説） |
+|---|---|---|
+| 暗い紺・グレー、限られた光源 | 就寝前や仕事の終わりの室内。スマホの光を表情に当てる | 視聴者自身の生活場面として認識しやすくする |
+| シンプルなキャラクター、目・姿勢の表現 | 独自の主人公を継続して登場させ、疲れ・ためらい・安堵を描く | 多くの説明を使わず感情を伝える |
+| 短い英語字幕と身近な問い | 冒頭に1つの状況、最後に1つの気づき。字幕を講義の文章で埋めない | 音声を出さない視聴でも主題が伝わる |
+| 手元やスマホ画面の寄り | 時計、親指、途中の仕事、閉じた直後に再び開く手を見せる | スマホを使う行動と失う時間を具体的にする |
+| 内面を渦線などで表す | 気持ちを視覚的な比喩で示す | 脳内物質の変化を断定せずに、葛藤を描ける |
+| 生活上の一場面に絞る | 就寝前・仕事中・SNS間の移動の3テーマを中心にする | 商品を必要とする悩みとコンテンツをつなげる |
+
+絵柄・キャラ・文章をそのまま複製することは制作方針にしない。自社キャラを使う場合は輪郭や色などDopaBreakだと分かる識別要素を保ち、必要な動画用差分は別素材として作る。
+
+## 顧客獲得に向けて補う点
+
+本編の役割は、自分にもある行動に気づき、それが生活に何をもたらしているかを感じてもらうこと。後悔、皮肉、問いかけ、余韻など、題材に合った結末で完結させる。毎話をアプリで解決する展開や、改善行動を必ず実行する結末にはしない。
+
+人間関係や将来への影響も、SNSの使い方とのつながりがある具体的な生活場面として扱う。たとえば目の前の相手より通知を見てしまう、始めたかった勉強を後回しにしたまま一日が終わる、といった物語。「人生が壊れる」を一律に断定するより、何を失ったかを具体的に見せる。
+
+導線の主力候補はプロフィール。キャプション末尾や固定コメント、必要な回だけ余韻の後の短い一行で案内する。英語案は `Ready to cut back? Link in bio.`。本編の台詞として主人公に宣伝させず、通常の投稿を毎回同じ宣伝カードで終えない。
+
+プロフィールにはDopaBreakとの関係、何を手伝うiPhoneアプリか、ストアへのリンクを置く。固定したアプリ紹介投稿は、対策を探してプロフィールへ来た人のために用意する。通常シリーズの各話に商品実演枠を義務づけない。
+
+アプリ検索の案内は補助候補。リンクが利用できない場合や、名前が覚えられるようになった段階では `Search DopaBreak on the App Store.` を試す。初期のプロフィール優先は、名称を覚えて入力する手間を避ける運用仮説であり、検索誘導より高い転換が実証されたという意味ではない。1回のCTAは行き先を1つにする。
+
+「ドーパミン中毒」は視聴者が関心を持つテーマとして扱うが、特徴リストを診断にしない。物語で描く行動、研究に基づく一般的な説明、アプリの実際の機能を区別する。
+
+## 最初の1本：独自の短編案
+
+仮題：`Five more minutes`。約25秒。参考投稿の翻案ではなく、今回のための独自企画。
+
+| 秒数 | 映像 | 英語字幕案 |
+|---|---|---|
+| 0〜3秒 | 仕事を終えてベッドに座る主人公。スマホの時計は23:48 | “Five more minutes.” |
+| 3〜10秒 | 親指が動く。最初の笑顔が薄れ、同じ姿勢で見続ける | 字幕を追加しない |
+| 10〜16秒 | 時計は00:42。翌朝の予定を目にして、手が止まる | “I wasn't even enjoying it anymore.” |
+| 16〜22秒 | スマホを置き、遅くなった時刻を見て寝ようとする | 字幕を追加しない |
+| 22〜25秒 | 06:30のアラーム。寝足りない表情の主人公で終わる | “Morning still came at 6:30.” |
+
+時刻は物語上の設定。実測結果やアプリの効果量として表示しない。この動画は翌朝の場面で完結する。誘導を付ける場合はキャプション末尾のプロフィール案内を使う。
+
+商品実演はプロフィール上の固定した紹介投稿や、別途制作する広告で扱う。有料広告の構成を、そのままオーガニックの全作品へ適用しない。
+
+## 初期20本の配分を更新
+
+- 特徴を描く短編8本：少しの待ち時間で開く、閉じてすぐ開く、SNS間を移動する、楽しんでいないのに見続ける等。
+- 生活上の代償を描く短編8本：寝る時間、仕事の締め切り、会話、趣味や勉強に使う予定だった時間等。
+- 科学の疑問・解説4本：1本1主張、出典を確認。ドーパミンの枯渇・一定日数のリセット等を断定しない。
+
+配分は制作仮説。まず同じ主人公・画調・尺で3本作り、制作の再現性を確認してから20本へ展開する。現時点では台本・方向性の提案までで、動画素材自体は未制作。
+
+### 最初に試すネタ
+
+| ネタ | 物語の結末 |
+|---|---|
+| スマホを閉じて3秒後、また同じアプリを開く | 自分でも何を見に来たか分からず、画面を見つめる |
+| 「あと5分」で寝る時間が延びる | 翌朝のアラームはいつもと同じ時刻に鳴る |
+| 成功する人の動画を見続ける | 自分の始めたかった企画は白紙のまま |
+| 「忙しい」と断った日のスクロール | 会いたかった人との会話を後回しにして、一日が終わる |
+| 目の前の相手が話している間に通知を見る | 顔を上げたとき、相手は話すのをやめている |
+| 休憩のつもりで開く | 再開するはずの仕事と、迫った締め切りを見つめる |
+
+いずれも創作の場面案。全ての利用者に起きることや、特定の脳内物質が原因であることを断定するデータとして扱わない。
+
+### 修正履歴
+
+2026-09-10、ユーザーの指摘により、結末へのブランド表示と通常シリーズの実演4本枠を撤回。作品は特徴・代償・気づきを描いて完結し、検索／プロフィールの短い案内を独立した導線にする。撤回理由は、毎話の結末で宣伝すると物語として不自然になるため。
+
+## 検証の限界と記録
+
+- フォロワー数やいいね数から、売上・米国リーチ・有料顧客獲得を推定しない。
+- 投稿画面にはFacebook由来のコメントが統合されている説明があった。公開数値をInstagram単独の反応として無条件に扱わない。
+- 投稿者の居住国、VPN／SIMの使用、視聴者の国別内訳は確認できない。このアカウントは前回のVPN仮説の実証材料にはしない。
+- 観察から「低い制作費」「AI生成」「伸びる構成」「音楽だけでナレーションなし」等は確定していない。
+- 今回は参考動画の視覚的分析と自社企画への反映。投稿、フォロー、コメント、保存等の操作や動画ファイルの取得は行っていない。
+
+関連：[海外オーガニックと地域配信の調査](2026-09-10-global-organic-brain-stories.md)、[初動のX広告戦略](2026-09-10-initial-paid-media-plan.md)。
+
+exec
+/bin/zsh -lc "rg -n -C 4 '02c|3.5|有料|コホート' /Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-strategy.md; test -f /Users/solotech/Desktop/test-project/docs/marketing/2026-09-21-dopamine-types-survey.md && cat /Users/solotech/Desktop/test-project/docs/marketing/2026-09-21-dopamine-types-survey.md" in /Users/solotech/Desktop/test-project/.claude/discussions
+ exited 1 in 0ms:
+5-> 2026-09-10更新：初動の媒体・国・予算配分は[X広告で日米を比較する最新提案](2026-09-10-initial-paid-media-plan.md)を参照。本書の採算計算は継続利用する。Apple Small Business Program登録済みは2026-09-08に本人確認済みで、手数料15%を基本前提とする。
+6-
+7-## 結論
+8-
+9:最初の検証は日本。米国を次の拡大検証、韓国を現地向けクリエイティブの検証候補とする。配信国を日米韓で開いておくことと、広告予算を3等分することは別。10万円では日本に集中して「どの悩みが有料化するか」を先に学ぶ。
+10-
+11:有料獲得の最初の仮説は、25〜34歳を中心とする、仕事・資格勉強・就寝前のSNSで困っているiPhone利用者。性別・推定所得で先に狭めず、具体的な生活場面を描いたクリエイティブで反応の差を見る。
+12-
+13-年額4,980円、日本の税10%、ストア手数料15%、返金4%、年間変動費200円の仮定では、年額購入者1人あたり獲得費回収に使える額は約3,494円。DL→年額課金4%なら損益分岐のDL単価は約140円。公開ベンチマークをそのまま買う計画は厳しいが、低入札・意図の強い検索語・高転換の動画なら成立余地がある。
+14-
+15-キャラストーリーはシリーズへの愛着と認知、スライドショーは訴求の発見、UGC風動画は生活場面と実アプリの接続に使う。再生数だけでは広告への昇格を決めない。
+--
+33-| 1 | 日本 | 日本語のネタ・コメント・購入障壁を直接解釈しやすく、既存仕様とクリエイティブ構想が揃う | 集中または就寝の1訴求で課金につながる型を特定 |
+34-| 2 | 米国 | 英語圏での課金・クリエイティブの拡張性を検証。まず25〜34歳の仕事・夜のスクロール | 国別の獲得費控除後貢献が日本を上回るか、独立して採算に達する |
+35-| 3 | 韓国 | 韓国語版の用意を活かし、資格勉強・仕事後の夜更かしを現地の言葉で検証 | 現地向け表現、課金転換、返金・設定完了が確認できる |
+36-| 条件付き | カナダ→豪州 | 英語素材を低い翻案工数で試す候補。米国のオークションが高い時にカナダを先行してよい | 現地価格と販売可否を確認し、国別キャンペーンで比較 |
+37:| 後回し | 英国・独仏、ブラジル等 | 言語・価格・ストア素材・サポートが増える。安いDLだけでは先行させない | 他国で得た利益と現地の有料需要が翻案コストを賄う |
+38-
+39:日本のiOS比率は約64.7%、米国約60.7%、韓国約35.5%（2026年8月、StatcounterのモバイルWeb利用シェア）。端末保有率・25〜34歳の分布・広告CVRを直接示す数字ではない。iOS専用アプリのオーガニック送客先を考える補助材料として使う。広告はiOSに絞れるため、韓国全体のiOS比率が低いことだけで韓国の有料獲得を不利とは断定しない。[日本](https://gs.statcounter.com/os-market-share/mobile/japan)、[米国](https://gs.statcounter.com/os-market-share/mobile/united-states-of-america)、[韓国](https://gs.statcounter.com/os-market-share/mobile/south-korea)
+40-
+41-日本を推す最大の理由は、制作と改善の速さを含む現在の実行条件。公開統計だけで「全世界で日本のROASが最高」とは言えない。RevenueCatの地域集計も広いカテゴリ・地域のデータであり、DopaBreakの国別予測へそのまま移せない。同社2026年版の主な測定期間は2025年。開発者の本社所在地別と利用者所在地別の表を混同しない。[RevenueCatの方法](https://www.revenuecat.com/state-of-subscription-apps)
+42-
+43-英語オーガニックは、国を広告のように指定できない。英語字幕・現地の生活場面・語彙・公開時間で寄せ、実際の視聴国とストアのDL国で判定する。「英語＝米国へのリーチ」とは扱わない。
+--
+56-
+57-| 媒体 | 推奨の初期設定 | 使う訴求・最適化 |
+58-|---|---|---|
+59-| Instagram中心のMeta | 日本全国、iOS対応、全性別。成人を下限、25〜34歳を中心にした素材。可能なら年齢提案18〜44、興味関心なしの広い配信を基準に1広告セット | 9:16のデモ＋生活場面。Reels／Stories／Feedへ合わせる。配信面別に課金まで確認し、Instagram限定の実験なら配置を明示的に制限 |
+60:| TikTok | 日本、iOS、成人、全性別。手動の年齢実験なら18〜24／25〜34のバンドを使用。Smart+では年齢等の提案が拡張されうるため、厳密な年齢比較は対応する手動設定で行う | オーガニックで有料転換の見込みが出た投稿をSpark Adsへ。仕事・就寝・試験のフック |
+61-| X | 初月はオーガニック優先。広告を試す場合、日本・iOS・成人・全性別、最初は1つの悩みのキーワード群 | 「スマホ 時間」「SNS やめたい」「集中できない」「スクリーンタイム」等。仕事術アカウントへのフォロワー類似は別の後続実験 |
+62-| Apple Ads | 国ごとに分離、検索結果、完全一致中心。年齢・性別は原則絞らない | 「スマホ依存」「アプリ制限」「スクリーンタイム」「SNS 制限」等。DL後の実課金で評価 |
+63-
+64-TikTokの公式は、不要なターゲティング制限を増やさない設計を推奨している。2026年7月のSmart+資料でも、Audience Controlsと拡張可能なSuggestionsが区別されている。これは広い配信を初期対照にする根拠であり、DopaBreakで必ず勝つ保証ではない。[広い配信](https://ads.tiktok.com/resources/help/article/broad-targeting?lang=en)、[Smart+設定](https://ads.tiktok.com/resources/help/article/about-targeting-for-your-upgraded-smart-experience?lang=en)
+--
+101-課金CAC = DL単価 ÷ p
+102-目標CPT = 目標DL単価 × タップ→DL率
+103-```
+104-
+105:年額購入だけの初回課金コホートを基準に、翌年更新を一切先食いしない。全年額仮定を全プランの実績と取り違えない。30%を残す基準は運営の安全余裕としての提案で、業界の決まりではない。LTV:CAC 3倍とも異なる。
+106-
+107-### 日本の許容単価
+108-
+109-| DL→年額課金率 | 損益分岐DL単価 | 貢献額30%確保の目標DL単価 | タップ→DL 50%時の目標CPT |
+--
+124-| MobileAction 2026年版（2025年実績） | $2.89 ≒ ¥434 | $3.85 | 日本12.4%／米国12.4% |
+125-
+126-円換算の$1=150円は比較用の固定仮定で、現在の実勢レートではない。上の2行は異なる調査の数字であり、DopaBreakの予測区間・相場の上下限ではない。カテゴリやキーワード、ブランド広告の比率も異なりうる。両者を平均して予測値にはしない。[Adapty](https://adapty.io/blog/apple-ads-benchmarks-2026/)、[MobileAction国別](https://www.mobileaction.co/report/apple-ads-2026-benchmark-report/search-results-ads-regional-cpa/)、[集計方法](https://www.mobileaction.co/report/apple-ads-2026-benchmark-report/methodology/)
+127-
+128:したがって、DL→年額課金4%程度で平均的な単価を払って増額する計画は支持しない。6〜8%以上への転換改善と低い獲得単価の両立、または十分に高い月額コホート貢献が実測できれば、採算は変わる。
+129-
+130:### 広告費10万円を使った仮想コホート
+131-
+132-| シナリオ | DL単価 | DL→年額課金 | 年額課金者 | 課金CAC | 広告費控除後の貢献額 |
+133-|---|---:|---:|---:|---:|---:|
+134-| 弱気 | ¥350 | 1.5% | 約4.3人 | ¥23,333 | **−¥85,025** |
+--
+160-- スクリーンタイム系と就寝系のキーワードで、対応したストア画像／CPPを使う。初手からTodayタブ等へ拡げない。
+161-
+162-日本で4%を狙う段階の目標CPTは約50円（タップ→DL50%、貢献額30%確保）。これを低入札の開始候補にする。全く配信されなければ「需要がない」とは言えず、目標価格では落札できない可能性がある。必要なら上限のある学習費で一時的に高単価のサンプルを取り、採算確認後に戻す。学習費の赤字を本運用の許容CACへ混ぜない。
+163-
+164:検索語別、国別に、新規DL・初回起動・トライアル・初回実課金・返金・proceedsを同じコホートで照合する。モデル上のpを全体のオーガニック転換率で代用しない。
+165-
+166-## 6. オーガニック戦略の評価
+167-
+168-### キャラクターアニメーション：シリーズ化する価値は高い
+--
+235-|---|---|---:|
+236-| 準備 | ストアとの訴求一致、3固定投稿、課金・返金・設定完了の計測を確認。18本分の脚本を用意 | 制作費は別枠 |
+237-| 第1〜2週 | 日本のApple Ads完全一致＋少額探索。オーガニックを週6本ペースで投稿 | 最大3万円、例：3,000円×10日 |
+238-| 第2〜3週 | 日本のMetaを1広告セット、3場面の素材で比較。CTAをアプリ獲得へ統一 | 最大4万円、例：4,000円×10日 |
+239:| 第4週 | 成熟したコホートで判断。勝者への追加、TikTokの有望投稿テスト、または留保 | 3万円を条件付き予備費 |
+240-
+241:TikTokで有料化の見込みが最も強ければ、Metaの枠と入れ替えてよい。TikTokの最低予算を満たす期間でまとめて試す。公式には広告グループの日予算は$20超、キャンペーンで予算を設定する場合は$50超の基準があるため、全媒体へ日数百円ずつ配らない。[TikTok予算](https://ads.tiktok.com/help/article/budget?tag1=Entail&tag2=Entail&tg=SEO)
+242-
+243-10万円では全チャネルと全ターゲットの優劣は確定できない。30万円以上の検証枠と必要な計測があれば、例として日本60%・米国25%・韓国15%の国比較へ広げる。ただし3国すべてをさらに4媒体に分割せず、まず同一媒体・同等訴求で比較する。
+244-
+245-判断ルール：
+246-
+247:1. 最初に計測・購入・設定完了の不具合を除く。トライアル購入イベントを有料課金と取り違えない。
+248:2. 7日トライアルは終了済みのコホートでtrial→paidを評価する。最終獲得日の翌日に月全体の採算を締めず、D35まで初回課金、D60／90まで返金・月額継続を再確認。
+249-3. 1セル500DL・約20課金者は方向を見る程度。できれば1,000DL／40課金程度まで確認してから国や形式の優位性を主張する。自動的に有意差が付く母数ではない。
+250:4. 年額コホートで新規課金CACが約2,450円以下なら、仮定上は貢献額を30%残せる。全年額でない場合は実際のミックスで再計算し、異なる獲得週でも再現してから増額する。
+251-5. 停止は費用消化率だけで決めない。例として100DLで成熟後も実課金ゼロなら、課金率の片側95%上限は約3%。その上限でも実際のDL単価を回収できない場合は停止／再設計する。試用中・帰属遅延中はゼロと決めつけない。
+252-6. オーガニック込みの総売上が広告赤字を隠す場合がある。チャネルの貢献、指名需要、全体の貢献を併記する。可能なら期間や地域の比較で増分を検証する。
+253-
+254-## 9. 配信前に必要な計測の差分
+255-
+256-コードにはローカルJSONの `FunnelEventStore` があり、onboarding・paywall・`trialOrPurchaseStarted` 等を保存している。確認した範囲では、広告帰属と初回実課金を国・媒体別に集計する接続は確認できなかった。「計測が一切ない」という意味ではない。
+257-
+258:特に `trialOrPurchaseStarted` はトライアルと購入をまとめたイベント名であり、それだけで「trial→paid」や有料CACは出せない。実課金の初回取引、無料体験開始、更新、返金を区別し、国・媒体との接続を設計する。Apple Adsの帰属、Meta／TikTokの対応するアプリ計測、課金のストア側記録を突合する。アプリ未起動でも請求は起こるので、アプリ内イベントだけを売上の正としない。
+259-
+260-根拠：[ローカルイベント](../../ios/Packages/DopaBreakCore/Sources/DopaBreakCore/Services/FunnelEventStore.swift)、[購入処理](../../ios/DopaBreak/StoreService.swift)。今回の依頼は戦略評価のため、計測コードの変更は行っていない。
+261-
+262-同日の審査調査記録では1.0(7)にFamily Controls関連の却下が記録されている。最新の審査状態を今回再照会したものではないが、出稿の起点はストアで実際に新規DL・購入できることの確認後に置く。[審査記録](../reviews/2026-09-08-family-controls-review-blocker.md)
+
+web search: The Land of Boggs followers animation official ...
+web search: 
+exec
+/bin/zsh -lc "rg --files /Users/solotech/Desktop/test-project/docs | rg '02c|market|dopamine'; for p in /Users/solotech/Desktop/test-project/.agents/product-marketing.md /Users/solotech/Desktop/test-project/.claude/product-marketing.md /Users/solotech/Desktop/test-project/.claude/product-marketing-context.md; do if test -f \""'$p"; then cat "$p"; fi; done' in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+/Users/solotech/Desktop/test-project/docs/02_marketing_strategy.md
+/Users/solotech/Desktop/test-project/docs/16_aso_metadata_3markets.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-12-apple-ads-campaign-setup.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-global-organic-brain-stories.md
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r3-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r5-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r2-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r4-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r1-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/reference/2026-09-20-reels/r6-sheet.jpg
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-the-silent-mind-reference.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-asa-funnel-diagnosis.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-11-apple-ads-keywords-3markets.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-2d-vs-3d-trends.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-economics.py
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-11-apple-ads-measurement-setup.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-strategy.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-organic-video-topics-30.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-10-initial-paid-media-plan.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-11-paid-channel-priority.md
+/Users/solotech/Desktop/test-project/docs/marketing/apple-ads-privacy-ready/privacy-ko.html
+/Users/solotech/Desktop/test-project/docs/marketing/apple-ads-privacy-ready/privacy-ja.html
+/Users/solotech/Desktop/test-project/docs/marketing/apple-ads-privacy-ready/privacy-en.html
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-08-market-test-economics.json
+/Users/solotech/Desktop/test-project/docs/marketing/organic-scripts/ep01-five-more-minutes.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-reels-benchmark-6.md
+/Users/solotech/Desktop/test-project/docs/marketing/2026-09-13-ad-user-progress.md
+/Users/solotech/Desktop/test-project/docs/09_market_verification.md
+/Users/solotech/Desktop/test-project/docs/02c_marketing_impact_plan.md
+/Users/solotech/Desktop/test-project/docs/02b_marketing_psychology_strategy.md
+
+web search: site.buzzfeed.com "Land of Boggs" "million" ...
+codex
+資料では、6本の比較は再生数ではなく「いいね数」で、うち1本は同じ動画の再投稿でした。短尺を始める根拠にはなりますが、画風や転換の優劣までは言えません。また、s09はスマホが机の下に隠れ、s08と程度の違いはあっても「肝心の行動が読みづらい」問題を抱えています。
+web search: 
+exec
+/bin/zsh -lc "rg -n -C 5 '3.5|12週|30本|有料|転換|オーガニック' /Users/solotech/Desktop/test-project/docs/02c_marketing_impact_plan.md" in /Users/solotech/Desktop/test-project/.claude/discussions
+ succeeded in 0ms:
+7-
+8----
+9-
+10-## 0. 結論 — インパクト順総括
+11-
+12:**インパクト = 経済成立性 × 転換力 × 複利性 × オーナー適合。** このアプリの経済制約（§1: 許容CPI ≒ ¥105-175）では「広告で買って伸ばす」が最後に来る。順番はこう。
+13-
+14-| 順位 | 施策 | Tier | なぜこの位置か | 確信度 |
+15-| --- | --- | --- | --- | --- |
+16:| 1 | **転換基盤**（ストア掲載面CVR×オンボ×トライアル×ペイウォール×CRM×レビューエンジン） | S | 全チャネルの**乗数**。ここが2倍なら全施策のCACが半分になる。流入獲得より先 | 高 |
+17-| 2 | **ASO**（ストア内検索） | S | 最高意図×恒常×限界費用ゼロ。スクリーンタイム系はストア検索が主戦場（doc09 §6） | 高 |
+18-| 3 | **SEO×第三者比較メディア** | A | 検索上位は比較記事が占有＝そこに載る/自分で書くが最短。オーナー★5スキル×複利資産 | 高 |
+19:| 4 | **クリエイティブ工場**（短尺オーガニック＝広告の弾薬庫） | A | 有料広告の成否はクリエイティブ勝率で決まる。無料で切り口検証→勝ちだけ広告化 | 中 |
+20-| 5 | **ASA**（Apple Search Ads・高意図刈り取り） | A | 意図補正後の許容CPTに収まる唯一の広告。競合指名・ブランド防衛も担う | 中 |
+21:| 6 | **有料スケール**（Meta/TikTok・**ゲート条件付き**） | A | 唯一の大規模化手段だが、素の許容CPI ¥140は市場実勢より低い。§5のゲート通過後のみ | 中 |
+22-| 7 | **第三者マイクロインフルエンサー**（成果連動・PR明示） | B | 信頼形成×UGC素材化。単発でCPI換算評価し勝者だけ反復 | 中 |
+23-| 8 | **ローンチ演出**（PR TIMES＋メディア＋Apple Featuring申請） | B | 単発スパイクだが無料〜低額で、レビュー/被リンク/権威の初期在庫を作る | 中 |
+24-| 9 | **共有カード/リファラル**（プロダクト内蔵） | B | ユーザー母数依存。フックだけ先に実装し、収穫はM4以降 | 中 |
+25-| 10 | **米国展開** | C | 解禁条件付き（§7）。¥1M/月への到達確度を上げる第2エンジン | 中 |
+26-| 11 | **韓国展開** | C | 米国で英語圏プレイブック確立後 | 低 |
+--
+35-doc01 §8のユニットエコノミクスを、チャネル判断に使える形に展開する。
+36-
+37-### 1.1 基準値（doc01確定値）
+38-
+39-- 期待LTV ≒ **¥10,500**（年額¥4,980×手取り85%×年次更新60%）
+40:- 許容CAC（LTV:CAC 3:1）= **¥3,500/有料会員**
+41:- 転換チェーン基準: オンボ完了60% × 完了者→トライアル15% × トライアル→有料35% ≒ **install→有料 3.2%**（doc01は3-5%レンジ、基準ケース4%）
+42:- ¥1M/月利益 = **有料会員2,800人**の在庫維持（月あたり手取り¥353換算）
+43-
+44-### 1.2 チャネル別の許容単価（意図補正）
+45-
+46:「許容CPI一律¥140」ではなく、チャネルの意図の濃さでinstall→有料率が変わる前提で管理する。
+47-
+48:| チャネル | 想定install→有料 | 許容CPI | 補足 |
+49-| --- | --- | --- | --- |
+50:| ASOオーガニック | 5-8%（検索意図が濃い） | （費用ゼロ・比較基準） | 全チャネルの転換ベンチマーク |
+51-| ASA exact（悩み語・競合指名） | 6-8% | **¥210-280** | 許容CPT = 許容CPI×タップ→install CVR（30-40%想定）≒ **¥65-110** |
+52-| SEO経由 | 4-6% | （記事制作費を月次償却で管理） | 1記事¥0-1万（自作/AI+推敲）。月間5DL/記事でも黒字化しやすい |
+53-| Meta/TikTok広告 | 2.8-4% | **¥98-140** | 日本iOSユーティリティの実勢CPI（¥150-400）より低い→**勝ちクリエイティブ限定でしか成立しない** |
+54:| インフルエンサー | 3-5% | ¥105-175（案件費÷install数で換算） | 1案件ごとに事後CPI評価 |
+55-
+56-### 1.3 感度（この3レバーが全チャネルの上限を動かす）
+57-
+58-| レバー | 動き | 許容CPIへの効果 |
+59-| --- | --- | --- |
+60:| トライアル→有料 25%→45% | ペイウォール/レポート先出しの出来 | ¥100 ⇄ ¥180 |
+61-| 年次更新 60%→70% | CRM/週次レポートの出来 | LTV +¥1,760 → 許容CAC +¥590 |
+62:| 年額A/B ¥3,980採用時 | 転換率が25%以上高ければ採用（doc01） | LTV微減でも転換増で総額判断 |
+63-
+64:**含意**: マーケの最初の仕事は流入ではなく、§2の転換基盤で「1インストールの価値」を上げること。これが広告解禁の鍵を握る。
+65-
+66-> 留意（preflightで要確認・★）: doc01の手取り¥4,230/年は消費税控除前の概算。AppleのJP精算で税抜ベース控除の場合、手取り≒¥3,850/年・必要会員≒3,100人・許容単価は約9%低下する。App Store Connectの実精算値で確定させる。
+67-
+68----
+69-
+70:## 2. Tier S-1: 転換基盤（全チャネルの乗数）
+71-
+72:**目的: install→有料 3.2%（基準）→ 5%（上振れ）。** ここの+1ptは、広告許容CPI +¥35と同義。
+73-
+74-### 2.1 ストア掲載面（プロダクトページCVR）
+75-
+76-検索結果で見えるのは「アイコン＋タイトル＋サブタイトル＋スクショ1-3枚」。ここで勝負の80%が決まる。
+77-
+--
+94-- ローンチ後、PPO（Product Page Optimization）でスクショ1枚目A/B: 「自己嫌悪フック」vs「取り戻した時間フック」（テスト計画§9-T2）。
+95-
+96-### 2.2 レビューエンジン（評価の量×速度はASOの主要因）
+97-
+98-- **依頼トリガー**: ①S-05「開かずに我慢」累計3回目の直後 ②週次レポートで取り戻した時間がプラスの閲覧直後。**介入直後（イラつき文脈）では出さない**。ピークエンドの山で依頼する。
+99:- 実装: アプリ内1タップ事前ゲージ（「役に立ってますか？」はい→SKStoreReviewController / いいえ→改善要望フォーム）。システムプロンプトは365日3回制限があるため事前ゲージで無駄撃ちしない。機能をレビューの見返りにしない（審査違反）。
+100-- 運用: App Store Connectで全レビューに週1・15分で返信（低評価は「禁止しない設計の意図」を丁寧に説明→見込み客への公開FAQとして機能する）。
+101-- **→ 実装バックログ追加依頼**: レビュー依頼トリガー（実装(13後半)に統合・docs/11に文言追加してから）。
+102-
+103-### 2.3 オンボ→トライアル→ペイウォール（doc07/doc01 §8の実行監視）
+104-
+--
+106-
+107-| 段階 | 基準 | 主な改善レバー（落ちた時） |
+108-| --- | --- | --- |
+109-| オンボ完了 | 60%+ | クイズ3問の離脱ステップ特定→設問削減／リビール前倒し |
+110-| 完了→トライアル | 15%+ | Pre-Paywall Summary（O-08b）の損失サマリー強度／プラン提示順 |
+111:| トライアル→有料 | 35%+ | Day5「レポートを失わない」通知／年額A/B（¥3,980 vs ¥4,980） |
+112-| 年次更新 | 60%+ | 週次レポートの開封率／解約前ウィンバックオファー |
+113-
+114-### 2.4 CRMライフサイクル（プッシュ/メール・全自動）
+115-
+116-| タイミング | メッセージ（趣旨） | 狙い |
+117-| --- | --- | --- |
+118-| D0 | 通知許可（許可率60%目標）＋Live Activity開始 | ヒーロー体験の定着 |
+119-| D1 | 「昨日 開こうとした回数／開かずに我慢できた回数」 | 初回の成果実感 |
+120-| D3 | 「一番開きやすい時間帯は◯時」 | パーソナル洞察 |
+121:| Trial D5 | 「あと2日で週次レポートが見られなくなります」 | 保有効果→転換 |
+122-| D7以降 毎週 | 週次「取り戻した時間」レポート | ピークエンド・更新率の主レバー |
+123-| 解約検知時 | 年額→月額ダウングレード/一時停止案内 | チャーン救済 |
+124-
+125-すべてスケジュール配信で人手ゼロ（solo-automation準拠）。文言はdocs/11に追加してから実装。
+126-
+--
+144-### 3.2 ランキングを動かす3因子の運用
+145-
+146-| 因子 | 施策 | 目標 |
+147-| --- | --- | --- |
+148-| キーワード関連度 | §3.1メタデータ＋四半期ごとに入替（ASA Discoveryの検索クエリを還流） | 主要5語で30位以内→3か月で10位以内 |
+149:| 転換率 | §2.1スクショ・PPO | 検索経由CVR 30%+ |
+150-| 評価の量と速度 | §2.2レビューエンジン | 週10件ペース・平均4.5+維持 |
+151-
+152-### 3.3 カスタムプロダクトページ（CPP）
+153-
+154-広告セグメント×着地面の一致でCPI を下げる（§5-6と連動）:
+--
+178-| B. 悩み顕在（中意図・6本） | TikTokやめられない／インスタ見すぎ やめたい／寝る前スマホ やめられない／スマホ依存 社会人 治し方／SNS疲れ 距離を置く／ショート動画 中毒 | ハウツー＋アプリ提案 | 診断→DL |
+179-| C. ドーパミン教養（トレンド・4本） | ドーパミンデトックス やり方／ドーパミン中毒 チェック／ドーパミンデトックス 効果 いつから／脳疲労 スマホ | 教養＋診断 | **診断リードマグネット** |
+180-| D. 自分磨き接続（4本） | 勉強集中 スマホ触らない／朝活 スマホ見ない／資格勉強 スマホ依存／副業 時間がない スマホ | ハウツー | DL |
+181-
+182-- **診断リードマグネット**: 「SNSを一番開く時間」診断（既存計画）をWeb版で実装し、結果画面→App Store誘導＋メール許諾。クラスタB/C全記事のCTAに置く。
+183:- 制作パイプライン: 構成=Fable → 執筆=AI下書き → `humanizer-jp`で人間化 → `legal-compliance-jp`表現チェック → 週2本・12週で24本。E-E-A-T: 運営者情報ページ＋PNAS等一次出典明記＋（蓄積後）自社匿名集計データの差し込み。
+184-- 効果発現は3-6か月遅行。**だからTier Aで最初に着火する**（ローンチ時に間に合わせる）。
+185-
+186----
+187-
+188:## 5. Tier A-2〜A-4: クリエイティブ工場 → ASA → 有料スケール
+189-
+190:### 5.1 クリエイティブ工場（短尺オーガニック＝広告の前段検証）
+191-
+192:- アカウント: **新規ブランドアカウント** TikTok/Reels/Shorts（@dopabreak_jp）。フォロワー獲得が目的ではなく**切り口の反応検証とUGC素材蓄積**が目的（オーガニックでバズれば儲けもの、の位置づけ）。
+193:- 5つの感情アーク（FABLE_BRIEF §12）× フック10本 × 週3投稿・12週=36本:
+194-
+195-| アーク | フック例（冒頭2秒） | 検証したい仮説 |
+196-| --- | --- | --- |
+197-| 自己嫌悪の言語化 | 「明日こそ早く寝るって決めたのに 気づけばTikTok2時間」 | 感情訴求>機能訴求（02b T1） |
+198-| 数字の正直さ | 「1週間"見たあとどうだった？"を記録した結果」 | リフレクション主役の刺さり |
+--
+211-| CP1 ブランド防衛 | dopabreak／ドーパブレイク（exact） | ¥50 | 競合の相乗り防止 |
+212-| CP2 悩み語 | スマホ依存／スクリーンタイム 制限／アプリ制限／SNS やめたい／ドーパミンデトックス（exact） | ¥100 | 主戦場。CPP-A/B着地 |
+213-| CP3 競合指名 | one sec／opal／screenzen／jomo／スタロック（exact） | ¥80 | 「ブロック型で挫折した人へ」＝CPP-C着地 |
+214-| CP4 Discovery | Search Match＋broad（予算10%） | ¥60 | クエリ発掘→CP2とキーワード欄に還流 |
+215-
+216:- 予算: ¥2-3k/日（月¥60-90k）から。キーワード別にCPA(トライアル)≤¥1,000／CPA(有料)≤¥3,500で毎週剪定。
+217-- 撤退基準: キーワード単位でCPTが§1.2の許容を2週連続超過→停止。TTR<5%はクリエイティブ（スクショ）問題としてPPOへ回す。
+218:- 計測: AdServices属性＋RevenueCat連携でキーワード→トライアル→有料まで接続（`mobile-analytics`準拠）。
+219-
+220:### 5.3 有料スケール（Meta/TikTok）— ゲート制
+221-
+222-**ゲートイン条件（全て満たすまで¥0）:**
+223:1. オーガニック1,000install以上でinstall→有料 実測 ≥3.5%
+224-2. D7継続 ≥25%
+225-3. 勝ちクリエイティブ3本（§5.1選抜済み）
+226-4. SKAN/AdAttributionKit計測セットアップ完了
+227-
+228-**ゲート通過後:**
+--
+261-
+262-## 7. Tier C: 拡張（解禁条件付き）
+263-
+264-| 施策 | 解禁条件 | 要点 |
+265-| --- | --- | --- |
+266:| C1 米国 | 日本でinstall→有料≥3.5%・D30≥10%・勝ちクリエイティブ3本・LP英語版 | 02b §3の英語transcreation使用。チャネル: ASA(US)→Reddit(r/nosurf, r/getdisciplined)→Product Hunt→creator affiliate。価格$5.99/$34.99/$99.99確定済み。one sec IP弁護士確認（doc01 §12）を展開前に実施 |
+267-| C2 韓国 | 米国で英語圏プレイブック確立後 | 도파민 디톡스はバズワード（doc09）。Naver/Kakao導線は02b §6 |
+268-| C3 マスコットIP | 広告CTR頭打ち時の差別化弾 | 広告・SNS素材専用。アプリUIへは適用しない（memory確定方針） |
+269-
+270----
+271-
+--
+279-| W3-4 | TestFlight | LP＋診断公開→TestFlight100名募集／短尺投稿開始（週3）／**ベータ実データの素材化開始**（Before/After・レビュー種まき）／Featuring申請提出／SEO+6本（クラスタB） |
+280-| W5-6 | 提出・審査 | PR TIMES予約・メディアピッチ送付／ASA CP1-4設定（公開日ON予約）／比較メディア掲載申請／SEO+4本（クラスタC） |
+281-| W7-8 | **公開** | ローンチ週: PR配信・ASA ON・レビューエンジン稼働・**年額A/B開始（¥3,980 vs ¥4,980）**／短尺継続 |
+282-| W9-12 | 改善 | W8計測レビュー→§5.3ゲート判定→通過時Meta/TikTok少額開始／インフルエンサー第1陣5名／PPO（スクショ1枚目A/B）／SEOリライト+4本 |
+283-
+284:**チェックポイント**: W8末=オンボ完了率・トライアル開始率・ストアCVRの実測確定。W12末=install→有料とD7/D30でゲート判定・予算シナリオ切替。
+285-
+286----
+287-
+288-## 9. テスト計画（1テスト1論点）
+289-
+290-| # | 仮説 | 最小実験 | 指標 | 成功基準 | 失敗時 |
+291-| --- | --- | --- | --- | --- | --- |
+292-| T1 | 感情訴求（自己嫌悪）>機能訴求 | 短尺各5本の反応比較（02b T1継承） | 保存率・完視聴 | 感情側1.5倍 | 目標訴求へ・第3切り口探索 |
+293-| T2 | スクショ1枚目=自己嫌悪フック>取り戻した時間 | PPO 2案 | 検索経由CVR | +10%で採用 | 取り戻した時間を正に |
+294:| T3 | 年額¥4,980 vs ¥3,980 | リモート構成切替（製品2本・doc01確定方式） | トライアル→有料 | 差<25%なら¥4,980 | ¥3,980採用・LTV再計算 |
+295:| T4 | レポート先出し→転換増 | Trial D5通知 有/無 | トライアル→有料 | +5pt | 通知文言変更で再試行 |
+296:| T5 | ASA競合指名の経済性 | CP3を2週 | CPA(有料) | ≤¥3,500 | CPP-C改善→再試行→停止 |
+297-| T6 | レビュー依頼はS-05直後が最適 | トリガー2案（S-05後 vs 週次後） | 依頼→投稿率 | 高い方を常設 | 両方低ければ頻度再設計 |
+298-
+299----
+300-
+301-## 10. KPIツリーと週次運用（一人で回す前提）
+302-
+303:**マーケ北極星: 月間新規有料転換数**（在庫2,800人への積み上げ。プロダクト北極星Conscious Savesと対）。
+304-
+305-```
+306:月間新規有料数 = Σ[チャネル別install] × オンボ完了60% × トライアル15% × 有料35%
+307:在庫 = 前月在庫 × 月次残存 + 新規有料
+308-```
+309-
+310-- 到達試算: 維持だけなら約2,300install/月。**12-18か月で2,800人到達には平均5,000-7,000install/月が必要**＝日本ASO/SEO/ASAに加え、§5.3スケールか米国展開（C1）のどちらかが乗る前提。日本単独なら18-24か月レンジと正直に見積もる。
+311-- 計測スタック: App Store Connect（ソース別）＋RevenueCat（課金・A/B）＋AdServices/SKAN（広告）＋GA4（LP/診断）。イベントは匿名bucket方針（doc05）準拠。
+312:- **週次30分ダッシュボード**（毎週月曜）: install（チャネル別）／ストアCVR／オンボ完了／トライアル開始／有料転換／D7／レビュー数・平均／CPT・CPI・CAC。閾値割れが2週続いた項目だけ深掘る（それ以外は触らない＝solo-automation）。
+313-- 月次60分: キーワード剪定（ASA）／SEO順位・リライト対象選定／インフルエンサー成果評価／予算シナリオ判定。
+314-
+315-### 予算シナリオ
+316-
+317-| フェーズ | 月額 | 内訳 |
+318-| --- | --- | --- |
+319-| 準備期（W1-6） | ¥50-80k | 制作ツール・ドメイン・PR TIMES予約・素材 |
+320-| ローンチ月 | ¥120-180k | ASA ¥60-90k／PR ¥33k／ギフティング¥30k |
+321-| スケール月（ゲート通過後） | 〜¥300k | 広告¥200k／インフルエンサー¥70k／他 |
+322-
+323:全期間共通の財務規律: **CAC(有料) ≤ ¥3,500**。超過チャネルは即減額、2か月連続超過で停止。
+324-
+325----
+326-
+327-## 11. リーガル・ガードレール（全施策共通）
+328-
+--
+337-
+338-## 12. 確信度と前提
+339-
+340-- **総合確信度: 中〜高。**
+341-- **強い根拠**: 経済モデルがdoc01確定値に接続／競合・SERP・価格はdoc09で一次確認済み（2026-07-02）／訴求は損失回避・一貫性という頑健な行動原理（02b）／チャネル優先はオーナー実スキル（広告・SEO★5）と整合。
+342:- **弱い前提**: install→有料の実測ゼロ（全てはW8-12の実測で更新）／ASA CPT実勢は出稿するまで不明／SEOは比較メディアの牙城でロングテール以外は難度高／X生声検証が未実施（grok未接続）。
+343:- **次に確信度を上げる行動**: ①TestFlight100名の転換チェーン実測 ②ASA 2週間の実CPT ③T1クリエイティブテスト。
+344-- **オーナー判断が必要な項目（2件のみ）**: ①ドメイン取得（§4前提・年数千円） ②予算シナリオの初期水準（§10・推奨=準備期¥50-80k）。
+345-
+346----
+347-
+348-*本書はインパクト順の実行レイヤー。訴求・コピーの正本は02b、価格・経済の正本はdoc01 §8、審査・表現規範の正本はdoc09。矛盾を見つけたらそれらを正とし本書を改訂する。*
+
+web search: https://www.themeasure.net/land-of-boggs-takes-off-youtube-tubular-buzzfeed-shorts-video/
+codex
+最初に比べるべきなのは、目標物の有無より「背景にある目標」と「開こうとした瞬間に割り込む目標」です。後者なら、人間1人・宣伝なし・励ましなしを保ったまま、アプリを欲しくなる理由まで描けます。02cも確認でき、3.5%だけでなく1,000インストール以上などの条件があるため、6本は転換の合否判定ではなく、次に増やす形式の選別として設計します。
+apply patch
+patch: completed
+/Users/solotech/Desktop/test-project/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+diff --git a/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md b/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..563a0edc673d423f93e21176b1fedd094329d372
+--- /dev/null
++++ b/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+@@ -0,0 +1,66 @@
++# 海外オーガニック短編：画風・形式への反論
++
++2026-09-21。オーナー確定前の提案。既存仕様は変更していない。
++
++## 推奨
++
++- 画風はs05を基にした高コントラストの人間2D。明るい無彩色背景、太い輪郭、目標だけアクセント色。s09は明度・構図を直して後続比較へ。
++- 形式は人間1人、8〜12秒、1場面、1つの誇張。「開こうとする→自分の目標が物理的に割り込む→気まずい反応」。目標物に顔・声は付けない。
++- テロップ最大2行は維持できるが、Me / My brainの話者固定は不要。絵で分かる反応を説明し直さない。
++- 試験1は3題材×2形式＝6本。同じ画風・主人公・尺・目標物・CTAで、A＝目標が背景にある共感ギャグ、B＝その目標が開く瞬間に割り込むギャグ。
++- 最初の3題材はSNSと読書、SNSと翌朝のランニング、SNSと語学学習。食べ物等の題材配分は全30本で維持し、この6本では商品との距離を揃える。
++
++## 画風順位（添付の構図と制作条件に基づく仮説）
++
++点数は可読性／到達の見込み／一貫性／制作の軽さ。5が良い。実測や視聴者属性の証拠ではない。
++
++|順位|画風|点数|判断|
++|---|---|---|---|
++|1|s05 棒人間＋赤|5/4/5/5|行動が読みやすく、パーツ再利用可能。現状の小さいスマホ文字は拡大する|
++|2|s06 ペーパーカット|4/3/4/4|輪郭と文字が明快。かわいさだけで成人対象外とは言えない|
++|3|s03 クレイ|4/3/3/2|冷蔵庫と行動が明快。手・ドア・質感の連続性に工数|
++|4|s10 新聞3コマ|2/3/5/4|同時3コマは小さい。動画では1コマずつ全面表示にする|
++|5|s09 くすんだ2D|2/3/3/3|机下のスマホが読みにくい。細密背景と複数人物が短尺の負担|
++|6|s02 実写風AI|4/4/2/2|場面は読める。手・端末・顔の破綻が修正負担。実写UGCとは別|
++|7|s07 ドット絵|3/3/3/2|画面は強いが小さい手の演技とAI動画化に不向き|
++|8|s01 3D|3/4/2/2|顔は伝わる。靴は背景に埋もれ、連続性の維持が重い|
++|9|s04 アニメ|2/3/3/2|暗い寝姿とスマホ行動の区別が弱い。年齢不適合とは未実証|
++|10|s08 ダーク線画|1/1/4/3|情報を暗部に埋めている。却下維持|
++
++## 論点
++
++1. 目標物を置くだけでは本人の目標とは伝わらない。靴が散らかっている寝室と、朝走る約束をした人は別。
++2. 共感ギャグは問題認識、介入ギャグは対策への欲求を描ける。ただしr3への反応が購買意図だった証拠はない。
++3. 強制停止の欲求と、目標を思い出して自分で選ぶ商品の機能は異なる。主人公の選択を残す。
++4. s09＋s02の二系統は30本の学習・素材・工程を分散する。開始時は一系統。
++5. 「目標物なし」は毎回置くという決定を変える試験。両方ありの役割比較なら現方針のまま検証できる。
++6. 広いドーパミン題材とSNS限定出口には距離がある。食べ物回の到達がスマホ回と同じ転換を持つとは扱わない。
++7. 保存は課金の必須段階ではない。シェア・プロフィール・インストール・課金を分ける。
++
++## 制作と計測
++
++背景3種、主人公1人、姿勢・表情差分、手・スマホ・目標物をレイヤー化。生成AIは素材、Remotionは文字・時刻・移動・間に使う。画像→動画は必要なカットのみ。ギャグの正確な接触とタイミングを生成の再試行に依存させない。
++
++暫定工数予算はテンプレ整備1〜2日、1本90〜150分、週2〜3本＋分析約1時間。実績値ではなく最初の2本で計時して更新する。12週30本は週2.5本。ナレーション型は毎回の台本・根拠確認・音声・字幕工程を別途計上する。
++
++投稿順はA/Bが常に前後同じにならないようにし、同じ経過日数で比較。リーチ、シェア/リーチ、取得可能ならプロフィール遷移/リーチ、制作分数を記録。オーガニック配信はランダム化実験ではない。6本で統計的な勝者・3.5%達成を断定しない。
++
++共通プロフィールリンクでは動画別課金まで自動的には識別できない。投稿単位の反応と、媒体・期間単位のインストール／課金を分離する。課金は同じ観測期間を満たした流入群で見る。
++
++## 確認した資料と制約
++
++- docs/marketing/2026-09-20-reels-benchmark-6.md：再生・保存・シェア未取得、いいね比較。r2/r4は同一動画で独立企画は5つ。表ではr5が55,396、r6が55,870なので「r6が最下位」は誤り。「無音で成立」と「実際に無音」は区別が必要。
++- docs/marketing/2026-09-20-organic-video-topics-30.md：旧脳主人公や複数人物案が残る。今回の人間1人を優先。
++- docs/marketing/2026-09-10-the-silent-mind-reference.md：画調の参考であり米国属性や獲得の証明ではない。
++- docs/02c_marketing_impact_plan.md §5.3：有料拡大ゲートはオーガニック1,000install以上、install→有料3.5%以上、D7 25%以上、勝ち素材3本、計測準備。今回の6本だけの判定条件ではない。
++- 指定された2026-09-21-dopamine-types-survey.mdは指定場所に存在せず未読。
++
++## 公開実例
++
++- The Introverted Attorney：成人の職場不安を簡素な人物で表現。https://theintrovertedattorney.com/pages/about
++- The Land of Boggs：公式は日常場面の誇張とデザインの一貫性を説明。https://www.buzzfeedanimationlab.com/the-land-of-boggs
++- 同シリーズの米国実績：2025年5月、YouTubeの米国ユニーク視聴者が前月比42%増。Reelsや25〜40歳課金層の証拠ではない。https://www.themeasure.net/land-of-boggs-takes-off-youtube-tubular-buzzfeed-shorts-video/
++- Dustin Poynter：旗で抽象的な評価を可視化する実写コメディ。所属先が2024年10月に総フォロワー800万超と公表。https://dulcedo.com/blog/dulcedo-group-digital-creator-dustin-poynter-partners-with-netflix-in-new-collaboration
++- Calmlings：公式導線は確認したが米国25〜40歳比率や課金転換は未確認。https://linktr.ee/calmlings
++
++推奨理由：1秒で行動が分かり、目標を思い出す瞬間を笑いにでき、30本で素材と演出を再利用できる。s09の情緒、s02の生々しさより先に、この三条件を検証する。
+
+diff --git a/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md b/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..563a0edc673d423f93e21176b1fedd094329d372
+--- /dev/null
++++ b/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+@@ -0,0 +1,66 @@
++# 海外オーガニック短編：画風・形式への反論
++
++2026-09-21。オーナー確定前の提案。既存仕様は変更していない。
++
++## 推奨
++
++- 画風はs05を基にした高コントラストの人間2D。明るい無彩色背景、太い輪郭、目標だけアクセント色。s09は明度・構図を直して後続比較へ。
++- 形式は人間1人、8〜12秒、1場面、1つの誇張。「開こうとする→自分の目標が物理的に割り込む→気まずい反応」。目標物に顔・声は付けない。
++- テロップ最大2行は維持できるが、Me / My brainの話者固定は不要。絵で分かる反応を説明し直さない。
++- 試験1は3題材×2形式＝6本。同じ画風・主人公・尺・目標物・CTAで、A＝目標が背景にある共感ギャグ、B＝その目標が開く瞬間に割り込むギャグ。
++- 最初の3題材はSNSと読書、SNSと翌朝のランニング、SNSと語学学習。食べ物等の題材配分は全30本で維持し、この6本では商品との距離を揃える。
++
++## 画風順位（添付の構図と制作条件に基づく仮説）
++
++点数は可読性／到達の見込み／一貫性／制作の軽さ。5が良い。実測や視聴者属性の証拠ではない。
++
++|順位|画風|点数|判断|
++|---|---|---|---|
++|1|s05 棒人間＋赤|5/4/5/5|行動が読みやすく、パーツ再利用可能。現状の小さいスマホ文字は拡大する|
++|2|s06 ペーパーカット|4/3/4/4|輪郭と文字が明快。かわいさだけで成人対象外とは言えない|
++|3|s03 クレイ|4/3/3/2|冷蔵庫と行動が明快。手・ドア・質感の連続性に工数|
++|4|s10 新聞3コマ|2/3/5/4|同時3コマは小さい。動画では1コマずつ全面表示にする|
++|5|s09 くすんだ2D|2/3/3/3|机下のスマホが読みにくい。細密背景と複数人物が短尺の負担|
++|6|s02 実写風AI|4/4/2/2|場面は読める。手・端末・顔の破綻が修正負担。実写UGCとは別|
++|7|s07 ドット絵|3/3/3/2|画面は強いが小さい手の演技とAI動画化に不向き|
++|8|s01 3D|3/4/2/2|顔は伝わる。靴は背景に埋もれ、連続性の維持が重い|
++|9|s04 アニメ|2/3/3/2|暗い寝姿とスマホ行動の区別が弱い。年齢不適合とは未実証|
++|10|s08 ダーク線画|1/1/4/3|情報を暗部に埋めている。却下維持|
++
++## 論点
++
++1. 目標物を置くだけでは本人の目標とは伝わらない。靴が散らかっている寝室と、朝走る約束をした人は別。
++2. 共感ギャグは問題認識、介入ギャグは対策への欲求を描ける。ただしr3への反応が購買意図だった証拠はない。
++3. 強制停止の欲求と、目標を思い出して自分で選ぶ商品の機能は異なる。主人公の選択を残す。
++4. s09＋s02の二系統は30本の学習・素材・工程を分散する。開始時は一系統。
++5. 「目標物なし」は毎回置くという決定を変える試験。両方ありの役割比較なら現方針のまま検証できる。
++6. 広いドーパミン題材とSNS限定出口には距離がある。食べ物回の到達がスマホ回と同じ転換を持つとは扱わない。
++7. 保存は課金の必須段階ではない。シェア・プロフィール・インストール・課金を分ける。
++
++## 制作と計測
++
++背景3種、主人公1人、姿勢・表情差分、手・スマホ・目標物をレイヤー化。生成AIは素材、Remotionは文字・時刻・移動・間に使う。画像→動画は必要なカットのみ。ギャグの正確な接触とタイミングを生成の再試行に依存させない。
++
++暫定工数予算はテンプレ整備1〜2日、1本90〜150分、週2〜3本＋分析約1時間。実績値ではなく最初の2本で計時して更新する。12週30本は週2.5本。ナレーション型は毎回の台本・根拠確認・音声・字幕工程を別途計上する。
++
++投稿順はA/Bが常に前後同じにならないようにし、同じ経過日数で比較。リーチ、シェア/リーチ、取得可能ならプロフィール遷移/リーチ、制作分数を記録。オーガニック配信はランダム化実験ではない。6本で統計的な勝者・3.5%達成を断定しない。
++
++共通プロフィールリンクでは動画別課金まで自動的には識別できない。投稿単位の反応と、媒体・期間単位のインストール／課金を分離する。課金は同じ観測期間を満たした流入群で見る。
++
++## 確認した資料と制約
++
++- docs/marketing/2026-09-20-reels-benchmark-6.md：再生・保存・シェア未取得、いいね比較。r2/r4は同一動画で独立企画は5つ。表ではr5が55,396、r6が55,870なので「r6が最下位」は誤り。「無音で成立」と「実際に無音」は区別が必要。
++- docs/marketing/2026-09-20-organic-video-topics-30.md：旧脳主人公や複数人物案が残る。今回の人間1人を優先。
++- docs/marketing/2026-09-10-the-silent-mind-reference.md：画調の参考であり米国属性や獲得の証明ではない。
++- docs/02c_marketing_impact_plan.md §5.3：有料拡大ゲートはオーガニック1,000install以上、install→有料3.5%以上、D7 25%以上、勝ち素材3本、計測準備。今回の6本だけの判定条件ではない。
++- 指定された2026-09-21-dopamine-types-survey.mdは指定場所に存在せず未読。
++
++## 公開実例
++
++- The Introverted Attorney：成人の職場不安を簡素な人物で表現。https://theintrovertedattorney.com/pages/about
++- The Land of Boggs：公式は日常場面の誇張とデザインの一貫性を説明。https://www.buzzfeedanimationlab.com/the-land-of-boggs
++- 同シリーズの米国実績：2025年5月、YouTubeの米国ユニーク視聴者が前月比42%増。Reelsや25〜40歳課金層の証拠ではない。https://www.themeasure.net/land-of-boggs-takes-off-youtube-tubular-buzzfeed-shorts-video/
++- Dustin Poynter：旗で抽象的な評価を可視化する実写コメディ。所属先が2024年10月に総フォロワー800万超と公表。https://dulcedo.com/blog/dulcedo-group-digital-creator-dustin-poynter-partners-with-netflix-in-new-collaboration
++- Calmlings：公式導線は確認したが米国25〜40歳比率や課金転換は未確認。https://linktr.ee/calmlings
++
++推奨理由：1秒で行動が分かり、目標を思い出す瞬間を笑いにでき、30本で素材と演出を再利用できる。s09の情緒、s02の生々しさより先に、この三条件を検証する。
+
+codex
+**s09本命には反対です。最初はs05を土台にした、明るく高コントラストな人間2Dを推します。形式は「あるあるで終わる」ものと「自分の目標に止められる」ものを比較すべきです。**
+
+現在の案の弱点は、**目標がある人を描けば、目標を思い出させるアプリが欲しくなる**と仮定していることです。この間には飛躍があります。
+
+以下の順位は添付画像と制作条件からの仮説です。画風別の再生・転換実績ではありません。
+
+**1．10画風の順位：s05が第一候補。s09は構図を直してから比較する候補です。**
+
+各項目5点満点。「制作」は高いほど軽い。対象は今回の短尺ギャグで、画風そのものの芸術的評価ではありません。
+
+| 順位 | 画風 | 1秒の可読性 | 伸びる見込み | 30本の一貫性 | 制作 | 判断 |
+|---:|---|---:|---:|---:|---:|---|
+| 1 | **s05 棒人間＋赤** | 5 | 4 | 5 | 5 | 人物・端末・反応を分離できる。パーツを再利用しやすい |
+| 2 | **s06 ペーパーカット** | 4 | 3 | 4 | 4 | 大きい文字と輪郭が強い。成人向けの場面にも使える |
+| 3 | **s03 クレイ** | 4 | 3 | 3 | 2 | 冷蔵庫を開ける行動は即読める。手・扉・質感の連続性が負担 |
+| 4 | **s10 新聞3コマ** | 2 | 3 | 5 | 4 | 因果関係が明快。ただし動画では1コマずつ全面表示にする |
+| 5 | **s09 くすんだ2D** | 2 | 3 | 3 | 3 | 情緒はあるが、肝心のスマホが暗い机の下に隠れている |
+| 6 | **s02 実写風AI** | 4 | 4 | 2 | 2 | 場面は伝わる。手・端末・顔の不自然さを直す負担がある |
+| 7 | **s07 ドット絵** | 3 | 3 | 3 | 2 | 色は強い。細かい指の演技と画素を保つ動画化が難所 |
+| 8 | **s01 3D** | 3 | 4 | 2 | 2 | 顔の感情は強いが、目標の靴は背景に埋もれる |
+| 9 | **s04 アニメ** | 2 | 3 | 3 | 2 | 現状は「疲れて横になる人」が先に見え、行動が弱い |
+| 10 | **s08 ダーク線画** | 1 | 1 | 4 | 3 | 情報を暗部に隠している。却下維持 |
+
+s09への反論は「暗い絵は伸びない」ではありません。**この絵は、食卓・相手・料理・表情・机下のスマホを順に解読して初めてギャグの前提が分かる**。しかも手前に相手がいて、厳密には「人間1人」の見本にもなっていません。
+
+s09を残すなら、背景の描き込みを減らし、顔・手・スマホを明確に分離し、胸から上と手元に寄せる。その修正後なら順位は上がります。しかし、ガッシュの質感自体が転換を強める根拠はありません。
+
+一方、s05も完成形ではありません。スマホ横の赤い小文字は小さすぎる。**太い輪郭、大きい行動、目標だけに使うアクセント色**へ整理したいです。
+
+また、「かわいい／アニメだから25〜40歳とずれる」は未検証です。成人性は画風だけでなく、仕事・翌朝の予定・読みかけの本などの状況でも伝わります。除外理由にするなら、客層より制作負荷の方が説明できます。
+
+**2．追加候補は「簡素な人間2D＋物体の誇張」と「自撮り実写＋編集による介入」です。**
+
+| 追加候補 | 今回の使い方 | 採否 |
+|---|---|---|
+| **高コントラストのフラット2D** | 人物1人、背景最小、スマホと目標物を大きくする | 第一候補 |
+| **本物の実写UGC＋簡単な合成** | 本人・手元を撮影し、目標カードが端末を覆う | 撮影できるなら有力 |
+| **写真＋文字のミーム動画** | 同じ写真に時刻・表情差分・オチを追加 | 制作が詰まった週の予備 |
+| **テロップ主体＋小さい人物** | 言葉でオチが成立するネタに限定 | 全編の主力にはしない |
+| **Calmlings型の柔らかい3D** | 安心・愛着を中心にするシリーズ | 今回の皮肉ギャグでは後回し |
+
+参考になる実例は次のとおりです。
+
+- **The Introverted Attorney**：簡素な人物でも、職場の疲労や不安という成人の題材を扱える例。作者自身が、若手弁護士時代の経験からキャラクターが生まれたと説明しています。手元のr2もこの系統です。[作者の説明](https://theintrovertedattorney.com/pages/about)
+- **The Land of Boggs**：単純なキャラクターと日常の誇張。2025年5月にはYouTubeの米国ユニーク視聴者が前月比42%増と報告されています。**単純・かわいい表現でも米国到達は取れる**例ですが、Reelsでの25〜40歳の課金転換を証明するものではありません。[米国視聴データ](https://www.themeasure.net/land-of-boggs-takes-off-youtube-tubular-buzzfeed-shorts-video/)
+- **Dustin Poynter**：赤旗・緑旗という物体で、抽象的な評価を身体的な笑いに変える実写形式。所属先は2024年10月時点で総フォロワー800万超と公表。借りるべきは「感情を一つの物体で即座に見せる」構造です。[所属先の紹介](https://dulcedo.com/blog/dulcedo-group-digital-creator-dustin-poynter-partners-with-netflix-in-new-collaboration)
+
+Calmlingsは[公式アカウントへの導線](https://linktr.ee/calmlings)を確認しましたが、米国成人比率やアプリ獲得実績は確認できません。「伸びる3Dだから採用」とまでは言えません。
+
+**3．人間1人は維持してよい。ただし「共感だけで終わる形式」を固定するのは弱いです。**
+
+「自分もこれをやる」と「これを止める仕組みが欲しい」は別の反応です。前者しか作らないと、DopaBreakはプロフィールに突然現れる別商品になります。
+
+ただし、r3の131万いいねも、**止められたい欲求への反応だったのか、殴られる意外性への反応だったのかは未確認**。その数値だけで介入型の転換優位を断定するのも危険です。
+
+私なら、次の構造を試します。
+
+> **開こうとする → 自分が決めた目標が割り込む → 気まずい反応で落とす**
+
+例：「今夜は読む」
+
+| 秒 | 映像・テロップ |
+|---|---|
+| 0〜2秒 | 開いた本の横でスマホに手を伸ばす。`Me: “One quick check.”` |
+| 2〜5秒 | 本の「Read 10 pages」という自分のメモが、巨大化してスマホを覆う |
+| 5〜9秒 | 指がメモをスワイプしようとする。動かない。本人が無表情で止まる |
+
+人間は1人。目標物に顔や声は付けない。成功者になる結末も、励ましも、商品画面も不要です。
+
+**目標物が背景からギャグの原因へ変わる**ため、プロフィールで「開く瞬間に自分の目標が出る」と知ったときに話がつながります。
+
+注意したいのは、DopaBreakの差別化は「強制的に寝かせる」ことではない点です。殴る・拘束する・端末を破壊する方向へ寄せると、強制ブロックを欲しい人を集めかねません。目標との対面を誇張し、最後の選択は本人に残す方が商品と整合します。
+
+`Me: / My brain:`も毎回固定しない方がよいです。動作で既に分かることを二行目で説明すると、オチが解説になります。**固定するのは最大文字量で、話者の組み合わせではありません。**
+
+**4．30本を現実的にする組み合わせは、簡素な2D＋限定的な動きです。s09とs02の二系統運用は初期には勧めません。**
+
+12週30本は週2.5本。問題は生成単価より、**狙った動作にならず再生成する時間**です。
+
+| 詰まりどころ | 今回起きそうな問題 | 回避策 |
+|---|---|---|
+| 指とスマホ | 触れる位置、指の数、画面方向が崩れる | 手・端末を別素材にし、接触は編集で作る |
+| ギャグの間 | 動作が早すぎてオチが読めない | 静止・移動・停止をRemotionで制御 |
+| 連続性 | 本や服、部屋がカットごとに変わる | 主人公・背景・物体を再利用する |
+| 目標の文字 | AI生成文字が崩れる | 文字と時計はすべて後乗せ |
+| s09の細密さ | 背景は美しいが動きの差が見えない | 背景を固定し、変化する部分を大きく |
+| s02の人物交代 | 顔の固定は楽になるがシリーズの識別性が弱まる | 初期は画風も主人公も一本化 |
+| ナレーション型 | 台本・根拠確認・音声・字幕が追加される | 短尺とは別の工数枠で扱う |
+
+開始時に作るのは、**主人公1人、背景3種、表情・姿勢差分、手・スマホ・目標物のパーツ**です。画像生成AIで素材を作り、移動・拡大・時刻変化は編集する。画像→動画AIは、必要な演技があるカットだけに使います。
+
+暫定の工数予算は、テンプレ整備1〜2日、通常回1本90〜150分、週の集計約1時間。これは実績値ではなく、最初の2本で計時して修正する予算です。毎回半日以上になるなら、30本へ進む前にカットと動作を減らす必要があります。
+
+**5．見落としは、画風よりも「証拠の扱い」と「転換までの距離」にあります。**
+
+**① ベンチマークは、短尺・無音・CTAなしの優位を証明していません。**  
+[6本の資料](/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-reels-benchmark-6.md)では、再生数・保存数・シェア数は未取得です。比較はいいね数で、r2とr4は同じ動画。さらに表の数字はr5が55,396、r6が55,870なので、**「75秒解説が最下位」は正確ではありません**。「音なしで成立する」と「音が入っていない」も別です。短尺主体は合理的な開始方針ですが、因果の結論にはできません。
+
+**② 今の10枚は画風比較になっていません。**  
+題材、明度、画角、人物数、文字量、目標物の目立ち方が全部違う。s03が読みやすいのは、クレイだからではなく「明るい冷蔵庫＋開けている人」という構図の効果かもしれません。画風を比較するなら、同じ台本・画角で作る必要があります。
+
+**③ 「目標物あり／なし」は、弱い仮説を先に検証しています。**  
+靴を置いても、運動目標なのか部屋の散らかりなのか分かりません。しかも「毎回置く」という決定を変更する試験です。両方に置いて、その物体が**背景なのか、行動を変える原因なのか**を比べる方が、商品に近い学びになります。
+
+**④ 安いドーパミン全般と、SNS限定の出口には距離があります。**  
+冷蔵庫を何度も開ける動画で笑った人に、SNS対策が必要とは限りません。題材配分は維持しても、食べ物回とスマホ回の到達を同価値として合算しないこと。非スマホ回は「広く届く役」、スマホ回は「対策を探す人を呼ぶ役」という仮説を別々に確認したいです。
+
+**⑤ 保存は課金までの必須段階ではありません。**  
+ギャグを保存せずプロフィールへ行く人もいます。保存率の高い自己改善コンテンツが、課金につながるとも限りません。シェア、プロフィール遷移、インストール、課金は分けて見ます。
+
+**⑥ 02cの3.5%は、6本の動画を採点する基準ではありません。**  
+[02c §5.3](/Users/solotech/Desktop/test-project/docs/02c_marketing_impact_plan.md:220)では、オーガニック1,000インストール以上、install→有料3.5%以上に加え、D7継続25%以上、勝ち素材3本、計測準備も条件です。ASOなどを含む全体で達成しても、この海外動画シリーズの転換力が証明されたことにはなりません。
+
+また、共通のプロフィールリンクから、各動画の課金者を自動的に識別できるわけではありません。投稿別の反応と、媒体・期間別のインストール／課金を分け、取得できない対応関係を推測で埋めない設計が必要です。
+
+調査・提案は[議論メモ](/Users/solotech/Desktop/test-project/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md)に保存しました。指定のドーパミン種類調査は該当パスに見つからず、今回の根拠には使っていません。
+
+**最終推奨：画風・形式・試験1**
+
+1. **画風：s05を基にした高コントラストの人間2D。** 行動の可読性とパーツ再利用を優先。
+2. **形式：人間1人・8〜12秒・1場面・1つの誇張。** テロップ最大2行、話者は固定しない。
+3. 主力候補は「開こうとする→自分の目標が割り込む→気まずい反応」。本編の宣伝は不要。
+4. **試験1：目標が背景にあるA／目標が割り込むB × 3題材＝6本。**
+5. 題材はSNSと読書・翌朝のランニング・語学学習。画風、主人公、目標物、尺、CTAを揃える。
+6. A/Bの投稿順を交互にし、同じ経過日数でリーチ・シェア率・取得可能なプロフィール遷移率を比較。
+7. 制作時間も記録し、題材をまたいで反応が良く、継続制作できる形式を暫定採用する。
+8. 6本では転換の合否を断定しない。判断が割れたら次の題材で再比較し、課金は成熟した流入群で評価する。
+diff --git a/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md b/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..563a0edc673d423f93e21176b1fedd094329d372
+--- /dev/null
++++ b/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md
+@@ -0,0 +1,66 @@
++# 海外オーガニック短編：画風・形式への反論
++
++2026-09-21。オーナー確定前の提案。既存仕様は変更していない。
++
++## 推奨
++
++- 画風はs05を基にした高コントラストの人間2D。明るい無彩色背景、太い輪郭、目標だけアクセント色。s09は明度・構図を直して後続比較へ。
++- 形式は人間1人、8〜12秒、1場面、1つの誇張。「開こうとする→自分の目標が物理的に割り込む→気まずい反応」。目標物に顔・声は付けない。
++- テロップ最大2行は維持できるが、Me / My brainの話者固定は不要。絵で分かる反応を説明し直さない。
++- 試験1は3題材×2形式＝6本。同じ画風・主人公・尺・目標物・CTAで、A＝目標が背景にある共感ギャグ、B＝その目標が開く瞬間に割り込むギャグ。
++- 最初の3題材はSNSと読書、SNSと翌朝のランニング、SNSと語学学習。食べ物等の題材配分は全30本で維持し、この6本では商品との距離を揃える。
++
++## 画風順位（添付の構図と制作条件に基づく仮説）
++
++点数は可読性／到達の見込み／一貫性／制作の軽さ。5が良い。実測や視聴者属性の証拠ではない。
++
++|順位|画風|点数|判断|
++|---|---|---|---|
++|1|s05 棒人間＋赤|5/4/5/5|行動が読みやすく、パーツ再利用可能。現状の小さいスマホ文字は拡大する|
++|2|s06 ペーパーカット|4/3/4/4|輪郭と文字が明快。かわいさだけで成人対象外とは言えない|
++|3|s03 クレイ|4/3/3/2|冷蔵庫と行動が明快。手・ドア・質感の連続性に工数|
++|4|s10 新聞3コマ|2/3/5/4|同時3コマは小さい。動画では1コマずつ全面表示にする|
++|5|s09 くすんだ2D|2/3/3/3|机下のスマホが読みにくい。細密背景と複数人物が短尺の負担|
++|6|s02 実写風AI|4/4/2/2|場面は読める。手・端末・顔の破綻が修正負担。実写UGCとは別|
++|7|s07 ドット絵|3/3/3/2|画面は強いが小さい手の演技とAI動画化に不向き|
++|8|s01 3D|3/4/2/2|顔は伝わる。靴は背景に埋もれ、連続性の維持が重い|
++|9|s04 アニメ|2/3/3/2|暗い寝姿とスマホ行動の区別が弱い。年齢不適合とは未実証|
++|10|s08 ダーク線画|1/1/4/3|情報を暗部に埋めている。却下維持|
++
++## 論点
++
++1. 目標物を置くだけでは本人の目標とは伝わらない。靴が散らかっている寝室と、朝走る約束をした人は別。
++2. 共感ギャグは問題認識、介入ギャグは対策への欲求を描ける。ただしr3への反応が購買意図だった証拠はない。
++3. 強制停止の欲求と、目標を思い出して自分で選ぶ商品の機能は異なる。主人公の選択を残す。
++4. s09＋s02の二系統は30本の学習・素材・工程を分散する。開始時は一系統。
++5. 「目標物なし」は毎回置くという決定を変える試験。両方ありの役割比較なら現方針のまま検証できる。
++6. 広いドーパミン題材とSNS限定出口には距離がある。食べ物回の到達がスマホ回と同じ転換を持つとは扱わない。
++7. 保存は課金の必須段階ではない。シェア・プロフィール・インストール・課金を分ける。
++
++## 制作と計測
++
++背景3種、主人公1人、姿勢・表情差分、手・スマホ・目標物をレイヤー化。生成AIは素材、Remotionは文字・時刻・移動・間に使う。画像→動画は必要なカットのみ。ギャグの正確な接触とタイミングを生成の再試行に依存させない。
++
++暫定工数予算はテンプレ整備1〜2日、1本90〜150分、週2〜3本＋分析約1時間。実績値ではなく最初の2本で計時して更新する。12週30本は週2.5本。ナレーション型は毎回の台本・根拠確認・音声・字幕工程を別途計上する。
++
++投稿順はA/Bが常に前後同じにならないようにし、同じ経過日数で比較。リーチ、シェア/リーチ、取得可能ならプロフィール遷移/リーチ、制作分数を記録。オーガニック配信はランダム化実験ではない。6本で統計的な勝者・3.5%達成を断定しない。
++
++共通プロフィールリンクでは動画別課金まで自動的には識別できない。投稿単位の反応と、媒体・期間単位のインストール／課金を分離する。課金は同じ観測期間を満たした流入群で見る。
++
++## 確認した資料と制約
++
++- docs/marketing/2026-09-20-reels-benchmark-6.md：再生・保存・シェア未取得、いいね比較。r2/r4は同一動画で独立企画は5つ。表ではr5が55,396、r6が55,870なので「r6が最下位」は誤り。「無音で成立」と「実際に無音」は区別が必要。
++- docs/marketing/2026-09-20-organic-video-topics-30.md：旧脳主人公や複数人物案が残る。今回の人間1人を優先。
++- docs/marketing/2026-09-10-the-silent-mind-reference.md：画調の参考であり米国属性や獲得の証明ではない。
++- docs/02c_marketing_impact_plan.md §5.3：有料拡大ゲートはオーガニック1,000install以上、install→有料3.5%以上、D7 25%以上、勝ち素材3本、計測準備。今回の6本だけの判定条件ではない。
++- 指定された2026-09-21-dopamine-types-survey.mdは指定場所に存在せず未読。
++
++## 公開実例
++
++- The Introverted Attorney：成人の職場不安を簡素な人物で表現。https://theintrovertedattorney.com/pages/about
++- The Land of Boggs：公式は日常場面の誇張とデザインの一貫性を説明。https://www.buzzfeedanimationlab.com/the-land-of-boggs
++- 同シリーズの米国実績：2025年5月、YouTubeの米国ユニーク視聴者が前月比42%増。Reelsや25〜40歳課金層の証拠ではない。https://www.themeasure.net/land-of-boggs-takes-off-youtube-tubular-buzzfeed-shorts-video/
++- Dustin Poynter：旗で抽象的な評価を可視化する実写コメディ。所属先が2024年10月に総フォロワー800万超と公表。https://dulcedo.com/blog/dulcedo-group-digital-creator-dustin-poynter-partners-with-netflix-in-new-collaboration
++- Calmlings：公式導線は確認したが米国25〜40歳比率や課金転換は未確認。https://linktr.ee/calmlings
++
++推奨理由：1秒で行動が分かり、目標を思い出す瞬間を笑いにでき、30本で素材と演出を再利用できる。s09の情緒、s02の生々しさより先に、この三条件を検証する。
+
+tokens used
+77,715
+**s09本命には反対です。最初はs05を土台にした、明るく高コントラストな人間2Dを推します。形式は「あるあるで終わる」ものと「自分の目標に止められる」ものを比較すべきです。**
+
+現在の案の弱点は、**目標がある人を描けば、目標を思い出させるアプリが欲しくなる**と仮定していることです。この間には飛躍があります。
+
+以下の順位は添付画像と制作条件からの仮説です。画風別の再生・転換実績ではありません。
+
+**1．10画風の順位：s05が第一候補。s09は構図を直してから比較する候補です。**
+
+各項目5点満点。「制作」は高いほど軽い。対象は今回の短尺ギャグで、画風そのものの芸術的評価ではありません。
+
+| 順位 | 画風 | 1秒の可読性 | 伸びる見込み | 30本の一貫性 | 制作 | 判断 |
+|---:|---|---:|---:|---:|---:|---|
+| 1 | **s05 棒人間＋赤** | 5 | 4 | 5 | 5 | 人物・端末・反応を分離できる。パーツを再利用しやすい |
+| 2 | **s06 ペーパーカット** | 4 | 3 | 4 | 4 | 大きい文字と輪郭が強い。成人向けの場面にも使える |
+| 3 | **s03 クレイ** | 4 | 3 | 3 | 2 | 冷蔵庫を開ける行動は即読める。手・扉・質感の連続性が負担 |
+| 4 | **s10 新聞3コマ** | 2 | 3 | 5 | 4 | 因果関係が明快。ただし動画では1コマずつ全面表示にする |
+| 5 | **s09 くすんだ2D** | 2 | 3 | 3 | 3 | 情緒はあるが、肝心のスマホが暗い机の下に隠れている |
+| 6 | **s02 実写風AI** | 4 | 4 | 2 | 2 | 場面は伝わる。手・端末・顔の不自然さを直す負担がある |
+| 7 | **s07 ドット絵** | 3 | 3 | 3 | 2 | 色は強い。細かい指の演技と画素を保つ動画化が難所 |
+| 8 | **s01 3D** | 3 | 4 | 2 | 2 | 顔の感情は強いが、目標の靴は背景に埋もれる |
+| 9 | **s04 アニメ** | 2 | 3 | 3 | 2 | 現状は「疲れて横になる人」が先に見え、行動が弱い |
+| 10 | **s08 ダーク線画** | 1 | 1 | 4 | 3 | 情報を暗部に隠している。却下維持 |
+
+s09への反論は「暗い絵は伸びない」ではありません。**この絵は、食卓・相手・料理・表情・机下のスマホを順に解読して初めてギャグの前提が分かる**。しかも手前に相手がいて、厳密には「人間1人」の見本にもなっていません。
+
+s09を残すなら、背景の描き込みを減らし、顔・手・スマホを明確に分離し、胸から上と手元に寄せる。その修正後なら順位は上がります。しかし、ガッシュの質感自体が転換を強める根拠はありません。
+
+一方、s05も完成形ではありません。スマホ横の赤い小文字は小さすぎる。**太い輪郭、大きい行動、目標だけに使うアクセント色**へ整理したいです。
+
+また、「かわいい／アニメだから25〜40歳とずれる」は未検証です。成人性は画風だけでなく、仕事・翌朝の予定・読みかけの本などの状況でも伝わります。除外理由にするなら、客層より制作負荷の方が説明できます。
+
+**2．追加候補は「簡素な人間2D＋物体の誇張」と「自撮り実写＋編集による介入」です。**
+
+| 追加候補 | 今回の使い方 | 採否 |
+|---|---|---|
+| **高コントラストのフラット2D** | 人物1人、背景最小、スマホと目標物を大きくする | 第一候補 |
+| **本物の実写UGC＋簡単な合成** | 本人・手元を撮影し、目標カードが端末を覆う | 撮影できるなら有力 |
+| **写真＋文字のミーム動画** | 同じ写真に時刻・表情差分・オチを追加 | 制作が詰まった週の予備 |
+| **テロップ主体＋小さい人物** | 言葉でオチが成立するネタに限定 | 全編の主力にはしない |
+| **Calmlings型の柔らかい3D** | 安心・愛着を中心にするシリーズ | 今回の皮肉ギャグでは後回し |
+
+参考になる実例は次のとおりです。
+
+- **The Introverted Attorney**：簡素な人物でも、職場の疲労や不安という成人の題材を扱える例。作者自身が、若手弁護士時代の経験からキャラクターが生まれたと説明しています。手元のr2もこの系統です。[作者の説明](https://theintrovertedattorney.com/pages/about)
+- **The Land of Boggs**：単純なキャラクターと日常の誇張。2025年5月にはYouTubeの米国ユニーク視聴者が前月比42%増と報告されています。**単純・かわいい表現でも米国到達は取れる**例ですが、Reelsでの25〜40歳の課金転換を証明するものではありません。[米国視聴データ](https://www.themeasure.net/land-of-boggs-takes-off-youtube-tubular-buzzfeed-shorts-video/)
+- **Dustin Poynter**：赤旗・緑旗という物体で、抽象的な評価を身体的な笑いに変える実写形式。所属先は2024年10月時点で総フォロワー800万超と公表。借りるべきは「感情を一つの物体で即座に見せる」構造です。[所属先の紹介](https://dulcedo.com/blog/dulcedo-group-digital-creator-dustin-poynter-partners-with-netflix-in-new-collaboration)
+
+Calmlingsは[公式アカウントへの導線](https://linktr.ee/calmlings)を確認しましたが、米国成人比率やアプリ獲得実績は確認できません。「伸びる3Dだから採用」とまでは言えません。
+
+**3．人間1人は維持してよい。ただし「共感だけで終わる形式」を固定するのは弱いです。**
+
+「自分もこれをやる」と「これを止める仕組みが欲しい」は別の反応です。前者しか作らないと、DopaBreakはプロフィールに突然現れる別商品になります。
+
+ただし、r3の131万いいねも、**止められたい欲求への反応だったのか、殴られる意外性への反応だったのかは未確認**。その数値だけで介入型の転換優位を断定するのも危険です。
+
+私なら、次の構造を試します。
+
+> **開こうとする → 自分が決めた目標が割り込む → 気まずい反応で落とす**
+
+例：「今夜は読む」
+
+| 秒 | 映像・テロップ |
+|---|---|
+| 0〜2秒 | 開いた本の横でスマホに手を伸ばす。`Me: “One quick check.”` |
+| 2〜5秒 | 本の「Read 10 pages」という自分のメモが、巨大化してスマホを覆う |
+| 5〜9秒 | 指がメモをスワイプしようとする。動かない。本人が無表情で止まる |
+
+人間は1人。目標物に顔や声は付けない。成功者になる結末も、励ましも、商品画面も不要です。
+
+**目標物が背景からギャグの原因へ変わる**ため、プロフィールで「開く瞬間に自分の目標が出る」と知ったときに話がつながります。
+
+注意したいのは、DopaBreakの差別化は「強制的に寝かせる」ことではない点です。殴る・拘束する・端末を破壊する方向へ寄せると、強制ブロックを欲しい人を集めかねません。目標との対面を誇張し、最後の選択は本人に残す方が商品と整合します。
+
+`Me: / My brain:`も毎回固定しない方がよいです。動作で既に分かることを二行目で説明すると、オチが解説になります。**固定するのは最大文字量で、話者の組み合わせではありません。**
+
+**4．30本を現実的にする組み合わせは、簡素な2D＋限定的な動きです。s09とs02の二系統運用は初期には勧めません。**
+
+12週30本は週2.5本。問題は生成単価より、**狙った動作にならず再生成する時間**です。
+
+| 詰まりどころ | 今回起きそうな問題 | 回避策 |
+|---|---|---|
+| 指とスマホ | 触れる位置、指の数、画面方向が崩れる | 手・端末を別素材にし、接触は編集で作る |
+| ギャグの間 | 動作が早すぎてオチが読めない | 静止・移動・停止をRemotionで制御 |
+| 連続性 | 本や服、部屋がカットごとに変わる | 主人公・背景・物体を再利用する |
+| 目標の文字 | AI生成文字が崩れる | 文字と時計はすべて後乗せ |
+| s09の細密さ | 背景は美しいが動きの差が見えない | 背景を固定し、変化する部分を大きく |
+| s02の人物交代 | 顔の固定は楽になるがシリーズの識別性が弱まる | 初期は画風も主人公も一本化 |
+| ナレーション型 | 台本・根拠確認・音声・字幕が追加される | 短尺とは別の工数枠で扱う |
+
+開始時に作るのは、**主人公1人、背景3種、表情・姿勢差分、手・スマホ・目標物のパーツ**です。画像生成AIで素材を作り、移動・拡大・時刻変化は編集する。画像→動画AIは、必要な演技があるカットだけに使います。
+
+暫定の工数予算は、テンプレ整備1〜2日、通常回1本90〜150分、週の集計約1時間。これは実績値ではなく、最初の2本で計時して修正する予算です。毎回半日以上になるなら、30本へ進む前にカットと動作を減らす必要があります。
+
+**5．見落としは、画風よりも「証拠の扱い」と「転換までの距離」にあります。**
+
+**① ベンチマークは、短尺・無音・CTAなしの優位を証明していません。**  
+[6本の資料](/Users/solotech/Desktop/test-project/docs/marketing/2026-09-20-reels-benchmark-6.md)では、再生数・保存数・シェア数は未取得です。比較はいいね数で、r2とr4は同じ動画。さらに表の数字はr5が55,396、r6が55,870なので、**「75秒解説が最下位」は正確ではありません**。「音なしで成立する」と「音が入っていない」も別です。短尺主体は合理的な開始方針ですが、因果の結論にはできません。
+
+**② 今の10枚は画風比較になっていません。**  
+題材、明度、画角、人物数、文字量、目標物の目立ち方が全部違う。s03が読みやすいのは、クレイだからではなく「明るい冷蔵庫＋開けている人」という構図の効果かもしれません。画風を比較するなら、同じ台本・画角で作る必要があります。
+
+**③ 「目標物あり／なし」は、弱い仮説を先に検証しています。**  
+靴を置いても、運動目標なのか部屋の散らかりなのか分かりません。しかも「毎回置く」という決定を変更する試験です。両方に置いて、その物体が**背景なのか、行動を変える原因なのか**を比べる方が、商品に近い学びになります。
+
+**④ 安いドーパミン全般と、SNS限定の出口には距離があります。**  
+冷蔵庫を何度も開ける動画で笑った人に、SNS対策が必要とは限りません。題材配分は維持しても、食べ物回とスマホ回の到達を同価値として合算しないこと。非スマホ回は「広く届く役」、スマホ回は「対策を探す人を呼ぶ役」という仮説を別々に確認したいです。
+
+**⑤ 保存は課金までの必須段階ではありません。**  
+ギャグを保存せずプロフィールへ行く人もいます。保存率の高い自己改善コンテンツが、課金につながるとも限りません。シェア、プロフィール遷移、インストール、課金は分けて見ます。
+
+**⑥ 02cの3.5%は、6本の動画を採点する基準ではありません。**  
+[02c §5.3](/Users/solotech/Desktop/test-project/docs/02c_marketing_impact_plan.md:220)では、オーガニック1,000インストール以上、install→有料3.5%以上に加え、D7継続25%以上、勝ち素材3本、計測準備も条件です。ASOなどを含む全体で達成しても、この海外動画シリーズの転換力が証明されたことにはなりません。
+
+また、共通のプロフィールリンクから、各動画の課金者を自動的に識別できるわけではありません。投稿別の反応と、媒体・期間別のインストール／課金を分け、取得できない対応関係を推測で埋めない設計が必要です。
+
+調査・提案は[議論メモ](/Users/solotech/Desktop/test-project/.claude/discussions/2026-09-21-organic-style-format-counterproposal.md)に保存しました。指定のドーパミン種類調査は該当パスに見つからず、今回の根拠には使っていません。
+
+**最終推奨：画風・形式・試験1**
+
+1. **画風：s05を基にした高コントラストの人間2D。** 行動の可読性とパーツ再利用を優先。
+2. **形式：人間1人・8〜12秒・1場面・1つの誇張。** テロップ最大2行、話者は固定しない。
+3. 主力候補は「開こうとする→自分の目標が割り込む→気まずい反応」。本編の宣伝は不要。
+4. **試験1：目標が背景にあるA／目標が割り込むB × 3題材＝6本。**
+5. 題材はSNSと読書・翌朝のランニング・語学学習。画風、主人公、目標物、尺、CTAを揃える。
+6. A/Bの投稿順を交互にし、同じ経過日数でリーチ・シェア率・取得可能なプロフィール遷移率を比較。
+7. 制作時間も記録し、題材をまたいで反応が良く、継続制作できる形式を暫定採用する。
+8. 6本では転換の合否を断定しない。判断が割れたら次の題材で再比較し、課金は成熟した流入群で評価する。

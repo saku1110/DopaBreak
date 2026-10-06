@@ -11,6 +11,9 @@ public enum ProProductID: String, CaseIterable, Sendable {
     case annualLaunch = "dopabreak.pro.annual.launch"
     case lifetime = "dopabreak.pro.lifetime"
 
+    /// Products available for new purchases. Legacy IDs below remain restorable.
+    public static let saleSubscriptionIDs = [monthly.rawValue, annual.rawValue]
+
     public static let allSubscriptionIDs: [String] = [
         ProProductID.monthly.rawValue,
         ProProductID.annual.rawValue,
@@ -98,13 +101,12 @@ public struct EntitlementGate: Equatable, Sendable {
         }
     }
 
-    public var strictModeAllowed: Bool {
+    /// 1日に開ける回数（使い切ったら翌朝まで完全ブロック）はPro。2026-10-05オーナー決定。
+    public var dailyOpenLimitAllowed: Bool {
         tier == .pro
     }
 
-    /// 日常の一呼吸ゲートはProだけに適用する。
-    /// `strictModeAllowed` と現在は同値でも、機能の権利を別名で固定して将来の分岐を混ぜない。
-    public var gateAllowed: Bool {
+    public var strictModeAllowed: Bool {
         tier == .pro
     }
 

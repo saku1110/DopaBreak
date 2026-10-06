@@ -133,33 +133,38 @@ enum ReclaimedTimeFormatter {
 }
 
 struct ReclaimedTimeMilestone: Equatable, Sendable {
+    private static let daySeconds = 86_400
+    private static let fixedThresholdSeconds = [3_600, 21_600, 43_200]
+
     let thresholdSeconds: Int
 
     var dayCount: Int? {
-        guard thresholdSeconds >= 86_400 else { return nil }
-        return thresholdSeconds / 86_400
+        guard thresholdSeconds >= Self.daySeconds else { return nil }
+        return thresholdSeconds / Self.daySeconds
     }
 
     var hourCount: Int? {
-        guard thresholdSeconds < 86_400 else { return nil }
+        guard thresholdSeconds < Self.daySeconds else { return nil }
         return thresholdSeconds / 3_600
     }
 
     static func highestReached(seconds: Int) -> Self? {
         let normalized = max(0, seconds)
-        if normalized >= 86_400 {
-            return Self(thresholdSeconds: (normalized / 86_400) * 86_400)
+        if normalized >= daySeconds {
+            return Self(thresholdSeconds: (normalized / daySeconds) * daySeconds)
         }
-        if normalized >= 43_200 {
-            return Self(thresholdSeconds: 43_200)
+        return fixedThresholdSeconds
+            .last(where: { $0 <= normalized })
+            .map(Self.init(thresholdSeconds:))
+    }
+
+    static func nextThreshold(after seconds: Int) -> Self {
+        let normalized = max(0, seconds)
+        if let fixedThreshold = fixedThresholdSeconds.first(where: { $0 > normalized }) {
+            return Self(thresholdSeconds: fixedThreshold)
         }
-        if normalized >= 21_600 {
-            return Self(thresholdSeconds: 21_600)
-        }
-        if normalized >= 3_600 {
-            return Self(thresholdSeconds: 3_600)
-        }
-        return nil
+        let nextWholeDay = (normalized / daySeconds + 1) * daySeconds
+        return Self(thresholdSeconds: nextWholeDay)
     }
 
     func celebrationText(
@@ -180,6 +185,26 @@ struct ReclaimedTimeMilestone: Equatable, Sendable {
             table: nil
         )
         return String(format: format, locale: locale, arguments: [hourCount ?? 0])
+    }
+}
+
+struct ReclaimedTimeMilestoneProgress: Equatable, Sendable {
+    let previousThresholdSeconds: Int
+    let nextMilestone: ReclaimedTimeMilestone
+    let remainingSeconds: Int
+    let fraction: Double
+
+    init?(seconds: Int) {
+        let normalized = max(0, seconds)
+        let previous = ReclaimedTimeMilestone.highestReached(seconds: normalized)?.thresholdSeconds ?? 0
+        let next = ReclaimedTimeMilestone.nextThreshold(after: normalized)
+        let interval = next.thresholdSeconds - previous
+        guard interval > 0 else { return nil }
+
+        previousThresholdSeconds = previous
+        nextMilestone = next
+        remainingSeconds = max(0, next.thresholdSeconds - normalized)
+        fraction = min(1, max(0, Double(normalized - previous) / Double(interval)))
     }
 }
 

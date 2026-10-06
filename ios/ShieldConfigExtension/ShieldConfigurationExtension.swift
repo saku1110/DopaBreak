@@ -12,20 +12,18 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         guard let token = application.token else {
             return minimalConfiguration()
         }
-        return makeConfiguration(for: .application(token), gateToken: token)
+        return makeConfiguration(for: .application(token))
     }
 
     override func configuration(
         shielding application: Application,
         in category: ActivityCategory
     ) -> ShieldConfiguration {
-        // この入口はカテゴリシールドで呼ばれる。ゲートはアプリ単位だけなので、
-        // カテゴリの完全ブロックを日常ゲートの解除表示へ取り違えない。
         if let token = category.token {
-            return makeConfiguration(for: .category(token), gateToken: nil)
+            return makeConfiguration(for: .category(token))
         }
         if let token = application.token {
-            return makeConfiguration(for: .application(token), gateToken: nil)
+            return makeConfiguration(for: .application(token))
         }
         return minimalConfiguration()
     }
@@ -34,8 +32,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         guard let token = webDomain.token else {
             return minimalConfiguration()
         }
-        // Webドメインはゲート対象外。Deep Focus / 夜の完全ブロック表示だけを分岐する。
-        return makeConfiguration(for: .webDomain(token), gateToken: nil)
+        return makeConfiguration(for: .webDomain(token))
     }
 
     override func configuration(
@@ -45,20 +42,16 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         // カテゴリ由来のシールドでは、控えにもカテゴリトークンが入っている。
         // 先にカテゴリを照合し、夜・Deep Focusの表示を従来どおり保つ。
         if let token = category.token {
-            return makeConfiguration(for: .category(token), gateToken: nil)
+            return makeConfiguration(for: .category(token))
         }
         if let token = webDomain.token {
-            return makeConfiguration(for: .webDomain(token), gateToken: nil)
+            return makeConfiguration(for: .webDomain(token))
         }
         return minimalConfiguration()
     }
 
-    /// 表示のたびに控えと台帳を同期読みし、同じ入力を`GatePolicy`へ渡す。
-    /// 目標と完全ブロック控えの破損はそれぞれ局所的に無視し、ゲート判定を巻き込まない。
-    private func makeConfiguration(
-        for item: ShieldedItem,
-        gateToken: ApplicationToken?
-    ) -> ShieldConfiguration {
+    /// 表示のたびに時間窓の控えを同期読みし、この対象が現在の窓に含まれるかを判定する。
+    private func makeConfiguration(for item: ShieldedItem) -> ShieldConfiguration {
         let now = Date()
         let calendar = Calendar.autoupdatingCurrent
         let snapshotStore = JSONSnapshotStore()
@@ -82,226 +75,91 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             now: now,
             calendar: calendar
         )
-        let goal = try? GoalStore(snapshotStore: snapshotStore).primaryGoal()
-
-        guard let gateToken else {
-            return hardWindowOrMinimalConfiguration(
-                deepFocusActive: deepFocusActive,
-                nightActive: nightActive,
-                goal: goal
-            )
+        let openLimitSnapshot = DailyOpenLimitShield.activeSnapshot(now: now)
+            .flatMap { contains(item, in: $0.selectionDataList) ? $0 : nil }
+        if !deepFocusActive, !nightActive, case .application(let token) = item,
+           !ReinterventionShield.hasHardBlock(for: token, now: now), ReinterventionShield.session(for: token) != nil {
+            return reinterventionConfiguration()
         }
-
-        // 旧ストア・残存した夜/DFストア・Freeのシールドへ解除UIを出さない。
-        // 権利確認済みアプリが書いたゲート控えに、このトークンが実在するときだけ進む。
-        let gateSnapshot = try? GateShieldSnapshotStore(
-            snapshotStore: snapshotStore
-        ).snapshot()
-        guard let gateSnapshot,
-              contains(.application(gateToken), in: gateSnapshot.selectionDataList) else {
-            return hardWindowOrMinimalConfiguration(
-                deepFocusActive: deepFocusActive,
-                nightActive: nightActive,
-                goal: goal
-            )
+        var matchingDeepFocus = deepFocusSnapshot
+        if let snapshot = matchingDeepFocus {
+            if !contains(item, in: snapshot.sessionSelectionDataList ?? snapshot.selectionDataList) { matchingDeepFocus?.session = nil }
+            if !contains(item, in: snapshot.selectionDataList) { matchingDeepFocus?.selectionDataList = [] }
         }
-
-        do {
-            let tokenData = try GateTokenCoding.encode(gateToken)
-            let settings = try GateAppSettingsStore(snapshotStore: snapshotStore)
-                .setting(for: tokenData)
-            let ledger = try GateLedgerStore(snapshotStore: snapshotStore).ledger()
-            let pendingRequest = try? GateUnlockRequestStore(
-                snapshotStore: snapshotStore
-            ).request()
-            let state = GatePolicy.shieldState(
-                tokenData: tokenData,
-                now: now,
-                settings: settings,
-                ledger: ledger,
-                pendingUnlockRequest: pendingRequest,
-                isDeepFocusWindowActive: deepFocusActive,
-                isNightWindow: nightActive,
-                calendar: calendar
-            )
-            return configuration(for: state, goal: goal)
-        } catch {
-            return hardWindowOrMinimalConfiguration(
-                deepFocusActive: deepFocusActive,
-                nightActive: nightActive,
-                goal: goal
-            )
-        }
-    }
-
-    private func hardWindowOrMinimalConfiguration(
-        deepFocusActive: Bool,
-        nightActive: Bool,
-        goal: Goal?
-    ) -> ShieldConfiguration {
-        if deepFocusActive {
-            return configuration(for: .hardWindow(kind: .deepFocus), goal: goal)
-        }
-        if nightActive {
-            return configuration(for: .hardWindow(kind: .night), goal: goal)
-        }
-        return minimalConfiguration()
-    }
-
-    private func configuration(
-        for state: GateShieldState,
-        goal: Goal?
-    ) -> ShieldConfiguration {
-        switch state {
-        case .hardWindow(let kind):
-            return baseConfiguration(
-                title: hardWindowTitle(kind),
-                subtitle: hardWindowSubtitle(kind, goal: goal),
-                primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
-                secondaryAction: nil
-            )
-        case .canUnlock(let opensToday, let limit):
-            let nextOpen = Int64(opensToday + 1)
-            let subtitle: String
-            if let limit {
-                let limitValue = Int64(limit)
-                subtitle = String(
-                    localized: "shield.gate.subtitle.count_limit",
-                    defaultValue: "今日 \(nextOpen)/\(limitValue)回"
-                )
-            } else {
-                subtitle = String(
-                    localized: "shield.gate.subtitle.count",
-                    defaultValue: "今日 \(nextOpen)回目"
-                )
+        let windows = BlockWindowStatus.active(deepFocus: matchingDeepFocus,
+            night: nightActive ? nightSnapshot : nil, now: now, calendar: calendar)
+        guard !windows.isEmpty else {
+            if let openLimitSnapshot {
+                return openLimitConfiguration(openLimitSnapshot, item: item, now: now, calendar: calendar)
             }
-            return baseConfiguration(
-                title: String(
-                    localized: "shield.gate.title",
-                    defaultValue: "開く前にひと呼吸"
-                ),
-                subtitle: subtitle,
-                primaryAction: String(
-                    localized: "shield.gate.action.breathe",
-                    defaultValue: "一呼吸して開く"
-                ),
-                secondaryAction: String(
-                    localized: "shield.gate.action.cancel",
-                    defaultValue: "開かない"
-                )
-            )
-        case .waitingForApp:
-            let notificationUnavailable = UserDefaults(suiteName: AppGroup.identifier)?
-                .bool(forKey: GateConstants.notificationUnavailableDefaultsKey) ?? false
-            let subtitle = notificationUnavailable
-                ? String(
-                    localized: "shield.gate.waiting.denied",
-                    defaultValue: "通知をオンにすると、このアプリを開けます"
-                )
-                : String(
-                    localized: "shield.gate.waiting.subtitle",
-                    defaultValue: "画面上部の通知をタップすると、DopaBreakで一呼吸できます"
-                )
-            return baseConfiguration(
-                title: String(
-                    localized: "shield.gate.waiting.title",
-                    defaultValue: "通知をタップ"
-                ),
-                subtitle: subtitle,
-                primaryAction: String(
-                    localized: "shield.gate.waiting.retry",
-                    defaultValue: "通知をもう一度送る"
-                ),
-                secondaryAction: String(
-                    localized: "shield.gate.action.cancel",
-                    defaultValue: "開かない"
-                )
-            )
-        case .limitReached(let limit):
-            let value = Int64(limit)
-            return baseConfiguration(
-                title: String(
-                    localized: "shield.gate.limit.title",
-                    defaultValue: "今日はここまで"
-                ),
-                subtitle: String(
-                    localized: "shield.gate.limit.subtitle",
-                    defaultValue: "今日の上限（\(value)回）に達しました。0時にリセットされます。"
-                ),
-                primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
-                secondaryAction: nil
-            )
-        case .cooldown(let until):
-            let time = timeText(until)
-            return baseConfiguration(
-                title: String(
-                    localized: "shield.gate.cooldown.title",
-                    defaultValue: "まだ開けません"
-                ),
-                subtitle: String(
-                    localized: "shield.gate.cooldown.subtitle",
-                    defaultValue: "\(time)から開けます"
-                ),
-                primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
-                secondaryAction: nil
-            )
-        case .alreadyOpen:
-            // 通常は開放中のアプリにシールド自体が無い。古い表示が残った場合も
-            // 二重grantを作らず、ゲート由来だと分かる中立表示から閉じるだけにする。
-            return baseConfiguration(
-                title: String(
-                    localized: "shield.gate.title",
-                    defaultValue: "開く前にひと呼吸"
-                ),
-                subtitle: nil,
-                primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
-                secondaryAction: nil
-            )
+            return minimalConfiguration()
         }
+        // 夜・予定・手動と重なるときは従来の表示に1行足す。緊急で外せるのは回数上限ぶんだけなので、
+        // ここではDopaBreakを開くボタンを出さない。
+        var lines = windows.map { blockSubtitle($0, now: now) }
+        if let openLimitSnapshot {
+            lines.append(openLimitCombinedLine(openLimitSnapshot, now: now, calendar: calendar))
+        }
+        return baseConfiguration(
+            title: String(localized: "shield.title", defaultValue: "完全ブロック中"),
+            subtitle: lines.joined(separator: "\n"),
+            primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"), secondaryAction: nil)
     }
 
-    private func hardWindowTitle(_ kind: HardKind) -> String {
-        switch kind {
-        case .deepFocus:
-            return String(localized: "shield.title", defaultValue: "完全ブロック中")
+    /// 回数上限だけで止めているときの表示。理由と終わる時刻だけを書く。
+    private func openLimitConfiguration(
+        _ snapshot: DailyOpenLimitShieldSnapshot,
+        item: ShieldedItem,
+        now: Date,
+        calendar: Calendar
+    ) -> ShieldConfiguration {
+        let count = snapshot.openedCount
+        var lines = [openLimitEndLine(snapshot.blockEndsAt, now: now, calendar: calendar)]
+        var secondaryAction: String?
+        if #available(iOS 26.5, *), case .application = item {
+            secondaryAction = String(localized: "open_limit.shield.open_app", defaultValue: "DopaBreakを開く")
+            lines.append(String(localized: "open_limit.shield.emergency_hint", defaultValue: "急ぐときはDopaBreakで30秒待つと開けます"))
+        } else {
+            lines.append(String(localized: "open_limit.shield.emergency_hint_manual", defaultValue: "急ぐときはDopaBreakを開いて30秒待つと開けます"))
+        }
+        return baseConfiguration(
+            title: String(localized: "open_limit.shield.title", defaultValue: "今日は\(count)回開きました"),
+            subtitle: lines.joined(separator: "\n"),
+            primaryAction: String(localized: "shield.action.close", defaultValue: "閉じる"),
+            secondaryAction: secondaryAction
+        )
+    }
+
+    private func openLimitEndLine(_ end: Date, now: Date, calendar: Calendar) -> String {
+        let time = end.formatted(date: .omitted, time: .shortened)
+        if calendar.isDate(end, inSameDayAs: now) {
+            return String(localized: "open_limit.shield.until_today", defaultValue: "\(time) まで開けません")
+        }
+        return String(localized: "open_limit.shield.until_tomorrow", defaultValue: "明日 \(time) まで開けません")
+    }
+
+    private func openLimitCombinedLine(_ snapshot: DailyOpenLimitShieldSnapshot, now: Date, calendar: Calendar) -> String {
+        let time = snapshot.blockEndsAt.formatted(date: .omitted, time: .shortened)
+        if calendar.isDate(snapshot.blockEndsAt, inSameDayAs: now) {
+            return String(localized: "open_limit.shield.combined_today", defaultValue: "今日の回数を使い切りました \(time)まで")
+        }
+        return String(localized: "open_limit.shield.combined_tomorrow", defaultValue: "今日の回数を使い切りました 明日\(time)まで")
+    }
+
+    private func blockSubtitle(_ window: BlockWindowStatus, now: Date) -> String {
+        guard let end = window.endsAt else {
+            return String(localized: "shield.subtitle.fallback", defaultValue: "いまは開かない時間")
+        }
+        let time = end.formatted(date: .omitted, time: .shortened)
+        switch window.trigger {
+        case .manual:
+            let minutes = Int(ceil(max(0, end.timeIntervalSince(now)) / 60))
+            return String(localized: "block.shield.manual", defaultValue: "手動ブロック あと\(minutes)分")
+        case .weeklySchedule:
+            return String(localized: "block.shield.weekly", defaultValue: "予定のブロック \(time)まで")
         case .night:
-            return String(localized: "shield.night.title", defaultValue: "就寝時間中です")
+            return String(localized: "block.shield.night", defaultValue: "起床時刻の\(time)までブロック")
         }
-    }
-
-    private func hardWindowSubtitle(_ kind: HardKind, goal: Goal?) -> String {
-        if let goal {
-            let lockScreenTitle = goal.lockScreenTitle?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let title = lockScreenTitle.isEmpty ? goal.title : lockScreenTitle
-            return String(
-                localized: "shield.subtitle.goal",
-                defaultValue: "守っている目標 \(title)"
-            )
-        }
-
-        switch kind {
-        case .deepFocus:
-            return String(
-                localized: "shield.subtitle.fallback",
-                defaultValue: "いまは開かない時間"
-            )
-        case .night:
-            return String(
-                localized: "shield.night.subtitle",
-                defaultValue: "起きたら開けます"
-            )
-        }
-    }
-
-    private func timeText(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = .autoupdatingCurrent
-        formatter.locale = .autoupdatingCurrent
-        formatter.timeZone = .autoupdatingCurrent
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
     }
 
     private func isDeepFocusActive(
@@ -318,7 +176,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
               ) else {
             return false
         }
-        return contains(item, in: snapshot.selectionDataList)
+        return contains(item, in: DeepFocusWindowPolicy.selectionDataListToShield(now: now, snapshot: snapshot, calendar: calendar))
     }
 
     private func isNightActive(
@@ -362,6 +220,19 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return false
     }
 
+    private func reinterventionConfiguration() -> ShieldConfiguration {
+        let subtitle: String
+        let action: String
+        if #available(iOS 26.5, *) {
+            subtitle = String(localized: "reintervention.shield.body", defaultValue: "満足度を振り返って、終了か延長を選びましょう。")
+            action = String(localized: "reintervention.shield.open", defaultValue: "DopaBreakで振り返る")
+        } else {
+            subtitle = String(localized: "reintervention.shield.manual", defaultValue: "通知から、またはホーム画面からDopaBreakを開き、終了か延長を選んでください。")
+            action = String(localized: "shield.action.close", defaultValue: "閉じる")
+        }
+        return baseConfiguration(title: String(localized: "reintervention.shield.title", defaultValue: "選んだ利用時間になりました"), subtitle: subtitle, primaryAction: action, secondaryAction: nil)
+    }
+
     private func minimalConfiguration() -> ShieldConfiguration {
         baseConfiguration(
             title: String(localized: "shield.title", defaultValue: "完全ブロック中"),
@@ -401,6 +272,8 @@ private enum ShieldedItem {
     case category(ActivityCategoryToken)
     case webDomain(WebDomainToken)
 }
+
+
 
 private enum ShieldColors {
     static let inkBlack = UIColor(

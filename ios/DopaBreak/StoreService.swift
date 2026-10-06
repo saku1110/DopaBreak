@@ -82,15 +82,11 @@ final class StoreService {
         var task: Task<Void, Never>!
     }
 
-    private struct EntitlementRefreshSnapshot {
+    struct EntitlementRefreshSnapshot {
         let resolution: EntitlementResolutionPolicy.Resolution
         let subscriptionEntitlements: [SubscriptionEntitlementSnapshot]
     }
 
-    private static let annualProductIDs = [
-        ProProductID.annual.rawValue,
-        ProProductID.annualLaunch.rawValue
-    ]
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "DopaBreak",
         category: "StoreService"
@@ -101,29 +97,34 @@ final class StoreService {
     private let settingsStore: SettingsStore?
     private let now: () -> Date
 
-    // Remote config can swap this between dopabreak.pro.annual and dopabreak.pro.annual.launch.
-    var activeAnnualProductID: String {
-        didSet {
-            if !Self.annualProductIDs.contains(activeAnnualProductID) {
-                activeAnnualProductID = oldValue
-            }
-            refreshPaywallProducts()
-            Task {
-                await updateAnnualIntroOfferInfo()
-            }
-        }
-    }
-
     private(set) var monthlyProduct: Product?
     private(set) var annualDefaultProduct: Product?
-    private(set) var annualLaunchProduct: Product?
-    private(set) var lifetimeProduct: Product?
     private(set) var paywallProducts: [Product] = []
     private(set) var annualIntroOfferText: String?
     private(set) var annualIntroOfferDurationText: String?
     private(set) var annualIntroOfferCTAText: String?
     private(set) var isEligibleForAnnualIntroOffer = false
-    private(set) var isPro = false
+    private var resolvedIsPro = false
+    var isPro: Bool { resolvedIsPro && !isFreeTesting }
+    private(set) var isFreeTesting = false
+    let allowsFreeTesting: Bool
+
+    nonisolated static var freeTestingAvailableInBuild: Bool {
+        #if DOPABREAK_TESTFLIGHT
+        true
+        #else
+        false
+        #endif
+    }
+
+    func setFreeTesting(_ enabled: Bool) {
+        guard allowsFreeTesting else { return }
+        isFreeTesting = enabled
+        settingsStore?.freeEntitlementTestingEnabled = enabled
+        settingsStore?.reconcileBlockEntitlement(isPro: isPro,
+            hasConfirmedEntitlement: hasConfirmedEntitlement)
+        entitlementRevision &+= 1
+    }
     private(set) var hasResolvedEntitlement = false
     /// StoreKitへの到達が裏付けられた状態でentitlementを解決できたか。
     /// true になる条件: verified currentEntitlements がある、または空だった場合に
@@ -134,7 +135,14 @@ final class StoreService {
     private(set) var annualTrialEntitlement: SubscriptionEntitlementSnapshot?
     private(set) var entitlementRevision = 0
     private(set) var hasPendingPurchase = false
+    enum ProductLoadingState { case loading, loaded, failed }
+    private(set) var productLoadingState: ProductLoadingState = .loading
     private(set) var isLoadingProducts = false
+    @ObservationIgnored private let productLoader: () async throws -> [Product]
+
+    func canPurchase(_ product: Product?) -> Bool {
+        productLoadingState == .loaded && product != nil && !isPurchasing && !isRestoring
+    }
     private(set) var isPurchasing = false
     private(set) var isRestoring = false
     var alertMessage: String?
@@ -164,25 +172,26 @@ final class StoreService {
     var onPurchaseOrRestoreFailure: (() -> Void)?
 
     init(
-        activeAnnualProductID: String = ProProductID.annual.rawValue,
         funnelEventStore: FunnelEventStore = FunnelEventStore(snapshotStore: JSONSnapshotStore()),
         settingsStore: SettingsStore? = nil,
         startsBackgroundTasks: Bool = true,
+        productLoader: @escaping () async throws -> [Product] = { try await Product.products(for: ProProductID.saleSubscriptionIDs) },
+        allowsFreeTesting: Bool = StoreService.freeTestingAvailableInBuild,
         now: @escaping () -> Date = { .now }
     ) {
         let resolvedSettingsStore = settingsStore ?? (try? SettingsStore())
-        self.activeAnnualProductID = Self.annualProductIDs.contains(activeAnnualProductID)
-            ? activeAnnualProductID
-            : ProProductID.annual.rawValue
+        self.productLoader = productLoader
         self.funnelEventStore = funnelEventStore
         self.settingsStore = resolvedSettingsStore
+        self.allowsFreeTesting = allowsFreeTesting
+        self.isFreeTesting = allowsFreeTesting && (resolvedSettingsStore?.freeEntitlementTestingEnabled ?? false)
         self.now = now
 
         // Cached Pro intentionally has no TTL. A failed StoreKit lookup is not evidence of Free,
         // so access stays fail-open until StoreKit supplies affirmative downgrade evidence.
         // entitlementCachedAt is retained for future telemetry only; it is not an expiry date.
         if let cachedIsPro = resolvedSettingsStore?.entitlementCachedIsPro {
-            isPro = cachedIsPro
+            resolvedIsPro = cachedIsPro
         }
 
         if startsBackgroundTasks {
@@ -204,17 +213,19 @@ final class StoreService {
         }
 
         isLoadingProducts = true
+        productLoadingState = .loading
+        alertMessage = nil
         defer { isLoadingProducts = false }
 
         do {
-            let loadedProducts = try await Product.products(for: ProProductID.allIDs)
+            let loadedProducts = try await productLoader()
             monthlyProduct = loadedProducts.first { $0.id == ProProductID.monthly.rawValue }
             annualDefaultProduct = loadedProducts.first { $0.id == ProProductID.annual.rawValue }
-            annualLaunchProduct = loadedProducts.first { $0.id == ProProductID.annualLaunch.rawValue }
-            lifetimeProduct = loadedProducts.first { $0.id == ProProductID.lifetime.rawValue }
             refreshPaywallProducts()
             await updateAnnualIntroOfferInfo()
+            productLoadingState = monthlyProduct != nil && activeAnnualProduct != nil ? .loaded : .failed
         } catch {
+            productLoadingState = .failed
             alertMessage = String(localized: "store.error.product_load", defaultValue: "商品情報を読み込めませんでした")
         }
     }
@@ -236,8 +247,10 @@ final class StoreService {
                 switch verification {
                 case .verified(let transaction):
                     hasPendingPurchase = false
+                    setFreeTesting(false)
                     await transaction.finish()
                     await refreshEntitlement()
+                    Task { await AppleAdsMeasurement.shared.synchronizePurchases() }
                     try? funnelEventStore.record(
                         name: .trialOrPurchaseStarted,
                         detail: transaction.productID,
@@ -298,6 +311,8 @@ final class StoreService {
 
         do {
             try await AppStore.sync()
+            Task { await AppleAdsMeasurement.shared.synchronizePurchases() }
+            setFreeTesting(false)
             await refreshEntitlement()
             if hasConfirmedEntitlement, !isPro {
                 reportNoRestorablePurchase()
@@ -382,7 +397,7 @@ final class StoreService {
     private func performEntitlementRefresh() async -> Bool {
         entitlementRefreshGeneration &+= 1
         let generation = entitlementRefreshGeneration
-        let previousIsPro = isPro
+        let previousIsPro = resolvedIsPro
         let snapshot = await resolveEntitlement(previousIsPro: previousIsPro)
 
         guard !Task.isCancelled, generation == entitlementRefreshGeneration else {
@@ -438,7 +453,7 @@ final class StoreService {
         } else {
             currentEntitlementEvidence = .noVerifiedEntitlement
             do {
-                let products = try await Product.products(for: ProProductID.allIDs)
+                let products = try await Product.products(for: ProProductID.saleSubscriptionIDs)
                 storeReachability = EntitlementResolutionPolicy.storeReachability(
                     loadedProductCount: products.count
                 )
@@ -595,9 +610,10 @@ final class StoreService {
         return true
     }
 
-    private func applyEntitlement(_ snapshot: EntitlementRefreshSnapshot) {
+    /// Applies resolved StoreKit evidence; also used by isolated app-layer regression fixtures.
+    func applyEntitlement(_ snapshot: EntitlementRefreshSnapshot) {
         let resolution = snapshot.resolution
-        isPro = resolution.isPro
+        resolvedIsPro = resolution.isPro
         hasConfirmedEntitlement = resolution.hasConfirmedEntitlement
 
         if resolution.hasConfirmedEntitlement {
@@ -612,6 +628,8 @@ final class StoreService {
             settingsStore?.entitlementCachedAt = now()
         }
 
+        settingsStore?.reconcileBlockEntitlement(isPro: isPro,
+            hasConfirmedEntitlement: hasConfirmedEntitlement)
         entitlementRevision &+= 1
         if isPro {
             hasPendingPurchase = false
@@ -620,10 +638,7 @@ final class StoreService {
     }
 
     var activeAnnualProduct: Product? {
-        if activeAnnualProductID == ProProductID.annualLaunch.rawValue {
-            return annualLaunchProduct ?? annualDefaultProduct
-        }
-        return annualDefaultProduct ?? annualLaunchProduct
+        annualDefaultProduct
     }
 
     private func listenForTransactions() -> Task<Void, Never> {
@@ -675,7 +690,6 @@ final class StoreService {
 
     private func refreshPaywallProducts() {
         paywallProducts = [
-            lifetimeProduct,
             activeAnnualProduct,
             monthlyProduct
         ].compactMap(\.self)
@@ -737,7 +751,7 @@ final class StoreService {
     }
 
     /// 通貨記号はStoreKitの価格書式に決めさせる。0はJPYでもUSDでも小数部なしで見せる。
-    private func zeroPriceText(for product: Product) -> String? {
+    func zeroPriceText(for product: Product) -> String? {
         IntroOfferDisplayPolicy.normalizedZeroPriceText(
             product.priceFormatStyle.precision(.fractionLength(0)).format(0)
         )
@@ -750,7 +764,7 @@ final class StoreService {
         case .day:
             return String(localized: "store.intro_offer.duration.days", defaultValue: "\(totalValue)日間")
         case .week:
-            // Appleは7日トライアルをP1W（1週間）で表す。表示はdoc06正本の「7日間無料」に合わせて日数へ換算する。
+            // StoreKitの週単位は、実際の期間数を日数へ換算して表示する。
             return String(localized: "store.intro_offer.duration.days", defaultValue: "\(totalValue * 7)日間")
         case .month:
             return String(localized: "store.intro_offer.duration.months", defaultValue: "\(totalValue)か月")

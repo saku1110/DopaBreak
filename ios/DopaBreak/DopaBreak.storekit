@@ -1,181 +1,124 @@
 {
-  "identifier" : "DopaBreak",
-  "nonRenewingSubscriptions" : [
-
-  ],
-  "products" : [
-    {
-      "displayPrice" : "14800",
-      "familyShareable" : false,
-      "internalID" : "4D457203-9B5A-4C5D-8C1D-839E8E0E5C01",
-      "localizations" : [
-        {
-          "description" : "DopaBreak Pro 買い切り",
-          "displayName" : "DopaBreak Pro Lifetime",
-          "locale" : "ja_JP"
-        }
-      ],
-      "productID" : "dopabreak.pro.lifetime",
-      "referenceName" : "DopaBreak Pro Lifetime",
-      "type" : "NonConsumable"
-    }
-  ],
-  "settings" : {
-    "_applicationInternalID" : "DopaBreak",
-    "_developerTeamID" : "DopaBreak",
-    "_failTransactionsEnabled" : false,
-    "_locale" : "ja",
-    "_storeKitErrors" : [
+  "identifier": "DopaBreak",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_applicationInternalID": "DopaBreak",
+    "_developerTeamID": "DopaBreak",
+    "_failTransactionsEnabled": false,
+    "_locale": "ja",
+    "_storeKitErrors": [
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Load Products"
+        "current": null,
+        "enabled": false,
+        "name": "Load Products"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Purchase"
+        "current": null,
+        "enabled": false,
+        "name": "Purchase"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Verification"
+        "current": null,
+        "enabled": false,
+        "name": "Verification"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "App Store Sync"
+        "current": null,
+        "enabled": false,
+        "name": "App Store Sync"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Subscription Status"
+        "current": null,
+        "enabled": false,
+        "name": "Subscription Status"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "App Transaction"
+        "current": null,
+        "enabled": false,
+        "name": "App Transaction"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Manage Subscriptions Sheet"
+        "current": null,
+        "enabled": false,
+        "name": "Manage Subscriptions Sheet"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Refund Request Sheet"
+        "current": null,
+        "enabled": false,
+        "name": "Refund Request Sheet"
       },
       {
-        "current" : null,
-        "enabled" : false,
-        "name" : "Offer Code Redeem Sheet"
+        "current": null,
+        "enabled": false,
+        "name": "Offer Code Redeem Sheet"
       }
     ],
-    "_storefront" : "JPN"
+    "_storefront": "JPN"
   },
-  "subscriptionGroups" : [
+  "subscriptionGroups": [
     {
-      "id" : "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
-      "localizations" : [
+      "id": "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
+      "localizations": [
         {
-          "locale" : "ja_JP",
-          "name" : "DopaBreak Pro"
+          "locale": "ja_JP",
+          "name": "DopaBreak Pro"
         }
       ],
-      "name" : "pro",
-      "subscriptions" : [
+      "name": "pro",
+      "subscriptions": [
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "980",
-          "familyShareable" : false,
-          "groupNumber" : 3,
-          "internalID" : "2D48BC6F-15BA-4206-A4D1-210C56B71F22",
-          "localizations" : [
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "980",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "2D48BC6F-15BA-4206-A4D1-210C56B71F22",
+          "localizations": [
             {
-              "description" : "DopaBreak Pro 月額",
-              "displayName" : "DopaBreak Pro Monthly",
-              "locale" : "ja_JP"
+              "description": "DopaBreak Pro 月額",
+              "displayName": "DopaBreak Pro Monthly",
+              "locale": "ja_JP"
             }
           ],
-          "productID" : "dopabreak.pro.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "DopaBreak Pro Monthly",
-          "subscriptionGroupID" : "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
-          "type" : "RecurringSubscription"
+          "productID": "dopabreak.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "DopaBreak Pro Monthly",
+          "subscriptionGroupID": "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
+          "type": "RecurringSubscription"
         },
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "4980",
-          "familyShareable" : false,
-          "groupNumber" : 1,
-          "internalID" : "A1EBE57E-5C71-4C72-89B2-08B61C385A09",
-          "introductoryOffer" : {
-            "displayPrice" : "0",
-            "internalID" : "1672A417-7B07-41BE-A09D-B6878A3C9C39",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "4980",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "A1EBE57E-5C71-4C72-89B2-08B61C385A09",
+          "introductoryOffer": {
+            "displayPrice": "0",
+            "internalID": "1672A417-7B07-41BE-A09D-B6878A3C9C39",
+            "numberOfPeriods": 1,
+            "paymentMode": "free",
+            "subscriptionPeriod": "P3D"
           },
-          "localizations" : [
+          "localizations": [
             {
-              "description" : "DopaBreak Pro 年額",
-              "displayName" : "DopaBreak Pro Annual",
-              "locale" : "ja_JP"
+              "description": "DopaBreak Pro 年額",
+              "displayName": "DopaBreak Pro Annual",
+              "locale": "ja_JP"
             }
           ],
-          "productID" : "dopabreak.pro.annual",
-          "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "DopaBreak Pro Annual",
-          "subscriptionGroupID" : "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
-          "type" : "RecurringSubscription"
-        },
-        {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "3980",
-          "familyShareable" : false,
-          "groupNumber" : 2,
-          "internalID" : "238A3EE1-96B4-4582-8E3F-29AC1D9E07D9",
-          "introductoryOffer" : {
-            "displayPrice" : "0",
-            "internalID" : "D93E7413-22F5-45A7-B4FD-83308A22A41A",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
-          "localizations" : [
-            {
-              "description" : "DopaBreak Pro 年額 ローンチ価格",
-              "displayName" : "DopaBreak Pro Annual Launch",
-              "locale" : "ja_JP"
-            }
-          ],
-          "productID" : "dopabreak.pro.annual.launch",
-          "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "DopaBreak Pro Annual Launch",
-          "subscriptionGroupID" : "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
-          "type" : "RecurringSubscription"
+          "productID": "dopabreak.pro.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "DopaBreak Pro Annual",
+          "subscriptionGroupID": "7A3D5A34-371F-49F5-8C21-A78EC5EA9B21",
+          "type": "RecurringSubscription"
         }
       ]
     }
   ],
-  "version" : {
-    "major" : 3,
-    "minor" : 0
+  "version": {
+    "major": 3,
+    "minor": 0
   }
 }

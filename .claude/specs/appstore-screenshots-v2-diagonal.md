@@ -367,3 +367,46 @@ grayscale-homeのフォンは外形1396pxの最大直立幅を維持し、上端
 | 8 | 10 grayscale-home | worse・735px・0° | 右上・中心X1640・下端Y1325 | `[1291,677,1989,1325]`（幅698） |
 
 iPadのpanel 10だけは、旧「筐体四隅をキャンバス内へ収める」制約を上書きし、スクリーン左右完全包含＋筐体左右60pxクロップを正とする。他7枚は従来どおり筐体左右包含を維持する。
+
+## 2026-09-05 追記 — App Store Connect アップロード完了（ASOセッション）
+- v1.0 の4ローカライズ × 3セット（6.9"→APP_IPHONE_67 / 6.5"→APP_IPHONE_65 / iPad 13→APP_IPAD_PRO_3GEN_129）へ各8枚、計96枚アップロード。全て assetDeliveryState=COMPLETE・並びは UPLOAD_ORDER（breath, lockscreen, deepfocus, night, home, intent, reflection, grayscale-home）で確認済み
+- en-GB は専用画像がないため en-US 画像を使用（英語圏フォールバック）
+- 6.5" セット3ロケールに残っていた旧並び（04-home/05-night）は --replace で是正。旧v3途中アップロードの4枚（ja 6.7"）も置き換え済み
+- iPad用アップロード順ディレクトリ upload-order/{ja,en-US,ko}/ipad-13/ はこのセッションで UPLOAD_ORDER に従い手動生成（スクリプトは iPhone のみ自動生成のため）
+- 注: upload-order/*/README.md の順序記述（8/25版）は4・5枚目が実ファイルと逆（正はスクリプトの UPLOAD_ORDER＝nightが4番目）
+
+
+## 2026-09-20 — S9/S10（改）9枚構成の反映
+
+現行のアップロード順は `12-breathing-goals / 03-lockscreen / 01-breath / 06-deepfocus / 04-night / 10-grayscale-home / 09-reflection / 02-home / 11-lock-designs` の9枚。上記の旧8枚順を上書きする。1枚目は実画面の呼吸＋目標3件を全体表示し、3枚目は肯定形の一呼吸と理由選択のコピー。他枠の承認済みラベル・見出し・副文は維持。テーマの料金バッジ・フッターは価格掲載なし要件により納品版では省略。
+
+3言語でiphone-69（1320×2868）、iphone-65（1284×2778）、ipad-13（2064×2752）を各9枚生成。6.9の元生成先にstatsとintentも保管するがupload-order・slots・contact-sheetには含めない。`--device all` で全サイズを再生成できる。
+
+新規目標枠は細い斜めライム帯＋全体の見える直立端末（iPhone幅900・上端790、iPad幅920・上端710）。外乗せなしで画面内1体。テーマは実カード10種の既存グリッド＋細い斜めライム帯＋余白のawake1体。1枚1体と隣接構図の変化を維持する。コピー全文・出力・検証は `output/verify/appstore-s9-s10-2026-09-20/README.md` を参照。ASCへのアップロードは未実施。
+
+## 2026-09-28 — 7枚構成へ作り直し（訴求と画面の照合・オーナー承認「OKそれで作り直して」）
+
+この節は 2026-09-20 の8枚順を上書きする。経緯: オーナー指摘「SNSブロックアプリを探してるのに1枚目のブロックしないという表現はよくない」「1枚目に改修した目標が見えない」「2枚目はロック画面」「訴求が画面とあってない」。公開中の1.0.1と承認済みの1.0.2は、まだ旧9枚（8/25版）のまま。
+
+### アップロード順（生成ID）
+`12-breathing-goals / 06-deepfocus / 03-lockscreen / 04-night / 10-grayscale-home / 02-home / 11-lock-designs` の7枚。検索結果に出る最初の3枚で「他にない目標表示」と「SNSが止まること」の両方が見える並び。reflection（見たあとの本音）と intent（理由を選ぶ）は外した（生成経路と素材は保管）。構図の割り当ては変えていない（隣接する同一構図なし・全枠キャラ1体）。
+
+### 画面の差し替え
+| 枚 | 旧 | 新 |
+|---|---|---|
+| 1 目標 | 9/20撮影の旧配置（呼吸が上・目標が下の小枠・別の目標3件） | 今の一呼吸画面（目標が上・最大5件）。目標はロック画面・テーマ一覧と同じ4件、対象アプリはInstagram |
+| 2 完全ブロック | 8/25撮影の設定画面（その後に設定画面が作り変わった） | 今の設定画面で撮り直し（`testCaptureAdditionalSettingsScreens`・スクロールなし）。副文の「30分から解除するまで 曜日と時間帯の予約も」がそのまま写る。当初ブロック中の画面にしたが、オーナー「2枚ただ完全ブロックの画像出てるので微妙」で設定画面に戻した |
+| 3 ロック画面 | 手描きのLive Activity（9/21のカード変更前） | テーマ撮影 `theme-gallery/raw/{locale}/e1.png` の実描画カード |
+| 4 夜だけ強化 | 設定画面（同上） | `mock_shield(kind="night")`＝「完全ブロック中 起床時刻の7:00までブロック」 |
+| 6 取り戻した時間 | 「5時間」で日数なし・8/29に消したボタン | 今のホーム「312時間 13日分」。3アプリを設定済みとして記録し、設定途中の案内が出ない状態 |
+| 7 テーマ | 9/6撮影 | 今のカードで撮り直し |
+
+ブロック中の画面は夜の枚だけに使う（同じ種類の画面を2枚並べない）。この画面はiOSが描くためXCTest・Simulatorでは撮れない。ロック画面・白黒ホームと同じくスクリプトで描き、色（inkBlack/paper/muted/electricLime）と3言語の文字は `ios/ShieldConfigExtension` の値そのまま。配置は実機の独自シールドの画面比率（砂時計の上端38%・見出し中心49.6%・副文中心54.2%・ボタン中心92.1%・ボタン幅43%）に合わせた。実機で撮った画像に差し替える場合は `SOURCE_PATHS` の4を画像パスへ戻す。`mock_shield(kind="manual")` も残してある。
+
+### 文言
+ロック画面の見出しだけ差し替え（ラベルと副文は承認済みのまま）。ja「無意識に手に取っても／まず目標が見える」、en-US「Pick up your phone／and your goals come first」、ko「무심코 폰을 들면／목표부터 떠요」。設計メモと監査は `output/verify/appstore-rebuild-2026-09-28/`。
+
+### 撮影と生成
+- 撮影: `scripts/capture-appstore-rebuild-2026-09-28.sh <専用iPhone17ProMaxのUDID>`。1回のビルドで1枚目・ホーム・テーマを3言語撮る。テストホストの起動が止まることがあるため、打ち切りと1回の再試行を入れている
+- 今回の1枚目・ホーム・完全ブロック設定の素材は `output/verify/appstore-rebuild-2026-09-28/raw/{locale}/` に写してから生成する（raw-core は別セッションも書き込むため）
+- 生成: `python3 scripts/generate-appstore-screenshots-v2.py --device all`、検証: `python3 scripts/validate-appstore-s9-s10.py`

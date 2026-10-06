@@ -13,6 +13,12 @@ enum CoreScreensSnapshotCapturePolicy {
     static let environmentKey = "DOPABREAK_CAPTURE_APPSTORE_SCREENSHOTS"
     static let expectedPixelSize = CGSize(width: 1320, height: 2868)
 
+    static var fixedCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
     static func isEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
         environment[environmentKey] == "1"
     }
@@ -86,21 +92,24 @@ private struct CoreScreensSnapshotLocale {
         switch outputLocale {
         case "ja":
             return [
-                ("英語で商談できる自分になる", .other, nil),
-                ("朝のランニングを続ける", .health, nil),
-                ("読書を30分する", .study, nil)
+                ("1000万円貯める", .other, nil),
+                ("12月までにTOEIC800点を取る", .study, nil),
+                ("毎朝30分歩く", .health, nil),
+                ("今日は0時までに寝る", .sleep, nil)
             ]
         case "en-US":
             return [
-                ("Hold my own in English meetings", .other, nil),
-                ("Keep up my morning run", .health, nil),
-                ("Read for 30 minutes", .study, nil)
+                ("More time with family and friends", .other, nil),
+                ("Save $10,000 by December", .study, nil),
+                ("Hit the gym three times a week", .health, nil),
+                ("In bed by 11 tonight", .sleep, nil)
             ]
         case "ko":
             return [
-                ("영어로 상담할 수 있는 나 되기", .other, nil),
-                ("아침 러닝 계속하기", .health, nil),
-                ("30분 독서하기", .study, nil)
+                ("종잣돈 1억 모으기", .other, nil),
+                ("12월까지 토익 900점 넘기기", .study, nil),
+                ("아침에 30분 걷기", .health, nil),
+                ("오늘은 12시 전에 자기", .sleep, nil)
             ]
         default:
             preconditionFailure("Unsupported capture locale: \(outputLocale)")
@@ -337,7 +346,10 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         XCTAssertEqual(proModel.todayAttemptCount, 15)
         XCTAssertEqual(proModel.todayCancelledCount, 12)
 
-        let statsService = StatsService(logStore: logStore)
+        let statsService = StatsService(
+            logStore: logStore,
+            calendar: CoreScreensSnapshotCapturePolicy.fixedCalendar
+        )
         let outputDirectory = Self.redesignPhase1OutputDirectory()
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
@@ -363,7 +375,12 @@ final class CoreScreensSnapshotCapture: XCTestCase {
 
         try capture(
             AnyView(
-                TargetAppPickerSheet(model: proModel, onPaywallNeeded: {})
+                TargetAppPickerSheet(
+                    model: proModel,
+                    onPaywallNeeded: {},
+                    onTargetAdded: { _ in },
+                    onTargetRemoved: { _ in }
+                )
             ),
             named: "target-picker",
             in: window,
@@ -395,6 +412,106 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             outputDirectory: outputDirectory,
             settleTime: 1.0,
             verticalScrollTarget: .offset(520)
+        )
+    }
+
+    /// ロック画面の許可の案内（2026-09-26 オーナー承認）の確認用。
+    /// 完了画面の案内と、端末で許可あり／なしのホームを
+    /// `output/screenshots/lock-permission-guidance/{locale}/` へ保存する。
+    @MainActor
+    func testCaptureLockScreenPermissionGuidance() throws {
+        let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
+        try requireSupportedPixelSize(in: window)
+
+        let suiteName = "CoreScreensSnapshotCapture.LockPermission.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let containerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CoreScreensSnapshotCapture-LockPermission-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+        let container = FixedContainer(url: containerURL)
+
+        let selectedCatalogIDs = ["instagram"]
+        let settingsStore = redesignSettingsStore(
+            defaults: defaults,
+            isPro: false,
+            verifiedCatalogIDs: selectedCatalogIDs
+        )
+        var systemAllowsLiveActivities = true
+        let monitoringCenter = SnapshotDeviceActivityMonitoringCenter()
+        let model = AppModel(
+            containerProvider: container,
+            settingsStore: settingsStore,
+            nightShieldMonitoringCenter: monitoringCenter,
+            deepFocusMonitoringCenter: monitoringCenter,
+            deepFocusNotificationCenter: SnapshotDeepFocusNotificationCenter(),
+            automaticallyRefreshEntitlement: false,
+            scheduleNotificationsOnInit: false,
+            liveActivityAuthorization: { systemAllowsLiveActivities }
+        )
+        try model.setTargetCatalogIDs(selectedCatalogIDs)
+        for goal in captureLocale.goalSeeds {
+            XCTAssertTrue(
+                model.addGoal(
+                    title: goal.title,
+                    category: goal.category,
+                    lockScreenTitle: goal.lockScreenTitle
+                )
+            )
+        }
+        model.refresh(scheduleNotifications: false)
+
+        let statsService = StatsService(
+            logStore: try SQLiteLogStore(containerProvider: container),
+            calendar: CoreScreensSnapshotCapturePolicy.fixedCalendar
+        )
+        let outputDirectory = Self.lockPermissionGuidanceOutputDirectory(for: captureLocale.outputLocale)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let originalRoot = window.rootViewController
+        defer {
+            window.rootViewController?.dismiss(animated: false)
+            window.rootViewController = originalRoot
+        }
+
+        try capture(
+            AnyView(
+                OnboardingFlow(
+                    model: model,
+                    settingsStore: settingsStore,
+                    initialStep: .ready,
+                    onComplete: {}
+                )
+            ),
+            named: "ready-permission-note",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.5
+        )
+
+        try capture(
+            AnyView(HomeView(model: model, settingsStore: settingsStore, statsService: statsService)),
+            named: "home-lock-allowed",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0,
+            verticalScrollTarget: .bottom
+        )
+
+        // ロック画面の確認で「許可しない」を選んだ端末。HomeViewのonAppearのrefresh()でも同じ値を読む。
+        systemAllowsLiveActivities = false
+        model.refreshLiveActivityAuthorization()
+        XCTAssertFalse(model.areLiveActivitiesAllowed)
+        try capture(
+            AnyView(HomeView(model: model, settingsStore: settingsStore, statsService: statsService)),
+            named: "home-lock-off",
+            in: window,
+            outputDirectory: outputDirectory,
+            settleTime: 1.0,
+            verticalScrollTarget: .bottom
         )
     }
 
@@ -446,7 +563,10 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         XCTAssertEqual(proModel.todayAttemptCount, 15)
         XCTAssertEqual(proModel.todayCancelledCount, 12)
 
-        let statsService = StatsService(logStore: logStore)
+        let statsService = StatsService(
+            logStore: logStore,
+            calendar: CoreScreensSnapshotCapturePolicy.fixedCalendar
+        )
         let outputDirectory = Self.redesignPhase2OutputDirectory()
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
@@ -527,7 +647,10 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         XCTAssertEqual(emptyModel.weekAttemptCount, 0)
 
         let emptyLogStore = try SQLiteLogStore(containerProvider: emptyContainer)
-        let emptyStatsService = StatsService(logStore: emptyLogStore)
+        let emptyStatsService = StatsService(
+            logStore: emptyLogStore,
+            calendar: CoreScreensSnapshotCapturePolicy.fixedCalendar
+        )
         let emptyWindow = UIWindow(windowScene: captureWindowScene)
         emptyWindow.frame = window.frame
         emptyWindow.windowLevel = window.windowLevel + 1
@@ -817,6 +940,13 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             ? selectedCatalogIDs
             : ["instagram"]
         if homeOnly || statsOnly {
+            // ホームは利用者が「設定済み」と確認したアプリで設定状況を判定する。
+            // 312時間を取り戻した利用者の画面に「設定状況を確認」の案内を出さない。
+            for catalogID in selectedCatalogIDs {
+                settingsStore.setAutomationConfirmed(catalogID: catalogID, confirmed: true)
+            }
+        }
+        if homeOnly || statsOnly {
             // Phase 1・2と同じDEBUGシード。StoreKitを動かさずPro権利を維持する。
             settingsStore.entitlementCachedIsPro = true
         }
@@ -842,6 +972,12 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         let monitoringCenter = SnapshotDeviceActivityMonitoringCenter()
         let notificationCenter = SnapshotDeepFocusNotificationCenter()
 
+        // 設定画面の撮影は、毎週の予定（平日20:00〜22:00）の外にある15:00に固定する。
+        // 実時刻のまま撮ると、予定の時間帯に入った夜は「いますぐ始める」の選択肢が
+        // 「予定の時間帯 22:00まで」に置き換わり、撮影する時刻で画面が変わってしまう。
+        let fixedCaptureAfternoon = Calendar.current.date(
+            bySettingHour: 15, minute: 0, second: 0, of: Date()
+        ) ?? Date()
         let model = AppModel(
             containerProvider: container,
             settingsStore: settingsStore,
@@ -849,7 +985,8 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             deepFocusMonitoringCenter: monitoringCenter,
             deepFocusNotificationCenter: notificationCenter,
             automaticallyRefreshEntitlement: false,
-            scheduleNotificationsOnInit: false
+            scheduleNotificationsOnInit: false,
+            now: additionalOnly ? { fixedCaptureAfternoon } : { Date() }
         )
         if homeOnly || statsOnly {
             try model.setTargetCatalogIDs(selectedCatalogIDs)
@@ -894,11 +1031,14 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         }
         model.refresh(scheduleNotifications: false)
         XCTAssertEqual(model.goals.map(\.title), goalSeeds.map(\.title))
-        XCTAssertEqual(model.goals.count, 3)
+        XCTAssertEqual(model.goals.count, 4)
         XCTAssertEqual(model.todayCancelledCount, 12)
         XCTAssertEqual(model.todayAttemptCount, 15)
 
-        let statsService = StatsService(logStore: logStore)
+        let statsService = StatsService(
+            logStore: logStore,
+            calendar: CoreScreensSnapshotCapturePolicy.fixedCalendar
+        )
         let reflection = ReflectionLog(
             id: UUID(),
             attemptLogId: nil,
@@ -1200,7 +1340,9 @@ final class CoreScreensSnapshotCapture: XCTestCase {
                 in: window,
                 outputDirectory: outputDirectory,
                 settleTime: 1.0,
-                verticalScrollTarget: .offset(60),
+                // 2026-09-28: 60pt scrolled the section header under the navigation bar,
+                // so the store screenshot showed overlapping text at the top.
+                verticalScrollTarget: .offset(0),
                 validateBeforeRender: {
                     _ = try XCTUnwrap(
                         model.entitlementGate.strictModeAllowed ? true : nil,
@@ -1317,7 +1459,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         now: Date
     ) throws {
         XCTAssertFalse(ruleIDs.isEmpty)
-        let calendar = Calendar.current
+        let calendar = CoreScreensSnapshotCapturePolicy.fixedCalendar
         let dailyCounts: [(dayOffset: Int, attempts: Int, cancelled: Int)] = [
             (-6, 3, 2),
             (-5, 5, 3),
@@ -1387,7 +1529,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         now: Date
     ) throws {
         XCTAssertFalse(ruleIDs.isEmpty)
-        let calendar = Calendar.current
+        let calendar = CoreScreensSnapshotCapturePolicy.fixedCalendar
 
         for dayOffset in stride(from: -14, through: -81, by: -1) {
             let shifted = try XCTUnwrap(
@@ -1449,7 +1591,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         now: Date
     ) throws {
         XCTAssertFalse(ruleIDs.isEmpty)
-        let calendar = Calendar.current
+        let calendar = CoreScreensSnapshotCapturePolicy.fixedCalendar
         let dailyCounts: [(dayOffset: Int, attempts: Int, cancelled: Int)] = [
             (-13, 2, 1),
             (-12, 4, 2),
@@ -1496,7 +1638,7 @@ final class CoreScreensSnapshotCapture: XCTestCase {
         ruleID: UUID,
         now: Date
     ) throws {
-        let calendar = Calendar.current
+        let calendar = CoreScreensSnapshotCapturePolicy.fixedCalendar
         let satisfactions: [PostUseSatisfaction] = [
             .lostTime, .nothingGained, .lostTime, .satisfied, .lostTime, .feltWorse
         ]
@@ -1775,6 +1917,14 @@ final class CoreScreensSnapshotCapture: XCTestCase {
             .appendingPathComponent("output/screenshots/redesign-phase1", isDirectory: true)
     }
 
+    private static func lockPermissionGuidanceOutputDirectory(for locale: String) -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("output/screenshots/lock-permission-guidance/\(locale)", isDirectory: true)
+    }
+
     private static func redesignPhase3OutputDirectory() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -1806,8 +1956,9 @@ private struct SettingsNotificationsSnapshotHost: View {
     let model: AppModel
     let settingsStore: SettingsStore
 
-    @State private var morningNotificationEnabled = true
+    @State private var weeklyReportNotificationMinutes = 420
     @State private var weeklyReportNotificationEnabled = true
+    @State private var reflectionNotificationEnabled = true
     @State private var retentionSupportNotificationsEnabled = true
     @State private var planNotificationsEnabled = true
 
@@ -1816,8 +1967,9 @@ private struct SettingsNotificationsSnapshotHost: View {
             SettingsNotificationsView(
                 model: model,
                 settingsStore: settingsStore,
-                morningNotificationEnabled: $morningNotificationEnabled,
+                weeklyReportNotificationMinutes: $weeklyReportNotificationMinutes,
                 weeklyReportNotificationEnabled: $weeklyReportNotificationEnabled,
+                reflectionNotificationEnabled: $reflectionNotificationEnabled,
                 retentionSupportNotificationsEnabled: $retentionSupportNotificationsEnabled,
                 planNotificationsEnabled: $planNotificationsEnabled
             )

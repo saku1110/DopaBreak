@@ -8,6 +8,9 @@ configFiles:
   Debug: Configs/Shared.xcconfig
   Release: Configs/Shared.xcconfig
 packages:
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios.git
+    exactVersion: 5.89.0
   DopaBreakCore:
     path: Packages/DopaBreakCore
 settings:
@@ -29,6 +32,8 @@ targets:
           - Resources/automation-tutorial-en.mp4
           - Resources/automation-tutorial-ko.mp4
           - Resources/launch-animation.mp4
+      - path: Shared/ReinterventionShield.swift
+      - path: Shared/DailyOpenLimitShield.swift
       - path: DopaBreak/Resources/automation-tutorial-ja.mp4
         buildPhase: resources
       - path: DopaBreak/Resources/automation-tutorial-en.mp4
@@ -36,15 +41,6 @@ targets:
       - path: DopaBreak/Resources/automation-tutorial-ko.mp4
         buildPhase: resources
       - path: DopaBreak/Resources/launch-animation.mp4
-        buildPhase: resources
-      # SPMリソース製品を介さず、親アプリのCopy Bundle Resourcesへ直接1コピー同梱する。
-      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/DotGothic16.ttf
-        buildPhase: resources
-      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/ZenKurenaido.ttf
-        buildPhase: resources
-      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/Galmuri11.ttf
-        buildPhase: resources
-      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/NanumPenScript.ttf
         buildPhase: resources
       # アプリ内プレビューとWidgetで同一のロック画面テーマViewを共有する。
       - path: WidgetsExtension/LockThemeLiveActivityView.swift
@@ -63,14 +59,20 @@ targets:
           - ko
           - en
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
-        # 独自の暗号は一切持たない。CryptoKit/CommonCrypto/Security(Keychain)は未リンクで、
-        # URLSession等のネットワークAPIも使わない。暗号に触れるのはOS提供のもの
-        # （JSONSnapshotStoreのデータ保護・StoreKit・Safariで開く外部リンクのHTTPS）だけのため
-        # 輸出コンプライアンス上は exempt。審査ごとの申告ダイアログを出さないよう明示する。
+        CFBundleShortVersionString: "1.0.4"
+        CFBundleVersion: "14"
+        RevenueCatPublicSDKKey: $(REVENUECAT_PUBLIC_SDK_KEY)
+        AppleAdsMeasurementEnabled: $(APPLE_ADS_MEASUREMENT_ENABLED)
+        # 独自暗号なし。計測SDKの通信もOS提供のHTTPSを使用する。
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         # AVPictureInPictureControllerで、ユーザーが見ている設定動画をShortcuts上でも
         # PiP継続するために必要。ガイドを閉じると再生を止め、隠れた常時再生には使わない。
         UIBackgroundModes:
@@ -89,6 +91,9 @@ targets:
           - group.com.dopabreak.shared
         com.apple.developer.family-controls: true
     dependencies:
+      - package: RevenueCat
+        product: RevenueCat
+      - sdk: AdServices.framework
       - package: DopaBreakCore
       - target: ShieldConfigExtension
         embed: true
@@ -122,6 +127,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ShieldConfigExtension
+      - path: Shared/ReinterventionShield.swift
+      - path: Shared/DailyOpenLimitShield.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(DOPABREAK_BUNDLE_PREFIX).app.shieldconfig
@@ -134,8 +141,8 @@ targets:
           - ko
           - en
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0.4"
+        CFBundleVersion: "14"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldConfigurationExtension
@@ -154,6 +161,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ShieldActionExtension
+      - path: Shared/ReinterventionShield.swift
+      - path: Shared/DailyOpenLimitShield.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(DOPABREAK_BUNDLE_PREFIX).app.shieldaction
@@ -166,8 +175,8 @@ targets:
           - ko
           - en
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0.4"
+        CFBundleVersion: "14"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldActionExtension
@@ -186,6 +195,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: MonitorExtension
+      - path: Shared/ReinterventionShield.swift
+      - path: Shared/DailyOpenLimitShield.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(DOPABREAK_BUNDLE_PREFIX).app.monitor
@@ -198,8 +209,8 @@ targets:
           - ko
           - en
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0.4"
+        CFBundleVersion: "14"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).DeviceActivityMonitorExtension
@@ -218,6 +229,16 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: WidgetsExtension
+      # Live Activityを描画するシステムプロセスが解決できるよう、フォントは
+      # 親アプリへ複製せずWidget Extensionだけに1コピー同梱する。
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/DotGothic16.ttf
+        buildPhase: resources
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/ZenKurenaido.ttf
+        buildPhase: resources
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/Galmuri11.ttf
+        buildPhase: resources
+      - path: Packages/DopaBreakCore/Sources/DopaBreakCore/Resources/Fonts/NanumPenScript.ttf
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(DOPABREAK_BUNDLE_PREFIX).app.widgets
@@ -230,8 +251,13 @@ targets:
           - ko
           - en
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.0.4"
+        CFBundleVersion: "14"
+        UIAppFonts:
+          - DotGothic16.ttf
+          - ZenKurenaido.ttf
+          - Galmuri11.ttf
+          - NanumPenScript.ttf
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:

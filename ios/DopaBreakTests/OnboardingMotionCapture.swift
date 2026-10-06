@@ -28,10 +28,10 @@ final class OnboardingMotionCapture: XCTestCase {
         let stages: [(name: String, step: OnboardingStep, withGoal: Bool)] = [
             ("01-goal-empty", .goalSetup, false),
             ("02-goal-filled", .goalSetup, true),
-            ("03-quiz-result", .quizResult, false),
+            ("03-quiz-result", .lossRecovery, false),
             ("04-choose-mode", .chooseMode, false),
             ("05-ready", .ready, true),
-            ("06-lock-theme-pick", .lockThemePick, true)
+            ("06-scroll-regret", .scrollRegret, true)
         ]
 
         let window = try XCTUnwrap(activeKeyWindow(), "テストホストのキーウィンドウが取得できない")
@@ -66,7 +66,7 @@ final class OnboardingMotionCapture: XCTestCase {
 
             // 先頭フレームが描画されてからマーカーを出し、外部キャプチャと同期させる
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.5))
-            if stage.step == .quizResult {
+            if stage.step == .lossRecovery {
                 resetQuizResultScrollPosition(in: host)
                 // 1.1秒の年間日数カウントアップと人生グリッド点灯を
                 // どちらも最終値へ到達させてから撮る。

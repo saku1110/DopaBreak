@@ -125,7 +125,7 @@ DopaBreakは、SNSを禁止せずに減らすアプリです。
 
 ■ DopaBreak Pro
 無料で始められます。Proでは止めるアプリと目標を無制限に追加できます。全期間の記録とロック画面テーマも使えます。
-・月額 ¥980 ／ 年額 ¥4,980（7日間無料トライアル付き）／ 買い切り ¥14,800
+・月額プランと年額プランをご用意しています。対象の方は年額プランを7日間無料でお試しいただけます。価格と適用条件はアプリ内の購入画面をご確認ください。
 ・購入はApple IDに請求されます。期間終了の24時間前までに解約しない場合、自動更新されます。解約は設定からいつでもできます。
 ・利用規約: https://saku1110.github.io/dopabreak-legal/terms-ja.html
 ・プライバシーポリシー: https://saku1110.github.io/dopabreak-legal/privacy-ja.html
@@ -162,7 +162,7 @@ DOPABREAK PRO
 
 Free to start. Pro removes the limits: unlimited apps to pause, unlimited goals, full history, and lock screen themes.
 
-- Monthly $9.99 / Yearly $39.99 with a 7-day free trial / Lifetime $119.99
+- Monthly and yearly subscriptions are available. Eligible users can try the yearly plan free for 7 days. See the in-app purchase screen for prices and eligibility.
 - Payment is charged to your Apple ID. Subscriptions renew automatically unless canceled at least 24 hours before the period ends. You can manage or cancel anytime in Settings.
 - Terms of Use: https://saku1110.github.io/dopabreak-legal/terms-en.html
 - Privacy Policy: https://saku1110.github.io/dopabreak-legal/privacy-en.html
@@ -203,7 +203,7 @@ DopaBreak는 차단 앱이 아니에요. 막지 않아요. 열기 직전에 브�
 
 무료로 시작할 수 있어요. Pro에서는 멈출 앱과 목표를 무제한으로 추가해요. 지난 기록 전체와 잠금 화면 테마까지 다 쓸 수 있어요.
 
-- 월 9,900원 / 연 49,000원 (7일 무료 체험) / 평생 이용권 149,000원
+- 월간 및 연간 구독을 제공합니다. 대상자는 연간 구독을 7일간 무료로 체험할 수 있습니다. 가격과 적용 조건은 앱 내 구매 화면에서 확인하세요.
 - 요금은 Apple ID 계정으로 청구돼요. 기간 종료 24시간 전까지 해지하지 않으면 자동 갱신돼요. 해지는 기기 설정의 구독 메뉴에서 언제든 할 수 있어요.
 - 이용약관: https://saku1110.github.io/dopabreak-legal/terms-ko.html
 - 개인정보 처리방침: https://saku1110.github.io/dopabreak-legal/privacy-ko.html
@@ -231,3 +231,60 @@ v1→v2の主な変更（Opus5独立レビュー指摘のFable採否判断済み
    - **ポピュラリティ未実証でもローンチはブロックしない**（現キーワード欄は定性根拠で妥当。実測後に差し替えで足りる＝ローンチ後PPO/メタデータ更新で反映可能）
 3. ~~各言語の説明文作成~~ → **✅ 3市場分作成済み**（ja/en/ko・humanizer全ゲート通過・koは2026-08-14 v2確定・**3言語とも利用規約/プライバシーポリシー実URL記載済み**=3.1.2対応・全URL HTTP 200確認済み 2026-08-14）
 4. 確定後ASCへ投入（`asc metadata` / サブスクlocalizations ja/ko/en）— JPサブタイトルv2採用はdoc02c確定値の差し替えのため**オーナー承認待ち**
+
+## 2026-09-06 — ASC CLI人気語の実測に基づく現行メタデータ
+
+オーナーのASO改善依頼に基づき、以下を採用してASCの準備中バージョン1.0へ保存。上の過去案・旧ポジショニング・認証未設定という記述は履歴であり、次回反映時に再利用しない。
+
+正本: `output/aso/2026-09-06/after/`。根拠・実測と推測の区分・全差分・保存結果: [ASO改善レポート](../output/aso/2026-09-06/report.md)。
+
+| locale | タイトル | サブタイトル | KW文字数 |
+|---|---|---|---|
+| ja | DopaBreak − スマホ制限・スクリーンタイム | SNSを開く前にひと呼吸・勉強や睡眠中はアプリ制限 | 93/100 |
+| en-US | DopaBreak: Mindful Screen Time | Pause, Block Apps & Focus | 96/100 |
+| en-GB | DopaBreak: Mindful Screen Time | Pause, Block Apps & Focus | 99/100 |
+| ko | DopaBreak - 스크린 타임 줄이기 | 숏폼·SNS 앱 열기 전 잠깐 멈추는 습관 | 91/100 |
+
+- Apple Ads Insights（2026-08-23〜29 UTC）の検索人気度で、JPスマホ制限60・スクリーンタイム61・アプリ制限54、US focus59、KR 공부66・타이머62などを確認。未返却語の人気度は0と扱わない。
+- 日本語タイトルを変更。EN/KOタイトルとKOサブは維持。全4localeのキーワードを整理し、第三者ブランド由来のインスタ/쇼츠と、専用機能のないADHD等を除外。
+- 一呼吸に加え、Proの手動・就寝・週次ブロックがある現仕様へ説明を更新。「禁止しない」「Not a blocker」の断定は廃止。57%は他社研究の6週間後の対象アプリ起動回数に訂正し、DopaBreak効果の保証ではない注記を維持。
+- 対応アプリの登録上限解除・最大2件の週次予定・通知/Live Activityを説明。価格・課金条件・URL、スクショ、アプリコードは今回変更なし。
+- `asc metadata validate --subscription-app` は8ファイル、error0/warning0。dry-runは予定12項目だけで追加/削除なし。ASC保存は7レコードすべて成功。審査提出は行っていない。
+
+## 2026-09-06 — おすすめの人・機能が伝わる説明文へ全面改稿
+
+オーナー依頼「どんな人におすすめか、どんな機能があるかを詳しくAI感のない文章で分かりやすく説明」に基づき、descriptionだけを4localeで更新・ASC保存済み。タイトル・サブ・KWは直前の採用値を維持。
+
+説明文を含む最新メタデータの正本は `output/aso/2026-09-06-description-rewrite/after/`。[日本語全文](../output/aso/2026-09-06-description-rewrite/copy/ja.txt)、[英語全文](../output/aso/2026-09-06-description-rewrite/copy/en-US.txt)、[韓国語全文](../output/aso/2026-09-06-description-rewrite/copy/ko.txt)、[判断・検証記録](../output/aso/2026-09-06-description-rewrite/README.md)。前回の `output/aso/2026-09-06/` は変更時点の履歴として保存。
+
+- おすすめの人を就寝前・勉強中・仕事でのSNS利用などの場面で明示。呼吸、利用時間と再確認、集中/就寝/週次ブロック、目標表示、振り返り・記録を使い方とともに説明。
+- 無料でも目標数は無制限、記録は全期間。旧説明に残っていたPro特典に見える書き方を是正。Proは対応アプリ登録上限解除、ブロックと週次予定、追加テーマを説明。
+- 初回Shortcuts設定、動画案内、Screen Time接続と通知許可を追記。57%の他社研究段落は機能説明を優先するため削除。価格・課金条件・URLは現行ASCの行と完全一致のまま保持。
+- ja 1,546字、en-US/en-GB各3,173字、ko 1,874字。ASC metadata validateはerror0/warning0。description4項目のみ更新し、2026-09-06 14:22 JSTの再取得で8 JSONすべての一致を確認。審査提出なし。
+
+
+## 2026-09-06 — ストア説明文へドーパミンの項目を追加
+
+- オーナー依頼「ドーパミン関連の内容を入れたい」により、ja/en-US/en-GB/koのdescriptionに短い項目を追加。最新メタデータ正本は `output/aso/2026-09-06-dopamine-copy/after/`、全文は同 `copy/`、追加原稿は `sections.json`、根拠・検証は `README.md`。前回のディレクトリは履歴として保持。
+- 採用方針: おすすめの人の後に「ドーパミンと、つい開いてしまう習慣」を配置。報酬への期待・行動の学習を平易に説明し、「次の動画」「反応を確かめる」という例から、一呼吸・利用理由/時間・振り返りの機能へつなぐ。
+- 根拠: Schultz et al. Science (1997) の報酬予測/学習、Lindström et al. Nature Communications (2021) の社会的報酬とSNS投稿行動。動画/反応の例は説明用で、実測や利用者の引用ではない。出典リンクと研究の対象範囲はREADMEに記録。
+- 却下した表現: ドーパミン排出、脳や受容体のリセット、分泌量の正常化、治療効果の断定。韓国語の表示コピーに디톡스は追加しない。ドーパミンの生理学的変化を測定したアプリとは説明しない。
+- 制約: 既存説明文に1項目ずつ挿入するだけで、タイトル・サブ・KW・料金・購入条件・URLは保持。アプリ内コピー/実装/スクショは今回対象外。古い説明文を次回再アップロードせず、最新ASCをpullして編集する。
+- 検証: ja1,746 / en-US・en-GB3,628 / ko2,124字で上限内。追加分を除くと変更前全文と完全一致。ASC metadata validate error0/warning0、dry-runはdescription4項目のみ。保存4件成功、2026-09-06 14:28 JSTの読み戻しで8 JSONすべて一致。審査提出なし。
+
+
+## 2026-09-06 — ストア説明文を機能名ごとに整理
+
+- オーナー依頼「どんな機能があるか機能の名前ごとに説明した方がいい」に対応し、ja/en-US/en-GB/koのdescriptionを更新。最新メタデータ正本は `output/aso/2026-09-06-feature-names/after/`、全文は同 `copy/`、判断・検証は `README.md`。過去のASOディレクトリは履歴として保持する。
+- 採用: 「一呼吸（標準モード）」「利用中の再介入」「ディープフォーカス」「毎週の予定」「夜だけ強化」「強いブロック」「目標」「ロック画面の表示」「振り返り」「記録」の10項目。アプリ内の各言語の名称と照合し、直下に機能の内容・使う場面を平易に説明。Proの機能は見出しにも明記。
+- 却下: 集中・就寝・週次のブロックを一つの抽象的な見出しにまとめる構成と、機能名だけを並べる構成。目標とロック画面表示、振り返りと記録も分けて説明する。
+- 制約: 冒頭・おすすめの人・ドーパミン・無料/Pro・初期設定・購入条件の文章は全文保持。タイトル・サブ・KWなどdescription以外も不変。アプリコードやスクショは今回対象外。強いブロックの待機は時間指定の手動セッションに限定し、記録は一呼吸対象アプリの回数と取り戻した時間の目安として説明する。
+- 変更パス: 上記出力ディレクトリ、`docs/16_aso_metadata_3markets.md`、`.claude/specs/design-decisions.md`。古いスナップショットを再投入せず、次回も最新ASCから取得して編集する。
+- 検証: ja1,959 / en-US・en-GB3,646 / ko2,352字。ASC metadata validate error0/warning0、dry-runはdescription4項目だけ。保存4件成功、2026-09-06 14:38 JSTの読み戻しで8 JSONすべて一致。準備中バージョン1.0へ保存し、審査提出は行っていない。
+
+
+## 2026-09-06 — App Storeのサブカテゴリを変更
+
+- ユーザー承認に基づき、メインはPRODUCTIVITY（仕事効率化）を維持し、サブをLIFESTYLE（ライフスタイル）からHEALTH_AND_FITNESS（ヘルスケア／フィットネス）へ変更。
+- カテゴリはアプリ共通で、国・言語ごとの変更項目ではない。日本・米国・英国・韓国を含む全ストアで同じ分類を使う。
+- 正本・保存前後のASC応答・検証結果: `output/aso/2026-09-06-category-update/`。読み戻しで両カテゴリの期待値との一致を確認。App InfoはPREPARE_FOR_SUBMISSIONで、審査提出なし。

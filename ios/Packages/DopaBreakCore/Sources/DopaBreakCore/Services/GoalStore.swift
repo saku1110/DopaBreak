@@ -12,10 +12,6 @@ public struct GoalStore: Sendable {
         return try snapshotStore.read([Goal].self, from: .goals) ?? []
     }
 
-    public func allGoals() throws -> [Goal] {
-        try goals()
-    }
-
     public func primaryGoal() throws -> Goal? {
         try goals().first
     }
